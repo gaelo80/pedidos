@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Informe de Conteo de Inventario #{{ cabecera.pk }}</title>
+    <style>
+        body { font-family: sans-serif; font-size: 10pt; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .text-end { text-align: right; }
+        .text-danger { color: #dc3545; }
+        .text-success { color: #198754; }
+        .fw-bold { font-weight: bold; }
+        h1, h4 { margin-bottom: 5px; }
+        hr { border: 0; border-top: 1px solid #ccc; margin: 10px 0; }
+        dl { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+        dt { font-weight: bold; grid-column: 1; }
+        dd { grid-column: 2; margin: 0; }
+        @page { size: A4; margin: 1.5cm; } /* Estilos para impresión/PDF */
+    </style>
+</head>
+<body>
+    <h1>Informe de Conteo de Inventario #{{ cabecera.pk }}</h1>
+    <hr>
+    <h4>Información General</h4>
+    <dl>
+        <dt>Fecha Conteo:</dt><dd>{{ cabecera.fecha_conteo|date:"Y-m-d" }}</dd>
+        <dt>Motivo:</dt><dd>{{ cabecera.motivo|default:"N/A" }}</dd>
+        <dt>Revisado Con:</dt><dd>{{ cabecera.revisado_con|default:"N/A" }}</dd>
+        <dt>Registrado Por:</dt><dd>{{ cabecera.usuario_registro.username|default:"N/A" }}</dd>
+        <dt>Fecha Registro:</dt><dd>{{ cabecera.fecha_hora_registro|date:"Y-m-d H:i" }}</dd>
+        {% if cabecera.notas_generales %}<dt>Notas Generales:</dt><dd>{{ cabecera.notas_generales }}</dd>{% endif %}
+    </dl>
+    <hr>
+    <h4>Detalle de Inconsistencias</h4>
+    {% if inconsistencias %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Ref.</th>
+                    <th>Color</th>
+                    <th>Talla</th>
+                    <th class="text-end">Sistema</th>
+                    <th class="text-end">Físico</th>
+                    <th class="text-end">Diferencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inconsistencias %}
+                <tr>
+                    <td>{{ item.producto.referencia }}</td>
+                    <td>{{ item.producto.color|default_if_none:"" }}</td>
+                    <td>{{ item.producto.talla|default_if_none:"" }}</td>
+                    <td class="text-end">{{ item.cantidad_sistema_antes }}</td>
+                    <td class="text-end">{{ item.cantidad_fisica_contada }}</td>
+                    <td class="text-end fw-bold {% if item.diferencia < 0 %}text-danger{% elif item.diferencia > 0 %}text-success{% endif %}">
+                        {{ item.diferencia }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No se encontraron inconsistencias en este conteo.</p>
+    {% endif %}
+</body>
+</html>

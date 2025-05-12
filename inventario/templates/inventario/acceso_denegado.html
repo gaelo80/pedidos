@@ -1,0 +1,32 @@
+{% extends 'inventario/base.html' %}
+
+{% block page_title %}Acceso Denegado - LOUIS FERRY Premiere{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card text-center border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">Acceso Denegado</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title text-danger">No tienes permiso para acceder a esta página.</h5>
+                    <p class="card-text">
+                        {% if messages %}
+                            {% for message in messages %}
+                                {{ message }} {# Muestra el mensaje específico que enviamos desde la vista #}
+                            {% endfor %}
+                        {% else %}
+                            Contacta al administrador si crees que esto es un error.
+                        {% endif %}
+                    </p>
+                    <a href="/" class="btn btn-primary mt-3">Ir a la Página Principal</a>
+                    {# O podrías poner un enlace a 'logout' también si quieres #}
+                    {# <a href="{% url 'logout' %}" class="btn btn-secondary mt-3 ms-2">Salir</a> #}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

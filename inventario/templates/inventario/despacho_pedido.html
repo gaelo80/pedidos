@@ -1,0 +1,351 @@
+{% extends 'inventario/base.html' %}
+{% load static %}
+{% load humanize %} {# Asumo que lo necesitas si lo tienes en tu base #}
+{# {% load inventario_extras %} #} {# Comentado si no estás seguro si despacho_pedido.html lo usa directamente #}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <style>
+        /* Estilos para la tabla de despacho de pedidos */
+        .fila-completa td { /* Aplicar a las celdas para mayor especificidad sobre estilos de TR de Bootstrap */
+            background-color: #d1e7dd !important; /* Verde claro (Bootstrap success-subtle) */
+        }
+        .fila-parcial td {
+            background-color: #fff3cd !important; /* Amarillo claro (Bootstrap warning-subtle) */
+        }
+        .fila-pendiente td {
+            background-color: #f8f9fa !important; /* Gris muy claro (Bootstrap light) */
+        }
+        /* Si quieres que el texto del badge también tenga más contraste */
+        .fila-completa .badge.bg-success {
+            color: #0a3622 !important; /* Texto oscuro para badge verde claro */
+        }
+    </style>
+{% endblock extra_head %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ titulo }}</h2>
+
+    <div class="card mb-3">
+        <div class="card-body row">
+            <div class="col-md-6">
+                <strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}<br>
+                <strong>NIT/ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}<br>
+                <strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}
+            </div>
+            <div class="col-md-6">
+                <strong>Estado Actual:</strong> <span class="badge bg-info">{{ pedido.get_estado_display }}</span><br>
+                <strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" id="despacho-form">
+        {% csrf_token %}
+
+        <div class="row mb-3 align-items-center">
+            <div class="col-md-2">
+                <label for="barcode-input" class="form-label fw-bold">Escanear Producto:</label>
+            </div>
+            <div class="col-md-8">
+                <input type="text" id="barcode-input" class="form-control form-control-lg" placeholder="Esperando código de barras..." autofocus autocomplete="off">
+            </div>
+            <div class="col-md-2 text-end">
+                <span id="scan-status" class="ms-2"></span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Producto (Ref/Nombre/Color/Talla)</th>
+                        <th class="text-center">Cod. Barras</th>
+                        <th class="text-center">Pedido</th>
+                        <th class="text-center" style="width: 120px;">Despachado</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-detalles-body">
+                    {% for detalle in detalles_pedido %}
+                    <tr id="fila-detalle-{{ detalle.pk }}" data-detalle-id="{{ detalle.pk }}">
+                        <td>{{ detalle.producto }}</td>
+                        <td class="text-center"><small>{{ detalle.producto.codigo_barras|default:"-" }}</small></td>
+                        <td class="text-center cantidad-pedida">{{ detalle.cantidad }}</td>
+                        <td class="text-center">
+                            <input type="number"
+                                   name="despachado_{{ detalle.pk }}"
+                                   id="despachado-{{ detalle.pk }}"
+                                   class="form-control form-control-sm text-center cantidad-despachada"
+                                   value="{{ detalle.cantidad_verificada|default:0 }}"
+                                   min="0"
+                                   max="{{ detalle.cantidad }}"
+                                   readonly>
+                        </td>
+                        <td class="text-center estado-linea">
+                            <span class="badge bg-secondary">--</span> {# Color inicial del badge #}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" class="text-end fw-bold">Totales:</td>
+                        <td class="text-center fw-bold" id="total-pedido">0</td>
+                        <td class="text-center fw-bold" id="total-despachado">0</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="mt-4 d-flex justify-content-between">
+            <button type="submit" name="action" value="guardar_parcial" class="btn btn-secondary">
+                <i class="fas fa-save"></i> Guardar Despacho Parcial
+            </button>
+            {% if puede_finalizar %}
+            <button type="submit" name="action" value="finalizar_despacho" class="btn btn-success" id="btn-finalizar">
+                <i class="fas fa-check-circle"></i> Finalizar y Marcar como Enviado
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-success" disabled title="El pedido no está en un estado válido para finalizar.">
+                <i class="fas fa-check-circle"></i> Finalizar Despacho
+            </button>
+            {% endif %}
+            <a href="{% url 'inventario_api:generar_comprobante_despacho' pk=pedido.pk %}" class="btn btn-info" target="_blank">
+                <i class="fas fa-print"></i> Imprimir Último Despacho
+            </a>
+        </div>
+    </form>
+</div>
+
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.getElementById('barcode-input');
+    const tablaBody = document.getElementById('tabla-detalles-body');
+    const filasDetalle = tablaBody.querySelectorAll('tr[data-detalle-id]');
+    const scanStatus = document.getElementById('scan-status');
+    const btnFinalizar = document.getElementById('btn-finalizar');
+
+    let detallesData = {};
+    try {
+        const jsonDataString = '{{ detalles_json|escapejs|default:"[]" }}'; // Añadido default por si detalles_json es None
+        console.log("jsonDataString desde Django:", jsonDataString);
+        if (jsonDataString && jsonDataString !== "None" && jsonDataString !== "null") {
+            const jsonData = JSON.parse(jsonDataString);
+            jsonData.forEach(d => {
+                if (d && typeof d.id !== 'undefined') { // Asegurarse que 'd' y 'd.id' existen
+                    detallesData[d.id] = {
+                        ...d,
+                        cantidad_pedida: parseInt(d.cantidad_pedida, 10) || 0,
+                        cantidad_verificada: parseInt(d.cantidad_verificada, 10) || 0
+                    };
+                } else {
+                    console.warn("Objeto detalle 'd' o 'd.id' es indefinido en jsonData:", d);
+                }
+            });
+        } else {
+            console.warn("jsonDataString está vacío o es null/None desde Django.");
+        }
+        console.log("Detalles cargados para JS:", JSON.parse(JSON.stringify(detallesData)));
+    } catch (e) {
+        console.error("Error parseando detalles_json o procesando datos iniciales:", e, "String JSON recibido:", jsonDataString);
+        if(scanStatus) {
+            scanStatus.textContent = 'Error cargando datos de productos.';
+            scanStatus.className = 'ms-2 badge bg-danger';
+        }
+    }
+
+    function mostrarStatus(mensaje, tipo = 'info', duracion = 2500) {
+        if(scanStatus) {
+            scanStatus.textContent = mensaje;
+            scanStatus.className = `ms-2 badge bg-${tipo}`;
+            setTimeout(() => {
+                scanStatus.textContent = '';
+                scanStatus.className = 'ms-2';
+            }, duracion);
+        }
+    }
+
+    function actualizarEstadoLinea(fila, cantidadDespachada, cantidadPedida) {
+        if (!fila) {
+            console.error("actualizarEstadoLinea fue llamada con una fila nula o indefinida.");
+            return;
+        }
+        console.log(`ACTUALIZANDO ESTADO - Fila ID: ${fila.id}, Despachada: ${cantidadDespachada}, Pedida: ${cantidadPedida}`);
+        const estadoBadge = fila.querySelector('.estado-linea .badge');
+        let estadoTexto = '--';
+        let estadoClaseBootstrap = 'bg-secondary';
+        
+        fila.classList.remove('fila-completa', 'fila-parcial', 'fila-pendiente');
+
+        const numDespachada = Number(cantidadDespachada);
+        const numPedida = Number(cantidadPedida);
+
+        if (numPedida > 0 && numDespachada >= numPedida) {
+            estadoTexto = 'COMPLETO';
+            estadoClaseBootstrap = 'bg-success';
+            fila.classList.add('fila-completa');
+            console.log(`Fila ${fila.id} marcada como COMPLETA.`);
+        } else if (numDespachada > 0 && numDespachada < numPedida) {
+            estadoTexto = 'Parcial';
+            estadoClaseBootstrap = 'bg-warning text-dark';
+            fila.classList.add('fila-parcial');
+            console.log(`Fila ${fila.id} marcada como PARCIAL.`);
+        } else { 
+            estadoTexto = 'Pendiente';
+            if (numPedida === 0) estadoTexto = 'N/A';
+            estadoClaseBootstrap = 'bg-light text-dark';
+            fila.classList.add('fila-pendiente');
+            console.log(`Fila ${fila.id} marcada como PENDIENTE o N/A.`);
+        }
+
+        if (estadoBadge) {
+            estadoBadge.textContent = estadoTexto;
+            estadoBadge.className = `badge ${estadoClaseBootstrap}`;
+        } else {
+            console.error("No se encontró .estado-linea .badge en la fila:", fila);
+        }
+    }
+
+    function actualizarTotales() {
+         let totalPedido = 0;
+         let totalDespachado = 0;
+         filasDetalle.forEach(fila => {
+             const detalleId = fila.dataset.detalleId;
+             if (detallesData[detalleId]) {
+                 totalPedido += detallesData[detalleId].cantidad_pedida;
+                 const inputDespachado = fila.querySelector('.cantidad-despachada');
+                 if (inputDespachado) {
+                    totalDespachado += parseInt(inputDespachado.value, 10) || 0;
+                 }
+             }
+         });
+         const totalPedidoElem = document.getElementById('total-pedido');
+         const totalDespachadoElem = document.getElementById('total-despachado');
+         if (totalPedidoElem) totalPedidoElem.textContent = totalPedido;
+         if (totalDespachadoElem) totalDespachadoElem.textContent = totalDespachado;
+
+         const todosCompletos = totalDespachado >= totalPedido && totalPedido > 0;
+         if (btnFinalizar) {
+              const puedeFinalizarDesdeBackend = {{ puede_finalizar|yesno:'true,false' }};
+              if (puedeFinalizarDesdeBackend) {
+                   btnFinalizar.disabled = !todosCompletos;
+                   btnFinalizar.title = todosCompletos ? 'Marca el pedido como completamente despachado' : 'Aún faltan ítems por escanear/confirmar';
+              } else {
+                   btnFinalizar.disabled = true;
+                   btnFinalizar.title = 'El estado actual del pedido no permite finalizar el despacho.';
+              }
+         }
+    }
+
+    function procesarScan(codigoLeido) {
+        console.log("Procesando código escaneado:", codigoLeido);
+        let encontrado = false;
+        let productoNombre = "Desconocido";
+
+        for (const detalleId in detallesData) {
+            if (!detallesData.hasOwnProperty(detalleId)) continue; // Asegurar que es una propiedad del objeto
+
+            const detalle = detallesData[detalleId];
+            if (detalle.codigo_barras && detalle.codigo_barras.trim() === codigoLeido.trim()) {
+                productoNombre = detalle.nombre || "Producto";
+                const fila = document.getElementById(`fila-detalle-${detalle.id}`);
+                if (!fila) {
+                    console.warn(`Fila no encontrada en DOM para detalle ID ${detalle.id}`);
+                    continue;
+                }
+
+                const inputDespachado = fila.querySelector('.cantidad-despachada');
+                const cantidadPedida = detalle.cantidad_pedida;
+                let cantidadActualDespachada = parseInt(inputDespachado.value, 10) || 0;
+
+                console.log(`Producto encontrado: ${productoNombre}, Pedido: ${cantidadPedida}, Ya despachado: ${cantidadActualDespachada}`);
+
+                if (cantidadActualDespachada < cantidadPedida) {
+                    cantidadActualDespachada++;
+                    inputDespachado.value = cantidadActualDespachada;
+                    mostrarStatus(`OK: ${productoNombre} (${cantidadActualDespachada}/${cantidadPedida})`, 'success');
+                    actualizarEstadoLinea(fila, cantidadActualDespachada, cantidadPedida);
+                    encontrado = true;
+                    break; 
+                } else {
+                    mostrarStatus(`COMPLETO: ${productoNombre} ya tiene ${cantidadActualDespachada}/${cantidadPedida}`, 'info');
+                    actualizarEstadoLinea(fila, cantidadActualDespachada, cantidadPedida);
+                    encontrado = true; 
+                    break;
+                }
+            }
+        }
+
+        if (!encontrado) {
+            mostrarStatus(`Error: Código ${codigoLeido} no encontrado en este pedido.`, 'danger');
+        }
+
+        actualizarTotales();
+        if(barcodeInput) {
+            barcodeInput.value = ''; 
+            barcodeInput.focus();    
+        }
+    }
+
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); 
+                const codigo = barcodeInput.value.trim();
+                if (codigo) {
+                    procesarScan(codigo);
+                }
+            }
+        });
+    } else {
+        console.error("El input #barcode-input no fue encontrado.");
+    }
+
+    console.log("--- INICIALIZANDO ESTADO DE FILAS AL CARGAR LA PÁGINA ---");
+    if (Object.keys(detallesData).length > 0 && filasDetalle && filasDetalle.length > 0) {
+        filasDetalle.forEach(fila => {
+            const detalleId = fila.dataset.detalleId;
+            if (detallesData[detalleId]) {
+                const cantidadDespachadaInicial = detallesData[detalleId].cantidad_verificada;
+                const cantidadPedidaInicial = detallesData[detalleId].cantidad_pedida;
+                
+                console.log(`INICIALIZANDO Fila ID: ${fila.id}, DetalleID: ${detalleId}, Despachada (BD): ${cantidadDespachadaInicial}, Pedida: ${cantidadPedidaInicial}`);
+                
+                const inputQty = fila.querySelector('.cantidad-despachada');
+                if(inputQty) {
+                    inputQty.value = cantidadDespachadaInicial;
+                } else {
+                    console.error("Input .cantidad-despachada no encontrado en fila durante la inicialización:", fila);
+                }
+                
+                actualizarEstadoLinea(fila, cantidadDespachadaInicial, cantidadPedidaInicial);
+            } else {
+                console.warn("No se encontraron datos en detallesData para detalleId durante la inicialización:", detalleId, fila);
+            }
+        });
+    } else {
+        console.warn("detallesData está vacío o no se encontraron filas (filasDetalle), no se puede inicializar el estado de las filas correctamente.");
+    }
+    actualizarTotales();
+    if (barcodeInput) barcodeInput.focus();
+    console.log("--- INICIALIZACIÓN COMPLETADA ---");
+});
+</script>
+{% endblock extra_scripts %}

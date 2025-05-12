@@ -1,0 +1,51 @@
+{% extends 'inventario/base.html' %} {# O tu plantilla base #}
+{% load static %}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">{{ titulo }}</h2>
+
+    {% if opciones %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4"> {# g-4 añade espacio entre tarjetas #}
+            {% for opcion in opciones %}
+                <div class="col">
+                    <div class="card h-100 text-center shadow-sm"> {# h-100 para misma altura, shadow-sm para sombra sutil #}
+                        <div class="card-body d-flex flex-column align-items-center justify-content-center p-4">
+                            {# Icono: Asegúrate de tener Font Awesome configurado #}
+                            <i class="{{ opcion.icono }} fa-3x mb-3"></i> 
+
+                            <h5 class="card-title">{{ opcion.titulo }}</h5>
+
+                            <p class="card-text small text-muted flex-grow-1">{{ opcion.descripcion }}</p>
+
+                            {# Enlace/Botón: mt-auto lo empuja hacia abajo #}
+                            {% if opcion.deshabilitado %}
+                                <button class="btn btn-outline-secondary mt-auto" disabled>No disponible</button>
+                            {% else %}
+                                <a href="{{ opcion.url }}" class="btn btn-primary mt-auto">
+                                    Acceder <i class="fas fa-arrow-circle-right ms-1"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-warning text-center" role="alert">
+            No hay opciones disponibles para tu perfil de usuario. Contacta al administrador si crees que esto es un error.
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block extra_css %}
+{# Opcional: Añadir un poco de CSS para colores personalizados si los usaste (ej: text-purple) #}
+<style>
+    .text-purple { color: #6f42c1; } /* Ejemplo para el icono de importar */
+    .card { transition: transform 0.2s ease-in-out; }
+    .card:hover { transform: translateY(-5px); }
+</style>
+{% endblock extra_css %}

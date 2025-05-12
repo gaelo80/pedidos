@@ -1,0 +1,38 @@
+/* Dentro de static/css/base.css (Tu archivo nuevo) */
+
+/* Puedes copiar aquí las variables :root si las necesitas para otros estilos */
+/* html[data-theme="light"], */ /* Probablemente no necesites el selector de theme aquí */
+:root {
+    /* Pega aquí las variables --body-bg, --body-fg, etc. que necesites */
+    --body-bg: #eee5e5; /* O el color de respaldo que quieras */
+     /* ... otras variables que uses en tus estilos ... */
+     --font-family-primary: /* ... tu definición de fuente ... */;
+     --body-fg: #333; /* ... tu definición de color de texto ... */;
+
+}
+
+/* Asegúrate de tener la regla html, body height si usas cover y fixed */
+html, body {
+    height: 100%;
+}
+
+body {
+    /* Puedes poner otros estilos base si quieres, como margin, font-family */
+    margin: 0;
+    padding: 0; /* Quizás quieras quitar el padding-top/bottom de aquí si lo manejas en base.html */
+    font-family: var(--font-family-primary);
+    color: var(--body-fg);
+
+    /* --- Reglas del Fondo --- */
+    background-color: var(--body-bg); /* Fallback color */
+    background-image: url('/static/img/torre.jpg');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+    background-attachment: fixed;
+    /* --- Fin Reglas del Fondo --- */
+}
+
+label[for="id_cliente_devolucion"] {
+    font-weight: bold;
+}

@@ -1,0 +1,153 @@
+{% extends 'inventario/base.html' %} {# <--- PRIMERA LÍNEA, FUNDAMENTAL #}
+{% load static %} {# Opcional #}
+{% load inventario_extras %}
+{% load math_filters %} {# NECESARIO para el filtro 'subtract' #}
+
+{% block page_title %}Despachar Pedido #{{ pedido.pk }}{% endblock page_title %}
+
+{# Puedes añadir estilos específicos para esta página aquí si es necesario #}
+{% block extra_head %}
+<style>
+    /* Ajusta el ancho del input si es necesario */
+    .input-a-despachar {
+       max-width: 100px;
+       margin: auto; /* Centrar el input si la celda es más ancha */
+    }
+    .table th, .table td {
+       vertical-align: middle; /* Alinea verticalmente el contenido */
+    }
+</style>
+{% endblock extra_head %}
+
+
+{% block content %} {# <--- INICIO DEL BLOQUE PRINCIPAL --- #}
+
+    <h1>Despachar Pedido # {{ pedido.pk }}</h1>
+
+    {# Los mensajes ya se muestran desde base.html en el contenedor principal #}
+
+    {# --- Información del Pedido (Sin Cambios) --- #}
+    <div class="card mb-3">
+        <div class="card-header fw-bold">
+            Información General
+        </div>
+        <div class="card-body row">
+            <div class="col-md-6">
+                <p><strong>Cliente:</strong> {{ pedido.cliente.nombre_completo }}</p>
+                <p><strong>Fecha:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Vendedor:</strong> {{ pedido.vendedor }}</p>
+                <p><strong>Estado Actual:</strong> <span class="badge {% if pedido.estado == 'COMPLETADO' %}bg-success{% elif pedido.estado == 'PROCESANDO' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ pedido.get_estado_display }}</span></p> {# Colores de badge según estado #}
+            </div>
+        </div>
+    </div>
+
+    {# --- Formulario y Tabla de Verificación --- #}
+    <form method="post" action="{% url 'verificar_pedido' pk=pedido.pk %}">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                <span>Artículos a Despachar</span>
+                {# Enlace al PDF del pedido original #}
+                <a href="{% url 'generar_pedido_pdf' pk=pedido.pk %}" class="btn btn-outline-info btn-sm" target="_blank" title="Ver PDF del Pedido Original">
+                    <i class="fas fa-file-pdf"></i> Ver PDF Original
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            {# --- Cabeceras de Columna Actualizadas --- #}
+                            <th>Producto (Ref)</th>
+                            <th>Nombre</th>
+                            <th>Talla</th>
+                            <th>Color</th>
+                            <th>Ubicación</th>
+                            <th class="text-center">Cant. Pedida</th>
+                            <th class="text-center">Despachado Antes</th> {# <<< NUEVA >>> #}
+                            <th class="text-center">A Despachar Ahora</th> {# <<< RENOMBRADA >>> #}
+                            <th class="text-center">Cant. Pendiente Total</th> {# <<< RENOMBRADA >>> #}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles_pedido %}
+                        {# Variables 'with' para simplificar cálculos y legibilidad #}
+                        {% with cantidad_ya_despachada=detalle.cantidad_verificada|default_if_none:0 %}
+                        {% with cantidad_aun_pendiente=detalle.cantidad|subtract:cantidad_ya_despachada %}
+                        <tr>
+                            <td>{{ detalle.producto.referencia }}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td>{{ detalle.producto.talla|default:"-" }}</td>
+                            <td>{{ detalle.producto.color|default:"-" }}</td>
+                            <td>{{ detalle.producto.ubicacion|default:"-" }}</td>
+                            <td class="text-center fw-bold">{{ detalle.cantidad }}</td> {# Cant. Pedida #}
+
+                            {# NUEVA COLUMNA: Muestra lo ya despachado (solo lectura) #}
+                            <td class="text-center">
+                                {{ cantidad_ya_despachada }}
+                            </td>
+
+                            {# COLUMNA DE ENTRADA: Para ingresar lo que se despacha AHORA #}
+                            <td class="text-center">
+                                <input type="number"
+                                       class="form-control form-control-sm text-center input-a-despachar" {# Clase descriptiva #}
+                                       name="cantidad_a_despachar_{{ detalle.id }}" {# <<< Nombre para la vista <<< #}
+                                       value="0" {# <<< Empieza en 0 <<< #}
+                                       min="0"
+                                       max="{{ cantidad_aun_pendiente }}" {# <<< Max es lo que falta <<< #}
+                                       step="1"
+                                       placeholder="Cant." {# Placeholder #}
+                                       {# Deshabilitado si ya no queda nada pendiente O si el pedido está finalizado #}
+                                       {% if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO' or cantidad_aun_pendiente <= 0 %}
+                                       disabled title="Ya no hay pendientes o pedido finalizado"
+                                       {% else %}
+                                       title="Ingrese cantidad a despachar ahora (Max: {{ cantidad_aun_pendiente }})"
+                                       {% endif %}
+                                       >
+                            </td>
+
+                            {# COLUMNA PENDIENTE: Muestra lo que QUEDA pendiente en TOTAL #}
+                            <td class="text-center">
+                                <span class="badge {% if cantidad_aun_pendiente <= 0 %}bg-success{% elif not detalle.verificado_bodega %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+                                    {{ cantidad_aun_pendiente }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endwith %} {# Fin with cantidad_aun_pendiente #}
+                        {% endwith %} {# Fin with cantidad_ya_despachada #}
+                        {% empty %}
+                        <tr>
+                            {# Asegúrate que colspan coincida con el número total de columnas (ahora 9) #}
+                            <td colspan="9" class="text-center text-muted fst-italic py-3">Este pedido no tiene detalles.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-end">
+                {# Lógica para mostrar/ocultar botón Despachar (sin cambios) #}
+                {% if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO' %}
+                    <span class="text-info me-2">Este pedido ya está finalizado.</span>
+                    <a href="{% url 'lista_pedidos_bodega' %}" class="btn btn-secondary ms-2">Volver a la Lista</a>
+                {% else %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i> Guardar Verificación / Despachar
+                    </button>
+                            {# Mostrar solo si el pedido ha sido procesado o completado? Ajusta la condición según necesites #}
+                    {% if pedido.estado == 'PROCESANDO' or pedido.estado == 'COMPLETADO' %}
+                        <a href="{% url 'inventario_api:generar_comprobante_despacho' pk=pedido.pk %}" 
+                        class="btn btn-info ms-2" 
+                        target="_blank" {# <--- ESTO ABRE EN NUEVA PESTAÑA #}
+                        title="Ver/Descargar último Comprobante de Despacho en PDF">
+                            <i class="fas fa-file-pdf"></i> Ver Comprobante PDF </a>
+                    {% endif %}
+                    <a href="{% url 'lista_pedidos_bodega' %}" class="btn btn-secondary ms-2">Volver a la Lista</a>
+                {% endif %}
+            </div>
+        </div> {# Fin Card #}
+    </form>
+
+{% endblock content %} {# <--- FIN DEL BLOQUE PRINCIPAL --- #}
+
+{% comment %} El filtro 'subtract' de math_filters es necesario para calcular el 'max' del input {% endcomment %}
