@@ -1,27 +1,21 @@
 # gestion_inventario/settings.py
 import os
-from dotenv import load_dotenv
-import dj_database_url
 from pathlib import Path
 
     # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
     # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = 'django-insecure-%lazc!2vk#9ln-$2nk!vav2=iyulutxfab(i9#dxdk^p*j=ofl'
 
     # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True' 
+DEBUG = False
 
-#allowed_hosts_str = os.getenv('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = ['pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
-                 
-                 #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
    # 'https://5fe8-148-222-225-228.ngrok-free.app'
@@ -90,26 +84,23 @@ WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
     # Database
     # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
    
- 
-DATABASES = {
+   
+DATABASES = { 
     'default': {
-        # Comenta o elimina estas líneas de SQLite:
-        # 'ENGINE': 'django.db.backends.sqlite3',
-        # 'NAME': BASE_DIR / 'db.sqlite3',
-
-        # Añade o descomenta estas líneas para MariaDB:
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'db_base',          # El nombre de la BD que creaste
-        'USER': 'root',             # El usuario que creaste
-        'PASSWORD': 'Echeverry..123@@##',   # La contraseña que estableciste para ese usuario
-        'HOST': 'localhost',                    # O '127.0.0.1' (donde corre tu MariaDB)
-        'PORT': '3306',                         # El puerto por defecto de MariaDB/MySQL
-        'OPTIONS': {
-            'init_command': "SET default_storage_engine=INNODB, sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-        },
+        'NAME': BASE_DIR / 'db.sqlite3', 
+        'ENGINE': 'django.db.backends.sqlite3'
     }
 }
+
+# DATABASES = {
+    
+  #              'NAME': 'sieslopedidos_prod',
+   #             'USER': 'sieslo_prod_user',
+    #            'PASSWORD': 'la_contraseña_que_creaste',
+     #           'HOST': 'localhost' ,
+      #          'ENGINE': 'django.db.backends.mysql'
+
+       # }
     
 
 
@@ -177,7 +168,29 @@ REST_FRAMEWORK = {
             'rest_framework.permissions.IsAuthenticated',
         ]
     }
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+        },
+        '': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}
+
+
+#LOGIN_URL = '/accounts/login/'
+#LOGIN_REDIRECT_URL = '/'
+#LOGOUT_REDIRECT_URL = '/'
     # --- FIN DE LA SECCIÓN REST_FRAMEWORK ---
