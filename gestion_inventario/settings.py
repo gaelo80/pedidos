@@ -115,7 +115,7 @@ DATABASES = {
         'HOST': config('DB_HOST', default=''), # Vacío si es SQLite
         'PORT': config('DB_PORT', default=''), # Vacío si es SQLite
         'OPTIONS': {
-            'charset': 'utf8mb4', # Buena opción para MariaDB/MySQL
+            'charset': 'db.sqlite3', # Buena opción para MariaDB/MySQL
         },
     }
 }
