@@ -1,0 +1,58 @@
+{# pedidos/templates/pedidos/pagina_descarga_fotos.html #}
+{% extends "core/base.html" %} {# O tu plantilla base principal #}
+{% load static %}
+
+{% block titulo %}{{ titulo|default:"Fotos del Pedido" }} - Pedido #{{ pedido.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+{# --- INICIO: Logo de la Empresa --- #}
+    <div class="text-end mb-4"> {# Centrar el logo y darle un margen inferior #}
+        <img src="{% static 'core/img/logo.jpeg' %}" alt="Logo de la Empresa" style="max-width: 400px; height: auto;">
+        {# AJUSTA 'images/logo.png' a la ruta correcta de tu logo dentro de la carpeta static #}
+        {# AJUSTA el estilo (max-width) según necesites #}
+    </div>
+    {# --- FIN: Logo de la Empresa --- #}
+    {#<h1>{{ titulo|default:"Fotos del Pedido" }} #{{ pedido.id }}</h1>#}
+    <p style="color: white;">¡Hola {{ pedido.cliente.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
+    <hr>
+
+    {% if fotos_del_pedido %}
+        <p style="color: white;">Haz clic en "Descargar" para guardar la foto.</p>
+        <div class="row">
+            {% for foto in fotos_del_pedido %}
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        {% if foto.imagen and foto.imagen.url %}
+                            <img src="{{ foto.imagen.url }}" class="card-img-top" alt="{{ foto.descripcion_foto|default:'Foto del producto' }}" style="max-height: 200px; object-fit: contain; padding: 10px;">
+                            <div class="card-body">
+                                {# Muestra la ReferenciaColor a la que pertenece la foto #}
+                                <h5 class="card-title">{{ foto.articulo_agrupador }}</h5>
+                                {% if foto.descripcion_foto %}
+                                    <p class="card-text">{{ foto.descripcion_foto }}</p>
+                                {% endif %}
+                                <a href="{{ foto.imagen.url }}" class="btn btn-primary" download>Descargar</a>
+                            </div>
+                        {% else %}
+                            <div class="card-body">
+                                <p class="card-text">Imagen no disponible para {{ foto.articulo_agrupador }}.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if forloop.counter|divisibleby:3 and not forloop.last %}
+                    </div><div class="row"> {# Cierra y abre una nueva fila cada 3 elementos #}
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            No hay fotos disponibles para los productos de este pedido, o los productos no tienen imágenes asociadas a sus agrupaciones de referencia y color.
+        </div>
+    {% endif %}
+
+    {#<div class="mt-4">#}
+        {#<a href="{% url 'core:index' %}" class="btn btn-secondary">Volver al inicio</a> {# O a donde quieras redirigir #}
+    {#</div>#}
+</div>
+{% endblock %}

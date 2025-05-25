@@ -1,0 +1,195 @@
+{% extends 'core/base.html' %} {# Asegúrate que esta ruta a tu base.html sea correcta #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms para renderizar el formulario #}
+{% load humanize %} {# Para el filtro intcomma #}
+
+
+{% block title %}
+    {{ titulo }}
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {# ... (Secciones de Información del Despacho, Pedido y Cliente - sin cambios) ... #}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Información del Despacho (Bodega)</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>ID Comprobante Despacho:</strong> {{ comprobante_despacho.pk }}</p>
+                    <p><strong>Fecha y Hora Despacho:</strong> {{ comprobante_despacho.fecha_hora_despacho|date:"d/m/Y H:i:s" }}</p>
+                    <p><strong>Usuario Bodega Responsable:</strong> {{ comprobante_despacho.usuario_responsable.username|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6">
+                    {% if comprobante_despacho.notas %}
+                    <p><strong>Notas del Despacho (Bodega):</strong></p>
+                    <p class="fst-italic bg-light p-2 rounded">{{ comprobante_despacho.notas|linebreaksbr }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Información del Pedido</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ID Pedido:</strong> <a class="text:center" href="{% url 'pedidos:detalle_pedido' pedido.pk %}">{{ pedido.pk }}</a></p>
+                    <p><strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"d/m/Y P" }}</p>
+                    <p><strong>Estado Actual del Pedido:</strong> <span class="badge bg-info">{{ pedido.get_estado_display }}</span></p>
+                    <p><strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</p>
+                    {% if pedido.notas %}
+                    <p><strong>Notas del Pedido:</strong></p>
+                    <p class="fst-italic bg-light p-2 rounded">{{ pedido.notas|linebreaksbr }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Información del Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nombre:</strong> {{ cliente.nombre_completo }}</p>
+                    <p><strong>Identificación:</strong> {{ cliente.identificacion|default:"N/A" }}</p>
+                    <p><strong>Dirección:</strong> {{ cliente.direccion|default:"N/A" }}</p>
+                    <p><strong>Ciudad:</strong> {{ cliente.ciudad.nombre|default:"N/A" }}</p>
+                    <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"N/A" }}</p>
+                    <p><strong>Email:</strong> {{ cliente.email|default:"N/A" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- SECCIÓN DE ÍTEMS MODIFICADA --- #}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Ítems Incluidos en este Despacho (Agrupados por Referencia)</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if items_despachados_agrupados %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Descripción (Nombre Producto)</th>
+                            <th>Color</th>
+                            <th class="text-end">Cantidad Total Despachada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item_grupo in items_despachados_agrupados %}
+                        <tr>
+                            <td>{{ item_grupo.referencia }}</td>
+                            <td>{{ item_grupo.nombre }}</td>
+                            <td>{{ item_grupo.color|default:"-" }}</td>
+                            <td class="text-end fw-bold">{{ item_grupo.cantidad_total|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="p-3 text-center text-muted">No hay ítems registrados en este comprobante de despacho.</p>
+            {% endif %}
+        </div>
+    </div>
+    {# --- FIN SECCIÓN DE ÍTEMS MODIFICADA --- #}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Estado de Facturación y Acciones</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Estado Actual:</strong>
+                {% if estado_factura_obj.estado == 'FACTURADO' %}
+                    <span class="badge bg-success fs-6">{{ estado_factura_obj.get_estado_display }}</span>
+                    {% if estado_factura_obj.fecha_hora_facturado_sistema %}
+                        <small class="text-muted">(el {{ estado_factura_obj.fecha_hora_facturado_sistema|date:"d/m/Y P" }} por {{ estado_factura_obj.usuario_responsable.username|default:'sistema' }})</small>
+                    {% endif %}
+                {% elif estado_factura_obj.estado == 'POR_FACTURAR' %}
+                    <span class="badge bg-warning text-dark fs-6">{{ estado_factura_obj.get_estado_display }}</span>
+                {% else %}
+                    <span class="badge bg-secondary fs-6">{{ estado_factura_obj.get_estado_display|default:"No Definido" }}</span>
+                {% endif %}
+            </p>
+
+            <hr>
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="{{ form.referencia_factura_externa.id_for_label }}" class="form-label">{{ form.referencia_factura_externa.label }}</label>
+                    {{ form.referencia_factura_externa }}
+                    {% if form.referencia_factura_externa.help_text %}
+                        <small class="form-text text-muted">{{ form.referencia_factura_externa.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.referencia_factura_externa.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.notas_facturacion.id_for_label }}" class="form-label">{{ form.notas_facturacion.label }}</label>
+                    {{ form.notas_facturacion }}
+                    {% if form.notas_facturacion.help_text %}
+                        <small class="form-text text-muted">{{ form.notas_facturacion.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.notas_facturacion.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-3">
+                    {% if estado_factura_obj.estado != 'FACTURADO' %}
+                        <button type="submit" name="action" value="marcar_facturado" class="btn btn-success me-2">
+                            <i class="fas fa-check-circle"></i> Marcar como FACTURADO
+                        </button>
+                    {% endif %}
+                    
+                    <button type="submit" name="action" value="actualizar_info" class="btn btn-primary me-2">
+                        <i class="fas fa-save"></i> Guardar Cambios en Referencia/Notas
+                    </button>
+
+                    {% if estado_factura_obj.estado == 'FACTURADO' %}
+                        <button type="submit" name="action" value="marcar_por_facturar" class="btn btn-warning text-dark">
+                            <i class="fas fa-undo"></i> Regresar a "Por Facturar"
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        <div class="card-footer text-muted small">
+            Registro de facturación creado el: {{ estado_factura_obj.fecha_creacion_registro|date:"d/m/Y P" }}.
+            Última modificación: {{ estado_factura_obj.fecha_ultima_modificacion|date:"d/m/Y P" }}.
+        </div>
+    </div>
+</div>
+{% endblock content %}

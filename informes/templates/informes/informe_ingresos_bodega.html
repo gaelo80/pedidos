@@ -1,0 +1,84 @@
+{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver a Informes</a>
+    </div>
+
+    <form method="get" class="card card-body mb-4">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="fecha_inicio" class="form-label">Fecha Ingreso Desde:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha_fin" class="form-label">Fecha Ingreso Hasta:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="usuario_id" class="form-label">Usuario Registró:</label>
+                <select name="usuario_id" id="usuario_id" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for u in usuarios_filtro %}
+                    <option value="{{ u.id }}" {% if usuario_id_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="btn btn-secondary btn-sm">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    {% if ingresos_list %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Ingreso</th>
+                        <th>Fecha y Hora</th>
+                        <th>Usuario Registró</th>
+                        <th>Proveedor/Origen</th>
+                        <th>Doc. Referencia</th>
+                        <th>Notas</th>
+                        <th># Items</th>
+                        <th>Cant. Total Prod.</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ingreso in ingresos_list %}
+                    <tr>
+                        <td>{{ ingreso.pk }}</td>
+                        <td>{{ ingreso.fecha_hora|date:"d/m/Y H:i" }}</td>
+                        <td>{{ ingreso.usuario.username|default:"N/A" }}</td>
+                        <td>{{ ingreso.proveedor_info|default:"" }}</td>
+                        <td>{{ ingreso.documento_referencia|default:"" }}</td>
+                        <td style="white-space: pre-wrap;">{{ ingreso.notas|default:"" }}</td>
+                        <td>{{ ingreso.numero_items }}</td>
+                        <td>{{ ingreso.cantidad_total_productos }}</td>
+                        <td>
+                            <a href="{% url 'bodega:detalle_ingreso' ingreso.pk %}" class="btn btn-info btn-sm">Ver Detalle</a>
+                            {#<a href="{% url 'admin:bodega_ingresobodega_change' ingreso.pk %}" class="btn btn-secondary btn-sm" target="_blank" title="Ver en Admin">#}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No hay ingresos a bodega que coincidan con los filtros seleccionados.
+        </div>
+    {% endif %}
+</div>
+
+{% comment %} Añade FontAwesome si quieres usar el ícono del ojo, por ejemplo en tu base.html:
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endcomment %}
+
+{% endblock %}

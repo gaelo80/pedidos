@@ -1,0 +1,27 @@
+{% extends 'core/base_publica.html' %} {# Ajusta a tu plantilla base pública #}
+
+{% block titulo %}{{ titulo_mensaje|default:"Aviso del Catálogo" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">{{ titulo_mensaje|default:"Información Importante" }}</h4>
+                </div>
+                <div class="card-body">
+                    <p class="lead">{{ mensaje|default:"Ha ocurrido un problema con el enlace." }}</p>
+                    {% if request.resolver_match.url_name == 'catalogo_publico_temporal' %}
+                        <hr>
+                        <p>Si crees que esto es un error, por favor, contacta a la persona que te proporcionó el enlace.</p>
+                    {% endif %}
+                    <div class="text-center mt-4">
+                        <a href="{% url 'core:index' %}" class="btn btn-primary">Volver a la Página Principal</a> {# Ajusta la URL a tu página de inicio #}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends 'core/base.html' %} {# Asegúrate que esta ruta a tu base.html sea correcta #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms #}
+
+{% block title %}
+    {{ titulo }} - App Facturación
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+    <h1 class="mb-4">{{ titulo }}</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Filtros del Informe
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">{{ form.fecha_inicio.label }}</label>
+                    {{ form.fecha_inicio }}
+                    {% for error in form.fecha_inicio.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.fecha_fin.id_for_label }}" class="form-label">{{ form.fecha_fin.label }}</label>
+                    {{ form.fecha_fin }}
+                    {% for error in form.fecha_fin.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Generar Informe</button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'factura:informe_facturados_fecha' %}" class="btn btn-secondary w-100">Limpiar Filtros</a>
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in form.non_field_errors %}
+                            <div class="alert alert-danger mt-2">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    {% if resultados is not None %} {# Mostrar solo si el formulario fue válido y hay resultados (o una lista vacía) #}
+        {% if resultados %}
+            <h3 class="mt-4 mb-3">Resultados del Informe</h3>
+            <p>Mostrando despachos facturados entre <strong>{{ fecha_inicio_filtro|date:"d/m/Y" }}</strong> y <strong>{{ fecha_fin_filtro|date:"d/m/Y" }}</strong>.</p>
+            
+            {# Aquí podrías mostrar el total_general_facturado si lo implementas #}
+            {# <p class="lead">Total General Facturado en el Periodo: <strong>${{ total_general_facturado|floatformat:2 }}</strong></p> #}
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Despacho (Bodega)</th>
+                            <th>Fecha Facturado (Sistema)</th>
+                            <th>Referencia Factura Externa</th>
+                            <th>Pedido ID</th>
+                            <th>Cliente</th>
+                            <th>Usuario Facturó</th>
+                            <th>Notas Facturación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for estado_factura in resultados %}
+                        <tr>
+                            <td class="text-center">
+                                <a href="{% url 'factura:detalle_despacho_factura' pk_despacho=estado_factura.despacho.pk %}">
+                                    {{ estado_factura.despacho.pk }}
+                                </a>
+                            </td>
+                            <td>{{ estado_factura.fecha_hora_facturado_sistema|date:"d/m/Y H:i" }}</td>
+                            <td>{{ estado_factura.referencia_factura_externa|default:"N/A" }}</td>
+                            <td class="text-center">
+                                {% if estado_factura.despacho.pedido %}
+                                    <a href="{% url 'pedidos:detalle_pedido' estado_factura.despacho.pedido.pk %}">
+                                        {{ estado_factura.despacho.pedido.pk }}
+                                    </a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if estado_factura.despacho.pedido.cliente %}
+                                    {{ estado_factura.despacho.pedido.cliente.nombre_completo }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ estado_factura.usuario_responsable.username|default:"N/A" }}</td>
+                            <td>{{ estado_factura.notas_facturacion|default:""|truncatewords:15|linebreaksbr }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {# Se hizo una búsqueda pero no se encontraron resultados #}
+            {% if form.is_bound and form.is_valid %} {# Solo mostrar si se intentó filtrar #}
+            <div class="alert alert-info mt-4" role="alert">
+                No se encontraron despachos facturados para el rango de fechas seleccionado
+                (<strong>{{ fecha_inicio_filtro|date:"d/m/Y" }}</strong> - <strong>{{ fecha_fin_filtro|date:"d/m/Y" }}</strong>).
+            </div>
+            {% endif %}
+        {% endif %}
+    {% elif form.is_bound and not form.is_valid %}
+        <div class="alert alert-warning mt-4" role="alert">
+            Por favor, corrija los errores en el formulario para generar el informe.
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}

@@ -1,0 +1,136 @@
+{% extends 'core/base.html' %} {# Asegúrate que esta ruta a tu base.html sea correcta #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms #}
+
+{% block title %}
+    {{ titulo }}
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+    <h1 class="mb-4">{{ titulo }}</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Buscar Cliente
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label for="{{ form.termino_busqueda_cliente.id_for_label }}" class="form-label">{{ form.termino_busqueda_cliente.label }}</label>
+                    {{ form.termino_busqueda_cliente }}
+                    {% for error in form.termino_busqueda_cliente.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'factura:informe_despachos_cliente' %}" class="btn btn-secondary w-100">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if cliente_seleccionado %}
+        <h3 class="mt-4 mb-3">Despachos para el Cliente: {{ cliente_seleccionado.nombre_completo }} ({{ cliente_seleccionado.identificacion }})</h3>
+        {% if despachos_cliente %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Despacho</th>
+                            <th>Fecha Despacho</th>
+                            <th>Pedido ID</th>
+                            <th>Estado Facturación</th>
+                            <th>Ref. Factura Ext.</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for despacho in despachos_cliente %}
+                        <tr>
+                            <td>{{ despacho.pk }}</td>
+                            <td>{{ despacho.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if despacho.pedido %}
+                                    <a href="{% url 'pedidos:detalle_pedido' despacho.pedido.pk %}">{{ despacho.pedido.pk }}</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% with estado_fact_info=despacho.estado_factura_cached %}
+                                    {% if estado_fact_info %}
+                                        {% if estado_fact_info.estado == 'FACTURADO' %}
+                                            <span class="badge bg-success">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% elif estado_fact_info.estado == 'POR_FACTURAR' %}
+                                            <span class="badge bg-warning text-dark">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">No Procesado</span> {# O 'Pendiente de creación de estado' #}
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with estado_fact_info=despacho.estado_factura_cached %}
+                                    {{ estado_fact_info.referencia_factura_externa|default:"N/A" }}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <a href="{% url 'factura:detalle_despacho_factura' pk_despacho=despacho.pk %}" class="btn btn-sm btn-info">
+                                    Ver / Gestionar Factura
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info mt-3" role="alert">
+                Este cliente no tiene despachos registrados.
+            </div>
+        {% endif %}
+    {% elif clientes_encontrados %}
+        <h4 class="mt-4">Clientes Encontrados:</h4>
+        <p>Se encontraron varios clientes con el término "<strong>{{ termino_busqueda_cliente_filtro }}</strong>". Por favor, sea más específico o seleccione uno:</p>
+        <div class="list-group">
+            {% for cliente_match in clientes_encontrados %}
+                {# Para hacerlo seleccionable, necesitarías que el formulario acepte un ID de cliente #}
+                {# o que el enlace vuelva a llenar el formulario con una búsqueda más específica #}
+                <a href="{% url 'factura:informe_despachos_cliente' %}?termino_busqueda_cliente={{ cliente_match.identificacion|urlencode }}" class="list-group-item list-group-item-action">
+                    {{ cliente_match.nombre_completo }} (ID: {{ cliente_match.identificacion }})
+                </a>
+            {% endfor %}
+        </div>
+    {% elif form.is_bound and form.is_valid %} {# Se buscó pero no se encontró nada #}
+         <div class="alert alert-warning mt-3" role="alert">
+            No se encontraron clientes que coincidan con "<strong>{{ termino_busqueda_cliente_filtro }}</strong>".
+        </div>
+    {% endif %}
+
+</div>
+{% endblock content %}

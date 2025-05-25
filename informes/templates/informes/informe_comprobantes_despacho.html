@@ -1,0 +1,97 @@
+{% extends 'core/base.html' %} {% load humanize %}
+
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Principal</a>
+    </div>
+
+    <form method="get" class="card card-body mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="fecha_inicio" class="form-label form-label-sm">Fecha Despacho Desde:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha_fin" class="form-label form-label-sm">Fecha Despacho Hasta:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="usuario_id" class="form-label form-label-sm">Usuario Bodega:</label>
+                <select name="usuario_id" id="usuario_id" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for u in usuarios_filtro %}
+                    <option value="{{ u.id }}" {% if usuario_id_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="pedido_id" class="form-label form-label-sm">ID Pedido:</label>
+                <input type="number" class="form-control form-control-sm" id="pedido_id" name="pedido_id" value="{{ pedido_id_seleccionado|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+                <a href="{% url 'informes:informe_comprobantes_despacho' %}" class="btn btn-secondary btn-sm w-100 mt-1">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    {% if comprobantes_list %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Comprob.</th>
+                        <th>Fecha Despacho</th>
+                        <th>Pedido Asoc.</th>
+                        <th>Cliente</th>
+                        <th>Usuario Bodega</th>
+                        <th class="text-center"># Items</th>
+                        <th class="text-center">Cant. Total</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comprobante in comprobantes_list %}
+                    <tr>
+                        <td class="text-center">{{ comprobante.pk }}</td>
+                        <td>{{ comprobante.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">
+                            {% if comprobante.pedido %}
+                                <a href="{% url 'pedidos:detalle_pedido' comprobante.pedido.pk %}" target="_blank">{{ comprobante.pedido.pk }}</a>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ comprobante.pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                        <td>{{ comprobante.usuario_responsable.username|default:"N/A" }}</td>
+                        <td class="text-center">{{ comprobante.numero_items_despachados|intcomma }}</td>
+                        <td class="text-center">{{ comprobante.cantidad_total_despachada|intcomma }}</td>
+                        <td style="white-space: pre-wrap;">{{ comprobante.notas|default:"" }}</td>
+                        <td>
+                            {# Enlace al PDF del comprobante de despacho (si existe y está en app 'bodega') #}
+                            {% if comprobante.pk %} {# Asumimos que la vista del PDF toma el PK del ComprobanteDespacho #}
+                            <a href="{% url 'bodega:imprimir_comprobante_especifico' pk_comprobante=comprobante.pk %}" class="btn btn-info btn-sm" target="_blank" title="Ver PDF Comprobante">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </a>
+                            {% endif %}
+
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No hay comprobantes de despacho que coincidan con los filtros seleccionados.
+        </div>
+    {% endif %}
+</div>
+
+{% comment %} Asegúrate de tener FontAwesome si usas los íconos fas fa-file-pdf, fas fa-edit {% endcomment %}
+{% endblock %}

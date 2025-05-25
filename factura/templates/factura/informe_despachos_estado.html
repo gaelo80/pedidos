@@ -1,0 +1,131 @@
+{% extends 'core/base.html' %} {# Asegúrate que esta ruta a tu base.html sea correcta #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms #}
+
+{% block title %}
+    {{ titulo }}
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+    <h1 class="mb-4">{{ titulo }}</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Seleccionar Estado
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label for="{{ form.estado.id_for_label }}" class="form-label">{{ form.estado.label }}</label>
+                    {{ form.estado }}
+                    {% for error in form.estado.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Generar Informe</button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'factura:informe_despachos_estado' %}" class="btn btn-secondary w-100">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if resultados is not None %} {# Mostrar solo si el formulario fue válido y hay resultados (o una lista vacía) #}
+        {% if estado_seleccionado_display %}
+            <h3 class="mt-4 mb-3">Despachos con Estado: <span class="text-primary">{{ estado_seleccionado_display }}</span></h3>
+        {% endif %}
+
+        {% if resultados %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Despacho (Bodega)</th>
+                            <th>Fecha Despacho (Bodega)</th>
+                            <th>Pedido ID</th>
+                            <th>Cliente</th>
+                            <th>Ref. Factura Ext.</th>
+                            <th>Fecha Facturado (Sistema)</th>
+                            <th>Usuario Facturó</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for estado_factura_item in resultados %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'factura:detalle_despacho_factura' pk_despacho=estado_factura_item.despacho.pk %}">
+                                    {{ estado_factura_item.despacho.pk }}
+                                </a>
+                            </td>
+                            <td>{{ estado_factura_item.despacho.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if estado_factura_item.despacho.pedido %}
+                                    <a href="{% url 'pedidos:detalle_pedido' estado_factura_item.despacho.pedido.pk %}">
+                                        {{ estado_factura_item.despacho.pedido.pk }}
+                                    </a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if estado_factura_item.despacho.pedido.cliente %}
+                                    {{ estado_factura_item.despacho.pedido.cliente.nombre_completo }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ estado_factura_item.referencia_factura_externa|default:"N/A" }}</td>
+                            <td>
+                                {% if estado_factura_item.estado == 'FACTURADO' and estado_factura_item.fecha_hora_facturado_sistema %}
+                                    {{ estado_factura_item.fecha_hora_facturado_sistema|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if estado_factura_item.estado == 'FACTURADO' and estado_factura_item.usuario_responsable %}
+                                     {{ estado_factura_item.usuario_responsable.username }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'factura:detalle_despacho_factura' pk_despacho=estado_factura_item.despacho.pk %}" class="btn btn-sm btn-info">
+                                    Ver / Gestionar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {# Se hizo una búsqueda pero no se encontraron resultados #}
+            {% if form.is_bound and form.is_valid %} {# Solo mostrar si se intentó filtrar #}
+            <div class="alert alert-info mt-4" role="alert">
+                No se encontraron despachos con el estado "<strong>{{ estado_seleccionado_display }}</strong>".
+            </div>
+            {% endif %}
+        {% endif %}
+    {% elif form.is_bound and not form.is_valid %}
+        <div class="alert alert-warning mt-4" role="alert">
+            Por favor, seleccione un estado para generar el informe.
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}

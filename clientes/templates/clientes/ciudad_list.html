@@ -1,0 +1,82 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block page_title %}
+    Listado de Ciudades
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Gestión de Ciudades</h2>
+        <div>
+            <a href="{% url 'clientes:ciudad_crear' %}" class="btn btn-primary me-2">
+                <i class="fas fa-plus me-2"></i> Nueva Ciudad
+            </a>
+            <a href="{% url 'clientes:ciudad_importar' %}" class="btn btn-info">
+                <i class="fas fa-upload me-2"></i> Importar Ciudades
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Ciudades Registradas</h5>
+            <div>
+                <a href="{% url 'clientes:ciudad_exportar' 'xlsx' %}" class="btn btn-outline-success btn-sm me-1" title="Exportar a XLSX">
+                    <i class="fas fa-file-excel"></i> XLSX
+                </a>
+                <a href="{% url 'clientes:ciudad_exportar' 'csv' %}" class="btn btn-outline-secondary btn-sm" title="Exportar a CSV">
+                    <i class="fas fa-file-csv"></i> CSV
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if ciudades %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre de la Ciudad</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ciudad in ciudades %}
+                                <tr>
+                                    <td>{{ ciudad.pk }}</td>
+                                    <td>{{ ciudad.nombre }}</td>
+                                    <td class="text-center">
+                                        <a href="{% url 'clientes:ciudad_editar' ciudad.pk %}" class="btn btn-warning btn-sm ms-1" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'clientes:ciudad_eliminar' ciudad.pk %}" class="btn btn-danger btn-sm ms-1" title="Eliminar">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {# Paginación si la implementas #}
+            {% else %}
+                <div class="alert alert-info text-center">
+                    No hay ciudades registradas. <a href="{% url 'clientes:ciudad_crear' %}">¿Deseas agregar la primera?</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock content %}

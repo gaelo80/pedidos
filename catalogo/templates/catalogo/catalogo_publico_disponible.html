@@ -1,0 +1,128 @@
+{% extends 'core/base_publica.html' %}
+{% load static %}
+{% load humanize %}  {# Estas cargas están bien si las usas en esta plantilla #}
+{% load core_extras %} {# O en la base #}
+
+{% block titulo %}{{ titulo|default:"Catálogo de Productos" }}{% endblock %}
+
+{# Ya NO necesitas los <link> a Bootstrap CSS y Lightbox CSS aquí, porque están en base_publica.html #}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-8">
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+<div class="container mt-4">
+    <h1 class="mb-4 text-white">{{ titulo|default:"Catálogo Disponible" }}</h1>
+
+    <form method="get" class="mb-4">
+        <div class="input-group">
+            <input type="text" name="q" class="form-control" placeholder="Buscar por referencia, color o nombre..." value="{{ query|default:'' }}">
+            <button class="btn btn-outline-primary" type="submit">Buscar</button>
+        </div>
+    </form>
+
+    {% if pagina_items %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for item_catalogo in pagina_items %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        {# Línea de depuración, útil para verificar cuántas fotos hay #}
+                                               
+                        {% if item_catalogo.fotos %}
+                            {# Tomamos la primera foto para mostrarla en la tarjeta #}
+                            {% with primera_foto=item_catalogo.fotos.0 %}
+                            <a href="{{ primera_foto.imagen.url }}"
+                               data-lightbox="galeria-{{ item_catalogo.referencia_color_obj.id }}"
+                               data-title="{{ item_catalogo.nombre_display_final }} - {{ primera_foto.descripcion_foto|default_if_none:'' }}">
+                                <img src="{{ primera_foto.imagen.url }}" class="card-img-top" alt="{{ item_catalogo.nombre_display_final }} - Foto principal" style="aspect-ratio: 1 / 1; object-fit: cover;">
+                            </a>
+                            {% endwith %}
+
+                            {# Enlaces ocultos para el resto de las imágenes de esta galería/ReferenciaColor #}
+                            <div style="display: none;">
+                                {% for foto in item_catalogo.fotos %}
+                                    {% if not forloop.first %}  {# <--- CORREGIDO: DESCOMENTADO #}
+                                    <a href="{{ foto.imagen.url }}"
+                                       data-lightbox="galeria-{{ item_catalogo.referencia_color_obj.id }}"
+                                       data-title="{{ item_catalogo.nombre_display_final }} - {{ foto.descripcion_foto|default_if_none:'' }}">
+                                        {# No se necesita contenido visible para estos enlaces ocultos #}
+                                    </a>
+                                    {% endif %}                 {# <--- CORREGIDO: DESCOMENTADO #}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {# Imagen placeholder si no hay fotos #}
+                            <img src="{% static 'core/img/placeholder_image.png' %}" class="card-img-top" alt="Imagen no disponible" style="aspect-ratio: 1 / 1; object-fit: cover;">
+                        {% endif %}
+                        {# --- FIN DE LA SECCIÓN DE IMAGEN --- #}
+
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {{ item_catalogo.referencia_color_obj.referencia_base }} - {{ item_catalogo.referencia_color_obj.color|default:"Sin Color" }}
+                            </h5>
+                            {% if item_catalogo.nombre_display_final and item_catalogo.nombre_display_final != item_catalogo.referencia_color_obj.referencia_base %}
+                                <p class="card-text text-muted">{{ item_catalogo.nombre_display_final }}</p>
+                            {% endif %}
+
+                            <h6>Tallas Disponibles:</h6>
+                            {% if item_catalogo.variantes_info %}
+                                <ul class="list-group list-group-flush">
+                                    {% for variante_info in item_catalogo.variantes_info %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Talla: <strong>{{ variante_info.talla|default:"Única" }}</strong>
+                                            {% if variante_info.disponible %}
+                                                <span class="badge bg-success rounded-pill">Disponible</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary rounded-pill">Agotado</span>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted">No hay información de tallas para esta combinación.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {# Paginación #}
+        {% if pagina_items.has_other_pages %}
+            <nav aria-label="Paginación del catálogo" class="mt-5">
+                <ul class="pagination justify-content-center">
+                    {% if pagina_items.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}" aria-label="Primero">&laquo;&laquo;</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" aria-label="Anterior">&laquo;</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">&laquo;&laquo;</span></li>
+                        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                    {% endif %}
+                    <li class="page-item active" aria-current="page"><span class="page-link">Página {{ pagina_items.number }} de {{ pagina_items.paginator.num_pages }}</span></li>
+                    {% if pagina_items.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.next_page_number }}{% if query %}&q={{ query }}{% endif %}" aria-label="Siguiente">&raquo;</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}" aria-label="Último">&raquo;&raquo;</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                        <li class="page-item disabled"><span class="page-link">&raquo;&raquo;</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info mt-4" role="alert">
+            {% if query %}
+                No se encontraron productos disponibles que coincidan con tu búsqueda "{{ query }}".
+            {% else %}
+                Actualmente no hay productos disponibles en el catálogo.
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

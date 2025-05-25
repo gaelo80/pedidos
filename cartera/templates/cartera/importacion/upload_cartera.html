@@ -1,0 +1,141 @@
+{% extends 'core/base.html' %} {# Adaptado a tu base.html #}
+{% load static %}
+{# {% load crispy_forms_tags %} <-- ESTA LÍNEA DEBE ESTAR COMENTADA O ELIMINADA #}
+
+{% block page_title %}
+    {{ titulo|default:"Importar Cartera" }}
+{% endblock page_title %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+<div class="container mt-4 mb-5"> {# Usando mt-4 como en tu index.html #}
+    <h2 class="mb-4 text-center">{{ titulo|default:"Importar Documentos de Cartera desde Excel" }}</h2>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="card shadow-sm"> {# Estilo de card similar a tu index.html #}
+                <div class="card-header bg-light border-bottom"> 
+                    <h5 class="mb-0">Formulario de Importación</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <p class="text-muted mb-4">
+                        Selecciona el tipo de archivo de cartera (Facturas Oficiales LF o Remisiones FYN)
+                        y luego elige el archivo Excel (.xlsx) correspondiente.
+                        <br><strong>Nota:</strong> Al importar, se reemplazarán los datos existentes del mismo tipo de archivo.
+                    </p>
+
+                    <form method="post" enctype="multipart/form-data" id="formUploadCartera">
+                        {% csrf_token %}
+                        
+                        {# Renderizado manual del formulario, adaptado para Bootstrap 5 #}
+                        <div class="mb-3">
+                            <label for="{{ form.tipo_archivo.id_for_label }}" class="form-label"><strong>{{ form.tipo_archivo.label }}</strong></label>
+                            {{ form.tipo_archivo }} {# Django aplicará las clases del widget si están definidas en forms.py #}
+                            {% if form.tipo_archivo.help_text %}
+                                <div class="form-text">{{ form.tipo_archivo.help_text }}</div>
+                            {% endif %}
+                            {% for error in form.tipo_archivo.errors %}
+                                <div class="text-danger small">{{ error }}</div> {# Estilo de error más visible #}
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.archivo_excel.id_for_label }}" class="form-label"><strong>{{ form.archivo_excel.label }}</strong></label>
+                            {{ form.archivo_excel }} {# Django aplicará las clases del widget #}
+                            {% if form.archivo_excel.help_text %}
+                                <div class="form-text">{{ form.archivo_excel.help_text }}</div>
+                            {% endif %}
+                            {% for error in form.archivo_excel.errors %}
+                                <div class="text-danger small">{{ error }}</div> {# Estilo de error más visible #}
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg"> {# Botón primario como en tu index.html #}
+                                <i class="fas fa-upload me-2"></i>Importar Archivo
+                            </button>
+                        </div>
+                    </form>
+                    <hr class="my-4">
+                    <div class="text-center">
+                         <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al Reporte de Cartera
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-light border-top text-muted small">
+                    <p class="mb-1"><strong>Instrucciones Adicionales:</strong></p>
+                    <ul class="mb-0 ps-4">
+                        <li>El archivo Excel debe tener la cabecera de datos en la <strong>fila 3</strong>.</li>
+                        <li>Columnas requeridas: CONCEPTO, CODIGO (cliente), DOCUMENTO, FECHADOC, FECHAVEN, SALDOACT, NOMVENDEDOR, VENDEDOR (código).</li>
+                        <li>La importación puede tomar unos segundos. Por favor, espera a que la página se recargue.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formUploadCartera');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando, por favor espera...';
+            }
+        });
+    }
+
+    // Asegurar que los campos del formulario tengan las clases de Bootstrap adecuadas
+    // si no se definieron directamente en el widget del formulario en forms.py
+    const tipoArchivoField = document.getElementById('{{ form.tipo_archivo.id_for_label }}');
+    if (tipoArchivoField && !tipoArchivoField.classList.contains('form-select')) {
+        tipoArchivoField.classList.add('form-select');
+    }
+
+    const archivoExcelField = document.getElementById('{{ form.archivo_excel.id_for_label }}');
+    if (archivoExcelField && !archivoExcelField.classList.contains('form-control')) {
+        archivoExcelField.classList.add('form-control');
+    }
+});
+</script>
+{% endblock extra_js %}
+
+{% block extra_css %}
+<style>
+    .card-header h5 {
+        font-weight: 500;
+    }
+    .form-label strong {
+        font-weight: 500;
+    }
+    /* .invalid-feedback.d-block ya no es necesario si usamos text-danger small */
+    .text-danger.small { /* Para los errores de campo */
+        font-size: 0.875em;
+        display: block; /* Asegura que el mensaje de error ocupe su propia línea */
+    }
+</style>
+{% endblock extra_css %}

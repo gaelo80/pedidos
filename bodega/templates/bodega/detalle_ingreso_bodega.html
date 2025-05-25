@@ -1,0 +1,73 @@
+{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3>{{ titulo }}</h3>
+                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="btn btn-outline-secondary btn-sm">Volver al Informe</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <p><strong>ID Ingreso:</strong> {{ ingreso.pk }}</p>
+                    <p><strong>Fecha y Hora:</strong> {{ ingreso.fecha_hora|date:"d/m/Y H:i:s" }}</p>
+                    <p><strong>Usuario que registró:</strong> {{ ingreso.usuario.username|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Proveedor/Origen:</strong> {{ ingreso.proveedor_info|default:"No especificado" }}</p>
+                    <p><strong>Documento de Referencia:</strong> {{ ingreso.documento_referencia|default:"N/A" }}</p>
+                </div>
+            </div>
+
+            {% if ingreso.notas %}
+            <div class="mb-3">
+                <h5>Notas Adicionales del Ingreso:</h5>
+                <p style="white-space: pre-wrap;">{{ ingreso.notas }}</p>
+            </div>
+            {% endif %}
+
+            <h4 class="mt-4">Productos Ingresados</h4>
+            {% if detalles_del_ingreso %}
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto (Referencia)</th>
+                            <th>Talla</th>
+                            <th>Nombre Producto</th>
+                            <th>Color</th>
+                            <th>Cantidad Ingresada</th>
+                            <th>Costo Unitario (Opcional)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles_del_ingreso %}
+                        <tr>
+                            <td>{{ detalle.producto.referencia|default:"N/A" }}</td>
+                            <td>{{ detalle.producto.talla}}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td>{{ detalle.producto.color }}</td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>
+                                {% if detalle.costo_unitario is not None %}
+                                    ${{ detalle.costo_unitario|floatformat:2 }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>Este ingreso no tiene productos detallados.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

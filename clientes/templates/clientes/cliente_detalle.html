@@ -1,0 +1,61 @@
+{% extends 'core/base.html' %} {# Ajusta esto a tu plantilla base real #}
+{% load static %}
+{% load humanize %}
+
+{% block page_title %}
+    Detalle de Cliente: {{ cliente.nombre_completo }}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Detalle de Cliente: {{ cliente.nombre_completo }}</h2>
+        <div>
+            <a href="{% url 'clientes:cliente_editar' cliente.pk %}" class="btn btn-warning">
+                <i class="fas fa-edit me-2"></i> Editar Cliente
+            </a>
+            <a href="{% url 'clientes:cliente_listado' %}" class="btn btn-secondary">
+                <i class="fas fa-list me-2"></i> Volver al Listado
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Información del Cliente</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>ID:</strong> {{ cliente.pk }}</p>
+                    <p><strong>Nombre Completo:</strong> {{ cliente.nombre_completo }}</p>
+                    <p><strong>Identificación (NIT/Cédula):</strong> {{ cliente.identificacion|default:"No especificada" }}</p>
+                    <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"No especificado" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Email:</strong> {{ cliente.email|default:"No especificado" }}</p>
+                    <p><strong>Dirección:</strong> {{ cliente.direccion|default:"No especificada" }}</p>
+                    <p><strong>Ciudad:</strong> {{ cliente.ciudad.nombre|default:"No especificada" }}</p>
+                    <p><strong>Fecha de Creación:</strong> {{ cliente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+            
+            {# Aquí podrías añadir más información relacionada si es necesario, #}
+            {# por ejemplo, un historial de pedidos de este cliente, etc. #}
+            
+        </div>
+        <div class="card-footer text-muted">
+            Última actualización: (Aquí podrías poner un campo de fecha de última modificación si lo tuvieras)
+        </div>
+    </div>
+</div>
+{% endblock content %}

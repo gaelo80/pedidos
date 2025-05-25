@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %} {# Ajusta esto a tu plantilla base real #}
+{% load static %}
+
+{% block page_title %}
+    Confirmar Eliminación de Cliente
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación</h4>
+                </div>
+                <div class="card-body p-4">
+                    <p class="fs-5">
+                        ¿Estás seguro de que deseas eliminar al cliente "<strong>{{ object.nombre_completo|default:'este cliente' }}</strong>"?
+                    </p>
+                    <p class="text-muted">
+                        Identificación: {{ object.identificacion|default:"N/A" }} <br>
+                        Esta acción no se puede deshacer.
+                    </p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'clientes:cliente_listado' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>No, cancelar y volver
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash-alt me-2"></i>Sí, eliminar cliente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

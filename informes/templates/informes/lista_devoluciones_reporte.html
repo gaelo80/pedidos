@@ -1,0 +1,66 @@
+{% extends 'core/base.html' %}
+{% load static %} {# Si usas archivos estáticos específicos para esta plantilla #}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block content %}
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-8">
+            <h1 class="mb-0">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light border-bottom">
+            <h5 class="mb-0">Listado de Devoluciones Registradas</h5>
+        </div>
+        <div class="card-body">
+            {% if devoluciones_list %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID Devolución</th>
+                                <th scope="col">Cliente</th>
+                                <th scope="col">Fecha y Hora</th>
+                                <th scope="col">Motivo</th>
+                                <th scope="col">Usuario que Procesa</th>
+                                <th scope="col">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for devolucion in devoluciones_list %}
+                                <tr>
+                                    <td class="text-center">{{ devolucion.pk }}</td>
+                                    <td>{{ devolucion.cliente.nombre_completo|default_if_none:"N/A" }}</td>
+                                    <td>{{ devolucion.fecha_hora|date:"d/m/Y P" }}</td> {# Formato de fecha y hora más completo #}
+                                    <td>{{ devolucion.motivo|truncatewords:15|default:"Sin motivo especificado" }}</td>
+                                    <td>{{ devolucion.usuario.get_full_name|default:devolucion.usuario.username|default_if_none:"N/A" }}</td>
+                                    <td>
+                                        {# Enlazamos a la vista de detalle que ya existe en la app 'devoluciones' #}
+                                        <a href="{% url 'devoluciones:detalle_devolucion' pk=devolucion.pk %}" class="btn btn-info btn-sm" title="Ver Detalles de la Devolución">
+                                            <i class="fas fa-eye"></i> Detalles
+                                        </a>
+                                        {# También podrías enlazar a la vista de imprimir comprobante si es relevante #}
+                                        <a href="{% url 'devoluciones:imprimir_comprobante_devolucion' devolucion_id=devolucion.pk %}" class="btn btn-outline-secondary btn-sm ms-1" title="Imprimir Comprobante de Devolución" target="_blank">
+                                            <i class="fas fa-print"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    No se encontraron devoluciones registradas.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock content %}

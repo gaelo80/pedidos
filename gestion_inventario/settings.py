@@ -1,21 +1,26 @@
 # gestion_inventario/settings.py
 import os
 from pathlib import Path
+from decouple import config
 
     # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+CONTRASEÑA_PARA_VERIFICAR_PEDIDO = "Nohelia123F"
+SITE_ID = 1
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
     # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-%lazc!2vk#9ln-$2nk!vav2=iyulutxfab(i9#dxdk^p*j=ofl'
+import os
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-%lazc!2vk9ln-$2nk!vav2=iyulutxfab(i9dxdk^p*j=ofl')
 
     # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
+ALLOWED_HOSTS = ['www.pedidoslouisferry.online', 'pedidoslouisferry.online', '168.231.93.109']
+                 #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
    # 'https://5fe8-148-222-225-228.ngrok-free.app'
@@ -24,7 +29,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-    # Application definition
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5" 
+CRISPY_TEMPLATE_PACK = "bootstrap5"          
 
 INSTALLED_APPS = [
         'django.contrib.admin',
@@ -34,18 +40,33 @@ INSTALLED_APPS = [
         'django.contrib.messages',
         'django.contrib.staticfiles',
         'django.contrib.humanize',
+        'django.contrib.sites',
         
+    
         
-
+        # MIS APPS
+        'core',
+        'productos',
+        'clientes',
+        'vendedores',
+        'bodega.apps.BodegaConfig',
+        'cartera',
+        'factura',
+        'pedidos',
+        'devoluciones',
+        'informes',
+        'catalogo',
+        'user_management',
+        
         # APLICACIONES DE TERCERO
         'rest_framework',
         'rest_framework.authtoken',
         'rest_framework_simplejwt',
         'django_extensions',
-        'import_export',
-
-        # MIS APPS
-        'inventario.apps.InventarioConfig',
+        'import_export',      
+        'crispy_forms',  
+        'crispy_bootstrap5',
+        'widget_tweaks',
        
     ]
 
@@ -85,23 +106,33 @@ WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
     # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
    
    
-DATABASES = { 
+DATABASES = {
     'default': {
-        'NAME': BASE_DIR / 'db.sqlite3', 
-        'ENGINE': 'django.db.backends.sqlite3'
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': config('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')), # SQLite por defecto si no hay .env
+        'USER': config('DB_USER', default=''), # Vacío si es SQLite
+        'PASSWORD': config('DB_PASSWORD', default=''), # Vacío si es SQLite
+        'HOST': config('DB_HOST', default=''), # Vacío si es SQLite
+        'PORT': config('DB_PORT', default=''), # Vacío si es SQLite
+        'OPTIONS': {
+            'charset': 'utf8mb4', # Buena opción para MariaDB/MySQL
+        },
     }
 }
 
-# DATABASES = {
-    
-  #              'NAME': 'sieslopedidos_prod',
-   #             'USER': 'sieslo_prod_user',
-    #            'PASSWORD': 'la_contraseña_que_creaste',
-     #           'HOST': 'localhost' ,
-      #          'ENGINE': 'django.db.backends.mysql'
+# Si quieres forzar que use MariaDB/MySQL si las variables están presentes,
+# y solo caer a SQLite si DB_NAME no está definida en .env:
+if config('DB_NAME', default=None): # Si DB_NAME está en .env
+    DATABASES['default']['ENGINE'] = config('DB_ENGINE')
+    DATABASES['default']['NAME'] = config('DB_NAME')
+    DATABASES['default']['USER'] = config('DB_USER')
+    DATABASES['default']['PASSWORD'] = config('DB_PASSWORD')
+    DATABASES['default']['HOST'] = config('DB_HOST')
+    DATABASES['default']['PORT'] = config('DB_PORT')
+else: # Configuración para SQLite si DB_NAME no está en .env (para desarrollo local fácil sin .env)
+    DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
+    DATABASES['default']['NAME'] = BASE_DIR / 'db.sqlite3'
 
-       # }
-    
 
 
     # Password validation
@@ -145,6 +176,8 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Cambia esto si usas un servidor diferente para producción
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
     # Aquí añadirías STATIC_ROOT para producción más adelante
 
@@ -190,7 +223,7 @@ LOGGING = {
 }
 
 
-#LOGIN_URL = '/accounts/login/'
-#LOGIN_REDIRECT_URL = '/'
-#LOGOUT_REDIRECT_URL = '/'
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = 'login'
     # --- FIN DE LA SECCIÓN REST_FRAMEWORK ---

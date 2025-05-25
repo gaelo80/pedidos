@@ -1,0 +1,347 @@
+    /* Variables Globales */
+    :root {
+        --primary-bg-color: #12181f; /* Azul noche oscuro */
+        --secondary-bg-color: #1a222b; /* Un poco más claro para elementos */
+        --accent-color: #00aeff; /* Azul eléctrico vibrante */
+        --text-color: #e0e0e0;
+        --subtle-text-color: #a0a0a0;
+        --border-color: #2a3441;
+        --hover-bg-color: #222c38;
+        --sidebar-width-collapsed: 70px;
+        --sidebar-width-expanded: 260px;
+        --font-family: 'Poppins', sans-serif;
+        --transition-speed: 0.3s;
+    }
+
+    /* Reset Básico y Estilos Globales */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: var(--font-family);
+        background-color: var(--primary-bg-color);
+        color: var(--text-color);
+        line-height: 1.6;
+        overflow-x: hidden; /* Evita scroll horizontal por transiciones */
+        padding-top: 0; /* Remueve padding si Bootstrap lo añade por algún navbar fijo que ya no está */
+    }
+
+    a {
+        text-decoration: none;
+        color: var(--accent-color);
+        transition: color var(--transition-speed) ease;
+    }
+
+    a:hover {
+        color: white;
+    }
+
+    ul {
+        list-style: none;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        width: var(--sidebar-width-collapsed);
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background-color: var(--secondary-bg-color);
+        border-right: 1px solid var(--border-color);
+        transition: width var(--transition-speed) ease;
+        overflow: hidden; /* Clave para ocultar contenido al colapsar */
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar.expanded {
+        width: var(--sidebar-width-expanded);
+    }
+
+    /* Sidebar Header (Logo) */
+    .sidebar-header {
+        padding: 20px 15px;
+        text-align: center;
+        min-height: 70px; /* Altura consistente */
+        display: flex;
+        align-items: center;
+        justify-content: center; /* Centra el logo cuando está colapsado */
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-header .logo {
+        display: flex;
+        align-items: center;
+        color: var(--accent-color);
+        font-size: 1.5em;
+        font-weight: 700;
+    }
+    
+    .sidebar-header .logo .icon-placeholder { /* Para el icono del logo */
+        min-width: 30px; /* Igual que los iconos de navegación para alineación */
+        display: inline-block;
+        text-align: center;
+    }
+
+    .sidebar-header .logo i { /* Si usas un <i> para el logo */
+        margin-right: 0; 
+        transition: margin-right var(--transition-speed) ease, opacity var(--transition-speed) ease;
+    }
+
+    .sidebar.expanded .sidebar-header .logo i {
+        margin-right: 10px; 
+    }
+
+    .sidebar-header .logo span {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
+        white-space: nowrap; 
+    }
+
+    .sidebar.expanded .sidebar-header .logo span {
+        opacity: 1;
+        visibility: visible;
+    }
+
+
+    /* Sidebar Navigation */
+    .sidebar-nav {
+        flex-grow: 1; 
+        overflow-y: auto; 
+    }
+
+    .sidebar-nav ul {
+        padding-top: 10px;
+    }
+
+    .sidebar-nav li a {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px; 
+        color: var(--subtle-text-color);
+        white-space: nowrap; 
+        position: relative; 
+    }
+
+    .sidebar-nav li a:hover,
+    .sidebar-nav li a.active { /* Añadido .active para compatibilidad con tu lógica Django */
+        background-color: var(--hover-bg-color);
+        color: var(--accent-color);
+    }
+
+    .sidebar-nav li a::before { 
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background-color: var(--accent-color);
+        transform: scaleY(0);
+        transition: transform var(--transition-speed) ease;
+    }
+
+    .sidebar-nav li a:hover::before,
+    .sidebar-nav li a.active::before { /* Añadido .active */
+        transform: scaleY(1);
+    }
+
+    .sidebar-nav li a i.nav-icon { /* Clase específica para iconos de nav para no afectar otros 'i' */
+        font-size: 1.2em;
+        min-width: 30px; 
+        text-align: center;
+        margin-right: 0; 
+        transition: margin-right var(--transition-speed) ease;
+    }
+
+    .sidebar.expanded .sidebar-nav li a i.nav-icon {
+        margin-right: 15px; 
+    }
+
+    .sidebar-nav li a .nav-text { /* Clase para el texto del item */
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
+    }
+
+    .sidebar.expanded .sidebar-nav li a .nav-text {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Submenus */
+    .sidebar-nav .submenu-arrow {
+        margin-left: auto; 
+        font-size: 0.8em !important; 
+        transition: transform var(--transition-speed) ease, opacity var(--transition-speed) ease;
+        opacity: 0; 
+    }
+
+    .sidebar.expanded .sidebar-nav .submenu-arrow {
+        opacity: 1;
+    }
+
+    .sidebar-nav li.has-submenu.open > a .submenu-arrow {
+        transform: rotate(180deg);
+    }
+
+    .submenu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height var(--transition-speed) ease-in-out; /* Removido padding de la transición */
+        background-color: rgba(0,0,0,0.1); 
+        /* El padding-left se aplicará solo cuando el sidebar esté expandido y el submenú sea visible */
+    }
+    
+    .sidebar.expanded li.has-submenu.open > .submenu {
+         padding-left: 30px; /* Indentación para submenús */
+    }
+    .sidebar.expanded li.has-submenu > a + .submenu { /* Padding inicial cuando sidebar expandido para cálculo de scrollHeight*/
+        padding-left: 30px;
+    }
+
+
+    .submenu li a {
+        padding: 10px 20px 10px 15px; 
+        font-size: 0.9em;
+    }
+    
+    /* No necesitamos .sidebar.expanded .submenu aquí porque el padding ya está condicionado */
+    .submenu li a i.nav-icon {
+        font-size: 1em;
+        min-width: 25px;
+    }
+
+    .sidebar.expanded .submenu li a i.nav-icon {
+        margin-right: 10px;
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+        padding: 15px; /* Reducido un poco */
+        font-size: 0.8em;
+        color: var(--subtle-text-color);
+        border-top: 1px solid var(--border-color);
+        white-space: nowrap; /* Para que el texto no se rompa al colapsar */
+    }
+    .sidebar-footer-content { /* Contenedor para el contenido del footer */
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
+    }
+    .sidebar.expanded .sidebar-footer-content {
+        opacity: 1;
+        visibility: visible;
+    }
+    .sidebar-footer .btn-link { /* Estilo para el botón de logout */
+        color: var(--subtle-text-color);
+        text-decoration: none;
+        padding: 5px 0; /* Ajuste */
+        display: block; /* Para que ocupe el ancho */
+        text-align: left; /* Alineación con el texto de usuario */
+    }
+    .sidebar-footer .btn-link:hover {
+        color: var(--accent-color);
+    }
+    .sidebar-footer .navbar-text, .sidebar-footer .btn-link {
+        font-size: 1em; /* Para que sea consistente con el resto del texto del footer */
+    }
+     .sidebar-footer .btn-primary { /* Para el botón de login */
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+        color: var(--primary-bg-color);
+        font-weight: 600;
+        width: 100%; /* Ocupa todo el ancho disponible */
+    }
+    .sidebar-footer .btn-primary:hover {
+        background-color: white;
+        border-color: white;
+    }
+
+
+    /* Contenido Principal */
+    .main-container { /* Nuevo contenedor para main content y header si es necesario */
+        margin-left: var(--sidebar-width-collapsed);
+        transition: margin-left var(--transition-speed) ease;
+        width: calc(100% - var(--sidebar-width-collapsed));
+        padding-top: 1px; /* Solución a posible colapso de márgenes */
+    }
+
+    .sidebar.expanded ~ .main-container {
+        margin-left: var(--sidebar-width-expanded);
+        width: calc(100% - var(--sidebar-width-expanded));
+    }
+    
+    /* Estilos para el contenido que ya tenías (ej. messages, etc.) */
+    .main-content-area {
+        padding: 25px; /* Padding alrededor del contenido del bloque */
+    }
+
+
+    /* Estilos para el contenido que te propuse (puedes adaptarlos o eliminarlos si no los usas) */
+    .main-header { /* Si decides tener un header dentro de .main-container */
+        padding: 25px;
+        margin-bottom: 30px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .main-header h1 {
+        font-size: 2.8em; margin-bottom: 10px; color: white; font-weight: 700;
+    }
+    .main-header p {
+        font-size: 1.2em; color: var(--subtle-text-color);
+    }
+
+    .content-section {
+        background-color: var(--secondary-bg-color); padding: 30px; margin-bottom: 30px;
+        border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
+    }
+    .content-section h2 {
+        font-size: 2em; color: var(--accent-color); margin-bottom: 20px; font-weight: 600;
+    }
+
+    /* Efectos sutiles y futuristas (Scrollbar) */
+    body::-webkit-scrollbar { width: 8px; }
+    body::-webkit-scrollbar-track { background: var(--primary-bg-color); }
+    body::-webkit-scrollbar-thumb {
+        background-color: var(--accent-color); border-radius: 10px;
+        border: 2px solid var(--primary-bg-color);
+    }
+
+    /* Responsive (Ejemplo básico) */
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 0; 
+        }
+        .sidebar.expanded { 
+            width: var(--sidebar-width-expanded); /* En móvil, la expansión podría ser controlada por un botón JS aparte si se desea */
+        }
+        .main-container {
+            margin-left: 0;
+            width: 100%;
+        }
+        .sidebar.expanded ~ .main-container {
+            margin-left: 0; 
+        }
+    }
+
+    /* Estilos para mensajes de Django (adaptación básica) */
+    .alert { /* Estilo base para las alertas de Bootstrap que usas en messages.html */
+        border-radius: 4px;
+        border-width: 1px;
+        border-style: solid;
+        color: var(--text-color);
+        margin: 15px 0; /* Margen para separar de otros elementos */
+    }
+    .alert-success { background-color: rgba(0, 255, 120, 0.1); border-color: rgba(0, 200, 100, 0.5); }
+    .alert-warning { background-color: rgba(255, 193, 7, 0.1); border-color: rgba(255, 193, 7, 0.5); }
+    .alert-danger  { background-color: rgba(255, 60, 100, 0.1); border-color: rgba(220, 53, 69, 0.5); }
+    .alert-info    { background-color: rgba(0, 174, 255, 0.1); border-color: var(--accent-color); }
+

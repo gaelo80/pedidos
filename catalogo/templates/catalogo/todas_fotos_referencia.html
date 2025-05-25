@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block extra_head %}
+<style>
+    .photo-gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Ajusta minmax para tamaño de imagen */
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    .photo-gallery-item {
+        border: 1px solid #ddd;
+        border-radius: 0.25rem;
+        overflow: hidden;
+        background-color: #f8f9fa;
+    }
+    .photo-gallery-item img {
+        width: 100%;
+        height: 100%; /* O usa padding-top trick para aspect ratio si prefieres */
+        object-fit: cover; /* o 'contain' */
+        aspect-ratio: 1 / 1; /* Mantiene la imagen cuadrada, puedes ajustar */
+        display: block;
+    }
+    .photo-description {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+        text-align: center;
+        color: #555;
+        background-color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5">
+    <div class="row mb-3">
+        <div class="col-md-9">
+            <h1 class="mb-0">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-3 text-md-end">
+            <a href="{% url 'catalogo:detalle_referencia' referencia_actual %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Volver al Detalle de Referencia
+            </a>
+        </div>
+    </div>
+
+    {% if lista_todas_fotos %}
+        <div class="photo-gallery-grid">
+            {% for foto in lista_todas_fotos %}
+                <div class="photo-gallery-item">
+                    <a href="{{ foto.imagen.url }}" data-bs-toggle="tooltip" title="{{ foto.descripcion_foto|default:'Ver imagen ampliada' }}" target="_blank">
+                        <img src="{{ foto.imagen.url }}" alt="{{ foto.descripcion_foto|default:referencia_actual }}">
+                    </a>
+                    {% if foto.descripcion_foto %}
+                        <div class="photo-description">
+                            {{ foto.descripcion_foto|truncatechars:50 }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fas fa-info-circle me-2"></i>No hay fotos adicionales disponibles para esta referencia.
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+// Inicializar tooltips de Bootstrap si los usas
+document.addEventListener('DOMContentLoaded', function () {
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+  })
+});
+</script>
+{% endblock %}

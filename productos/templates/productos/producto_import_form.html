@@ -1,0 +1,62 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy-forms #}
+
+{% block page_title %}
+    {{ titulo_pagina|default:"Importar Productos" }}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0"><i class="fas fa-file-import me-2 text-primary"></i>{{ titulo_pagina }}</h2>
+                <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list me-2"></i>Volver al Listado
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <p class="text-muted">Sube un archivo en formato CSV, XLS o XLSX para importar productos.
+                        Asegúrate de que las columnas coincidan con los campos del modelo especificados en el formulario.
+                        El campo 'id' se usa para actualizar productos existentes; si se omite o no se encuentra, se intentará crear un nuevo producto.
+                    </p>
+                    <hr>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {{ form|crispy }} {# O renderiza form.archivo_productos manualmente si no usas crispy #}
+                        
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-upload me-2"></i>Importar Productos
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="mt-4 p-3 border rounded bg-light">
+                <h6 class="text-muted">Formato de Columnas Esperado (Ejemplo):</h6>
+                <small>
+                    <code>id</code> (opcional para nuevos), <code>referencia</code>, <code>nombre</code>, <code>descripcion</code>, 
+                    <code>talla</code>, <code>color</code>, <code>genero</code> (ej: DAMA, CABALLERO), 
+                    <code>costo</code> (ej: 15000.00), <code>precio_venta</code> (ej: 25000.00), 
+                    <code>unidad_medida</code> (ej: UND), <code>codigo_barras</code>, 
+                    <code>activo</code> (True/False o 1/0), <code>ubicacion</code>, <code>fecha_creacion</code> (opcional, formato AAAA-MM-DD HH:MM:SS)
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,190 @@
+{% extends 'core/base.html' %} {% load humanize %}
+
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver a Informes</a>
+    </div>
+
+    <form method="get" class="card card-body mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="fecha_inicio" class="form-label form-label-sm">Fecha Pedido Desde:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha_fin" class="form-label form-label-sm">Fecha Pedido Hasta:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="estado" class="form-label form-label-sm">Estado:</label>
+                <select name="estado" id="estado" class="form-select form-select-sm">
+                    <option value="">Todos los Estados</option>
+                    {% for valor, texto in lista_estados %}
+                    <option value="{{ valor }}" {% if estado_seleccionado == valor %}selected{% endif %}>{{ texto }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="vendedor_id" class="form-label form-label-sm">Vendedor:</label>
+                <select name="vendedor_id" id="vendedor_id" class="form-select form-select-sm">
+                    <option value="">Todos los Vendedores</option>
+                    {% for vendedor_obj in lista_vendedores %}
+                    <option value="{{ vendedor_obj.pk }}" {% if vendedor_id_seleccionado == vendedor_obj.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-9"> {# Aumenta el ancho para el input de cliente #}
+                <label for="cliente_q" class="form-label form-label-sm">Cliente (Nombre o ID):</label>
+                <input type="text" class="form-control form-control-sm" id="cliente_q" name="cliente_q" value="{{ cliente_query|default:'' }}">
+            </div>
+            <div class="col-md-3 align-self-end"> {# Botones en la misma línea, o ajusta el layout como prefieras #}
+                <button type="submit" class="btn btn-primary btn-sm w-100 mb-1">Filtrar</button>
+                <a href="{% url 'informes:informe_total_pedidos' %}" class="btn btn-secondary btn-sm w-100">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    {# Resumen de Totales #}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <h5 class="card-title text-primary">Cantidad Total de Pedidos Filtrados</h5>
+                    <p class="card-text fs-4 fw-bold mb-0">{{ cantidad_total_pedidos|intcomma }}</p> {# Idealmente, esto debería ser el total general, no solo de la página #}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <h5 class="card-title text-success">Valor Total de Pedidos Filtrados</h5>
+                    <p class="card-text fs-4 fw-bold mb-0">${{ total_pedidos_valor|intcomma:0 }}</p> {# Idealmente, esto debería ser el total general, no solo de la página #}
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    {% if pedidos_list %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Pedido</th>
+                        <th>Fecha y Hora</th>
+                        <th>Cliente</th>
+                        <th>Vendedor</th>
+                        <th>Estado</th>
+                        <th class="text-center"># Productos</th>
+                        <th class="text-end">Valor Total</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pedido in pedidos_list %} {# Si 'pedidos_list' es un objeto Page de Django, esto iterará solo los de la página actual #}
+                    <tr>
+                        <td class="text-center">{{ pedido.pk }}</td>
+                        <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
+                        <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                        <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
+                        <td><span class="badge" style="background-color: #e3f2fd; color: #0d6efd;">{{ pedido.get_estado_display }}</span></td>
+                        <td class="text-center">{{ pedido.total_cantidad_productos|intcomma }}</td>
+                        <td class="text-end">${{ pedido.total_a_pagar|intcomma:0 }}</td>
+                        <td>
+                            <a class="text-end" href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-info btn-sm" target="_blank" title="Ver Detalle Pedido">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-danger btn-sm" target="_blank" title="Ver PDF Pedido">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# INICIO: Sección de Paginación #}
+        {% if pedidos_list.has_other_pages %}
+        <nav aria-label="Paginación de pedidos" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {# Botón Primero #}
+                {% if pedidos_list.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{{ request.GET.urlencode|cut:'page=' }}" aria-label="Primero">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                            <span class="visually-hidden">Primero</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;&laquo;</span>
+                    </li>
+                {% endif %}
+
+                {# Botón Anterior #}
+                {% if pedidos_list.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pedidos_list.previous_page_number }}{{ request.GET.urlencode|cut:'page=' }}" aria-label="Anterior">
+                            <span aria-hidden="true">&laquo;</span>
+                            <span class="visually-hidden">Anterior</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                {% endif %}
+
+                {# Números de Página (opcional, puedes adaptarlo si quieres mostrar algunos números) #}
+                <li class="page-item active" aria-current="page">
+                    <span class="page-link">
+                        Página {{ pedidos_list.number }} de {{ pedidos_list.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {# Botón Siguiente #}
+                {% if pedidos_list.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pedidos_list.next_page_number }}{{ request.GET.urlencode|cut:'page=' }}" aria-label="Siguiente">
+                            <span aria-hidden="true">&raquo;</span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                {% endif %}
+
+                {# Botón Último #}
+                {% if pedidos_list.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pedidos_list.paginator.num_pages }}{{ request.GET.urlencode|cut:'page=' }}" aria-label="Último">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                            <span class="visually-hidden">Último</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;&raquo;</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {# FIN: Sección de Paginación #}
+
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No hay pedidos que coincidan con los filtros seleccionados.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

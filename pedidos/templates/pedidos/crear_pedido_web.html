@@ -1,0 +1,186 @@
+# inventario/views.py
+# --- Asegúrate de tener estas importaciones al principio ---
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from collections import defaultdict
+from django.db.models import Sum # Necesaria para stock_actual
+from .models import Pedido, DetallePedido, Producto, Vendedor, Ciudad, Cliente # Añade los que necesites
+from .forms import PedidoForm # Ya no necesitamos DetallePedidoFormSet aquí
+from rest_framework import viewsets, permissions, serializers # Para los Viewsets y ValidationError en perform_create
+from django.http import HttpResponse
+from django.template.loader import get_template
+from io import BytesIO
+from xhtml2pdf import pisa
+
+# --- Viewsets API (Asegúrate que estén antes o después, no mezclados) ---
+class CiudadViewSet(viewsets.ReadOnlyModelViewSet): # ... (código completo)
+    queryset = Ciudad.objects.all().order_by('nombre')
+    serializer_class = CiudadSerializer
+class ProductoViewSet(viewsets.ModelViewSet): # ... (código completo)
+    queryset = Producto.objects.filter(activo=True).order_by('referencia')
+    serializer_class = ProductoSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+class ClienteViewSet(viewsets.ModelViewSet): # ... (código completo)
+    queryset = Cliente.objects.all().order_by('nombre_completo')
+    serializer_class = ClienteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+class PedidoViewSet(viewsets.ModelViewSet): # ... (código completo con get_queryset y perform_create)
+    serializer_class = PedidoSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    def get_queryset(self): # ... (código completo)
+        user = self.request.user
+        if not user.is_authenticated: return Pedido.objects.none()
+        if user.is_staff or user.is_superuser: return Pedido.objects.all().order_by('-fecha_hora')
+        else:
+            try: vendedor = Vendedor.objects.get(user=user); return Pedido.objects.filter(vendedor=vendedor).order_by('-fecha_hora')
+            except Vendedor.DoesNotExist: return Pedido.objects.none()
+    def perform_create(self, serializer): # ... (código completo)
+        try: vendedor = Vendedor.objects.get(user=self.request.user)
+        except Vendedor.DoesNotExist: raise serializers.ValidationError("El usuario que realiza la solicitud no tiene un perfil de vendedor asociado.")
+        serializer.save(vendedor=vendedor, estado='PENDIENTE')
+
+
+# --- Función de Ayuda para Preparar Contexto ---
+# --- Pon esta función ANTES de vista_crear_pedido_web ---
+def _prepare_crear_pedido_context(pedido_form=None):
+    """Prepara el contexto común para renderizar la plantilla de creación de pedidos."""
+    if pedido_form is None:
+        pedido_form = PedidoForm()
+
+    productos_variantes = Producto.objects.filter(activo=True)
+    tallas_existentes_str = Producto.objects.filter(activo=True, talla__isnull=False).values_list('talla', flat=True).distinct()
+
+    def sort_key(talla_str):
+        try: return float(talla_str)
+        except (ValueError, TypeError): return float('inf')
+
+    tallas_ordenadas = sorted(list(tallas_existentes_str), key=sort_key)
+    print(f"DEBUG (context helper): Tallas ordenadas para columnas: {tallas_ordenadas}")
+
+    productos_agrupados_matriz = []
+    productos_procesados_base = set()
+    for p_variante in productos_variantes.order_by('referencia', 'nombre', 'color', 'talla'):
+        clave_base = (p_variante.referencia, p_variante.nombre, p_variante.color)
+        if clave_base not in productos_procesados_base:
+            grupo_actual = {
+                'referencia': p_variante.referencia,
+                'nombre': p_variante.nombre,
+                'color': p_variante.color or "-",
+                'precio_venta': p_variante.precio_venta,
+                'tallas': {}
+            }
+            variantes_del_grupo = productos_variantes.filter(
+                referencia=p_variante.referencia,
+                nombre=p_variante.nombre,
+                color=p_variante.color
+            )
+            for variante in variantes_del_grupo:
+                if variante.talla:
+                    grupo_actual['tallas'][variante.talla] = variante.id
+            productos_agrupados_matriz.append(grupo_actual)
+            productos_procesados_base.add(clave_base)
+
+    context = {
+        'pedido_form': pedido_form,
+        'tallas_columnas': tallas_ordenadas,
+        'productos_matriz': productos_agrupados_matriz,
+        'titulo': 'Crear Nuevo Pedido (Matriz)'
+    }
+    return context
+
+
+# --- VISTA WEB REFACTORIZADA PARA CREAR PEDIDOS ---
+@login_required
+def vista_crear_pedido_web(request):
+    try:
+        vendedor = Vendedor.objects.get(user=request.user)
+    except Vendedor.DoesNotExist:
+        messages.error(request, "No tienes permiso de vendedor para crear pedidos.")
+        return redirect('admin:index')
+
+    if request.method == 'POST':
+        pedido_form = PedidoForm(request.POST)
+
+        if pedido_form.is_valid():
+            detalles_para_crear = []
+            errores_stock = []
+            errores_generales = []
+            stock_suficiente = True
+            al_menos_un_detalle = False
+
+            for key, value in request.POST.items():
+                if key.startswith('cantidad_producto_') and value:
+                    try:
+                        cantidad_pedida = int(value)
+                        if cantidad_pedida > 0:
+                            al_menos_un_detalle = True
+                            producto_id_str = key.split('_')[-1]
+                            producto_id = int(producto_id_str)
+                            try:
+                                producto_variante = Producto.objects.get(pk=producto_id, activo=True)
+                                stock_disponible = producto_variante.stock_actual
+                                if cantidad_pedida > stock_disponible:
+                                    stock_suficiente = False
+                                    errores_stock.append(f"Stock insuficiente para '{producto_variante}'. Pedido: {cantidad_pedida}, Disponible: {stock_disponible}")
+                                else:
+                                    detalles_para_crear.append({'producto': producto_variante, 'cantidad': cantidad_pedida, 'precio_unitario': producto_variante.precio_venta})
+                            except Producto.DoesNotExist:
+                                errores_generales.append(f"Producto con ID {producto_id} no encontrado o inactivo.")
+                                stock_suficiente = False
+                    except (ValueError, TypeError):
+                        errores_generales.append(f"Valor inválido para cantidad del producto ID {key.split('_')[-1]}.")
+                        stock_suficiente = False
+
+            if not al_menos_un_detalle and not errores_stock and not errores_generales:
+                messages.error(request, "Debes ingresar una cantidad para al menos un producto.")
+                # Re-renderiza usando el helper y el form con datos POST (para mostrar errores de cliente si los hubo)
+                context = _prepare_crear_pedido_context(pedido_form=pedido_form)
+                return render(request, 'inventario/crear_pedido_web_matriz.html', context)
+
+            elif not stock_suficiente or errores_generales:
+                for error in errores_stock: messages.error(request, error)
+                for error in errores_generales: messages.error(request, error)
+                context = _prepare_crear_pedido_context(pedido_form=pedido_form) # Reusa el helper
+                return render(request, 'inventario/crear_pedido_web_matriz.html', context)
+
+            else: # Todo OK para guardar
+                try:
+                    with transaction.atomic():
+                        pedido = pedido_form.save(commit=False)
+                        pedido.vendedor = vendedor
+                        pedido.estado = 'PENDIENTE'
+                        pedido.save()
+                        for detalle_data in detalles_para_crear:
+                            DetallePedido.objects.create(
+                                pedido=pedido,
+                                producto=detalle_data['producto'],
+                                cantidad=detalle_data['cantidad'],
+                                precio_unitario=detalle_data['precio_unitario']
+                            )
+                    messages.success(request, f"Pedido #{pedido.pk} creado exitosamente desde la web.")
+                    return redirect('lista_pedidos_bodega') # O a donde quieras ir
+                except Exception as e:
+                    messages.error(request, f"Error inesperado al guardar el pedido: {e}")
+                    context = _prepare_crear_pedido_context(pedido_form=pedido_form) # Reusa el helper
+                    return render(request, 'inventario/crear_pedido_web_matriz.html', context)
+
+        else: # Si pedido_form no es válido
+            messages.error(request, "Por favor corrige los errores en la sección del cliente.")
+            context = _prepare_crear_pedido_context(pedido_form=pedido_form) # Reusa el helper
+            return render(request, 'inventario/crear_pedido_web_matriz.html', context)
+
+    else: # --- Lógica GET ---
+        context = _prepare_crear_pedido_context() # Llama al helper para obtener el contexto inicial
+        return render(request, 'inventario/crear_pedido_web_matriz.html', context)
+
+@login_required
+def vista_verificar_pedido(request, pk): # ... código completo ...
+    pedido = get_object_or_404(Pedido, pk=pk); detalles = pedido.detalles.all().order_by('producto__nombre'); context = {'pedido': pedido,'detalles_pedido': detalles, 'titulo': f'Verificar Pedido #{pedido.pk}'}; return render(request, 'bodega/verificar_pedido.html', context) # Lógica POST omitida por brevedad, debe estar completa
+@login_required
+def vista_lista_pedidos_bodega(request): # ... código completo ...
+    pedidos_pendientes = Pedido.objects.filter(estado__in=['PENDIENTE', 'PROCESANDO']).order_by('fecha_hora'); context = {'pedidos_list': pedidos_pendientes, 'titulo': 'Pedidos Pendientes Bodega'}; return render(request, 'bodega/lista_pedidos_bodega.html', context)
+@login_required
+def generar_pedido_pdf(request, pk): # ... código completo ...
+    pedido = get_object_or_404(Pedido, pk=pk); detalles = pedido.detalles.all().order_by('producto__nombre'); total_pedido = sum(d.subtotal for d in detalles if hasattr(d, 'subtotal') and d.subtotal is not None); template_path = 'inventario/pedido_pdf.html'; template = get_template(template_path); context = {'pedido': pedido,'detalles_pedido': detalles, 'total_pedido': total_pedido}; response = HttpResponse(content_type='application/pdf'); response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.pk}.pdf"'; html = template.render(context); pisa_status = pisa.CreatePDF(html, dest=response); if pisa_status.err: return HttpResponse('We had some errors <pre>' + html + '</pre>'); return response

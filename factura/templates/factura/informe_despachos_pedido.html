@@ -1,0 +1,134 @@
+{% extends 'core/base.html' %} {# Asegúrate que esta ruta a tu base.html sea correcta #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms #}
+
+{% block title %}
+    {{ titulo }}
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+
+    <h1 class="mb-4">{{ titulo }}</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Ingresar ID del Pedido
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label for="{{ form.pedido_id.id_for_label }}" class="form-label">{{ form.pedido_id.label }}</label>
+                    {{ form.pedido_id }}
+                    {% if form.pedido_id.help_text %}
+                        <small class="form-text text-muted">{{ form.pedido_id.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.pedido_id.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar Despachos</button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'factura:informe_despachos_pedido' %}" class="btn btn-secondary w-100">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if pedido_obj %}
+        <h3 class="mt-4 mb-2">Despachos para el Pedido ID: {{ pedido_obj.pk }}</h3>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Detalles del Pedido</h5>
+                <p class="card-text">
+                    <strong>Cliente:</strong> {{ pedido_obj.cliente.nombre_completo|default:"N/A" }} ({{ pedido_obj.cliente.identificacion|default:"N/A" }})<br>
+                    <strong>Fecha Pedido:</strong> {{ pedido_obj.fecha_hora|date:"d/m/Y H:i" }}<br>
+                    <strong>Estado Actual del Pedido:</strong> <span class="badge bg-info">{{ pedido_obj.get_estado_display }}</span>
+                </p>
+                <a href="{% url 'pedidos:detalle_pedido' pedido_obj.pk %}" class="btn btn-sm btn-outline-primary">Ver Pedido Completo</a>
+            </div>
+        </div>
+
+        {% if despachos_del_pedido %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Despacho (Bodega)</th>
+                            <th>Fecha Despacho</th>
+                            <th>Estado Facturación</th>
+                            <th>Ref. Factura Ext.</th>
+                            <th>Usuario Bodega</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for despacho_item in despachos_del_pedido %}
+                        <tr>
+                            <td>{{ despacho_item.pk }}</td>
+                            <td>{{ despacho_item.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% with estado_fact_info=despacho_item.estado_factura_cached %}
+                                    {% if estado_fact_info %}
+                                        {% if estado_fact_info.estado == 'FACTURADO' %}
+                                            <span class="badge bg-success">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% elif estado_fact_info.estado == 'POR_FACTURAR' %}
+                                            <span class="badge bg-warning text-dark">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ estado_fact_info.get_estado_display }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">No Procesado</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with estado_fact_info=despacho_item.estado_factura_cached %}
+                                    {{ estado_fact_info.referencia_factura_externa|default:"N/A" }}
+                                {% endwith %}
+                            </td>
+                            <td>{{ despacho_item.usuario_responsable.username|default:"N/A" }}</td>
+                            <td>
+                                <a href="{% url 'factura:detalle_despacho_factura' pk_despacho=despacho_item.pk %}" class="btn btn-sm btn-info">
+                                    Ver / Gestionar Factura
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% elif form.is_bound and form.is_valid %} {# Se buscó un pedido válido pero no tiene despachos #}
+            <div class="alert alert-info mt-3" role="alert">
+                El Pedido <strong>#{{ pedido_id_query_filtro }}</strong> no tiene comprobantes de despacho registrados.
+            </div>
+        {% endif %}
+    {% elif form.is_bound and form.is_valid and not pedido_obj %} {# Se buscó pero el pedido_id no existe #}
+         <div class="alert alert-danger mt-3" role="alert">
+            No se encontró ningún Pedido con el ID <strong>#{{ pedido_id_query_filtro }}</strong>.
+        </div>
+    {% endif %}
+
+</div>
+{% endblock content %}

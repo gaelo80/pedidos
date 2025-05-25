@@ -1,0 +1,221 @@
+
+{% load humanize %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo_comprobante }}</title>
+    <style type="text/css">
+        @page { 
+            size: letter; 
+            margin: 1.5cm; 
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 8pt;
+                color: #555555;
+                vertical-align: top;
+                padding-top: 5px;
+            }
+        }
+        body { 
+            font-family: "Helvetica", Arial, sans-serif; 
+            font-size: 10pt; 
+            color: #333; 
+            line-height: 1.4;
+        }
+        .header-container { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+        }
+        .logo { 
+            max-height: 70px; 
+            max-width: 250px;
+            margin-bottom: 10px; 
+        }
+        h1 { 
+            font-size: 16pt; 
+            text-align: center; 
+            margin-bottom: 5px; /* Reducido */
+            color: #000; 
+            text-transform: uppercase;
+        }
+         h1.subtitle { /* Para el subtitulo de Salida Interna N° */
+            font-size: 12pt;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: normal;
+        }
+        h2 { 
+            font-size: 12pt; 
+            margin-top: 20px;
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #eee; 
+            padding-bottom: 5px;
+            color: #444;
+        }
+        table.info-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 9pt; 
+            margin-bottom:15px;
+        }
+        .info-table td { 
+            border: none; 
+            padding: 3px 0px;
+            vertical-align: top;
+        }
+        .info-table td:first-child {
+            font-weight: bold;
+            width: 30%; 
+        }
+        table.items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 9pt; 
+            margin-bottom:15px;
+        }
+        .items-table th, .items-table td { 
+            border: 1px solid #ccc; 
+            padding: 6px; 
+            text-align: left; 
+            vertical-align: top;
+        }
+        .items-table th { 
+            background-color: #f0f0f0; 
+            font-weight: bold; 
+        }
+        .items-table .text-center { text-align: center; }
+        .items-table .text-right { text-align: right; }
+        .items-table .col-despachada { background-color: #e6f7ff; } /* Azul claro para despachada */
+        .items-table .col-devuelta { background-color: #e6ffe6; } /* Verde claro para devuelta */
+        .items-table .col-pendiente { background-color: #fff0e6; } /* Naranja claro para pendiente */
+
+        .signatures { 
+            margin-top: 40px; 
+            page-break-inside: avoid; 
+        }
+        .signature-block { 
+            width: 100%;
+        }
+        .signature-block td {
+            width: 50%;
+            text-align: center;
+            padding-top: 30px; 
+        }
+        .signature-line { 
+            border-bottom: 1px solid #333; 
+            margin: 0 auto 5px auto; 
+            width: 70%; 
+            display: block; 
+        }
+        .signature-label {
+            font-size: 9pt;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        {% if logo_base64 %}
+            <img src="{{ logo_base64 }}" alt="Logo Empresa" class="logo">
+        {% endif %}
+    </div>
+
+    <h1>Comprobante de Devolución</h1>
+    <h1 class="subtitle">Salida Interna N° {{ salida_interna.pk }}</h1>
+    
+    <h2>Información General de la Salida Original</h2>
+    <table class="info-table">
+        <tr>
+            <td>Fecha y Hora Salida Original:</td>
+            <td>{{ salida_interna.fecha_hora_salida|date:"d/m/Y H:i:s" }}</td>
+        </tr>
+        <tr>
+            <td>Tipo de Salida Original:</td>
+            <td>{{ salida_interna.get_tipo_salida_display }}</td>
+        </tr>
+        <tr>
+            <td>Destino / Entregado A (Original):</td>
+            <td>{{ salida_interna.destino_descripcion|default:"No especificado" }}</td>
+        </tr>
+        <tr>
+            <td>Responsable Entrega (Original):</td>
+            <td>{{ salida_interna.responsable_entrega.get_full_name|default:salida_interna.responsable_entrega.username|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td>Estado Actual de la Salida:</td>
+            <td><strong>{{ salida_interna.get_estado_display }}</strong></td>
+        </tr>
+        {% if salida_interna.fecha_prevista_devolucion %}
+        <tr>
+            <td>Fecha Prevista Devolución (Original):</td>
+            <td>{{ salida_interna.fecha_prevista_devolucion|date:"d/m/Y" }}</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <h2>Detalle de Devolución de Productos</h2>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Ref.</th>
+                <th>Producto / Descripción</th>
+                <th class="text-center col-despachada">Cant. Despachada</th>
+                <th class="text-center col-devuelta">Cant. Devuelta</th>
+                <th class="text-center col-pendiente">Cant. Pendiente Devolución</th>
+                </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles_items_devolucion %}
+            <tr>
+                <td>{{ detalle.producto_referencia|default:"N/A" }}</td>
+                <td>{{ detalle.producto_nombre|default:"N/A" }} (Color: {{ detalle.producto_color }}, Talla: {{ detalle.producto_talla }})</td>
+                <td class="text-center col-despachada">{{ detalle.cantidad_despachada|intcomma }}</td>
+                <td class="text-center col-devuelta"><strong>{{ detalle.cantidad_devuelta|intcomma }}</strong></td>
+                <td class="text-center col-pendiente">{{ detalle.cantidad_pendiente|intcomma }}</td>
+                </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">No hay productos detallados en esta salida.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if salida_interna.observaciones_salida %}
+        <h2>Observaciones Generales de la Salida Original</h2>
+        <p style="white-space: pre-wrap; border: 1px solid #eee; padding: 10px; background-color: #f9f9f9;">
+            {{ salida_interna.observaciones_salida }}
+        </p>
+    {% endif %}
+
+    <div class="signatures">
+        <table class="signature-block">
+            <tr>
+                <td>
+                    <div class="signature-line"></div>
+                    <span class="signature-label">Devuelto por</span><br>
+                    <span class="signature-label">(Nombre y Firma)</span>
+                </td>
+                <td>
+                    <div class="signature-line"></div>
+                    <span class="signature-label">Recibido en Bodega por</span><br>
+                    <span class="signature-label">
+                        {% if request.user.is_authenticated %}
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        {% else %}
+                            (Nombre y Firma)
+                        {% endif %}
+                    </span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="text-align: center; font-size: 8pt; color: #777; margin-top: 20px;">
+        Comprobante generado el: {{ fecha_generacion|date:"d/m/Y H:i:s" }}
+    </div>
+</body>
+</html>

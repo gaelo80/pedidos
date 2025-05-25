@@ -1,0 +1,41 @@
+{% extends 'core/base.html' %} {# Ajusta esto a tu plantilla base real #}
+{% load static %}
+
+{% block page_title %}
+    {{ titulo_pagina|default:"Confirmar Eliminación" }}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>{{ titulo_pagina }}</h4>
+                </div>
+                <div class="card-body">
+                    <p>¿Estás seguro de que deseas eliminar el producto (variante):</p>
+                    <h5 class="text-center my-3">
+                        <strong>{{ object.referencia }} - {{ object.nombre }}</strong>
+                        {% if object.talla %}(Talla: {{ object.talla }}){% endif %}
+                        {% if object.color %}(Color: {{ object.color }}){% endif %}
+                    </h5>
+                    <p class="text-danger">Esta acción no se puede deshacer.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash-alt me-2"></i>Sí, Eliminar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

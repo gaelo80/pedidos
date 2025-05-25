@@ -1,0 +1,10 @@
+{% comment %} {% include 'core/partials/messages.html' %} {% endcomment %}
+{% if messages %}
+    {% for message in messages %}
+        {# Usa las etiquetas del mensaje (success, error, warning, info) para clases de Bootstrap #}
+        <div class="alert alert-dismissible fade show {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}

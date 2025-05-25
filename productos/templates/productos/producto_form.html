@@ -1,0 +1,166 @@
+{% extends 'core/base.html' %} {# Ajusta esto a tu plantilla base real #}
+{% load static %}
+{% load crispy_forms_tags %} {# Si usas django-crispy-forms, si no, puedes quitar esto y renderizar campos manualmente #}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        Editar Producto: {{ form.instance.referencia }} - {{ form.instance.nombre }}
+    {% else %}
+        Crear Nuevo Producto
+    {% endif %}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    {% if form.instance.pk %}
+                        <i class="fas fa-edit text-primary me-2"></i>Editar Producto
+                    {% else %}
+                        <i class="fas fa-plus-circle text-success me-2"></i>Crear Nuevo Producto
+                    {% endif %}
+                </h2>
+                <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary"> {# Ajusta 'productos:producto_listado' a tu URL de listado #}
+                    <i class="fas fa-list me-2"></i>Ver Listado
+                </a>
+            </div>
+
+                    <div class="btn-group me-2 mb-2" role="group" aria-label="Importar/Exportar">
+                        <a href="{% url 'productos:producto_importar' %}" class="btn btn-outline-info">
+                            <i class="fas fa-file-import me-2"></i> Importar
+                        </a>
+                        <div class="btn-group" role="group">
+                            <button id="btnGroupDropExportForm" type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-file-export me-2"></i> Exportar
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="btnGroupDropExportForm">
+                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xlsx' %}">Excel (.xlsx)</a></li>
+                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='csv' %}">CSV (.csv)</a></li>
+                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xls' %}">Excel 97-2003 (.xls)</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 mb-3 border-bottom pb-2"><i class="fas fa-tag me-2 text-info"></i>Información Base del Artículo</legend>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    {{ form.referencia|as_crispy_field }}
+                                </div>
+                                <div class="col-md-8">
+                                    {{ form.nombre|as_crispy_field }}
+                                </div>
+                                <div class="col-12">
+                                    {{ form.descripcion|as_crispy_field }}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 mb-3 border-bottom pb-2"><i class="fas fa-palette me-2 text-info"></i></i>Variante Específica (Talla y Color)</legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.talla|as_crispy_field }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.color|as_crispy_field }}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 mb-3 border-bottom pb-2"><i class="fas fa-venus-mars me-2 text-info"></i>Categorización</legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.genero|as_crispy_field }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.unidad_medida|as_crispy_field }}
+                                </div>
+                            </div>
+                        </fieldset>
+                        
+                        <fieldset class="mb-4">
+                            <legend class="h5 mb-3 border-bottom pb-2"><i class="fas fa-dollar-sign me-2 text-info"></i>Precios y Costos</legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.costo|as_crispy_field }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.precio_venta|as_crispy_field }}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 mb-3 border-bottom pb-2"><i class="fas fa-barcode me-2 text-info"></i>Identificación y Estado</legend>
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    {{ form.codigo_barras|as_crispy_field }}
+                                </div>
+                                <div class="col-md-4 d-flex align-items-center pt-3">
+                                    {{ form.activo|as_crispy_field }}
+                                </div>
+                                <div class="col-12">
+                                    {{ form.ubicacion|as_crispy_field }}
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <hr class="my-4">
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary"> {# Ajusta 'productos:producto_listado' #}
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save me-2"></i>
+                                {% if form.instance.pk %}
+                                    Actualizar Producto
+                                {% else %}
+                                    Guardar Producto
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+{# Aquí podrías añadir JavaScript específico para esta página si lo necesitas #}
+<script>
+    // Ejemplo: Podrías añadir validaciones del lado del cliente o interacciones dinámicas
+    // document.addEventListener('DOMContentLoaded', function() {
+    //     console.log("Formulario de producto cargado.");
+    // });
+</script>
+{% endblock extra_js %}

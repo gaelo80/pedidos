@@ -1,0 +1,448 @@
+# factura/views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views.generic import ListView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin 
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.urls import reverse_lazy, reverse
+from django.utils import timezone
+from django.db.models import Q, Exists, OuterRef, Prefetch
+from django.views import View
+from django.db import transaction
+from decimal import Decimal
+from collections import defaultdict
+from bodega.models import ComprobanteDespacho
+from clientes.models import Cliente
+from pedidos.models import Pedido
+from .models import EstadoFacturaDespacho
+from .forms import InformeDespachosPorClienteForm, InformeDespachosPorEstadoForm, InformeDespachosPorPedidoForm, InformeFacturadosFechaForm, MarcarFacturadoForm
+
+
+
+
+class ListaDespachosAFacturarView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+
+    model = ComprobanteDespacho
+    template_name = 'factura/lista_despachos_a_facturar.html' 
+    context_object_name = 'despachos_por_facturar' 
+    paginate_by = 25
+    
+    permission_required = 'factura.view_despachos_a_facturar' 
+    login_url = reverse_lazy('core:acceso_denegado') 
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver los despachos por facturar.")
+        return redirect(self.login_url) # O reverse_lazy('core:index')
+
+    def get_queryset(self):
+
+        despachos_ya_facturados_ids = EstadoFacturaDespacho.objects.filter(
+            estado=EstadoFacturaDespacho.ESTADO_CHOICES[1][0] # 'FACTURADO'
+        ).values_list('despacho_id', flat=True)
+
+        queryset = ComprobanteDespacho.objects.select_related(
+            'pedido', 
+            'pedido__cliente', 
+            'usuario_responsable' 
+        ).exclude(
+            pk__in=despachos_ya_facturados_ids
+        ).order_by('fecha_hora_despacho')
+
+        pedido_id_query = self.request.GET.get('pedido_id')
+        if pedido_id_query:
+            try:
+                queryset = queryset.filter(pedido_id=int(pedido_id_query))
+            except ValueError:
+
+                pass
+        
+        return queryset
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Despachos Pendientes de Facturar"
+        context['pedido_id_query'] = self.request.GET.get('pedido_id', '')
+        
+        return context
+
+class DetalleDespachoFacturaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+
+    template_name = 'factura/detalle_despacho_factura.html'
+    form_class = MarcarFacturadoForm
+    
+    permission_required = 'factura.view_estadofacturadespacho' # Permiso para ver el detalle
+    login_url = reverse_lazy('core:acceso_denegado')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver este detalle de despacho.")
+        return redirect(self.login_url)
+
+    def get_object(self, pk_despacho):
+
+        return get_object_or_404(
+            ComprobanteDespacho.objects.select_related(
+                'pedido',
+                'pedido__cliente',
+                'pedido__vendedor',
+                'usuario_responsable'
+            ).prefetch_related(
+                'detalles__producto', # Detalles del ComprobanteDespacho y sus productos
+                'estado_facturacion_info'
+            ),
+            pk=pk_despacho
+        )
+
+    def get_estado_factura_despacho(self, comprobante_despacho):
+
+        try:
+            estado_factura, created = EstadoFacturaDespacho.objects.get_or_create(
+                despacho=comprobante_despacho,
+                defaults={
+                    'estado': 'POR_FACTURAR',
+                    'usuario_responsable': self.request.user
+                }
+            )
+            if created:
+                print(f"EstadoFacturaDespacho CREADO para Despacho ID: {comprobante_despacho.pk}")
+            return estado_factura
+        except Exception as e:
+            print(f"Error obteniendo o creando EstadoFacturaDespacho: {e}")
+            messages.error(self.request, "Error crítico al acceder al estado de facturación.")
+            return None
+
+
+    def get(self, request, pk_despacho):
+
+        comprobante_despacho = self.get_object(pk_despacho)
+        estado_factura_obj = self.get_estado_factura_despacho(comprobante_despacho)
+
+        if estado_factura_obj is None:
+            return redirect('factura:lista_despachos_a_facturar')
+
+        form = self.form_class(instance=estado_factura_obj)
+
+        # --- INICIO: Lógica para agrupar ítems del despacho ---
+        items_despachados_originales = comprobante_despacho.detalles.select_related('producto').all()
+        items_agrupados = defaultdict(lambda: {'cantidad_total': 0, 'nombre': '', 'color': '', 'referencia': ''})
+
+        for detalle_cd in items_despachados_originales:
+            producto = detalle_cd.producto
+
+            clave_grupo = (producto.referencia, producto.nombre, producto.color)
+            
+            items_agrupados[clave_grupo]['referencia'] = producto.referencia
+            items_agrupados[clave_grupo]['nombre'] = producto.nombre
+            items_agrupados[clave_grupo]['color'] = producto.color if producto.color else "-" # Manejar color nulo
+            items_agrupados[clave_grupo]['cantidad_total'] += detalle_cd.cantidad_despachada
+        
+
+        lista_items_agrupados = list(items_agrupados.values())
+
+
+        context = {
+            'titulo': f"Detalle Despacho #{comprobante_despacho.pk} para Facturación",
+            'comprobante_despacho': comprobante_despacho,
+            'estado_factura_obj': estado_factura_obj,
+            'form': form,
+            'pedido': comprobante_despacho.pedido,
+            'cliente': comprobante_despacho.pedido.cliente,
+            # 'detalles_comprobante': items_despachados_originales, # Ya no pasamos los originales directamente para la tabla principal
+            'items_despachados_agrupados': lista_items_agrupados, # Pasamos los agrupados
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk_despacho):
+
+        comprobante_despacho = self.get_object(pk_despacho)
+        estado_factura_obj = self.get_estado_factura_despacho(comprobante_despacho)
+
+        if estado_factura_obj is None:
+            return redirect('factura:lista_despachos_a_facturar')
+
+        form = self.form_class(request.POST, instance=estado_factura_obj)
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    action = request.POST.get("action")
+
+                    if action == "marcar_facturado":
+                        if estado_factura_obj.estado == 'FACTURADO':
+                            messages.warning(request, f"El Despacho #{comprobante_despacho.pk} ya está marcado como FACTURADO.")
+                        else:
+                            estado_factura_obj_actualizado_por_form = form.save(commit=False)
+                            estado_factura_obj.estado = 'FACTURADO'
+                            estado_factura_obj.fecha_hora_facturado_sistema = timezone.now()
+                            estado_factura_obj.usuario_responsable = request.user
+                            estado_factura_obj_actualizado_por_form.save()
+                            messages.success(request, f"Despacho #{comprobante_despacho.pk} marcado como FACTURADO exitosamente.")
+                            return redirect('factura:lista_despachos_a_facturar')
+                    
+                    elif action == "actualizar_info":
+                        form.save()
+                        messages.success(request, f"Información de facturación para Despacho #{comprobante_despacho.pk} actualizada.")
+                        return redirect('factura:detalle_despacho_factura', pk_despacho=pk_despacho)
+
+                    elif action == "marcar_por_facturar":
+                        if estado_factura_obj.estado == 'POR_FACTURAR':
+                            messages.info(request, f"El Despacho #{comprobante_despacho.pk} ya está como 'Por Facturar'.")
+                        else:
+                            estado_factura_obj_actualizado_por_form = form.save(commit=False)
+                            estado_factura_obj_actualizado_por_form.estado = 'POR_FACTURAR'
+                            
+                            
+                            estado_factura_obj_actualizado_por_form.usuario_responsable = request.user                            
+                            estado_factura_obj_actualizado_por_form.save()
+                            
+                            messages.info(request, f"Despacho #{comprobante_despacho.pk} regresado a estado 'Por Facturar'.")
+                        return redirect('factura:lista_despachos_a_facturar')
+                    else:
+                        if form.has_changed():
+                            form.save()
+                            messages.info(request, f"Cambios guardados para Despacho #{comprobante_despacho.pk}.")
+                        else:
+                            messages.info(request, f"No se detectaron cambios para guardar en Despacho #{comprobante_despacho.pk}.")
+                        return redirect('factura:detalle_despacho_factura', pk_despacho=pk_despacho)
+            except Exception as e:
+                messages.error(request, f"Error al procesar la facturación: {e}")
+        
+        items_despachados_originales = comprobante_despacho.detalles.select_related('producto').all()
+        items_agrupados = defaultdict(lambda: {'cantidad_total': 0, 'nombre': '', 'color': '', 'referencia': ''})
+        for detalle_cd in items_despachados_originales:
+            producto = detalle_cd.producto
+            clave_grupo = (producto.referencia, producto.nombre, producto.color)
+            items_agrupados[clave_grupo]['referencia'] = producto.referencia
+            items_agrupados[clave_grupo]['nombre'] = producto.nombre
+            items_agrupados[clave_grupo]['color'] = producto.color if producto.color else "-"
+            items_agrupados[clave_grupo]['cantidad_total'] += detalle_cd.cantidad_despachada
+        lista_items_agrupados = list(items_agrupados.values())
+
+
+        context = {
+            'titulo': f"Detalle Despacho #{comprobante_despacho.pk} para Facturación",
+            'comprobante_despacho': comprobante_despacho,
+            'estado_factura_obj': estado_factura_obj,
+            'form': form, 
+            'pedido': comprobante_despacho.pedido,
+            'cliente': comprobante_despacho.pedido.cliente,
+            'items_despachados_agrupados': lista_items_agrupados, # Usar los agrupados también aquí
+        }
+        return render(request, self.template_name, context)
+
+
+class InformeFacturadosPorFechaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    template_name = 'factura/informe_facturados_fecha.html'
+    form_class = InformeFacturadosFechaForm
+    permission_required = 'factura.view_informe_facturados_fecha'
+    login_url = reverse_lazy('core:acceso_denegado')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver el informe de facturados por fecha.")
+        return redirect(self.login_url)
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class(request.GET or None) 
+        resultados = None
+        total_general_facturado = Decimal('0.00') 
+
+
+        if form.is_valid():
+            fecha_inicio = form.cleaned_data['fecha_inicio']
+            fecha_fin = form.cleaned_data['fecha_fin']
+
+            fecha_fin_ajustada = timezone.make_aware(
+                timezone.datetime.combine(fecha_fin, timezone.datetime.max.time()),
+                timezone.get_current_timezone()
+            )
+            fecha_inicio_ajustada = timezone.make_aware(
+                timezone.datetime.combine(fecha_inicio, timezone.datetime.min.time()),
+                timezone.get_current_timezone()
+            )
+
+            resultados = EstadoFacturaDespacho.objects.filter(
+                estado='FACTURADO',
+                fecha_hora_facturado_sistema__gte=fecha_inicio_ajustada,
+                fecha_hora_facturado_sistema__lte=fecha_fin_ajustada
+            ).select_related(
+                'despacho', 
+                'despacho__pedido', 
+                'despacho__pedido__cliente', 
+                'usuario_responsable' 
+            ).order_by('fecha_hora_facturado_sistema', 'despacho__pk')
+
+        context = {
+            'titulo': "Informe de Despachos Facturados por Fecha",
+            'form': form,
+            'resultados': resultados,
+            'total_general_facturado': total_general_facturado, 
+            'fecha_inicio_filtro': request.GET.get('fecha_inicio', ''), 
+            'fecha_fin_filtro': request.GET.get('fecha_fin', ''),  
+        }
+        return render(request, self.template_name, context)
+    
+    
+class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+
+    template_name = 'factura/informe_despachos_cliente.html'
+    form_class = InformeDespachosPorClienteForm
+    
+    permission_required = 'factura.view_informe_despachos_cliente'
+    login_url = reverse_lazy('core:acceso_denegado')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver el informe de despachos por cliente.")
+        return redirect(self.login_url)
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class(request.GET or None)
+        clientes_encontrados = None 
+        cliente_seleccionado = None
+        despachos_cliente = None
+
+        if form.is_valid():
+            termino_busqueda = form.cleaned_data['termino_busqueda_cliente']
+
+            # Buscar clientes que coincidan con el término de búsqueda
+            query_cliente = Q(nombre_completo__icontains=termino_busqueda) | \
+                            Q(identificacion__icontains=termino_busqueda)
+            
+            clientes_qs = Cliente.objects.filter(query_cliente)
+
+            if clientes_qs.count() == 1:
+                cliente_seleccionado = clientes_qs.first()
+                # Obtener todos los ComprobanteDespacho para este cliente
+                # y pre-cargar la información de EstadoFacturaDespacho
+                despachos_cliente = ComprobanteDespacho.objects.filter(
+                    pedido__cliente=cliente_seleccionado
+                ).select_related(
+                    'pedido',
+                    'pedido__cliente', # Ya lo tenemos, pero por consistencia
+                    'usuario_responsable' # Usuario de bodega
+                ).prefetch_related(
+                    Prefetch(
+                        'estado_facturacion_info', # El related_name de OneToOneField en EstadoFacturaDespacho
+                        queryset=EstadoFacturaDespacho.objects.all(),
+                        to_attr='estado_factura_cached' # Nombre del atributo para acceder al objeto cacheado
+                    ),
+                    'detalles__producto' # Para contar ítems o mostrar info si es necesario
+                ).order_by('-fecha_hora_despacho')
+
+            elif clientes_qs.count() > 1:
+                clientes_encontrados = clientes_qs
+                messages.info(request, f"Se encontraron {clientes_qs.count()} clientes. Por favor, seleccione uno de la lista o refine su búsqueda.")
+            else:
+                messages.warning(request, f"No se encontraron clientes que coincidan con '{termino_busqueda}'.")
+
+        context = {
+            'titulo': "Informe de Despachos por Cliente",
+            'form': form,
+            'clientes_encontrados': clientes_encontrados,
+            'cliente_seleccionado': cliente_seleccionado,
+            'despachos_cliente': despachos_cliente,
+            'termino_busqueda_cliente_filtro': request.GET.get('termino_busqueda_cliente', ''),
+        }
+        return render(request, self.template_name, context)
+
+
+class InformeDespachosPorEstadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    template_name = 'factura/informe_despachos_estado.html'
+    form_class = InformeDespachosPorEstadoForm
+    
+    permission_required = 'factura.view_informe_despachos_estado'
+    login_url = reverse_lazy('core:acceso_denegado')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver el informe de despachos por estado.")
+        return redirect(self.login_url)
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class(request.GET or None)
+        resultados = None
+        estado_seleccionado_display = None
+
+        if form.is_valid():
+            estado_query = form.cleaned_data['estado']
+            
+            # Obtener el nombre legible del estado para mostrarlo en el título
+            for valor, nombre in EstadoFacturaDespacho.ESTADO_CHOICES:
+                if valor == estado_query:
+                    estado_seleccionado_display = nombre
+                    break
+
+            # Filtrar los EstadoFacturaDespacho por el estado seleccionado
+            resultados = EstadoFacturaDespacho.objects.filter(
+                estado=estado_query
+            ).select_related(
+                'despacho',
+                'despacho__pedido',
+                'despacho__pedido__cliente',
+                'usuario_responsable'
+            ).order_by('-despacho__fecha_hora_despacho') # Más recientes primero
+
+        context = {
+            'titulo': "Informe de Despachos por Estado de Facturación",
+            'form': form,
+            'resultados': resultados,
+            'estado_seleccionado_display': estado_seleccionado_display,
+            'estado_query_filtro': request.GET.get('estado', ''), # Para mantener en el form
+        }
+        return render(request, self.template_name, context)
+    
+class InformeDespachosPorPedidoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """
+    Muestra un informe de todos los Comprobantes de Despacho asociados a un
+    ID de Pedido específico, junto con su estado de facturación.
+    """
+    template_name = 'factura/informe_despachos_pedido.html'
+    form_class = InformeDespachosPorPedidoForm
+    
+    permission_required = 'factura.view_informe_despachos_pedido'
+    login_url = reverse_lazy('core:acceso_denegado')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para ver el informe de despachos por pedido.")
+        return redirect(self.login_url)
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class(request.GET or None)
+        pedido_obj = None
+        despachos_del_pedido = None
+
+        if form.is_valid():
+            pedido_id_query = form.cleaned_data['pedido_id']
+            try:
+                pedido_obj = Pedido.objects.select_related('cliente').get(pk=pedido_id_query)
+                
+                # Obtener todos los ComprobanteDespacho para este pedido
+                # y pre-cargar la información de EstadoFacturaDespacho
+                despachos_del_pedido = ComprobanteDespacho.objects.filter(
+                    pedido=pedido_obj
+                ).select_related(
+                    'usuario_responsable' # Usuario de bodega
+                ).prefetch_related(
+                    Prefetch(
+                        'estado_facturacion_info',
+                        queryset=EstadoFacturaDespacho.objects.all(),
+                        to_attr='estado_factura_cached'
+                    ),
+                    'detalles__producto' # Para contar ítems o mostrar info si es necesario
+                ).order_by('fecha_hora_despacho') # Más antiguos primero
+
+                if not despachos_del_pedido.exists():
+                    messages.info(request, f"El Pedido #{pedido_id_query} existe pero no tiene comprobantes de despacho registrados.")
+
+            except Pedido.DoesNotExist:
+                messages.error(request, f"El Pedido con ID #{pedido_id_query} no fue encontrado.")
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error al buscar el pedido: {e}")
+
+
+        context = {
+            'titulo': "Informe de Despachos por Pedido",
+            'form': form,
+            'pedido_obj': pedido_obj,
+            'despachos_del_pedido': despachos_del_pedido,
+            'pedido_id_query_filtro': request.GET.get('pedido_id', ''), 
+        }
+        return render(request, self.template_name, context)

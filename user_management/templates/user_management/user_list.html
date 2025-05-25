@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %} {# O la ruta a tu base.html #}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Princial</a>
+    </div>
+ 
+    {# Aquí podrías poner un botón para "Crear Nuevo Usuario" que llevaremos a su propia URL más adelante #}
+    <a href="{% url 'user_management:user_create' %}" class="btn btn-primary mb-3">
+        <i class="fas fa-plus-circle me-1"></i> Crear Nuevo Usuario
+    </a>
+
+    {% if users %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Email</th>
+                            <th>Activo</th>
+                            <th>Staff</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user_obj in users %}
+                        <tr>
+                            <td>{{ user_obj.pk }}</td>
+                            <td>{{ user_obj.username }}</td>
+                            <td>{{ user_obj.first_name|default:"-" }}</td>
+                            <td>{{ user_obj.last_name|default:"-" }}</td>
+                            <td>{{ user_obj.email|default:"-" }}</td>
+                            <td>
+                                {% if user_obj.is_active %}
+                                    <i class="fas fa-check-circle text-success" title="Sí"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger" title="No"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user_obj.is_staff %}
+                                    <i class="fas fa-check-circle text-success" title="Sí"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger" title="No"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'user_management:user_update' user_obj.pk %}" class="btn btn-outline-info btn-sm my-1" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+
+                                <a href="{% url 'user_management:user_set_password' user_obj.pk %}" class="btn btn-outline-warning btn-sm my-1" title="Cambiar Contraseña">
+                                    <i class="fas fa-key"></i>
+                                </a>
+
+                                <a href="{% url 'user_management:user_delete' user_obj.pk %}" class="btn btn-outline-danger btn-sm my-1" title="Eliminar">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {# Aquí podrías añadir paginación si la habilitaste en la vista #}
+    {% else %}
+    <div class="alert alert-info text-center mt-4">
+        No hay usuarios registrados.
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}

@@ -1,0 +1,128 @@
+{% extends 'core/base.html' %} 
+{% load static %} 
+{% load humanize %} 
+
+{% block page_title %}{{ titulo|default:"Listado de Salidas Internas" }}{% endblock page_title %}
+
+{% block content %} 
+<div class="container mt-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Princial</a>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <a href="{% url 'bodega:registrar_salida_interna' %}" class="btn btn-primary">
+            <i class="fas fa-plus-circle me-1"></i> Registrar Nueva Salida
+        </a>
+    </div>
+
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <form method="get" class="card card-body mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="fecha_inicio" class="form-label form-label-sm">Fecha Desde:</label>
+                <input type="date" class="form-control form-control-sm" name="fecha_inicio" value="{{ request_get.fecha_inicio|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha_fin" class="form-label form-label-sm">Fecha Hasta:</label>
+                <input type="date" class="form-control form-control-sm" name="fecha_fin" value="{{ request_get.fecha_fin|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="tipo_salida_filtro" class="form-label form-label-sm">Tipo Salida:</label>
+                <select name="tipo_salida_filtro" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for val, txt in TIPO_SALIDA_CHOICES %}
+                        <option value="{{ val }}" {% if request_get.tipo_salida_filtro == val %}selected{% endif %}>{{ txt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="estado_filtro" class="form-label form-label-sm">Estado:</label>
+                <select name="estado_filtro" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for val, txt in ESTADO_SALIDA_CHOICES %}
+                        <option value="{{ val }}" {% if request_get.estado_filtro == val %}selected{% endif %}>{{ txt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-info btn-sm w-100">Filtrar</button>
+            </div>
+        </div>
+    </form>
+    
+
+    {% if salidas_list %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha Salida</th>
+                            <th>Tipo</th>
+                            <th>Destino / Entregado A</th>
+                            <th>Responsable Bodega</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for salida in salidas_list %}
+                        <tr>
+                            <td>{{ salida.pk }}</td>
+                            <td>{{ salida.fecha_hora_salida|date:"d/m/Y H:i" }}</td>
+                            <td>{{ salida.get_tipo_salida_display }}</td>
+                            <td>{{ salida.destino_descripcion|truncatechars:40 }}</td>
+                            <td>{{ salida.responsable_entrega.get_full_name|default:salida.responsable_entrega.username|default:"N/A" }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if salida.estado == 'DESPACHADA' %}bg-warning text-dark{% elif salida.estado == 'DEVUELTA_PARCIAL' %}bg-info text-dark{% elif salida.estado == 'DEVUELTA_TOTALMENTE' %}bg-success{% elif salida.estado == 'CERRADA' %}bg-secondary{% else %}bg-light text-dark{% endif %}">
+                                    {{ salida.get_estado_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'bodega:detalle_salida_interna' salida.pk %}" class="btn btn-outline-primary btn-sm my-1" title="Ver Detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'bodega:generar_pdf_salida_interna' salida.pk %}" class="btn btn-outline-danger btn-sm my-1" title="PDF Salida" target="_blank">
+                                    <i class="fas fa-file-pdf"></i> <small>Salida</small>
+                                </a>
+                                {% if salida.estado == 'DESPACHADA' or salida.estado == 'DEVUELTA_PARCIAL' %}
+                                <a href="{% url 'bodega:registrar_devolucion_salida_interna' salida.pk %}" class="btn btn-outline-warning btn-sm my-1" title="Registrar Devolución">
+                                    <i class="fas fa-undo-alt"></i> <small>Devolver</small>
+                                </a>
+                                {% endif %}
+                                {% if salida.estado == 'DEVUELTA_PARCIAL' or salida.estado == 'DEVUELTA_TOTALMENTE' %}
+                                <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida.pk %}" class="btn btn-outline-success btn-sm my-1" title="PDF Devolución" target="_blank">
+                                    <i class="fas fa-file-invoice"></i> <small>Devolución</small>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center mt-4">
+            <i class="fas fa-info-circle me-2"></i>No hay salidas internas registradas que coincidan con los filtros.
+        </div>
+    {% endif %}
+
+    {# Aquí podrías añadir paginación si la implementas en la vista #}
+
+</div>
+{% endblock content %}

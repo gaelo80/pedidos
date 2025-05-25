@@ -1,82 +1,24 @@
-# Archivos compilados/optimizados de Python
+# Entornos virtuales
+venv/
+env/
+*.env  # ¡Muy importante si usas un archivo .env para secretos locales!
+.env
+
+# Archivos compilados de Python
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Extensiones C
-*.so
-
-# Distribución / Empaquetado
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Logs de Instaladores
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Reportes de Tests / Cobertura
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Traducciones
-*.mo
-*.pot
-
-# Cosas de Django:
-*.log
-local_settings.py
+# Base de datos SQLite local (no la subirás a producción)
+*.sqlite3
 db.sqlite3
-db.sqlite3-journal
 
-# Carpetas de archivos estáticos y media (IMPORTANTE)
+# Archivos de staticfiles y media (estos se generan/suben al servidor de otra forma)
 staticfiles/
-media/
+# media/  # Decide si quieres versionar tus archivos media o no.
+          # Si son subidas de usuarios y muchos, usualmente no se versionan.
 
-# Entornos Virtuales (IMPORTANTE)
-venv/
-env/
-ENV/
-virtualenv/
-.venv/
-.env/ # También común para variables de entorno
-
-# Configuraciones de Editores/IDEs (Opcional)
-.idea/
+# Archivos IDE / OS
 .vscode/
-*.sublime-project
-*.sublime-workspace
-
-# Archivos de Sistema Operativo
-.DS_Store
-Thumbs.db
-
-# Otros
-*.swp
-*~
+.idea/
+*.DS_Store

@@ -1,0 +1,6 @@
+body {
+    background-color: #494545; /* Ejemplo: un gris claro */
+    /* O puedes usar otros tipos de fondo: */
+    /* background-image: url('{% static "core/img/tu_imagen_de_fondo.jpg" %}'); */
+    /* background-size: cover; */
+}

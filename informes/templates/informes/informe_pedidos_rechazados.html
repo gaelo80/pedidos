@@ -1,0 +1,77 @@
+{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Princial</a>
+    </div>
+
+    <form method="get" class="card card-body mb-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="fecha_inicio" class="form-label">Fecha Decisión Desde:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}">
+            </div>
+            <div class="col-md-4">
+                <label for="fecha_fin" class="form-label">Fecha Decisión Hasta:</label>
+                <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
+            </div>
+            <div class="col-md-4 align-self-end">
+                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+                <a href="{% url 'informes:informe_pedidos_rechazados' %}" class="btn btn-secondary btn-sm">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    {% if pedidos_list %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Pedido</th>
+                        <th>Cliente</th>
+                        <th>Vendedor</th>
+                        <th>Fecha Creación</th>
+                        <th>Etapa Rechazo</th>
+                        <th>Fecha Decisión</th>
+                        <th>Usuario Decisión</th>
+                        <th>Motivo Rechazo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pedido in pedidos_list %}
+                    <tr>
+                        <td>{{ pedido.pk }}</td>
+                        <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                        <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
+                        <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
+                        {% if pedido.estado == 'RECHAZADO_CARTERA' %}
+                            <td>Cartera</td>
+                            <td>{{ pedido.fecha_decision_cartera|date:"d/m/Y H:i"|default:"N/A" }}</td>
+                            <td>{{ pedido.usuario_decision_cartera.username|default:"N/A" }}</td>
+                            <td style="white-space: pre-wrap;">{{ pedido.motivo_cartera|default:"Sin motivo" }}</td>
+                        {% elif pedido.estado == 'RECHAZADO_ADMIN' %}
+                            <td>Administración</td>
+                            <td>{{ pedido.fecha_decision_admin|date:"d/m/Y H:i"|default:"N/A" }}</td>
+                            <td>{{ pedido.usuario_decision_admin.username|default:"N/A" }}</td>
+                            <td style="white-space: pre-wrap;">{{ pedido.motivo_admin|default:"Sin motivo" }}</td>
+                        {% else %}
+                            <td colspan="4" class="text-muted">Dato no disponible</td>
+                        {% endif %}
+                        <td>
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-info btn-sm" target="_blank">Ver Pedido</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No hay pedidos rechazados que coincidan con los filtros seleccionados.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

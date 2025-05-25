@@ -1,0 +1,276 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}
+    {{ titulo|default:"Registrar Devolución" }}
+{% endblock page_title %}
+
+{% comment %}
+    Bloque para estilos CSS personalizados.
+    Puedes definir aquí reglas para afinar detalles que Bootstrap no cubra
+    o para personalizar la apariencia de los componentes Select2.
+{% endcomment %}
+{% block extra_head %}
+<style>
+    /* Estilo para cada fila del formset, puedes ajustar el padding o borde */
+    .detalle-devolucion-item {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        /* border-bottom: 1px dashed #e0e0e0; */ /* Un borde más sutil si lo prefieres al actual */
+    }
+
+    /* Asegurar que los labels y los inputs tengan un buen respiro */
+    .form-label {
+        margin-bottom: 0.5rem;
+        font-weight: 500; /* Un poco más de peso a las etiquetas */
+    }
+
+    /* Si los Select2 se cortan dentro de los cards, a veces esto ayuda: */
+    /*
+    .card-body .select2-container {
+        width: 100% !important;
+    }
+    .select2-dropdown {
+        z-index: 1056; // Asegura que el dropdown del Select2 esté por encima de otros elementos Bootstrap
+    }
+    */
+</style>
+{% endblock extra_head %}
+
+{% block content %}
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-8">
+            <h1 class="mb-0">{{ titulo|default:"Registrar Devolución" }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+
+    <form method="post" novalidate id="devolucion-form">
+        {% csrf_token %}
+
+        {# --- Sección Cabecera Devolución (Formulario Principal) --- #}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light border-bottom">
+                <h5 class="mb-0 fw-bold" style="color:black">Información de la Devolución</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger p-2" role="alert">{{ form.non_field_errors|join:", " }}</div>
+                {% endif %}
+                <div class="row g-3"> {# g-3 añade gutters (espaciado) entre columnas #}
+                    <div class="col-md-6">
+                        <label for="{{ form.cliente.id_for_label }}" class="form-label">{{ form.cliente.label }}{% if form.cliente.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                        {{ form.cliente }} {# ID generado por Django, ej: id_cliente #}
+                        {% if form.cliente.errors %}<div class="invalid-feedback d-block">{{ form.cliente.errors|join:", " }}</div>{% endif %}
+                        {% if form.cliente.help_text %}<div class="form-text mt-1">{{ form.cliente.help_text }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <label for="{{ form.motivo.id_for_label }}" class="form-label">{{ form.motivo.label }}{% if form.motivo.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                        {{ form.motivo }}
+                        {% if form.motivo.errors %}<div class="invalid-feedback d-block">{{ form.motivo.errors|join:", " }}</div>{% endif %}
+                        {% if form.motivo.help_text %}<div class="form-text mt-1">{{ form.motivo.help_text }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Sección Detalles Devolución (FormSet) --- #}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light border-bottom">
+                <h5 class="mb-0 fw-bold" style="color:black">Productos Devueltos</h5>
+            </div>
+            <div class="card-body p-4" data-formset-prefix="{{ formset.prefix }}">
+                {{ formset.management_form }}
+                {% if formset.non_form_errors %}
+                    <div class="alert alert-danger p-2" role="alert">{{ formset.non_form_errors|join:", " }}</div>
+                {% endif %}
+
+                <div id="detalle-devolucion-list" data-formset-body>
+                    {% for detalle_form in formset %}
+                        <div class="dynamic-form-row detalle-devolucion-item {% if not forloop.last %}border-bottom{% endif %} pb-3 mb-3" id="{{ detalle_form.prefix }}-row" data-formset-form>
+                            {{ detalle_form.id }}
+                            <div class="row g-3 align-items-start"> {# align-items-start para que las etiquetas se mantengan arriba consistentemente #}
+                                <div class="col-md-5">
+                                    <label for="{{ detalle_form.producto.id_for_label }}" class="form-label">{{ detalle_form.producto.label }}{% if detalle_form.producto.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                    {{ detalle_form.producto }}
+                                    {% if detalle_form.producto.errors %}<div class="invalid-feedback d-block">{{ detalle_form.producto.errors|join:", " }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-2 col-sm-4 col-6">
+                                    <label for="{{ detalle_form.cantidad.id_for_label }}" class="form-label">{{ detalle_form.cantidad.label }}{% if detalle_form.cantidad.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                    {{ detalle_form.cantidad }}
+                                    {% if detalle_form.cantidad.errors %}<div class="invalid-feedback d-block">{{ detalle_form.cantidad.errors|join:", " }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-3 col-sm-5 col-6">
+                                    <label for="{{ detalle_form.estado_producto.id_for_label }}" class="form-label">{{ detalle_form.estado_producto.label }}{% if detalle_form.estado_producto.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                    {{ detalle_form.estado_producto }}
+                                    {% if detalle_form.estado_producto.errors %}<div class="invalid-feedback d-block">{{ detalle_form.estado_producto.errors|join:", " }}</div>{% endif %}
+                                </div>
+                                {% if formset.can_delete %}
+                                <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end pb-1">
+                                    {# Usamos align-items-end en la columna y pb-1 para alinear el botón con la base de los inputs si las etiquetas están arriba #}
+                                    <div style="display:none;">{{ detalle_form.DELETE }}</div>
+                                    <button type="button" class="btn btn-outline-danger btn-sm mt-md-0 mt-2" title="Eliminar este producto" data-formset-delete-button>
+                                        <i class="fas fa-trash"></i> <span class="d-sm-none ms-1">Quitar</span>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {# Plantilla para nuevas filas del formset #}
+                <script type="form-template" data-formset-empty-form>
+                    <div class="dynamic-form-row detalle-devolucion-item {% if not forloop.last %}border-bottom{% endif %} pb-3 mb-3" id="{{ formset.empty_form.prefix }}-row" data-formset-form>
+                        {{ formset.empty_form.id }}
+                        <div class="row g-3 align-items-start">
+                            <div class="col-md-5">
+                                <label for="{{ formset.empty_form.producto.id_for_label }}" class="form-label">{{ formset.empty_form.producto.label }}{% if formset.empty_form.producto.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                {{ formset.empty_form.producto }}
+                            </div>
+                            <div class="col-md-2 col-sm-4 col-6">
+                                <label for="{{ formset.empty_form.cantidad.id_for_label }}" class="form-label">{{ formset.empty_form.cantidad.label }}{% if formset.empty_form.cantidad.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                {{ formset.empty_form.cantidad }}
+                            </div>
+                            <div class="col-md-3 col-sm-5 col-6">
+                                <label for="{{ formset.empty_form.estado_producto.id_for_label }}" class="form-label">{{ formset.empty_form.estado_producto.label }}{% if formset.empty_form.estado_producto.field.required %}<span class="text-danger">*</span>{% endif %}</label>
+                                {{ formset.empty_form.estado_producto }}
+                            </div>
+                            {% if formset.can_delete %}
+                            <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end pb-1">
+                                <div style="display:none;">
+                                    {# Django-formset.js se encarga de esto, pero es bueno tenerlo explícito si se necesita #}
+                                    {# <input type="checkbox" name="{{ formset.empty_form.DELETE.html_name }}" id="{{ formset.empty_form.DELETE.id_for_label }}"> #}
+                                    {{ formset.empty_form.DELETE }}
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm mt-md-0 mt-2" title="Eliminar este producto" data-formset-delete-button>
+                                    <i class="fas fa-trash"></i> <span class="d-sm-none ms-1">Quitar</span>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </script>
+
+                <button type="button" id="add-item-button" class="btn btn-success mt-3" data-formset-add>
+                    <i class="fas fa-plus me-1"></i> Añadir Producto
+                </button>
+            </div>{# Fin card-body del formset #}
+
+            <div class="card-footer text-center bg-light border-top py-3">
+                <button type="submit" class="btn btn-primary btn-lg px-5">
+                    <i class="fas fa-save me-2"></i>Registrar Devolución
+                </button>
+            </div>
+        </div>{# Fin card del formset #}
+    </form>
+
+{% endblock content %}
+
+{% block extra_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+    <script src="{% static 'core/js/django-formset.js' %}"></script>
+
+    <script>
+    $(document).ready(function() {
+        // --- Inicialización de Select2 para el Cliente ---
+        // Usamos el ID que Django genera para el campo 'cliente' del formulario principal.
+        // Si el campo en tu DevolucionClienteForm se llama 'cliente', su ID será 'id_cliente'.
+        const clienteDevolucionSelect = $('#{{ form.cliente.id_for_label }}');
+        if (clienteDevolucionSelect.length && typeof clienteDevolucionSelect.select2 === 'function') {
+            clienteDevolucionSelect.select2({
+                placeholder: "-- Selecciona Cliente --",
+                language: "es",
+                theme: "bootstrap-5", // Asegúrate de tener el CSS de este tema si lo usas
+                allowClear: true,
+                // dropdownParent: clienteDevolucionSelect.closest('.card-body') // Descomentar si Select2 se corta
+            });
+            console.log("Select2 inicializado para cliente: #{{ form.cliente.id_for_label }}");
+        } else {
+            console.warn("Select2 para cliente ('#{{ form.cliente.id_for_label }}') no encontrado o librería Select2 no cargada.");
+        }
+
+        // --- Función para inicializar Select2 en Productos del Formset ---
+        function initializeProductSelect2(selector) {
+            const $selector = $(selector);
+            if (!$selector.length || typeof $selector.select2 !== 'function') {
+                console.warn("Selector de producto no válido o Select2 no cargado para:", selector);
+                return;
+            }
+            $selector.select2({
+                placeholder: "-- Busca Producto --",
+                language: "es",
+                theme: "bootstrap-5",
+                allowClear: true,
+                minimumInputLength: 2, // Caracteres mínimos para iniciar búsqueda AJAX
+                ajax: {
+                    url: "/api/v1/productos/buscar/", // Asegúrate que esta URL API funcione correctamente
+                    dataType: 'json',
+                    delay: 250, // Retraso en ms antes de enviar la petición AJAX
+                    data: function (params) {
+                        return { term: params.term }; // Término de búsqueda
+                    },
+                    processResults: function (data) {
+                        return { results: data.results }; // Formato esperado por Select2
+                    },
+                    cache: true
+                }
+                // dropdownParent: $selector.closest('.detalle-devolucion-item') // Descomentar si Select2 se corta
+            });
+            console.log("Select2-AJAX inicializado para:", $selector.attr('id') || 'un selector de producto');
+        }
+
+        // --- Inicializar Select2 en filas existentes del formset ---
+        $('#detalle-devolucion-list [data-formset-form]').each(function() {
+            const productSelect = $(this).find('select[name$="-producto"]');
+            if (productSelect.length) {
+                initializeProductSelect2(productSelect);
+            }
+        });
+
+        // --- Inicialización del Plugin django-formset.js ---
+        var $formsetContainer = $('[data-formset-prefix="{{ formset.prefix }}"]');
+        if ($formsetContainer.length) {
+            console.log("Inicializando django-formset.js para el prefijo: {{ formset.prefix }}");
+            $formsetContainer.formset({
+                // Opciones de django-formset.js si las necesitas
+                // addText: 'Añadir otro producto',
+                // deleteText: 'Quitar',
+            });
+
+            // Evento cuando se añade una nueva fila
+            $formsetContainer.on('formAdded', '[data-formset-form]', function() {
+                var $newForm = $(this);
+                // Comprobamos si la fila fue realmente creada en tiempo de ejecución por el plugin
+                // para evitar reinicializar las que ya existen al cargar la página.
+                if ($newForm.attr("data-formset-created-at-runtime") === "true") {
+                    console.log('Nueva fila de formset añadida por el plugin:', $newForm.attr('id'));
+                    const newProductSelect = $newForm.find('select[name$="-producto"]');
+                    if (newProductSelect.length) {
+                        initializeProductSelect2(newProductSelect);
+                    } else {
+                        console.warn("Select de producto no encontrado en la nueva fila añadida.");
+                    }
+                    // Puedes añadir aquí cualquier otra inicialización que necesiten los campos de la nueva fila
+                }
+            });
+
+            // Evento cuando se elimina una fila
+            $formsetContainer.on('formDeleted', '[data-formset-form]', function() {
+                console.log('Fila de formset eliminada:', $(this).attr('id'));
+                // Aquí podrías recalcular totales o hacer otras acciones si es necesario
+            });
+            console.log("Plugin django-formset.js eventos adjuntados correctamente.");
+        } else {
+            console.error("Contenedor del formset con prefijo '[data-formset-prefix=\"{{ formset.prefix }}\"]' no encontrado.");
+        }
+        console.log("Fin de la inicialización de scripts de la página.");
+    });
+    </script>
+{% endblock extra_scripts %}

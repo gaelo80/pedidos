@@ -1,0 +1,156 @@
+  {% extends 'core/base.html' %}
+  {% load static %}
+  {% load humanize %}
+
+  {% block page_title %}{{ titulo }}{% endblock page_title %}
+
+  {% block extra_head %}
+  <style>
+      .catalogo-grid-detalle { /* Diferente de la lista de referencias */
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); /* Tarjetas un poco más pequeñas para variantes */
+          gap: 1.5rem;
+      }
+      .variant-card { /* Similar a reference-card pero para variantes */
+          border: 1px solid #e0e0e0;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          transition: box-shadow 0.3s ease-in-out;
+          display: flex;
+          flex-direction: column;
+          background-color: #fff;
+      }
+      .variant-card:hover {
+          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      }
+      .variant-image-container {
+          position: relative;
+          width: 100%;
+          padding-top: 100%; /* Aspect ratio 1:1 */
+          background-color: #f8f9fa;
+      }
+      .variant-image-container img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+      }
+      .out-of-stock-overlay { /* Mismo estilo para "Agotado" */
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(200, 200, 200, 0.6); /* Más sutil quizá */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+          backdrop-filter: blur(2px);
+      }
+      .out-of-stock-text {
+          color: #b00020; /* Un rojo más oscuro */
+          font-size: 1.3rem;
+          font-weight: bold;
+          text-transform: uppercase;
+          padding: 0.4rem 0.8rem;
+          border: 2px solid #b00020;
+          border-radius: 0.25rem;
+          background-color: rgba(255,255,255,0.85);
+      }
+      .variant-card-body {
+          padding: 0.8rem;
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+      }
+      .variant-card .card-title { /* Para el nombre de la variante */
+          font-size: 1rem;
+          font-weight: 600;
+          margin-bottom: 0.2rem;
+      }
+      .variant-card .text-muted {
+          font-size: 0.85rem;
+          margin-bottom: 0.3rem;
+      }
+       .variant-card .variant-details-list {
+          font-size: 0.8rem;
+          list-style: none;
+          padding-left: 0;
+          margin-bottom: 0.5rem;
+      }
+      .variant-card .variant-details-list li { margin-bottom: 0.1rem; }
+      .variant-stock-info {
+          font-size: 0.9rem;
+          font-weight: 500;
+          margin-top: auto; /* Empuja el stock hacia abajo */
+      }
+      .stock-disponible { color: #198754; }
+      .stock-agotado { color: #dc3545; }
+  </style>
+  {% endblock %}
+
+  {% block content %}
+  <div class="container-fluid mt-4 mb-5">
+      <div class="row mb-3">
+          <div class="col-md-8">
+              <h1 class="mb-0" title="{{ descripcion_general_referencia|default:''|truncatechars:150 }}">{{ titulo }}</h1>
+          </div>
+          <div class="col-md-4 text-md-end">
+              <a href="{% url 'catalogo:lista_referencias' %}" class="btn btn-outline-secondary">
+                  <i class="fas fa-arrow-left me-1"></i>Volver al Catálogo
+              </a>
+          </div>
+      </div>
+
+
+      <div class="all-photos-button-container">
+        <a href="{% url 'catalogo:ver_todas_fotos_referencia' referencia_actual %}" class="btn btn-lg btn-outline-primary">
+            <i class="fas fa-images me-2"></i>Ver Todas las Fotos de la Referencia {{ referencia_actual }}
+        </a>
+    </div>
+
+      {% if variantes_list %}
+          <div class="catalogo-grid-detalle">
+              {% for producto_variante in variantes_list %}
+                  <div class="variant-card">
+                      <div class="variant-image-container">
+                          {% with primera_foto=producto_variante.articulo_color_fotos.fotos_agrupadas.first %}
+                              {% if primera_foto and primera_foto.imagen %}
+                                  <img src="{{ primera_foto.imagen.url }}" alt="{{ producto_variante.nombre }}">
+                              {% else %}
+                                  <img src="{% static 'core/img/placeholder.png' %}" alt="Imagen no disponible">
+                              {% endif %}
+                          {% endwith %}
+
+                          {% if producto_variante.stock_actual <= 0 %}
+                              <div class="out-of-stock-overlay">
+                                  <span class="out-of-stock-text">Agotado</span>
+                              </div>
+                          {% endif %}
+                      </div>
+                      <div class="variant-card-body">
+                          <div>
+                              <h5 class="card-title">{{ producto_variante.nombre|truncatechars:40 }}</h5>
+                              <ul class="variant-details-list text-muted">
+                                  <li>Ref: {{ producto_variante.referencia }}</li>
+                                  {% if producto_variante.color %}<li>Color: {{ producto_variante.color }}</li>{% endif %}
+                                  {% if producto_variante.talla %}<li>Talla: {{ producto_variante.talla }}</li>{% endif %}
+                              </ul>
+                          </div>
+                          <p class="variant-stock-info {% if producto_variante.stock_actual <= 0 %}stock-agotado{% else %}stock-disponible{% endif %}">
+                              Stock: <strong>{{ producto_variante.stock_actual|intcomma }}</strong>
+                          </p>
+                      </div>
+                  </div>
+              {% endfor %}
+          </div>
+      {% else %}
+          <div class="alert alert-info text-center" role="alert">
+              <i class="fas fa-info-circle me-2"></i>No se encontraron variantes (tallas/colores) para la referencia "{{ referencia_actual }}".
+          </div>
+      {% endif %}
+  </div>
+  {% endblock content %}

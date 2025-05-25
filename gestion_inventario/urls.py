@@ -1,35 +1,47 @@
-# gestion_inventario/urls.py
+# gestion_inventario/urls.py 
 from django.contrib import admin
 from django.urls import path, include
-from inventario import views as inventario_views
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from django.views.generic.base import RedirectView
-from inventario.views import CustomLoginView
+from core.views import CustomLoginView 
 from django.contrib.auth.views import LogoutView
+from django.conf import settings
+from django.conf.urls.static import static
+from productos import api_views as productos_api_views
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Autenticación
     path('accounts/login/', CustomLoginView.as_view(), name='login'),
-    path('api/v1/', include('inventario.urls')),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('pedido/<int:pk>/pdf/', inventario_views.generar_pedido_pdf, name='generar_pedido_pdf'),
-    path('bodega/verificar_pedido/<int:pk>/', inventario_views.vista_verificar_pedido, name='verificar_pedido'), # Mantener una
-    path('bodega/pedidos_pendientes/', inventario_views.vista_lista_pedidos_bodega, name='lista_pedidos_bodega'),
-    path('', RedirectView.as_view(url='/accounts/login/', permanent=False), name='index'),
-    path('pedido/crear/', inventario_views.vista_crear_pedido_web, name='crear_pedido_web'),
-    path('pedido/editar/<int:pk>/', inventario_views.vista_crear_pedido_web, name='editar_pedido_web'),
-    path('pedidos/borradores/', inventario_views.vista_lista_pedidos_borrador, name='lista_pedidos_borrador'),
-    path('pedidos/borrador/eliminar/<int:pk>/', inventario_views.vista_eliminar_pedido_borrador, name='eliminar_pedido_borrador'),
-    path('devoluciones/crear/', inventario_views.vista_crear_devolucion, name='crear_devolucion'),
-    path('devoluciones/<int:devolucion_id>/imprimir/', inventario_views.imprimir_comprobante_devolucion, name='imprimir_comprobante_devolucion'),
-    path('devoluciones/<int:pk>/', inventario_views.vista_detalle_devolucion, name='detalle_devolucion'),
-    path('ingresos/registrar/', inventario_views.vista_registrar_ingreso, name='registrar_ingreso'),
-    path('accounts/', include('django.contrib.auth.urls')),
-    path('accounts/logout/', LogoutView.as_view(), name='logout'),
-    path('reportes/ventas-vendedor/', inventario_views.reporte_ventas_vendedor, name='reporte_ventas_vendedor'),
-    path('acceso-denegado/', inventario_views.acceso_denegado_view, name='acceso_denegado'),
+    path('accounts/logout/', LogoutView.as_view(next_page='login'), name='logout'), # Redirigir a login después de logout
+    path('accounts/', include('django.contrib.auth.urls')), # Para password reset, etc.
 
+    # Aplicación Core (Panel principal)
+    # 'core:index' será la URL '/' (después de login)
+    path('', include(('core.urls', 'core'), namespace='core')),
 
+    # APIs y otras aplicaciones con prefijos claros
+    path('api/v1/catalogo/', include(('productos.urls', 'productos'), namespace='productos_v1')),
+    path('api/v1/clientes/', include(('clientes.urls', 'clientes'), namespace='clientes_v1')),
+    path('api/v1/pedidos/', include(('pedidos.urls', 'pedidos'), namespace='pedidos_v1')),
+    path('api/v1/productos/buscar/', productos_api_views.buscar_productos_api, name='global_api_buscar_productos'),
+    path('api/clientes/', include(('clientes.urls', 'clientes_api_ns'), namespace='clientes')),  # Las URLs de clientes ya tienen 'api/' adentro
+
+    # Aplicaciones con interfaz de usuario
+    path('devoluciones/', include(('devoluciones.urls', 'devoluciones'), namespace='devoluciones')),
+    path('bodega/', include(('bodega.urls', 'bodega'), namespace='bodega')),
+    path('informes/', include(('informes.urls', 'informes'), namespace='informes')),
+    path('cartera/', include(('cartera.urls', 'cartera'), namespace='cartera')),
+    #path('factura/', include(('factura.urls', 'factura'), namespace='factura')),
+    path('pedidos/', include(('pedidos.urls', 'pedidos'), namespace='pedidos')),
+    path('productos/', include('productos.urls', namespace='productos')),
+    path('facturacion/', include('factura.urls', namespace='factura')),
+    path('catalogo/', include('catalogo.urls', namespace='catalogo')),
+    path('gestion-usuarios/', include('user_management.urls')),
+    
+
+   
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,72 @@
+{# productos/templates/productos/subir_fotos_agrupadas.html #}
+{% extends "core/base.html" %}
+{% load static %}
+{# {% load crispy_forms_tags %} # Si usaras Crispy Forms, sería solo {{ form|crispy }} #}
+
+{% block titulo %}{{ titulo|default:"Subir Fotos para Artículos" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ titulo|default:"Subir Fotos" }}</h1>
+        <div class="row">
+        <div class="col-md-8">
+            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {# --- ASEGÚRATE DE QUE ESTA SECCIÓN ESTÉ PRESENTE Y NO COMENTADA --- #}
+        <div class="mb-3">
+            <label for="{{ form.articulo_color.id_for_label }}" style="color:white" class="form-label">{{ form.articulo_color.label }}</label>
+            {{ form.articulo_color }} {# Esto renderizará el <select> #}
+            {% if form.articulo_color.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.articulo_color.errors %}<li>{{ error }}</li>{% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {# --- FIN DE LA SECCIÓN PARA articulo_color --- #}
+
+        <div class="mb-3">
+            <label for="id_imagenes_upload" style="color:white" class="form-label">{{ form.imagenes.label }}</label>
+            <input type="file" name="{{ form.imagenes.html_name }}" multiple required id="id_imagenes_upload" class="form-control">
+            {% if form.imagenes.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.imagenes.errors %}<li>{{ error }}</li>{% endfor %}
+                </div>
+            {% endif %}
+            <small class="form-text" style="color:white">Puedes seleccionar varios archivos.</small>
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.descripcion_general.id_for_label }}" style="color:white" class="form-label">{{ form.descripcion_general.label }}</label>
+            {{ form.descripcion_general }}
+            {% if form.descripcion_general.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.descripcion_general.errors %}<li>{{ error }}</li>{% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Subir Fotos
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+  {% extends 'core/base.html' %}
+  {% load static %}
+  {% load humanize %}
+
+  {% block page_title %}{{ titulo }}{% endblock page_title %}
+
+  {% block extra_head %}
+  <style>
+      .catalogo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Tarjetas responsivas */
+          gap: 1.5rem; /* Espacio entre tarjetas */
+      }
+      .reference-card {
+          border: 1px solid #e0e0e0;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          transition: box-shadow 0.3s ease-in-out, transform 0.2s ease-in-out;
+          text-decoration: none;
+          color: inherit;
+          display: flex;
+          flex-direction: column;
+          background-color: #fff;
+      }
+      .reference-card:hover {
+          box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+          transform: translateY(-4px);
+      }
+      .reference-image-container {
+          width: 100%;
+          padding-top: 100%; /* Para mantener el aspect ratio 1:1 */
+          position: relative;
+          background-color: #f0f0f0; /* Placeholder mientras carga imagen */
+      }
+      .reference-image-container img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover; /* o 'contain' si prefieres que se vea completa */
+      }
+      .reference-card-body {
+          padding: 1rem;
+          flex-grow: 1; /* Para que el cuerpo ocupe espacio si la descripción es corta */
+      }
+      .reference-card .card-title { /* Para la Referencia */
+          font-size: 1.25rem;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 0.25rem;
+      }
+      .reference-card .card-name { /* Para el Nombre */
+          font-size: 1rem;
+          font-weight: 500;
+          color: #555;
+          margin-bottom: 0.5rem;
+      }
+      .reference-card .card-description { /* Para la Descripción */
+          font-size: 0.85rem;
+          color: #777;
+          line-height: 1.4;
+          /* Limitar altura de descripción si es muy larga, opcional */
+          max-height: 4.2em; /* Aprox 3 líneas */
+          overflow: hidden;
+          text-overflow: ellipsis; 
+      }
+  </style>
+  {% endblock %}
+
+  {% block content %}
+  <div class="container-fluid mt-4 mb-5">
+      <div class="row mb-3">
+          <div class="col-md-8">
+              <h1 class="mb-0">{{ titulo }}</h1>
+          </div>
+          <div class="col-md-4 text-md-end">
+              <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">
+                  <i class="fas fa-arrow-left me-1"></i>Volver al Panel
+              </a>
+          </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+          <div class="card-body">
+              <form method="get" class="row g-3 align-items-center">
+                  <div class="col flex-grow-1">
+                      <input type="text" name="q" class="form-control form-control-lg" placeholder="Buscar por Referencia..." value="{{ query|default:'' }}">
+                  </div>
+                  <div class="col-auto">
+                      <button type="submit" class="btn btn-primary btn-lg">
+                          <i class="fas fa-search me-1"></i> Buscar
+                      </button>
+                  </div>
+              </form>
+          </div>
+      </div>
+
+      {% if referencias_pagina %}
+          <div class="catalogo-grid">
+              {% for ref_item in referencias_pagina %}
+                  <a href="{% url 'catalogo:detalle_referencia' ref_item.referencia %}" class="reference-card">
+                      <div class="reference-image-container">
+                          {% if ref_item.foto_url %}
+                              <img src="{{ ref_item.foto_url }}" alt="Foto de {{ ref_item.referencia }}">
+                          {% else %}
+                              <img src="{% static 'core/img/placeholder.png' %}" alt="Imagen no disponible"> {# Debes tener este placeholder #}
+                          {% endif %}
+                      </div>
+                      <div class="reference-card-body">
+                          <h5 class="card-title">{{ ref_item.referencia }}</h5>
+                          <p class="card-name">{{ ref_item.nombre|truncatechars:50 }}</p>
+                          <p class="card-description">{{ ref_item.descripcion|truncatechars:100|default:"" }}</p>
+                      </div>
+                  </a>
+              {% endfor %}
+          </div>
+
+          {% if referencias_pagina.has_other_pages %}
+              <nav aria-label="Navegación de catálogo" class="mt-5">
+                  <ul class="pagination justify-content-center">
+                      {% if referencias_pagina.has_previous %}
+                          <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">&laquo; Primera</a></li>
+                          <li class="page-item"><a class="page-link" href="?page={{ referencias_pagina.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">Anterior</a></li>
+                      {% else %}
+                          <li class="page-item disabled"><span class="page-link">&laquo; Primera</span></li>
+                          <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                      {% endif %}
+
+                      {% for i in referencias_pagina.paginator.page_range %}
+                          {% if referencias_pagina.number == i %}
+                              <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+                          {% elif i > referencias_pagina.number|add:'-3' and i < referencias_pagina.number|add:'3' %}
+                              <li class="page-item"><a class="page-link" href="?page={{ i }}{% if query %}&q={{ query }}{% endif %}">{{ i }}</a></li>
+                          {% endif %}
+                      {% endfor %}
+
+                      {% if referencias_pagina.has_next %}
+                          <li class="page-item"><a class="page-link" href="?page={{ referencias_pagina.next_page_number }}{% if query %}&q={{ query }}{% endif %}">Siguiente</a></li>
+                          <li class="page-item"><a class="page-link" href="?page={{ referencias_pagina.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}">Última &raquo;</a></li>
+                      {% else %}
+                          <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                          <li class="page-item disabled"><span class="page-link">Última &raquo;</span></li>
+                      {% endif %}
+                  </ul>
+              </nav>
+          {% endif %}
+
+      {% else %}
+          <div class="alert alert-info text-center" role="alert">
+              <i class="fas fa-info-circle me-2"></i>No se encontraron referencias en el catálogo{% if query %} que coincidan con "{{ query }}"{% endif %}.
+          </div>
+      {% endif %}
+  </div>
+  {% endblock content %}

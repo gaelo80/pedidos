@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+
+{% block page_title %}{{ titulo_pagina|default:"Detalle de Cliente" }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ titulo_pagina }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if cliente %}
+    <div class="card">
+        <div class="card-header">
+            <h3>{{ cliente.nombre_completo }}</h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Identificación:</strong> {{ cliente.identificacion|default:"N/A" }}</p>
+            <p><strong>Ciudad:</strong> {{ cliente.ciudad.nombre|default:"N/A" }}</p>
+            <p><strong>Dirección:</strong> {{ cliente.direccion|default:"N/A" }}</p>
+            <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"N/A" }}</p>
+            <p><strong>Email:</strong> {{ cliente.email|default:"N/A" }}</p>
+            <p><strong>Fecha Creación:</strong> {{ cliente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'clientes:cliente_listado_v2' %}" class="btn btn-secondary">Volver al Listado</a>
+            {# <a href="{% url 'clientes:cliente_editar_v2' pk=cliente.pk %}" class="btn btn-warning">Editar (V2)</a> #}
+        </div>
+    </div>
+    {% else %}
+        <p>Cliente no encontrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

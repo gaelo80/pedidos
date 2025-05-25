@@ -1,0 +1,244 @@
+{% extends 'core/base.html' %}
+{% load static %} {# Asegúrate de tener static cargado si usas íconos de FontAwesome vía static #}
+{% load humanize %} {# Para el floatformat si lo necesitas #}
+
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block extra_head %}
+{# Puedes añadir estilos específicos aquí si es necesario, o en tu CSS principal #}
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        margin-bottom: 5px;
+    }
+    .modal-body textarea {
+        min-height: 100px; /* Más espacio para escribir notas */
+    }
+    .text-muted-small {
+        font-size: 0.85em;
+        color: #6c757d !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ titulo }}</h2>
+        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Princial</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if pedidos_list %}
+        <div class="card shadow-sm">
+            <div class="card-body p-0"> {# p-0 para que la tabla ocupe todo el card-body #}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0"> {# mb-0 para quitar margen inferior de la tabla dentro del card #}
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th>Fecha</th>
+                                <th class="text-end">Total</th>
+                                <th>Notas Previas</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pedido in pedidos_list %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="fw-bold" title="Ver detalle del pedido">
+                                        #{{ pedido.pk }}
+                                    </a>
+                                </td>
+                                <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                                <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username }}</td>
+                                <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
+                                <td class="text-end">${{ pedido.total_a_pagar|floatformat:0|intcomma }}</td>
+                                <td>
+                                    {% if etapa_actual == 'admin' and pedido.motivo_cartera %}
+                                        <span class="text-muted-small" title="Nota Cartera: {{ pedido.motivo_cartera }}">
+                                            <strong>Cartera:</strong> {{ pedido.motivo_cartera|truncatewords_html:8|default:"(ninguna)" }}
+                                        </span>
+                                    {% elif etapa_actual == 'cartera' and pedido.notas %}
+                                        <span class="text-muted-small" title="Nota Vendedor: {{ pedido.notas }}">
+                                            <strong>Vendedor:</strong> {{ pedido.notas|truncatewords_html:8|default:"(ninguna)" }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted-small">---</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center action-buttons">
+                                    {% if etapa_actual == 'cartera' %}
+                                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#aprobarPedidoModal" 
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:aprobar_pedido_cartera' pedido.pk %}"
+                                                data-modal-title="Aprobar Pedido #{{ pedido.pk }} (Cartera)">
+                                            <i class="fas fa-check me-1"></i> Aprobar
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rechazarPedidoModal"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:rechazar_pedido_cartera' pedido.pk %}"
+                                                data-modal-title="Rechazar Pedido #{{ pedido.pk }} (Cartera)">
+                                            <i class="fas fa-times me-1"></i> Rechazar
+                                        </button>
+                                    {% elif etapa_actual == 'admin' %}
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#aprobarPedidoModal"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:aprobar_pedido_admin' pedido.pk %}"
+                                                data-modal-title="Aprobar Pedido #{{ pedido.pk }} (Admin)">
+                                            <i class="fas fa-check-circle me-1"></i> Aprobar
+                                        </button>
+                                        <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#rechazarPedidoModal"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:rechazar_pedido_admin' pedido.pk %}"
+                                                data-modal-title="Rechazar Pedido #{{ pedido.pk }} (Admin)">
+                                            <i class="fas fa-ban me-1"></i> Rechazar
+                                        </button>
+                                    {% endif %}
+                                    {#<a href="{{ pedido.get_enlace_descarga_fotos }}" target="_blank" class="btn btn-info btn-sm mt-1" title="Ver Fotos Adjuntas"><i class="fas fa-images"></i> Fotos</a>#}
+                                    {#<a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" target="_blank" class="btn btn-secondary btn-sm mt-1" title="Ver PDF"><i class="fas fa-file-pdf"></i> PDF</a>#}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+    {% else %}
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fas fa-info-circle me-2"></i>No hay pedidos pendientes de aprobación en esta etapa.
+        </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="aprobarPedidoModal" tabindex="-1" aria-labelledby="aprobarPedidoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="aprobarPedidoForm"> {# El action se pondrá con JS #}
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="aprobarPedidoModalLabel">Aprobar Pedido</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Estás a punto de aprobar el pedido. Puedes añadir una nota opcional.</p>
+          <div class="mb-3">
+            <label for="motivoAprobar" class="form-label">Nota de Aprobación (Opcional):</label>
+            <textarea name="motivo" class="form-control" id="motivoAprobar" rows="4" placeholder="Ej: Cliente VIP, coordinar entrega especial..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Confirmar Aprobación</button> {# El color del botón podría cambiar según la etapa #}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="rechazarPedidoModal" tabindex="-1" aria-labelledby="rechazarPedidoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="rechazarPedidoForm"> {# El action se pondrá con JS #}
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="rechazarPedidoModalLabel">Rechazar Pedido</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Estás a punto de rechazar el pedido. Por favor, indica el motivo.</p>
+          <div class="mb-3">
+            <label for="motivoRechazar" class="form-label">Motivo del Rechazo (Obligatorio):</label>
+            <textarea name="motivo" class="form-control" id="motivoRechazar" rows="4" placeholder="Ej: Falta de stock, datos incompletos, problema de cartera..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">Confirmar Rechazo</button> {# El color del botón podría cambiar según la etapa #}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Manejar modal de Aprobación
+    var aprobarPedidoModal = document.getElementById('aprobarPedidoModal');
+    if (aprobarPedidoModal) {
+        aprobarPedidoModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Botón que disparó el modal
+            var actionUrl = button.getAttribute('data-action-url');
+            var modalTitle = button.getAttribute('data-modal-title');
+            
+            var form = aprobarPedidoModal.querySelector('#aprobarPedidoForm');
+            form.action = actionUrl;
+            
+            var titleElement = aprobarPedidoModal.querySelector('.modal-title');
+            titleElement.textContent = modalTitle;
+
+            // Cambiar color del botón de confirmación según la etapa
+            var submitButton = form.querySelector('button[type="submit"]');
+            if (modalTitle.includes('(Admin)')) {
+                submitButton.classList.remove('btn-success');
+                submitButton.classList.add('btn-primary');
+            } else { // Cartera
+                submitButton.classList.remove('btn-primary');
+                submitButton.classList.add('btn-success');
+            }
+        });
+    }
+
+    // Manejar modal de Rechazo
+    var rechazarPedidoModal = document.getElementById('rechazarPedidoModal');
+    if (rechazarPedidoModal) {
+        rechazarPedidoModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var actionUrl = button.getAttribute('data-action-url');
+            var modalTitle = button.getAttribute('data-modal-title');
+            
+            var form = rechazarPedidoModal.querySelector('#rechazarPedidoForm');
+            form.action = actionUrl;
+            
+            var titleElement = rechazarPedidoModal.querySelector('.modal-title');
+            titleElement.textContent = modalTitle;
+
+            var submitButton = form.querySelector('button[type="submit"]');
+            if (modalTitle.includes('(Admin)')) {
+                submitButton.classList.remove('btn-danger');
+                submitButton.classList.add('btn-warning');
+            } else { // Cartera
+                submitButton.classList.remove('btn-warning');
+                submitButton.classList.add('btn-danger');
+            }
+
+            // Limpiar el textarea de motivo y enfocarlo
+            var motivoTextarea = form.querySelector('#motivoRechazar');
+            motivoTextarea.value = ''; // Limpiar de usos anteriores
+            // Pequeño delay para asegurar que el modal es visible antes de enfocar
+            setTimeout(function() {
+                motivoTextarea.focus();
+            }, 500); 
+        });
+        
+        // Opcional: Limpiar también el textarea de aprobar al mostrarse
+        var motivoAprobarTextarea = aprobarPedidoModal.querySelector('#motivoAprobar');
+        if(motivoAprobarTextarea) motivoAprobarTextarea.value = '';
+
+    }
+});
+</script>
+{% endblock %}

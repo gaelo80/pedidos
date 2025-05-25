@@ -1,0 +1,83 @@
+{# inventario/devolucion_detalle.html (o devoluciones/devolucion_detalle.html si prefieres) #}
+{% extends 'core/base.html' %}
+
+{% block page_title %}Detalle Devolución #{{ devolucion.pk }}{% endblock page_title %}
+
+{% block content %}
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-8">
+            <h1 class="mb-0">Detalle Devolución #{{ devolucion.pk }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'informes:informe_lista_devoluciones' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Informe
+            </a>
+            <a href="{% url 'devoluciones:imprimir_comprobante_devolucion' devolucion_id=devolucion.pk %}" class="btn btn-outline-primary ms-2" target="_blank">
+                <i class="fas fa-print me-1"></i> Imprimir Comprobante
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Información General de la Devolución</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> {{ devolucion.cliente.nombre_completo|default_if_none:"N/A" }}</p>
+                    <p><strong>Fecha y Hora:</strong> {{ devolucion.fecha_hora|date:"d/m/Y P" }}</p>
+                    <p><strong>Pedido Original Asociado:</strong> 
+                        {% if devolucion.pedido_original %}
+                            <a href="{% url 'pedidos:pedido_detalle' pk=devolucion.pedido_original.pk %}">Pedido #{{ devolucion.pedido_original.pk }}</a>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Usuario que procesa:</strong> {{ devolucion.usuario.get_full_name|default:devolucion.usuario.username|default_if_none:"N/A" }}</p>
+                    <p><strong>Motivo General:</strong></p>
+                    <p class="ms-3">{{ devolucion.motivo|default_if_none:"Sin motivo especificado."|linebreaksbr }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Productos Devueltos</h5>
+        </div>
+        <div class="card-body">
+            {% if devolucion.detalles.all %}
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto (Referencia)</th>
+                                <th>Cantidad Devuelta</th>
+                                <th>Estado del Producto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detalle in devolucion.detalles.all %}
+                                <tr>
+                                    <td>
+                                        {{ detalle.producto.nombre|default_if_none:"N/A" }}
+                                        ({{ detalle.producto.referencia|default_if_none:"N/A" }})
+                                        {% if detalle.producto.color %}/ Color: {{ detalle.producto.color }}{% endif %}
+                                        {% if detalle.producto.talla %}/ Talla: {{ detalle.producto.talla }}{% endif %}
+                                    </td>
+                                    <td class="text-center">{{ detalle.cantidad }}</td>
+                                    <td>{{ detalle.get_estado_producto_display }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay productos detallados en esta devolución.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock content %}

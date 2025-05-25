@@ -1,0 +1,188 @@
+{% extends 'core/base.html' %}
+{% load humanize %} {# Para formatear números si prefieres usarlo en lugar del formato manual #}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos para el formulario de filtros en reporte_cartera.html */
+    .filtro-cartera-form.bg-light {
+        /* bg-light ya provee el fondo claro (#f8f9fa por defecto en Bootstrap) */
+    }
+
+    .filtro-cartera-form.bg-light .form-label {
+        color: var(--component-text-dark, #212529); /* Usa la variable o un fallback */
+        font-weight: 500;
+    }
+
+    .filtro-cartera-form.bg-light .form-control,
+    .filtro-cartera-form.bg-light .form-select {
+        color: var(--component-text-dark, #212529);
+        background-color: var(--component-input-bg, #ffffff);
+        border: 1px solid var(--component-input-border, #ced4da);
+    }
+
+    .filtro-cartera-form.bg-light .form-control::placeholder { color: #6c757d; opacity: 1; }
+    /* ... (otros selectores de placeholder como antes) ... */
+
+    .filtro-cartera-form.bg-light .form-select option {
+        color: var(--component-text-dark, #212529);
+        background-color: var(--component-input-bg, #ffffff);
+    }
+
+    /* Asegurar que el resto del contenido de la tabla también sea legible */
+    .tabla-cartera-container .table {
+        color: var(--component-text-dark, #212529);
+        background-color: var(--component-input-bg, #ffffff); /* Fondo blanco para la tabla */
+    }
+    .tabla-cartera-container .table thead.table-light th {
+        color: var(--component-text-dark, #212529);
+        background-color: var(--component-bg-light, #e9ecef);
+    }
+    .tabla-cartera-container .table tbody tr.table-group-divider td {
+        background-color: var(--component-bg-light, #f8f9fa);
+        color: #000; /* Texto negro fuerte para el nombre del cliente */
+        font-weight: bold;
+    }
+     .tabla-cartera-container .table-danger td,
+     .tabla-cartera-container .table-danger strong {
+        color: #721c24 !important; /* Color oscuro para texto en filas de peligro */
+        /* background-color: #f8d7da !important; /* Fondo que Bootstrap ya debería aplicar */
+    }
+    .text-muted {
+        color: #6c757d !important; /* Bootstrap default muted color */
+    }
+    .alert.alert-info.resumen-cartera { /* Sé más específico si es necesario */
+        color: var(--component-text-dark, #0c5460); /* Texto oscuro para info alerts */
+        background-color: #d1ecf1; /* Fondo claro para info alerts */
+        border-color: #bee5eb;
+    }
+    .alert.alert-info.resumen-cartera strong{
+        color: var(--component-text-dark, #0c5460);
+    }
+    .alert.alert-info.resumen-cartera .text-danger,
+    .alert.alert-info.resumen-cartera .text-danger strong {
+        color: #721c24 !important;
+    }
+    .alert.alert-info.resumen-cartera .text-success,
+    .alert.alert-info.resumen-cartera .text-success strong {
+        color: #155724 !important;
+    }
+
+
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="mb-3">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+<div class="container mt-4">
+    {#<h2>{{ titulo }}</h2>#}
+    <hr>
+
+    {# --- Formulario de Filtros (Opcional) --- #}
+    <form method="get" class="mb-4 bg-light p-3 rounded border">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label for="cliente" class="form-label">Buscar Cliente (Nombre/ID)</label>
+                <input type="text" name="cliente" id="cliente" class="form-control form-control-sm" value="{{ cliente_filtro|default:'' }}">
+            </div>
+            <div class="col-md-4">
+                <label for="vencido" class="form-label">Estado Vencimiento</label>
+                <select name="vencido" id="vencido" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="1" {% if vencido_filtro == '1' %}selected{% endif %}>Solo Vencidos</option>
+                    <option value="0" {% if vencido_filtro == '0' %}selected{% endif %}>Solo Al Día</option>
+                </select>
+            </div>
+            {% if puede_filtrar_por_vendedor_dropdown %} {# Esta variable viene del contexto de la vista #}
+            <div class="col-md-3"> {# Ajusta el tamaño de la columna según tu layout #}
+                <label for="id_vendedor_filtro_id" class="form-label">Vendedor:</label>
+                <select name="vendedor_filtro_id" id="id_vendedor_filtro_id" class="form-select form-select-sm">
+                    <option value="">Todos los Vendedores</option>
+                    {% for vendedor_obj in vendedores_list_filtro %}
+                        <option value="{{ vendedor_obj.pk }}" {% if vendedor_obj.pk|stringformat:"s" == vendedor_id_seleccionado_filtro %}selected{% endif %}>
+                            {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }} ({{ vendedor_obj.codigo_interno }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+                {# Revisa el nombre de tu URL para el reporte #}
+                <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-secondary btn-sm w-100 mt-1">Limpiar</a>
+            </div>
+        </div>
+    </form>
+    {# --- Fin Formulario de Filtros --- #}
+
+    {# --- Resumen General --- #}
+    <div class="alert alert-info">
+        <strong>Documentos Pendientes:</strong> {{ total_documentos }} | 
+        <strong>Saldo Total:</strong> ${{ total_general_saldo_fmt }} | 
+        <strong class="{% if total_general_vencido > 0 %}text-danger{% endif %}">Saldo Vencido:</strong> <span class="{% if total_general_vencido > 0 %}text-danger fw-bold{% endif %}">${{ total_general_vencido_fmt }}</span>
+    </div>
+    {# --- Fin Resumen --- #}
+
+    {# --- Tabla de Cartera Agrupada por Cliente --- #}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Cliente</th>
+                    <th>Tipo Doc.</th>
+                    <th>Número Doc.</th>
+                    <th>Fecha Doc.</th>
+                    <th>Fecha Ven.</th>
+                    <th class="text-end">Saldo Actual</th>
+                    <th class="text-center">Días Mora</th>
+                    {% if es_admin_sistema_general %}<th>Vendedor Cartera</th>{% endif %} {# Mostrar vendedor solo a admin #}
+                </tr>
+            </thead>
+            <tbody>
+                {# Agrupar por cliente usando la variable 'cliente' del objeto documento #}
+                {% regroup documentos_list by cliente as lista_por_cliente %}
+
+                {% for grupo in lista_por_cliente %}
+                    {# Fila de cabecera para cada cliente #}
+                    <tr class="table-group-divider">
+                        <td colspan="{% if es_admin_sistema_general %}8{% else %}7{% endif %}">
+                            <strong>{{ grupo.grouper.nombre_completo }}</strong> (ID: {{ grupo.grouper.identificacion }}) 
+                            {# Calcular y mostrar totales por cliente (esto requiere lógica adicional en la vista o aquí) #}
+                            {# Ejemplo simple (no implementado completamente arriba): #}
+                            {# Saldo Cliente: ${{ grupo.list|sum:"saldo_actual"|floatformat:2|intcomma }} #}
+                        </td>
+                    </tr>
+                    {# Filas de documentos para este cliente #}
+                    {% for doc in grupo.list %}
+                        <tr class="{% if doc.esta_vencido %}table-danger{% endif %}">
+                            <td></td> {# Columna vacía bajo el nombre del cliente #}
+                            <td>{{ doc.get_tipo_documento_display }}</td>
+                            <td>{{ doc.numero_documento }}</td>
+                            <td>{{ doc.fecha_documento|date:"Y-m-d"|default:"-" }}</td>
+                            <td class="{% if doc.esta_vencido %}fw-bold{% endif %}">{{ doc.fecha_vencimiento|date:"Y-m-d"|default:"-" }}</td>
+                            <td class="text-end">${{ doc.saldo_actual|floatformat:2|intcomma }}</td>
+                            <td class="text-center">{{ doc.dias_mora }}</td>
+                            {% if es_admin_sistema_general %}<td>{{ doc.nombre_vendedor_cartera|default:"-" }}</td>{% endif %}
+                        </tr>
+                    {% endfor %}
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if es_admin_sistema_general %}8{% else %}7{% endif %}" class="text-center text-muted">No hay documentos de cartera pendientes para mostrar con los filtros aplicados.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {# --- Fin Tabla --- #}
+</div>
+{% endblock content %}

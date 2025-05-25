@@ -1,0 +1,85 @@
+{% extends 'core/base.html' %} {# Usa la misma base que tu panel principal #}
+{% load static %}
+
+{% block page_title %}{{ titulo_pagina|default:"Generar Enlace de Catálogo" }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'core:index' %}">Panel Principal</a></li> {# Ajusta si tu panel tiene otro nombre de URL #}
+            <li class="breadcrumb-item active" aria-current="page">{{ titulo_pagina|default:"Generar Enlace" }}</li>
+        </ol>
+    </nav>
+
+    {#<h2 class="mb-4">{{ titulo_pagina|default:"Generar Enlace para Catálogo" }}</h2>#}
+
+    {# Mostrar mensajes de Django (éxito, error, etc.) #}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Completa los siguientes campos para crear un enlace temporal y único para compartir el catálogo de productos disponibles con tus clientes.</p>
+
+            <form method="POST" action="{% url 'catalogo:catalogo_generar_enlace_usuario' %}"> {# Esta acción apunta a la vista que PROCESA el POST #}
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="id_descripcion_enlace" class="form-label">Descripción del enlace (opcional):</label>
+                    <input type="text" name="descripcion_enlace" id="id_descripcion_enlace" class="form-control" placeholder="Ej: Catálogo para Cliente VIP">
+                </div>
+                <div class="mb-3">
+                    <label for="id_dias_validez" class="form-label">Validez del enlace (en días):</label>
+                    <input type="number" name="dias_validez" value="7" min="1" max="90" class="form-control" id="id_dias_validez" required>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-link me-2"></i>Generar Enlace</button>
+                <a href="{% url 'core:index' %}" class="btn btn-secondary">Cancelar y Volver al Panel</a> {# Ajusta URL del panel #}
+            </form>
+        </div>
+    </div>
+
+    {# Mostrar el enlace recién generado si existe en el contexto #}
+    {% if enlace_recien_generado %}
+        <div class="alert alert-success mt-4" id="alertaEnlaceGenerado">
+            <h4 class="alert-heading">¡Enlace Generado Exitosamente!</h4>
+            <p>Comparte este enlace con tu cliente:</p>
+            <div class="input-group mb-2">
+                <input type="text" class="form-control" value="{{ enlace_recien_generado.url }}" id="enlaceGeneradoInput" readonly>
+                <button class="btn btn-outline-secondary" type="button" id="copiarEnlaceBtn" title="Copiar al portapapeles">
+                    <i class="fas fa-copy"></i> Copiar
+                </button>
+            </div>
+            <p class="mb-1"><strong>Descripción:</strong> {{ enlace_recien_generado.descripcion }}</p>
+            <p class="mb-0"><strong>Expira el:</strong> {{ enlace_recien_generado.expira }}</p>
+        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const copiarBtn = document.getElementById('copiarEnlaceBtn');
+                const enlaceInput = document.getElementById('enlaceGeneradoInput');
+                if (copiarBtn && enlaceInput) {
+                    copiarBtn.addEventListener('click', function () {
+                        enlaceInput.select();
+                        enlaceInput.setSelectionRange(0, 99999);
+                        try {
+                            document.execCommand('copy');
+                            copiarBtn.innerHTML = '<i class="fas fa-check"></i> Copiado';
+                            setTimeout(() => { 
+                                copiarBtn.innerHTML = '<i class="fas fa-copy"></i> Copiar';
+                            }, 2500);
+                        } catch (err) {
+                            console.error('Error al copiar: ', err);
+                            alert('No se pudo copiar el enlace. Por favor, cópialo manualmente.');
+                        }
+                    });
+                }
+            });
+        </script>
+    {% endif %}
+</div>
+{% endblock content %}

@@ -1,0 +1,1865 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}{{ titulo|default:"Crear Pedido Web" }}{% endblock page_title %}
+
+{% block content %}
+
+{% block extra_head %} {# O pon las <style> dentro de block content #}
+    <style>
+        
+        #id_notas {
+            width: 100%;        /* Ocupa todo el ancho disponible */
+            height: 120px;       /* Altura fija de 120px (¡AJUSTA ESTE VALOR!) */
+            resize: none;        /* Deshabilita redimensionamiento */
+            overflow: auto;    /* Muestra barras de scroll si el texto no cabe */
+        }
+
+        .input-group > .select2-container--bootstrap-5 {
+            flex: 1 1 auto;    /* Permite que crezca y se encoja */
+            width: 1% !important; /* Truco común para que flex-basis funcione bien en input-group */
+            min-width: 0;      /* Permite encogerse si es necesario */
+        }
+
+        .input-group > #btn-mostrar-info-cliente {
+            flex: 0 0 auto;
+         }
+
+        .select2-selection__rendered {
+            display: block; /* Asegura que ocupe el espacio */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+     
+    </style>
+    {% endblock extra_head %} {# O cierra </style> si está en block content #}
+
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="mb-3">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            </a>
+        </div>
+    </div>
+
+{#<h1>{{ titulo|default:"Crear Pedido Web" }}</h1>#}
+
+
+<form method="post" novalidate id="pedido-form">
+    {% csrf_token %}
+
+    {% if pedido_instance %} {# pedido_instance se pasa desde la vista al editar #}
+        <input type="hidden" name="pedido_id_editado" value="{{ pedido_instance.pk }}">
+    {% endif %}
+
+    {# --- Sección Cliente y Notas (Sin cambios) --- #}
+    <div class="form-section mb-3 p-3 border bg-light rounded">
+        <h2></h2>
+        {% if pedido_form.non_field_errors and not pedido_form.cliente.errors and not pedido_form.notas.errors %}
+             <div class="alert alert-danger p-2">{{ pedido_form.non_field_errors }}</div>
+        {% endif %}
+        <div class="mb-3">
+            <label for="{{ pedido_form.cliente.id_for_label }}" class="form-label fw-bold">{{ pedido_form.cliente.label }}:</label>
+        
+            <div class="input-group">
+                {{ pedido_form.cliente }} {# Aquí Django pondrá el <select> que usa Select2 #}
+                <button class="btn btn-outline-info" type="button" id="btn-mostrar-info-cliente" style="display: none;" title="Ver detalles del cliente">
+                    <i class="fas fa-info-circle"></i> Ver Info
+                </button>
+            </div>
+            <div id="info-cartera-cliente" class="mt-3 mb-3 p-3 border rounded bg-light" style="display: none;"> 
+                {# El estilo display:none lo oculta inicialmente #}
+                <h5><i class="fas fa-wallet me-2"></i>Información de Cartera</h5>
+                <hr class="my-2">
+                <div id="cartera-contenido">
+                    <p class="text-muted">Seleccione un cliente para ver su estado de cartera.</p> 
+                </div>
+            </div>
+            {% if pedido_form.cliente.errors %}
+                <div class="text-danger small mt-1">{{ pedido_form.cliente.errors }}</div>
+            {% endif %}
+             <div class="form-text">{{ pedido_form.cliente.help_text }}</div>
+        
+            <div id="info-cliente-container" class="mt-4 p-2 border bg-white rounded" style="display: none;">
+                {# La información del cliente aparecerá aquí #}
+                <small class="text-muted">Cargando detalles...</small>
+            </div>
+        </div>
+    </div>
+
+
+  <div class="form-section mb-3 p-3 border bg-light rounded" id="seccion-seleccion">
+    
+    {# --- Fila para Referencia --- #}
+    <div class="row mb-3 align-items-center"> {# mb-3 añade espacio debajo de esta fila #}
+        <label for="{{ pedido_form.referencia.id_for_label }}" class="col-sm-2 col-form-label fw-bold">{{ pedido_form.referencia.label }}:</label>
+        {# Hacemos la columna del input más pequeña, ej: col-md-6 (6 de 12 columnas) #}
+        <div class="col-sm-10 col-md-6 col-lg-5"> 
+            {{ pedido_form.referencia }} {# Asume que Select2 se adapta al ancho de la columna #}
+            {% if pedido_form.referencia.errors %}
+                <div class="text-danger small">{{ pedido_form.referencia.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Fila para Color (Oculta inicialmente) --- #}
+    {# La ID y el style para ocultar van en la fila completa #}
+    <div class="row mb-3 align-items-center" id="color-selector-div" style="display: none;"> 
+        <label for="select-color" class="col-sm-2 col-form-label fw-bold">Color:</label>
+         {# Misma columna pequeña para el input #}
+        <div class="col-sm-10 col-md-6"> 
+            <select id="select-color" class="form-select" disabled> 
+                <option value="" selected disabled>-- Selecciona Color --</option>
+            </select>
+             {# Errores de color si es necesario #}
+        </div>
+    </div> 
+
+    {# --- Checkbox (Debajo de la fila de Color) --- #}
+    <div class="row">
+        {# Usamos offset para alinear horizontalmente con los inputs #}
+        {# mt-2 añade un pequeño margen arriba para separarlo del campo Color #}
+        <div class="col-sm-10 offset-sm-2 mt-2 mb-3"> 
+             <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="" id="copiarCantidadesCheck">
+                <label class="form-check-label" for="copiarCantidadesCheck">
+                    Copiar curva anterior
+                </label>
+             </div>
+        </div>
+    </div>
+
+    {# ... Contenedor de Tallas (#tallas-grid-container) ... #}
+    <div id="tallas-grid-container" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;">
+        {# Contenido generado por JS #}
+    </div>
+    
+    {# ... Botones Add/Update, etc. ... #}
+
+</div> {# Fin #seccion-seleccion #}
+
+        <div id="tallas-grid-container" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;">...</div>
+        {# --- Botón para Añadir / Actualizar --- #}
+        <div class="mt-3 text-end d-flex justify-content-end align-items-center">
+            {# Botón Cancelar Edición (inicialmente oculto) #}
+            <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary me-2" style="display: none;">Cancelar Edición</button>
+
+            {# Botón principal Add/Update - ASEGÚRATE DE QUE TENGA ESTE ID Y ESTÉ 'disabled' #}
+            <button type="button" id="btn-add-update-producto" class="btn btn-primary" disabled>Agregar Producto al Pedido</button>
+        </div>
+        <div class="mt-3 text-end d-flex justify-content-end align-items-center">...</div>
+    
+    </div> {# Fin #seccion-seleccion #}
+    
+    
+    
+        <div class="form-section mb-3 p-3 border bg-light rounded">
+        <h2></h2> {# <-- El título que no te aparecía #}
+        <div class="row">
+            <div class="col-md-4"> {# O el ancho que prefieras #}
+                {# Muestra la etiqueta (Label) del campo #}
+                <label for="{{ pedido_form.porcentaje_descuento.id_for_label }}" class="form-label fw-bold">{{ pedido_form.porcentaje_descuento.label }}:</label>
+    
+                {# Muestra el desplegable del formulario #}
+                {{ pedido_form.porcentaje_descuento }}
+    
+                {# Muestra errores si los hay #}
+                {% if pedido_form.porcentaje_descuento.errors %}
+                    <div class="text-danger small">{{ pedido_form.porcentaje_descuento.errors }}</div>
+                {% endif %}
+                {# Muestra texto de ayuda si lo hay #}
+                <div class="form-text">{{ pedido_form.porcentaje_descuento.help_text }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Sección Detalle del Pedido --- #}
+    <div class="mt-4 form-section mb-3 p-3 border rounded">
+        <h2 id="detalle-titulo" style="color:white;">Detalle del Pedido</h2>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle" id="detalle-pedido-tabla">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ref.</th>
+                        <th>Color</th>
+                        <th>Detalle Tallas/Cant.</th>
+                        <th class="text-end">Precio Unit.</th>
+                        <th class="text-center fw-bold">Cant. Total</th>
+                        <th class="text-end">Total Línea</th>
+                        <th class="text-center">Acción</th> {# Ancho fijo opcional: style="width: 100px;" #}
+                    </tr>
+                </thead>
+                <tbody id="detalle-tbody">
+                    <tr id="fila-vacia" style="display: table-row;">
+                        <td colspan="7" class="text-center text-muted fst-italic py-3">Aún no has agregado productos al pedido.</td> {# Colspan 7 ahora #}
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="4" class="text-end pt-2 pb-2">TOTALES GENERALES:</td>
+                        <td class="text-center pt-2 pb-2" id="grand_total_qty_tabla">0</td>
+                        <td class="text-end pt-2 pb-2" id="grand_total_value_tabla">$0.00</td>
+                        <td></td> {# Celda para Acción #}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div id="hidden-inputs-container" style="display: none;"></div>
+    </div>
+
+    <div class="row justify-content-end mt-3">
+        <div class="col-md-6 col-lg-5">
+            <h4 class="text-end"></h4>
+            <table class="table table-sm table-bordered align-middle">
+                <tbody>
+                    <tr>
+                        {# Etiqueta cambiada, ID sigue igual para el JS #}
+                        <th class="text-end">SubTotal:</th>
+                        <td class="text-end fw-bold" id="subtotal-bruto">$0</td>
+                    </tr>
+                    <tr>
+                        {# Etiqueta cambiada, ID sigue igual para el JS #}
+                        <th class="text-end">Descuento:</th>
+                        <td class="text-end fw-bold" id="descuento-total">$0</td>
+                    </tr>
+                     {# Fila 'Subtotal Neto' eliminada #}
+                     <tr>
+                        {# Etiqueta cambiada, ID sigue igual para el JS #}
+                        <th class="text-end">Iva:</th>
+                        <td class="text-end fw-bold" id="iva-total">$0</td>
+                    </tr>
+                    <tr class="table-primary">
+                        {# Etiqueta cambiada, ID sigue igual para el JS #}
+                        <th class="text-end fs-5">Total a Pagar:</th>
+                        <td class="text-end fw-bold fs-5" id="total-a-pagar">$0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+     {# --- Fin Sección Detalle --- #}
+     <div class="form-section mb-3 p-3 border bg-light rounded">
+        <h2></h2>
+        <div class="mb-3">
+             {{ pedido_form.notas.label_tag }} <br>
+             {{ pedido_form.notas }}
+              {% if pedido_form.notas.errors %}
+                <div class="text-danger small">{{ pedido_form.notas.errors }}</div>
+            {% endif %}
+             <div class="form-text">{{ pedido_form.notas.help_text }}</div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex flex-wrap justify-content-center gap-2">
+
+        {# Mensaje que aparece SOLO si estás editando y el estado es BORRADOR #}
+        {% if pedido_instance and pedido_instance.estado == 'BORRADOR' %}
+            <div class="alert alert-warning" role="alert">
+                 ¡Recuerda que este pedido es solo un borrador! Guárdalo como definitivo cuando esté listo.
+            </div>
+        {% endif %}
+    
+         {# Botón "Nuevo Pedido" que aparece SOLO si NO estás editando #}
+         {% if not pedido_instance %}
+            <button type="button" id="btn-nuevo-pedido" class="btn btn-info btn-lg">
+                <i class="fas fa-plus me-1"></i>
+                Nuevo Pedido
+            </button>
+         {% endif %}
+    
+        {# Botones de Guardar/Crear siempre visibles (o puedes añadirles condiciones si quieres) #}
+        <button type="submit" name="accion" value="guardar_borrador" class="btn btn-secondary btn-lg">Guardar Borrador</button>
+        <button type="submit" name="accion" value="crear_definitivo" class="btn btn-success btn-lg">Crear Pedido</button>
+    
+        {# Aquí podrías añadir un botón "Eliminar Borrador" si estás editando un borrador #}
+        {% if pedido_instance and pedido_instance.estado == 'BORRADOR' %}
+            <button type="submit" name="accion" value="eliminar_borrador" class="btn btn-danger btn-lg" onclick="return confirm('¿Seguro que quieres eliminar este borrador?');">Eliminar Borrador</button>
+        {% endif %}
+    
+    </div>
+</form> {# Fin del Formulario #}
+
+{% endblock content %}
+
+
+{% block extra_scripts %}
+
+<script id="detalles_agrupados_json_data" type="application/json">
+    {{ detalles_agrupados_json_data|safe|default:"null" }}
+</script>
+<script>
+    const urlBaseDetalleCliente = "{% url 'clientes:api_detalle_cliente' cliente_id=0 %}";
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    const refSelect = $('#id_referencia'); // jQuery para Select2
+    const colorSelectDiv = $('#color-selector-div');
+    const colorSelect = $('#select-color'); // Es un select normal, pero usamos jQuery para consistencia
+    const tallasContainer = $('#tallas-grid-container');
+    const btnMostrarInfoCliente = $('#btn-mostrar-info-cliente');
+    const infoClienteContainer = $('#info-cliente-container');    
+    const btnAddUpdateProducto = $('#btn-add-update-producto');
+    const btnCancelarEdicion = $('#btn-cancelar-edicion');
+    const detalleTbody = $('#detalle-tbody');
+    const hiddenInputsContainer = $('#hidden-inputs-container');
+    const grandTotalQtyEl = $('#grand_total_qty_tabla');
+    const grandTotalValueEl = $('#grand_total_value_tabla');
+    const pedidoForm = $('#pedido-form');
+    const filaVacia = $('#fila-vacia');
+    const detalleTitulo = $('#detalle-titulo');
+    const seccionSeleccion = $('#seccion-seleccion'); // Podría ser vanilla JS si sólo se usa para scroll
+    const clienteSelect = $('#id_cliente'); // jQuery para Select2
+    const descuentoSelectEl = $('#id_porcentaje_descuento');
+    const copiarCantidadesCheckbox = $('#copiarCantidadesCheck');
+    const btnNuevoPedido = $('#btn-nuevo-pedido');
+    const subtotalBrutoEl = $('#subtotal-bruto');
+    const descuentoTotalEl = $('#descuento-total');
+    const subtotalNetoEl = $('#subtotal-neto');
+    const ivaTotalEl = $('#iva-total');
+    const totalPagarEl = $('#total-a-pagar');
+
+
+    let isEditing = false;
+    let editingRowId = null;
+    let editTargetData = null; // Guarda { ref, color, quantities } de la línea en edición
+    let lineaCounter = 0; // Para IDs únicos de nuevas filas (podría inicializarse desde el backend si es necesario)
+    let currentPrecioVenta = 0; // Precio unitario (con IVA) de la Ref/Color seleccionada
+    let currentVariantes = []; // Array de {id, talla, stock_actual} de la Ref/Color seleccionada
+    let ultimasCantidadesCopiables = {}; // { 'talla': cantidad } para la función "Copiar Cantidades"
+    let clienteSeleccionadoId = null;
+
+
+    const IVA_RATE = 0.19; 
+    const IVA_FACTOR = 1.0 + IVA_RATE;
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    function formatCurrency(value) {
+        const number = parseFloat(value);
+        if (isNaN(number)) return "$0";
+        // Usar COP por defecto, ajustar si es necesario
+        const options = { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
+        try {
+            return new Intl.NumberFormat('es-CO', options).format(number);
+        } catch (e) {
+            console.warn("Intl.NumberFormat 'es-CO' falló, usando fallback:", e);
+            return '$' + number.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+    }
+
+    /**
+     * Calcula los precios base, IVA, descuento y totales para una línea de pedido.
+     * @param {number} precioUnitarioConIvaOriginal - El precio de venta unitario con IVA incluido.
+     * @param {number} descuentoPct - El porcentaje de descuento (ej: 10 para 10%).
+     * @param {number} totalQty - La cantidad total de unidades para esta línea.
+     * @returns {object} Un objeto con todos los valores calculados para la línea.
+     */
+    function calculateLineItemPricing(precioUnitarioConIvaOriginal, descuentoPct, totalQty) {
+        const descuentoDecimal = parseFloat(descuentoPct) / 100 || 0;
+        precioUnitarioConIvaOriginal = parseFloat(precioUnitarioConIvaOriginal) || 0;
+        totalQty = parseInt(totalQty, 10) || 0;
+
+        let precioBaseOriginalUnitario = 0;
+        let valorIvaOriginalUnitario = 0;
+        let valorDescuentoUnitario = 0;
+        let precioFinalUnitario = precioUnitarioConIvaOriginal; // Por defecto si no hay IVA o precio
+
+        if (IVA_FACTOR > 1.0 && precioUnitarioConIvaOriginal > 0) {
+            precioBaseOriginalUnitario = precioUnitarioConIvaOriginal / IVA_FACTOR;
+            valorIvaOriginalUnitario = precioUnitarioConIvaOriginal - precioBaseOriginalUnitario;
+            valorDescuentoUnitario = precioBaseOriginalUnitario * descuentoDecimal;
+            const precioBaseDescontadoUnitario = precioBaseOriginalUnitario - valorDescuentoUnitario;
+            // Precio final = Base (ya descontada) + IVA (calculado sobre la base original)
+            precioFinalUnitario = precioBaseDescontadoUnitario + valorIvaOriginalUnitario;
+        } else {
+            // Si no hay IVA, aplicar descuento directamente al precio original
+             valorDescuentoUnitario = precioUnitarioConIvaOriginal * descuentoDecimal;
+             precioFinalUnitario = precioUnitarioConIvaOriginal - valorDescuentoUnitario;
+             precioBaseOriginalUnitario = precioUnitarioConIvaOriginal; // Base y precio con IVA son lo mismo
+        }
+
+        // Calcular totales de línea
+        const lineaSubtotalOriginalConIVA = totalQty * precioUnitarioConIvaOriginal; // Subtotal sin descuento
+        const lineaTotalFinal = totalQty * precioFinalUnitario; // Subtotal con descuento aplicado
+        const lineaBaseOriginalTotal = totalQty * precioBaseOriginalUnitario;
+        const lineaDescuentoTotal = totalQty * valorDescuentoUnitario;
+        const lineaIvaOriginalTotal = totalQty * valorIvaOriginalUnitario;
+
+
+        return {
+            precioUnitarioConIvaOriginal: precioUnitarioConIvaOriginal, // Precio original unitario (con IVA)
+            precioFinalUnitario: precioFinalUnitario,                   // Precio final unitario (con descuento, con IVA orig)
+            lineaSubtotalOriginalConIVA: lineaSubtotalOriginalConIVA,   // Valor total línea sin descuento (con IVA)
+            lineaTotalFinal: lineaTotalFinal,                           // Valor total línea con descuento (con IVA orig)
+            baseOriginalLinea: lineaBaseOriginalTotal,                  // Base imponible total de la línea (sin IVA, sin Dcto)
+            descuentoLinea: lineaDescuentoTotal,                        // Valor total del descuento para la línea
+            ivaLinea: lineaIvaOriginalTotal,                            // Valor total del IVA original para la línea
+            totalQty: totalQty                                          // Cantidad total de la línea
+        };
+    }
+
+
+    function updateGrandTotals() {
+        console.log("--- Recalculando Totales Generales ---");
+        let sumBaseOriginal = 0.0;
+        let sumDescuento = 0.0;
+        let sumIva = 0.0;
+        let sumTotalPagarConDescuento = 0.0;
+        let sumTotalOriginalConIVA = 0.0;
+        let grandTotalQty = 0;
+        let rowCount = 0;
+
+        detalleTbody.find('tr:not(#fila-vacia)').each(function() {
+            const row = $(this);
+            const qty = parseInt(row.data('linea-qty') || '0', 10);
+            const precioUnitarioOrigConIVA = parseFloat(row.data('precio-unitario-original') || '0');
+            const lineaTotalFinal = parseFloat(row.data('linea-value') || '0'); // Valor final con descuento
+            const lineaBaseOriginal = parseFloat(row.data('base-original') || '0');
+            const lineaDescuento = parseFloat(row.data('descuento-linea') || '0');
+            const lineaIva = parseFloat(row.data('iva-linea') || '0');
+
+            grandTotalQty += qty;
+            sumTotalPagarConDescuento += lineaTotalFinal;
+            sumBaseOriginal += lineaBaseOriginal;
+            sumDescuento += lineaDescuento;
+            sumIva += lineaIva;
+
+            // Calcular subtotal original (Precio Orig * Cantidad) para el pie de la tabla principal
+             if (!isNaN(precioUnitarioOrigConIVA) && !isNaN(qty)) {
+                 sumTotalOriginalConIVA += (precioUnitarioOrigConIVA * qty);
+             }
+
+            rowCount++;
+        });
+
+        console.log('Totales Sumados:', { sumBaseOriginal, sumDescuento, sumIva, sumTotalPagarConDescuento, sumTotalOriginalConIVA, grandTotalQty });
+
+        // Actualizar tabla resumen (CON DESCUENTO)
+        subtotalBrutoEl.text(formatCurrency(sumBaseOriginal));
+        descuentoTotalEl.text(formatCurrency(sumDescuento));
+        subtotalNetoEl.text(formatCurrency(sumBaseOriginal)); // Base original - descuento (ya calculado) = Base descontada
+        ivaTotalEl.text(formatCurrency(sumIva)); // Suma del IVA original
+        totalPagarEl.text(formatCurrency(sumTotalPagarConDescuento)); // Total final con descuento
+
+        // Actualizar pie de tabla principal (SIN DESCUENTO VISIBLE)
+        grandTotalQtyEl.text(grandTotalQty);
+        grandTotalValueEl.text(formatCurrency(sumTotalOriginalConIVA)); // Muestra la suma de subtotales originales
+
+        // Ocultar/mostrar fila vacía
+        filaVacia.toggle(rowCount === 0); // .toggle(boolean) muestra si true, oculta si false
+    }
+
+    // Resetea solo Color y Tallas (usado al cambiar Ref o cancelar)
+    function resetColorYTallas() {
+        console.log("Reseteando Color y Tallas...");
+        // Reset Tallas Container
+        tallasContainer.empty().hide();
+        // Reset Color Selector
+        colorSelectDiv.hide();
+        colorSelect.html('<option value="" selected disabled>-- Selecciona Color --</option>')
+                   .prop('disabled', true);
+        // Deshabilitar Botón Add/Update
+        btnAddUpdateProducto.prop('disabled', true);
+        // Resetear variables internas de selección
+        currentPrecioVenta = 0;
+        currentVariantes = [];
+        // Desmarcar checkbox de copiar (si existe)
+        copiarCantidadesCheckbox.prop('checked', false);
+    }
+
+    // Resetea toda el área de selección (Ref, Color, Tallas)
+    function resetCurrentSelectionInputs() {
+        console.log("Reseteando área de selección (Ref, Color, Tallas)...");
+        resetColorYTallas(); // Llama a la función que resetea Color y Tallas
+
+        // Reset Referencia Selector (Select2)
+        if (refSelect && typeof refSelect.select2 === 'function') {
+            // Limpia Select2 sin disparar el listener change general que usamos para cargar colores
+            refSelect.val(null).trigger('change.select2');
+            console.log("Referencia Select2 limpiada.");
+             // Opcional: Abrir para nueva selección
+             // refSelect.select2('open');
+        } else {
+             refSelect.val(''); // Fallback si no es Select2
+             console.log("Referencia <select> limpiada (fallback).");
+        }
+    }
+
+
+    function resetEditState() {
+        console.log("Saliendo del modo edición...");
+
+        // Quitar resaltado de la fila
+        if (editingRowId) {
+            $(`#${editingRowId}`).removeClass('table-info');
+        }
+
+        // Resetear variables de estado
+        isEditing = false;
+        editingRowId = null;
+        editTargetData = null;
+
+        // Resetear botón Add/Update
+        btnAddUpdateProducto.text('Agregar Producto al Pedido')
+                            .removeClass('btn-success')
+                            .addClass('btn-primary')
+                            .prop('disabled', true); // Deshabilitar hasta que se carguen tallas
+
+        // Ocultar botón Cancelar
+        btnCancelarEdicion.hide();
+
+        // Resetear título
+        detalleTitulo.text('Detalle del Pedido'); // O el título original
+
+        // --- Habilitar Selects Principales ---
+        clienteSelect?.prop('disabled', false); // Habilitar Cliente (Select2)
+        refSelect?.prop('disabled', false);     // Habilitar Referencia (Select2)
+        // Color se habilita/deshabilita en la lógica de carga, pero aseguramos que no quede bloqueado
+        colorSelect?.prop('disabled', true); // Se deshabilita por defecto al resetear
+
+        console.log("Modo edición reseteado.");
+    }
+
+    //================================================
+    // 5. Lógica Principal y Manejadores de Eventos
+    //================================================
+
+    $(document).ready(function() {
+        // Asegúrate que '#id_cliente' sea el ID correcto de tu campo Select2
+        var clienteSelect = $('#id_cliente'); 
+        var $infoCarteraDiv = $('#info-cartera-cliente');
+        var $carteraContenido = $('#cartera-contenido');
+    
+        clienteSelect.on('change', function() {
+            var clienteId = $(this).val();
+    
+            if (clienteId) {
+                $carteraContenido.html('<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Cargando información de cartera...</p>');
+                if (!$infoCarteraDiv.is(':visible')) {
+                     $infoCarteraDiv.slideDown(); // Mostrar con animación suave
+                }
+    
+                // Asegúrate que 'inventario_api:api_cartera_cliente' sea tu namespace:nombre_url correcto
+                var urlApi = "{% url 'cartera:api_cartera_cliente' cliente_id=0 %}".replace('/0/', '/' + clienteId + '/');
+    
+                console.log("Llamando a API Cartera: ", urlApi); 
+    
+                $.ajax({
+                    url: urlApi,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        console.log("Respuesta API Cartera:", data); 
+                        $carteraContenido.empty(); // Limpiar 'Cargando...'
+    
+                        if (data.total_documentos > 0) {
+                            var html = '<div class="row mb-2">';
+                            html += '<div class="col-md-4"><strong>Saldo Total:</strong> $' + data.saldo_total + '</div>';
+                            // Resaltar si hay deuda vencida
+                            var vencidoClass = data.tiene_deuda_vencida ? 'text-danger fw-bold' : 'text-success';
+                            html += '<div class="col-md-4"><strong>Saldo Vencido:</strong> <span class="' + vencidoClass + '">$' + data.saldo_vencido + '</span></div>';
+                            html += '<div class="col-md-4"><strong>Máx Días Mora:</strong> ' + data.max_dias_mora + '</div>';
+                            html += '</div>'; // Fin row resumen
+    
+                            html += '<div class="table-responsive" style="max-height: 200px; overflow-y: auto;">'; // Scroll si hay muchos docs
+                            html += '<table class="table table-sm table-bordered table-hover" style="font-size: 0.75rem;">'; // Tabla más pequeña
+                            html += '<thead class="table-light sticky-top"><tr><th>Tipo</th><th>Número</th><th>Fecha Doc.</th><th>Fecha Ven.</th><th class="text-end">Saldo</th><th class="text-center">Mora</th><th>Vendedor</th></tr></thead>';
+                            html += '<tbody>';
+                            data.documentos.forEach(function(doc) {
+                                var vencidoClass = doc.esta_vencido ? 'table-danger' : '';
+                                html += '<tr class="' + vencidoClass + '">';
+                                html += '<td>' + doc.tipo + '</td>';
+                                html += '<td>' + doc.numero + '</td>';
+                                html += '<td>' + (doc.fecha_doc || '-') + '</td>';
+                                html += '<td>' + (doc.fecha_ven || '-') + '</td>';
+                                html += '<td class="text-end">$' + doc.saldo + '</td>';
+                                html += '<td class="text-center">' + doc.dias_mora + '</td>';
+                                html += '<td>' + doc.vendedor + '</td>'; // Mostrar vendedor
+                                html += '</tr>';
+                            });
+                            html += '</tbody></table></div>';
+                            $carteraContenido.html(html);
+                        } else {
+                            $carteraContenido.html('<p class="text-success"><i class="fas fa-check-circle me-1"></i>El cliente no tiene cartera pendiente registrada.</p>');
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error("Error obteniendo cartera:", textStatus, jqXHR.responseText);
+                        var errorMsg = '<p class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Error al cargar la información de cartera.';
+                        // Intentar mostrar mensaje de error del servidor si está disponible
+                        if (jqXHR.responseText){
+                             try {
+                                 var responseJson = JSON.parse(jqXHR.responseText);
+                                 if(responseJson.detail) errorMsg += ' Detalle: ' + responseJson.detail;
+                             } catch(e) {
+                                  errorMsg += ' Respuesta del servidor no válida.';
+                             }
+                        }
+                        errorMsg += '</p>';
+                        $carteraContenido.html(errorMsg);
+                    }
+                });
+    
+            } else {
+                // Si se deselecciona el cliente, ocultar el div
+                $infoCarteraDiv.slideUp(); 
+                $carteraContenido.empty();
+            }
+        });
+    
+        // Si al cargar la página ya hay un cliente seleccionado (ej: al editar),
+        // dispara el evento 'change' para cargar su cartera inmediatamente.
+        if (clienteSelect.val()) {
+             console.log("Cliente ya seleccionado al cargar, disparando change...");
+             clienteSelect.trigger('change');
+        }
+    });
+
+    function cargarDetallesIniciales() {
+        const detallesJsonElement = document.getElementById('detalles_agrupados_json_data');
+        // Añadimos .trim() aquí para limpiar espacios al inicio/final
+        const detallesJson = detallesJsonElement ? detallesJsonElement.textContent.trim() : null;
+    
+        let detallesAgrupados; // Declaramos la variable fuera del try
+    
+        // --- PASO 1: Validar la cadena ANTES de parsear ---
+        if (!detallesJson || detallesJson.toLowerCase() === 'none' || detallesJson.toLowerCase() === 'null' || detallesJson === '') {
+            console.log("No hay detalles iniciales válidos para cargar (JSON vacío, 'None', o 'null').");
+            updateGrandTotals(); // Asegura que la tabla/totales muestren estado vacío
+            // Si tienes una 'filaVacia' global, asegúrate que se muestre
+            if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.show === 'function') {
+                 filaVacia.show();
+            }
+            return; // Salimos de la función si no hay nada que parsear
+        }
+    
+        // --- PASO 2: Intentar parsear SOLO si la validación pasó ---
+        try {
+            detallesAgrupados = JSON.parse(detallesJson);
+            console.log("JSON principal parseado con éxito:", detallesAgrupados);
+    
+        } catch (error) {
+            console.error("Error al parsear el JSON principal (detalles_agrupados_json_data):", error);
+            console.error("Texto recibido que causó el error:", detallesJson); // Muy útil para depurar
+            // Puedes mostrar un mensaje al usuario aquí si lo deseas
+            // alert("Hubo un problema al cargar los datos guardados.");
+            updateGrandTotals(); // Resetear a estado vacío
+            if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.show === 'function') {
+                 filaVacia.show();
+            }
+            return; // Salimos si el parseo falló
+        }
+    
+        // --- PASO 3: Procesar los datos (solo si el parseo fue exitoso) ---
+        try {
+            console.log("Procesando detalles iniciales:", detallesAgrupados);
+    
+            // Validar que detallesAgrupados sea un array y tenga elementos
+            if (detallesAgrupados && Array.isArray(detallesAgrupados) && detallesAgrupados.length > 0) {
+                // Ocultar fila vacía (si existe y está definida)
+                if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.hide === 'function') {
+                    filaVacia.hide();
+                }
+    
+                detallesAgrupados.forEach(grupo => {
+                    // Es buena práctica validar también los datos dentro del grupo si pueden faltar
+                    if (!grupo || typeof grupo !== 'object') {
+                        console.warn("Elemento inválido encontrado en detallesAgrupados, saltando:", grupo);
+                        return; // Saltar a la siguiente iteración del forEach
+                    }
+    
+                    lineaCounter++;
+                    const lineaId = `linea-${lineaCounter}`;
+                    const ref = grupo.ref || 'N/A'; // Valor por defecto si falta
+                    const colorSlug = grupo.color_slug || '';
+                    const colorDisplay = grupo.color_display || 'N/A';
+                    // Validar que el precio sea un número
+                    const precioUnitOriginal = parseFloat(grupo.precio_unitario);
+                    if (isNaN(precioUnitOriginal)) {
+                         console.warn(`Precio unitario inválido ('${grupo.precio_unitario}') para ${ref}-${colorSlug}. Usando 0.`);
+                         // Decide cómo manejarlo, aquí usamos 0
+                         // Podrías saltar esta línea completamente si prefieres
+                    }
+                    // Validar cantidad
+                    const totalQty = parseInt(grupo.total_qty, 10) || 0; // Usar 0 si no es un número
+    
+                    const quantitiesJson = grupo.quantities_json;
+                    let quantitiesObj = {}; // Valor por defecto
+    
+                    // Parsear quantitiesJson de forma segura
+                    if (quantitiesJson && typeof quantitiesJson === 'string' && quantitiesJson.trim() !== '' && quantitiesJson.trim().toLowerCase() !== 'none') {
+                        try {
+                            quantitiesObj = JSON.parse(quantitiesJson);
+                        } catch (quantError) {
+                            console.error(`Error al parsear quantitiesJson para línea ${lineaId}:`, quantError);
+                            console.error("Texto quantitiesJson:", quantitiesJson);
+                            // quantitiesObj se mantiene como {}
+                        }
+                    }
+    
+                    const descuentoActual = parseFloat(descuentoSelectEl.val()) || 0;
+                    // Asegúrate que calculateLineItemPricing maneje NaN o 0s de forma segura
+                    const datosCalculados = calculateLineItemPricing(isNaN(precioUnitOriginal) ? 0 : precioUnitOriginal, descuentoActual, totalQty);
+    
+                    // Crear fila en tabla (HTML como lo tenías, pero usando JSON.stringify para data-quantities)
+                     const newRowHtml = `
+                        <tr id="${lineaId}"
+                            data-ref="${ref}"
+                            data-color-slug="${colorSlug}"
+                            data-linea-qty="${datosCalculados.totalQty}"
+                            data-linea-value="${datosCalculados.lineaTotalFinal}"
+                            data-precio-unitario-original="${datosCalculados.precioUnitarioConIvaOriginal}"
+                            data-base-original="${datosCalculados.baseOriginalLinea}"
+                            data-descuento-linea="${datosCalculados.descuentoLinea}"
+                            data-iva-linea="${datosCalculados.ivaLinea}"
+                            data-linea-id="${lineaId}">
+                            <td>${ref}</td>
+                            <td>${colorDisplay}</td>
+                            <td>${grupo.tallas_string || ''}</td>
+                            <td class="text-end">${formatCurrency(datosCalculados.precioUnitarioConIvaOriginal)}</td>
+                            <td class="text-center fw-bold">${datosCalculados.totalQty}</td>
+                            <td class="text-end fw-bold">${formatCurrency(datosCalculados.lineaSubtotalOriginalConIVA)}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-warning btn-sm btn-editar-linea me-1" title="Editar línea"
+                                        data-target-row-id="${lineaId}" data-ref="${ref}" data-color-slug="${colorSlug}"
+                                        data-quantities='${JSON.stringify(quantitiesObj)}'>
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm btn-eliminar-linea" title="Eliminar línea"
+                                        data-target-row-id="${lineaId}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>`;
+                    detalleTbody.append(newRowHtml);
+    
+    
+                    // Crear inputs ocultos (validando cantidad)
+                    for (const productoId in quantitiesObj) {
+                        if (quantitiesObj.hasOwnProperty(productoId)) {
+                            const cantidad = parseInt(quantitiesObj[productoId], 10); // Intentar convertir a número
+                            if (!isNaN(cantidad) && cantidad > 0) { // Solo añadir si es un número válido y mayor que 0
+                                const hiddenInput = $('<input>')
+                                    .attr('type', 'hidden')
+                                    .attr('name', `cantidad_${productoId}`)
+                                    .val(cantidad)
+                                    .attr('data-linea-id-ref', lineaId);
+                                hiddenInputsContainer.append(hiddenInput);
+                            } else {
+                                 console.warn(`Cantidad inválida o cero (${quantitiesObj[productoId]}) para producto ${productoId} en línea ${lineaId}. Input oculto no creado.`);
+                            }
+                        }
+                    }
+                });
+    
+                updateGrandTotals(); // Calcular totales finales
+                console.log("Detalles iniciales cargados y procesados correctamente.");
+    
+            } else {
+                // El JSON se parseó, pero estaba vacío o no era un array
+                console.log("El JSON parseado está vacío o no es un array:", detallesAgrupados);
+                updateGrandTotals(); // Asegurar estado inicial correcto si no hay detalles válidos
+                 if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.show === 'function') {
+                     filaVacia.show();
+                 }
+            }
+    
+        } catch (processError) {
+            // Captura errores que ocurran DENTRO del forEach o al procesar los datos parseados
+            console.error("Error durante el procesamiento de los detalles agrupados:", processError);
+            // Podrías querer limpiar la tabla aquí o mostrar un estado de error general
+            updateGrandTotals(); // Resetear totales
+        }
+    }
+    // Función para recalcular subtotales cuando cambia el descuento general
+    function actualizarTodosLosSubtotalesYTotalGeneral() {
+        console.log("--- Actualizando subtotales por cambio de descuento ---");
+        const descuentoPct = parseFloat(descuentoSelectEl.val()) || 0;
+        console.log("Nuevo Descuento Pct:", descuentoPct);
+
+        detalleTbody.find('tr:not(#fila-vacia)').each(function() {
+            const row = $(this);
+            const totalQty = parseInt(row.data('linea-qty') || '0', 10);
+            const precioUnitarioConIvaOriginal = parseFloat(row.data('precio-unitario-original') || '0');
+
+            console.log(`Recalculando fila ${row.attr('id')}: Qty=${totalQty}, PrecioOriginal=${precioUnitarioConIvaOriginal}`);
+
+            if (precioUnitarioConIvaOriginal > 0 && totalQty > 0) {
+                // Recalcular usando la función helper con el NUEVO descuento
+                const datosCalculados = calculateLineItemPricing(precioUnitarioConIvaOriginal, descuentoPct, totalQty);
+
+                // Actualizar celdas visibles (mostramos precios SIN descuento aquí)
+                row.find('td').eq(3).text(formatCurrency(datosCalculados.precioUnitarioConIvaOriginal)); // Precio Unitario Original
+                row.find('td').eq(5).text(formatCurrency(datosCalculados.lineaSubtotalOriginalConIVA)); // Subtotal Original
+
+                // Actualizar data-* de la fila con los nuevos valores recalculados
+                row.data('linea-value', datosCalculados.lineaTotalFinal);
+                row.data('base-original', datosCalculados.baseOriginalLinea);
+                row.data('descuento-linea', datosCalculados.descuentoLinea);
+                row.data('iva-linea', datosCalculados.ivaLinea);
+                // 'data-precio-unitario-original' no cambia
+                // 'data-linea-qty' no cambia
+
+                console.log(`  Nuevos datos recalculados: lineaValue=${datosCalculados.lineaTotalFinal}`);
+            }
+        });
+
+        // Después de actualizar TODAS las filas, llamar a updateGrandTotals para sumar los nuevos valores
+        updateGrandTotals();
+    }
+
+
+    // --- Listener para Selección de Referencia (Carga Colores) ---
+    if (refSelect && refSelect.length > 0) {
+        refSelect.on('change', function() {
+            const currentRef = $(this).val(); // Obtener valor seleccionado (puede ser null)
+            console.log("Referencia cambiada. Valor:", currentRef);
+
+            /*if (isEditing) {
+                 alert("Estás editando una línea. Por favor, 'Actualiza' o 'Cancela la Edición' antes de seleccionar otra referencia.");
+                 // Reestablecer el valor anterior (necesita editTargetData)
+                 $(this).val(editTargetData?.ref || null).trigger('change.select2');
+                 return;
+            }*/ 
+
+            // 1. Siempre resetear Color y Tallas cuando la referencia cambie
+             resetColorYTallas();
+
+            // 2. Si se seleccionó una referencia válida...
+             if (currentRef) {
+                 console.log("Referencia válida seleccionada. Buscando colores...");
+                 //const urlColores = `/api/v1/productos/referencia/${currentRef}/colores/`;// // Ajusta esta URL si es necesario
+                 const urlColores = `/productos/api/referencia/${currentRef}/colores/`;
+                 fetch(urlColores, { headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }})
+                     .then(response => {
+                         if (!response.ok) {
+                             console.error('Error en respuesta de API Colores:', response.status, response.statusText);
+                             throw new Error(`Error ${response.status}`);
+                         }
+                         return response.json();
+                     })
+                     .then(colores => {
+                         console.log("Datos de colores recibidos:", colores);
+                         colorSelect.empty().append('<option value="" selected disabled>-- Selecciona Color --</option>'); // Limpiar y añadir placeholder
+
+                         let colorOptionsValues = [];
+                         if (colores && colores.length > 0) {
+                             colores.forEach(colorInfo => {
+                                 if (colorInfo && typeof colorInfo.valor !== 'undefined' && typeof colorInfo.display !== 'undefined') {
+                                     const option = new Option(colorInfo.display, colorInfo.valor); // text, value
+                                     colorSelect.append(option);
+                                     colorOptionsValues.push(colorInfo.valor);
+                                 }
+                             });
+                             console.log("Opciones de color añadidas:", colorOptionsValues);
+
+                             colorSelectDiv.show(); // Mostrar el selector
+                             colorSelect.prop('disabled', false); // Habilitar el selector
+
+                             // Lógica para edición: Si estamos editando y el color guardado está en las opciones
+                             if (isEditing && editTargetData?.color && colorOptionsValues.includes(editTargetData.color)) {
+                                 console.log(`Modo Edición: Seleccionando color guardado '${editTargetData.color}'...`);
+                                 colorSelect.val(editTargetData.color);
+                                 // Disparar 'change' para cargar tallas de edición
+                                 console.log("Disparando 'change' en Color para cargar tallas de edición...");
+                                 colorSelect.trigger('change'); // Usar trigger de jQuery
+                             } else if (isEditing && editTargetData?.color) {
+                                 console.error(`Color guardado ('${editTargetData.color}') NO encontrado en opciones:`, colorOptionsValues);
+                                 alert(`Error al editar: El color '${editTargetData.color}' ya no está disponible.`);
+                                 // Considerar resetear edición si el color ya no existe
+                                 // resetEditState();
+                             }
+                             // Autoseleccionar si solo hay un color (y no estamos editando o ya se manejó)
+                             else if (!isEditing && colores.length === 1) {
+                                colorSelect.val(colores[0].valor);
+                                colorSelect.trigger('change'); // Disparar evento para cargar tallas automáticamente
+                            }
+
+                         } else {
+                             console.log("No se encontraron colores para esta referencia.");
+                             // Mantener oculto y deshabilitado (ya hecho por resetColorYTallas)
+                              if (isEditing) {
+                                  alert("Error al editar: No se encontraron colores para esta referencia.");
+                                  resetEditState(); // Salir del modo edición
+                              }
+                         }
+                     })
+                     .catch(error => {
+                         console.error('Error fetching o procesando colores:', error);
+                         // Mostrar error en la UI podría ser mejor que un alert
+                         tallasContainer.html(`<p class="text-danger mt-2">Error al cargar colores para la referencia seleccionada.</p>`).show();
+                         if (isEditing) {
+                             alert("Error al cargar los colores para editar.");
+                             resetEditState();
+                         }
+                     });
+             } else {
+                 console.log("Referencia limpiada.");
+                 // resetColorYTallas() ya fue llamado arriba.
+             }
+        });
+    }
+
+    // --- Selección de Color (Carga Tallas) ---
+    if (colorSelect && colorSelect.length > 0) {
+        colorSelect.on('change', function() {
+            console.log('Color cambiado! Iniciando fetch de tallas...');
+            const currentColor = $(this).val();
+            const currentColorDisplay = $(this).find('option:selected').text();
+            const currentRef = refSelect.val(); // Obtener ref actual
+
+            if (isEditing && editTargetData && currentColor !== editTargetData.color) {
+                alert("Estás editando una línea. Por favor, 'Actualiza' o 'Cancela la Edición' antes de seleccionar otro color.");
+                $(this).val(editTargetData.color || ''); // Reestablecer al valor original
+                return;
+            }
+
+            // Mostrar 'cargando' y deshabilitar botón Add
+            tallasContainer.html('<p class="text-info mt-2">Cargando tallas...</p>').show();
+            btnAddUpdateProducto.prop('disabled', true);
+
+            if (!currentRef || !currentColor) {
+                 // Esto no debería pasar si la lógica de Ref -> Color funciona bien, pero por si acaso
+                 resetColorYTallas(); // Resetea tallas y botón add
+                 return;
+            }
+
+            //const urlTallas = `/api/v1/productos/referencia/${currentRef}/color/${currentColor}/tallas/`;
+            const urlTallas = `/productos/api/referencia/${currentRef}/color/${currentColor}/tallas/`; // Ajusta URL si es necesario
+            console.log('URL para fetch Tallas:', urlTallas);
+
+            fetch(urlTallas, { headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }})
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Respuesta fetch Tallas NO FUE OK:', response);
+                        throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Datos de tallas recibidos:', data);
+                    currentPrecioVenta = data.precio_venta || 0; // Guardar precio unitario base (con IVA)
+                    currentVariantes = data.variantes || [];
+
+                    if (currentVariantes.length > 0) {
+                        let gridHtml = `<h6 class="mb-3">Cantidades para: <strong>${currentRef} / ${currentColorDisplay}</strong> (Precio Unit: ${formatCurrency(currentPrecioVenta)})</h6>`;
+                        gridHtml += '<div class="d-flex flex-wrap" style="gap: 1rem;">';
+
+                        const copiarActivado = copiarCantidadesCheckbox.is(':checked');
+                        const hayCantidadesParaCopiar = ultimasCantidadesCopiables && Object.keys(ultimasCantidadesCopiables).length > 0;
+
+                        currentVariantes.forEach(variante => {
+                            const tallaActual = variante.talla;
+                            const stockBodega = variante.stock_actual !== undefined ? parseInt(variante.stock_actual, 10) : 0;
+                            const isAvailable = stockBodega > 0;
+                            let stockBadgeClass = !isAvailable ? 'bg-danger' : (stockBodega <= 5 ? 'bg-warning text-dark' : 'bg-success');
+                            let valorInicial = 0;
+
+                            // Aplicar cantidad copiada si el checkbox está marcado y hay datos
+                            if (copiarActivado && hayCantidadesParaCopiar && ultimasCantidadesCopiables.hasOwnProperty(tallaActual)) {
+                                valorInicial = Math.min(ultimasCantidadesCopiables[tallaActual], stockBodega);
+                            }
+
+                            gridHtml += `
+                                <div class="text-center mb-2">
+                                    <label for="temp_cant_producto_${variante.id}" class="form-label small fw-bold d-block">Talla: ${tallaActual}</label>
+                                    <span class="badge ${stockBadgeClass} mb-1">Stock: ${stockBodega}</span>
+                                    <input type="number" name="temp_cantidad_${variante.id}" id="temp_cant_producto_${variante.id}"
+                                           value="${valorInicial}" min="0" max="${stockBodega}" step="1" pattern="[0-9]*"
+                                           class="form-control form-control-sm input-cantidad-temp" style="width: 75px; display: inline-block;"
+                                           data-producto-id="${variante.id}" data-talla-display="${tallaActual}"
+                                           ${!isAvailable ? 'disabled title="Sin stock disponible"' : 'title="Ingrese cantidad"'} >
+                                </div>`;
+                        });
+                        gridHtml += '</div>';
+                        tallasContainer.html(gridHtml).show(); // Mostrar inputs de talla
+                        console.log('Inputs de talla añadidos al contenedor.');
+
+                        // Si estamos editando, pre-rellenar cantidades (SOBREESCRIBE las copiadas si aplica)
+                        if (isEditing && editTargetData?.quantities) {
+                            console.log("Rellenando cantidades para edición:", editTargetData.quantities);
+                            tallasContainer.find('.input-cantidad-temp').each(function() {
+                                const input = $(this);
+                                const productoId = input.data('producto-id');
+                                const currentQty = parseInt(editTargetData.quantities[productoId] || '0', 10);
+                                const maxStock = parseInt(input.attr('max') || '0', 10);
+                                const valorAplicar = Math.min(currentQty, maxStock);
+                                input.val(valorAplicar); // Establecer valor
+                                if (currentQty > maxStock) {
+                                    console.warn(`Cantidad editada (${currentQty}) para ID ${productoId} excedía stock actual (${maxStock}). Ajustado a ${valorAplicar}.`);
+                                }
+                            });
+                        }
+                         btnAddUpdateProducto.prop('disabled', false); // Habilitar botón Añadir/Actualizar
+
+                    } else { // No hay variantes
+                         tallasContainer.html('<p class="text-warning mt-2">No hay tallas (variantes) definidas o activas para esta referencia y color.</p>').show();
+                         if (isEditing) {
+                             alert("Error editando: No se encontraron variantes para esta línea. Se cancelará la edición.");
+                             resetEditState();
+                         }
+                          btnAddUpdateProducto.prop('disabled', true); // Mantener deshabilitado
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching tallas:', error);
+                    tallasContainer.html(`<p class="text-danger mt-2">Error al cargar tallas (${error}). Contacta al administrador.</p>`).show();
+                     if (isEditing) {
+                         alert("Error cargando datos para editar la línea. Se cancelará la edición.");
+                         resetEditState();
+                     }
+                     btnAddUpdateProducto.prop('disabled', true);
+                });
+        });
+    }
+
+
+    // --- Listener para Checkbox 'Copiar Cantidades' ---
+    if (copiarCantidadesCheckbox.length > 0) {
+        copiarCantidadesCheckbox.on('change', function() {
+            if ($(this).is(':checked')) {
+                console.log("Checkbox 'Copiar' marcado. Intentando aplicar cantidades.");
+                const hayCantidadesParaCopiar = ultimasCantidadesCopiables && Object.keys(ultimasCantidadesCopiables).length > 0;
+                const inputsTallaVisibles = tallasContainer.find('.input-cantidad-temp:visible'); // Solo inputs visibles
+
+                if (!hayCantidadesParaCopiar) {
+                    alert("No hay cantidades anteriores guardadas para copiar.");
+                    $(this).prop('checked', false);
+                    return;
+                }
+                if (inputsTallaVisibles.length === 0) {
+                     alert("Por favor, selecciona una Referencia y Color para cargar las tallas antes de intentar copiar cantidades.");
+                     $(this).prop('checked', false);
+                     return;
+                }
+
+                // Aplicar cantidades a los inputs visibles
+                let copiados = 0;
+                inputsTallaVisibles.each(function() {
+                    const input = $(this);
+                    const tallaActual = input.data('talla-display');
+                    const stockBodega = parseInt(input.attr('max') || '0', 10);
+
+                    if (tallaActual && ultimasCantidadesCopiables.hasOwnProperty(tallaActual)) {
+                        let cantidadCopiada = ultimasCantidadesCopiables[tallaActual];
+                        let valorAplicar = Math.min(cantidadCopiada, stockBodega);
+                        input.val(valorAplicar); // Actualizar valor del input
+                        copiados++;
+                        console.log(`Aplicado a Talla ${tallaActual}: ${valorAplicar}`);
+                    } else {
+                        // Si la talla actual no estaba en las guardadas, opcionalmente poner 0
+                         // input.val(0);
+                    }
+                });
+
+                if (copiados > 0) {
+                    console.log("Cantidades copiadas a los campos visibles.");
+                } else {
+                    alert("Las tallas actuales no coinciden con las cantidades guardadas anteriormente.");
+                }
+
+            } else {
+                console.log("Checkbox 'Copiar' desmarcado.");
+                // Opcional: Limpiar inputs si se desmarca? Depende de la UX deseada.
+            }
+        });
+    }
+
+
+    // --- Listener para Cambio de Descuento General ---
+    if (descuentoSelectEl.length > 0) {
+        descuentoSelectEl.on('change', actualizarTodosLosSubtotalesYTotalGeneral);
+        console.log('Listener añadido al select de descuento.');
+    } else {
+        console.warn('Elemento #id_porcentaje_descuento no encontrado para añadir listener.');
+    }
+
+
+    // --- Botón Agregar / Actualizar Producto al Pedido ---
+    if (btnAddUpdateProducto.length > 0) {
+        btnAddUpdateProducto.on('click', function() {
+            console.log("--- Click en Add/Update ---");
+
+            // 1. Validar y Recolectar Cantidades de los Inputs de Talla
+            let items = []; // Array de { productoId, cantidad, talla }
+            let totalQtyLinea = 0;
+            let validationOk = true;
+
+            if (tallasContainer.find('.input-cantidad-temp').length === 0) {
+                console.error("Error: No hay inputs de talla cargados.");
+                 alert("Por favor, selecciona Referencia y Color para cargar las tallas.");
+                 validationOk = false;
+            } else {
+                tallasContainer.find('.input-cantidad-temp').each(function() {
+                    if (!validationOk) return false; // Salir del .each si ya hubo error
+                    const input = $(this);
+                    const cantidad = parseInt(input.val(), 10);
+                    const stock = parseInt(input.attr('max') || '0', 10);
+                    const productoId = input.data('producto-id');
+                    const tallaDisplay = input.data('talla-display');
+
+                    if (isNaN(cantidad) || cantidad < 0) {
+                        console.error(`Error: Cantidad inválida o negativa para la talla ${tallaDisplay}.`);
+                        alert(`Error: Cantidad inválida o negativa para la talla ${tallaDisplay}.`); // Mantener alerta para validación directa
+                        input.trigger('focus').trigger('select'); validationOk = false; return false;
+                    }
+                    if (cantidad > stock) {
+                         console.error(`Error: La cantidad (${cantidad}) para la talla ${tallaDisplay} excede el stock disponible (${stock}).`);
+                         alert(`Error: La cantidad (${cantidad}) para la talla ${tallaDisplay} excede el stock disponible (${stock}).`);
+                         input.trigger('focus').trigger('select'); validationOk = false; return false;
+                    }
+                    if (cantidad > 0) {
+                        items.push({ productoId: productoId, cantidad: cantidad, talla: tallaDisplay });
+                        totalQtyLinea += cantidad;
+                    }
+                });
+            }
+            console.log('DEBUG: Antes de check validationOk. validationOk =', validationOk);
+
+            if (!validationOk) return; // Detener si hubo error en validación
+
+             // 2. Obtener Datos Actuales (Referencia, Color, Descuento)
+             const currentRef = refSelect.val();
+             const currentColor = colorSelect.val();
+             const currentColorDisplay = colorSelect.find('option:selected').text();
+             const descuentoPct = parseFloat(descuentoSelectEl.val()) || 0;
+
+             // Verificar datos esenciales
+             console.log('DEBUG: Antes de check Ref/Color. currentRef =', currentRef, 'currentColor =', currentColor);
+
+            if (!currentRef || !currentColor) {
+                console.error("Faltan datos esenciales (Referencia/Color).");
+                 alert("Error: Falta seleccionar la Referencia o el Color.");
+                 return;
+             }
+             console.log('DEBUG: Antes de check Cantidad Cero (Add). items.length =', items.length, 'totalQtyLinea =', totalQtyLinea, 'isEditing =', isEditing);
+
+             if (items.length === 0 && totalQtyLinea === 0 && !isEditing) {
+                 alert("Debes ingresar una cantidad mayor a 0 para al menos una talla.");
+                 tallasContainer.find('.input-cantidad-temp:not([disabled]):first').trigger('focus');
+                 return;
+             }
+
+            // 3. Calcular Precios y Totales de Línea usando la función helper
+             const datosCalculados = calculateLineItemPricing(currentPrecioVenta, descuentoPct, totalQtyLinea);
+             console.log('Datos Calculados para Línea:', datosCalculados);
+             console.log('DEBUG: Punto A - Antes de declarar tallasDetalleString. Array items:', items);
+             // Ordenar items por talla para mostrar y crear objeto/JSON para data-quantities
+             items.sort((a, b) => {
+                // Asegura que a.talla y b.talla sean tratados como strings.
+                // Convierte null, undefined, números, etc., a string. Usa '' como default si falta.
+                
+                const tallaA = String(a?.talla || '');
+                const tallaB = String(b?.talla || '');
+            
+                // Ahora sí podemos usar localeCompare de forma segura
+                return tallaA.localeCompare(tallaB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            const tallasDetalleString = items.map(item => `${item.talla}: ${item.cantidad}`).join(', ');
+            const quantitiesObject = items.reduce((obj, item) => { obj[item.productoId] = item.cantidad; return obj; }, {});
+            const quantitiesJson = JSON.stringify(quantitiesObject);
+
+            // 4. Verificar Duplicados antes de Añadir/Actualizar
+            console.log('DEBUG: Punto D - Antes de verificar duplicados.');
+            let alreadyExists = false;
+            let existingRowId = null;
+            const refToAdd = currentRef;
+            const colorSlugToAdd = currentColor;
+
+            detalleTbody.find('tr:not(#fila-vacia)').each(function() {
+                const row = $(this);
+                // Si estamos editando, no comparar la fila consigo misma
+                if (isEditing && row.attr('id') === editingRowId) {
+                    return true; // Continuar con el siguiente .each
+                }
+                const rowRef = row.data('ref');
+                const rowColorSlug = row.data('color-slug');
+
+                if (rowRef === refToAdd && rowColorSlug === colorSlugToAdd) {
+                    alreadyExists = true;
+                    existingRowId = row.attr('id');
+                    return false; // Salir del .each
+                }
+            });
+
+            if (alreadyExists) {
+                const colorDisplay = colorSelect.find('option:selected').text() || colorSlugToAdd;
+                alert(`La referencia '${refToAdd}' con el color '${colorDisplay}' ya existe en el pedido. Puedes editar la línea existente.`);
+                // Opcional: Resaltar fila existente
+                 const existingRowElement = $(`#${existingRowId}`);
+                 if (existingRowElement.length > 0) {
+                     existingRowElement.addClass('table-warning');
+                     setTimeout(() => { existingRowElement.removeClass('table-warning'); }, 3500);
+                 }
+                 return; // Detener ejecución
+            }
+
+
+            // 5. Actualizar Tabla e Inputs Ocultos (según si es Edición o Adición)
+            if (isEditing) {
+                 // --- Lógica de ACTUALIZAR LÍNEA ---
+                 console.log("Actualizando línea:", editingRowId);
+                 const rowToUpdate = $(`#${editingRowId}`);
+
+                 if (rowToUpdate.length === 0) {
+                     console.error("Error al actualizar: Fila no encontrada", editingRowId);
+                      alert("Error: No se encontró la línea a actualizar.");
+                      resetEditState(); // Salir del modo edición
+                      return;
+                 }
+
+                 // Manejar caso donde cantidad total es 0 en edición
+                if (totalQtyLinea === 0) {
+                    if (confirm("La cantidad total es 0. ¿Quieres eliminar esta línea del pedido?")) {
+                        // Simular click en el botón de eliminar de esa fila
+                         rowToUpdate.find('.btn-eliminar-linea').trigger('click');
+                    } else {
+                         // Mantener en modo edición y enfocar primer input de talla
+                        tallasContainer.find('.input-cantidad-temp:not([disabled]):first').trigger('focus');
+                    }
+                    // No continuar con la actualización si la cantidad es 0
+                     return;
+                }
+
+                 // 1. Actualizar celdas visibles
+                 rowToUpdate.find('td').eq(0).text(currentRef);
+                 rowToUpdate.find('td').eq(1).text(currentColorDisplay);
+                 rowToUpdate.find('td').eq(2).text(tallasDetalleString);
+                 rowToUpdate.find('td').eq(3).text(formatCurrency(datosCalculados.precioUnitarioConIvaOriginal)); // Precio Unitario Original
+                 rowToUpdate.find('td').eq(4).text(datosCalculados.totalQty); // Cantidad Total
+                 rowToUpdate.find('td').eq(5).text(formatCurrency(datosCalculados.lineaSubtotalOriginalConIVA)); // Subtotal Original
+
+                 // 2. Actualizar data-* en la fila <tr>
+                 rowToUpdate.data('ref', currentRef); // Actualizar por si acaso (no debería cambiar en edit)
+                 rowToUpdate.data('color-slug', currentColor); // Actualizar por si acaso
+                 rowToUpdate.data('linea-qty', datosCalculados.totalQty);
+                 rowToUpdate.data('linea-value', datosCalculados.lineaTotalFinal);
+                 rowToUpdate.data('precio-unitario-original', datosCalculados.precioUnitarioConIvaOriginal);
+                 rowToUpdate.data('base-original', datosCalculados.baseOriginalLinea);
+                 rowToUpdate.data('descuento-linea', datosCalculados.descuentoLinea);
+                 rowToUpdate.data('iva-linea', datosCalculados.ivaLinea);
+
+                 // 3. Actualizar data-* en el botón Editar de esa fila
+                 const editButton = rowToUpdate.find('.btn-editar-linea');
+                 if (editButton.length > 0) {
+                     editButton.data('ref', currentRef);
+                     editButton.data('color-slug', currentColor);
+                     editButton.data('quantities', quantitiesJson); // Guardar nuevas cantidades JSON
+                     // Alternativamente, usar .attr() para asegurar que se actualiza el atributo HTML si es necesario
+                     // editButton.attr('data-quantities', quantitiesJson);
+                 }
+
+                 // 4. Eliminar inputs ocultos VIEJOS y Añadir los NUEVOS
+                 hiddenInputsContainer.find(`input[data-linea-id-ref="${editingRowId}"]`).remove();
+                 items.forEach(item => {
+                     const hiddenInput = $('<input>')
+                         .attr('type', 'hidden')
+                         .attr('name', `cantidad_${item.productoId}`)
+                         .val(item.cantidad)
+                         .attr('data-linea-id-ref', editingRowId);
+                     hiddenInputsContainer.append(hiddenInput);
+                 });
+
+                  // 5. *** CORRECTO LUGAR para Guardar Cantidades para Copiar ***
+                 const cantidadesParaGuardarEdit = items.reduce((acc, item) => {
+                     if (item.cantidad > 0 && item.talla) acc[item.talla] = item.cantidad;
+                     return acc;
+                 }, {});
+                 if (Object.keys(cantidadesParaGuardarEdit).length > 0) {
+                     ultimasCantidadesCopiables = cantidadesParaGuardarEdit;
+                     console.log("Cantidades actualizadas guardadas para copiar:", ultimasCantidadesCopiables);
+                 }
+
+                 console.log("Línea actualizada.");
+                 resetEditState();              // Salir del modo edición
+                 resetCurrentSelectionInputs(); // Limpiar área de selección
+                 updateGrandTotals();           // Recalcular totales generales
+
+            } else {
+                 // --- Lógica de AÑADIR NUEVA LÍNEA ---
+                 console.log('DEBUG: Punto C - Dentro del bloque ELSE (añadir nuevo), ANTES de usar tallasDetalleString.');
+
+                console.log("Añadiendo nueva línea.");
+                lineaCounter++; // Incrementar contador para ID único
+                const lineaId = `linea-${lineaCounter}`;
+                console.log('DEBUG: INSIDE ELSE - Valor de tallasDetalleString:', tallasDetalleString);
+
+
+                // 1. Crear HTML de la nueva fila con todos los data-* necesarios
+                 const newRowHtml = `
+                     <tr id="${lineaId}"
+                         data-ref="${currentRef}"
+                         data-color-slug="${currentColor}"
+                         data-linea-qty="${datosCalculados.totalQty}"
+                         data-linea-value="${datosCalculados.lineaTotalFinal}"
+                         data-precio-unitario-original="${datosCalculados.precioUnitarioConIvaOriginal}"
+                         data-base-original="${datosCalculados.baseOriginalLinea}"
+                         data-descuento-linea="${datosCalculados.descuentoLinea}"
+                         data-iva-linea="${datosCalculados.ivaLinea}"
+                         data-linea-id="${lineaId}">
+                         <td>${currentRef}</td>
+                         <td>${currentColorDisplay}</td>
+                         <td>${tallasDetalleString}</td>
+                         <td class="text-end">${formatCurrency(datosCalculados.precioUnitarioConIvaOriginal)}</td>
+                         <td class="text-center fw-bold">${datosCalculados.totalQty}</td>
+                         <td class="text-end fw-bold">${formatCurrency(datosCalculados.lineaSubtotalOriginalConIVA)}</td>
+                         <td class="text-center">
+                             <button type="button" class="btn btn-warning btn-sm btn-editar-linea me-1" title="Editar línea"
+                                     data-target-row-id="${lineaId}" data-ref="${currentRef}" data-color-slug="${currentColor}"
+                                     data-quantities='${quantitiesJson}'>
+                                 <i class="fas fa-pencil-alt"></i>
+                             </button>
+                             <button type="button" class="btn btn-danger btn-sm btn-eliminar-linea" title="Eliminar línea"
+                                     data-target-row-id="${lineaId}">
+                                 <i class="fas fa-trash-alt"></i>
+                             </button>
+                         </td>
+                     </tr>`;
+
+                 // 2. Añadir fila a la tabla
+                 detalleTbody.append(newRowHtml);
+
+                 // 3. Añadir inputs ocultos para esta nueva línea
+                 items.forEach(item => {
+                     const hiddenInput = $('<input>')
+                         .attr('type', 'hidden')
+                         .attr('name', `cantidad_${item.productoId}`)
+                         .val(item.cantidad)
+                         .attr('data-linea-id-ref', lineaId);
+                     hiddenInputsContainer.append(hiddenInput);
+                 });
+
+                 // 4. *** CORRECTO LUGAR para Guardar Cantidades para Copiar ***
+                 const cantidadesParaGuardarAdd = items.reduce((acc, item) => {
+                     if (item.cantidad > 0 && item.talla) acc[item.talla] = item.cantidad;
+                     return acc;
+                 }, {});
+                 if (Object.keys(cantidadesParaGuardarAdd).length > 0) {
+                     ultimasCantidadesCopiables = cantidadesParaGuardarAdd;
+                     console.log("Cantidades nuevas guardadas para copiar:", ultimasCantidadesCopiables);
+                 }
+
+
+                 console.log("Nueva línea añadida.");
+                 resetCurrentSelectionInputs(); // Limpiar área de selección
+                 updateGrandTotals();           // Recalcular totales generales
+                 filaVacia.hide();              // Asegurar que la fila vacía esté oculta
+            }
+        });
+    }
+
+    // --- Botón Cancelar Edición ---
+    if (btnCancelarEdicion.length > 0) {
+        btnCancelarEdicion.on('click', function() {
+            console.log("Edición cancelada por usuario.");
+            resetEditState();
+            resetCurrentSelectionInputs(); // Limpiar también el área de selección
+        });
+    }
+
+    // --- Botones Editar/Eliminar en Tabla (Delegación de Eventos) ---
+    if (detalleTbody.length > 0) {
+        detalleTbody.on('click', '.btn-eliminar-linea, .btn-editar-linea', function(event) {
+            const button = $(this);
+
+            // --- Lógica Eliminar Línea ---
+            if (button.hasClass('btn-eliminar-linea')) {
+                const rowIdToDelete = button.data('target-row-id');
+                const rowToDelete = $(`#${rowIdToDelete}`);
+
+                if (isEditing && editingRowId !== rowIdToDelete) {
+                    alert("Termina o cancela la edición actual antes de eliminar otra línea.");
+                    return;
+                }
+                // Si se elimina la línea que se estaba editando, salir del modo edición primero
+                if (isEditing && editingRowId === rowIdToDelete) {
+                    resetEditState();
+                    resetCurrentSelectionInputs();
+                }
+
+                if (rowToDelete.length > 0) {
+                    const refToDelete = rowToDelete.find('td').eq(0).text() || 'Desconocida';
+                    const colorToDelete = rowToDelete.find('td').eq(1).text() || '';
+                    if (confirm(`¿Seguro que quieres eliminar la línea ${refToDelete} / ${colorToDelete}?`)) {
+                        // Eliminar inputs ocultos asociados
+                        hiddenInputsContainer.find(`input[data-linea-id-ref="${rowIdToDelete}"]`).remove();
+                        // Eliminar fila de la tabla
+                        rowToDelete.remove();
+                        updateGrandTotals(); // Recalcular totales
+                        console.log(`Línea ${rowIdToDelete} eliminada.`);
+                        // Mostrar fila vacía si ya no quedan filas
+                         if (detalleTbody.find('tr:not(#fila-vacia)').length === 0) {
+                             filaVacia.show();
+                         }
+                    }
+                }
+            }
+
+            // --- Lógica Editar Línea ---
+            else if (button.hasClass('btn-editar-linea')) {
+                 if (isEditing) {
+                     alert("Ya estás editando una línea. Por favor, 'Actualiza' o 'Cancela la Edición' actual primero.");
+                     return;
+                 }
+
+                 editingRowId = button.data('target-row-id'); // Guardar ID de la fila
+                 const rowToEdit = $(`#${editingRowId}`);
+
+                 // Obtener datos guardados en el botón (y parsear JSON)
+                 let quantitiesParsed = {};
+                 try {
+                     // Usar .attr() para leer el JSON es más seguro si se actualiza con .attr()
+                     quantitiesParsed = JSON.parse(button.attr('data-quantities') || '{}');
+                 } catch(e) {
+                      console.error("Error parseando data-quantities para editar:", e, button.attr('data-quantities'));
+                      alert("Error interno al intentar leer los datos de la línea para editar.");
+                      return; // Cancelar si hay error
+                 }
+
+                 editTargetData = {
+                     ref: button.data('ref'),
+                     color: button.data('color-slug'),
+                     quantities: quantitiesParsed
+                 };
+
+                 console.log("Iniciando edición. Datos:", editTargetData);
+                 isEditing = true; // Marcar que estamos editando
+
+                 // --- Actualizar UI para modo edición ---
+                 btnAddUpdateProducto.text('Actualizar Línea')
+                                     .removeClass('btn-primary')
+                                     .addClass('btn-success')
+                                     .prop('disabled', true); // Deshabilitar hasta cargar tallas
+                 btnCancelarEdicion.show();
+                 detalleTitulo.text(`Editando Línea (Ref: ${editTargetData.ref})`);
+                 rowToEdit.addClass('table-info'); // Resaltar fila
+
+                  // --- Deshabilitar selects principales ---
+                 clienteSelect?.prop('disabled', true);
+                 refSelect?.prop('disabled', true); // Deshabilitar Referencia (Select2)
+                 colorSelect?.prop('disabled', true); // Deshabilitar Color (select normal)
+
+
+                 // --- Cargar datos en los selects y disparar la cadena de eventos ---
+                 // Cargar Referencia en Select2 y disparar 'change'
+                 // El listener 'change' de refSelect se encargará de cargar colores
+                 // y la lógica dentro de ese listener se encargará de seleccionar el color correcto
+                 // y disparar el 'change' del color para cargar las tallas.
+                 if (refSelect.data('select2') && editTargetData.ref) {
+                     const refId = editTargetData.ref;
+                     // Asegurar que la opción exista (si no, Select2 no puede seleccionarla)
+                     if (refSelect.find(`option[value="${refId}"]`).length === 0) {
+                         // Idealmente, el texto debería venir de algún lado, usamos el ID como fallback
+                          const refText = refId;
+                          const editOptionRef = new Option(refText, refId, true, true);
+                          refSelect.append(editOptionRef); //.trigger('change'); // Appen y trigger
+                     }
+                      // Establecer valor y disparar 'change' para iniciar carga de colores/tallas
+                      console.log("Estableciendo referencia para edición y disparando change:", refId);
+                      refSelect.val(refId).trigger('change');
+                 } else {
+                     console.warn("No se pudo pre-cargar la referencia en modo edición (Select2 no listo o falta ref).");
+                     // Intento de cargar color directamente si la referencia no cambió (menos robusto)
+                     if (colorSelect.length > 0 && editTargetData.color && refSelect.val() === editTargetData.ref) {
+                         colorSelect.val(editTargetData.color).trigger('change');
+                     }
+                 }
+
+                 // Scroll a la sección de selección
+                 if (seccionSeleccion.length > 0) {
+                      // Usar animación de jQuery o scrollIntoView de JS
+                      $('html, body').animate({
+                          scrollTop: seccionSeleccion.offset().top - 20 // Ajusta el offset si tienes cabecera fija
+                      }, 500); // Duración de la animación
+                    // Alternativa JS: seccionSeleccion[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                 }
+            }
+        });
+    }
+
+
+    // --- Botón Nuevo Pedido ---
+    if (btnNuevoPedido.length > 0) {
+        btnNuevoPedido.on('click', function() {
+            console.log("Limpiando formulario para nuevo pedido...");
+
+            if (!confirm("¿Estás seguro? Se borrarán todos los datos ingresados en este pedido.")) {
+                return; // No hacer nada si cancela
+            }
+
+            // Resetear campos principales del formulario
+            clienteSelect?.val(null).trigger('change.select2'); // Limpiar Select2 Cliente
+            refSelect?.val(null).trigger('change.select2'); // Limpiar Select2 Referencia
+            descuentoSelectEl?.val('0'); // Resetear Descuento a 0 (o tu valor default)
+            $('#id_notas').val(''); // Limpiar Notas
+
+            // Resetear área de selección de productos (Color y Tallas)
+            resetCurrentSelectionInputs(); // Esto ya limpia color, tallas y deshabilita botón Add
+
+            // Limpiar tabla de detalles
+            detalleTbody.find('tr:not(#fila-vacia)').remove(); // Eliminar filas de producto
+            filaVacia.show(); // Mostrar la fila vacía
+
+            // Limpiar inputs ocultos
+            hiddenInputsContainer.empty();
+
+            // Resetear totales visuales
+            updateGrandTotals(); // Debería calcular 0
+
+            // Asegurar que no esté en modo edición
+            if (isEditing) {
+                resetEditState();
+            }
+
+            // Resetear estado de "Copiar Cantidades"
+            ultimasCantidadesCopiables = {};
+            copiarCantidadesCheckbox.prop('checked', false);
+
+
+            // Opcional: Scroll al principio
+            $('html, body').animate({ scrollTop: 0 }, 'smooth');
+
+            console.log("Formulario limpiado exitosamente.");
+            // alert('Formulario limpiado para un nuevo pedido.'); // Opcional
+        });
+    }
+
+
+    // --- Validación y Confirmación Antes de Enviar Formulario ---
+    if (pedidoForm.length > 0) {
+        pedidoForm.on('submit', function(event) {
+            // event.originalEvent.submitter existe en jQuery >= 3.0
+            const submitter = event.originalEvent?.submitter;
+            const accion = submitter?.value; // Botón presionado ('guardar_borrador' o 'crear_definitivo')
+
+            console.log(`Intento de submit con acción: ${accion}`);
+
+            if (isEditing) {
+                alert("Por favor, 'Actualiza' o 'Cancela la Edición' de la línea actual antes de guardar o enviar el pedido.");
+                event.preventDefault(); // Detener envío
+                 // Opcional: Enfocar el botón de actualizar/cancelar
+                 btnAddUpdateProducto.trigger('focus');
+                 return;
+            }
+
+
+            if (accion === 'guardar_borrador') {
+                if (!confirm('¿Estás seguro de que quieres guardar este pedido como borrador?')) {
+                    event.preventDefault();
+                } else {
+                    // Opcional: Deshabilitar botones para evitar doble envío
+                     /*$(this).find('button[type="submit"]').prop('disabled', true).addClass('disabled');*/
+                     console.log("Guardando borrador...");
+
+                }
+                     
+            } else if (accion === 'crear_definitivo') {
+                const dataRows = detalleTbody.find('tr:not(#fila-vacia)').length;
+                if (dataRows === 0) {
+                    alert("Error: Debes agregar al menos un producto antes de crear el pedido definitivo.");
+                    event.preventDefault();
+                    refSelect?.select2('open'); // Abrir select de referencia
+                    return;
+                }
+                if (!confirm('¿Estás seguro de que quieres crear este pedido definitivamente? Se verificará el stock.')) {
+                    event.preventDefault();
+                } else {
+                     // Opcional: Deshabilitar botones para evitar doble envío
+                     //$(this).find('button[type="submit"]').prop('disabled', true).addClass('disabled');
+                     console.log("Creando pedido definitivo...");
+                     const buttons = $(this).find('button[type="submit"]');
+
+                     setTimeout(() => {
+                        buttons.prop('disabled', true).addClass('disabled');
+                        console.log("Botones deshabilitados (con delay)");
+                    }, 50); // Deshabilitar después de 50ms (puedes ajustar este tiempo)
+           
+                }
+            } else {
+                 // Si hay otros botones de submit o si no se pudo determinar la acción
+                 console.warn("Acción de submit no determinada o desconocida:", accion);
+                 // Podrías añadir una confirmación genérica o permitir el envío
+                 // if (!confirm('¿Proceder con la acción?')) {
+                 //     event.preventDefault();
+                 // }
+            }
+        });
+    }
+
+// --- Lógica para el botón de información del cliente ---
+if (clienteSelect.length > 0) {
+    // Cuando SELECCIONAS un cliente
+    clienteSelect.on('select2:select', function (e) {
+        const data = e.params.data;
+        clienteSeleccionadoId = data.id; // Guarda el ID del cliente
+        console.log("Cliente seleccionado:", clienteSeleccionadoId, data.text);
+        btnMostrarInfoCliente.show(); // Muestra el botón "Ver Info"
+        infoClienteContainer.hide().html('<small class="text-muted">Haz clic en "Ver Info" para cargar detalles.</small>');
+    });
+
+    // Cuando BORRAS la selección del cliente
+    clienteSelect.on('select2:clear', function (e) {
+        console.log("Selección de cliente limpiada.");
+        clienteSeleccionadoId = null; // Olvida el ID
+        btnMostrarInfoCliente.hide(); // Oculta el botón "Ver Info"
+        infoClienteContainer.hide().empty(); // Oculta y vacía la info
+    });
+
+    // Si al cargar la página ya hay un cliente (cuando editas un pedido)
+    const clienteInicial = clienteSelect.val();
+    if (clienteInicial) {
+         clienteSeleccionadoId = clienteInicial; // Guarda el ID inicial
+         btnMostrarInfoCliente.show(); // Muestra el botón
+         infoClienteContainer.hide().html('<small class="text-muted">Haz clic en "Ver Info" para cargar detalles.</small>');
+    }
+}
+
+// Cuando haces CLIC en el botón "Ver Info"
+if (btnMostrarInfoCliente.length > 0) {
+    btnMostrarInfoCliente.on('click', function() {
+
+        if (!clienteSeleccionadoId) {
+            console.warn("Se hizo clic en Ver Info, pero no hay cliente seleccionado.");
+            alert("Por favor, selecciona un cliente primero.");
+            return;
+        }
+
+        const container = infoClienteContainer; // La variable ya la tenías definida arriba
+
+        // --- Lógica de Mostrar/Ocultar ---
+        if (container.is(':visible')) {
+            // Si ya está visible, simplemente lo ocultamos con una animación
+            container.slideUp();
+            console.log("Ocultando detalles del cliente.");
+        } else {
+            // Si está oculto, procedemos a cargar y mostrar
+            console.log("Buscando detalles para cliente ID:", clienteSeleccionadoId);
+            // Muestra 'cargando' y empieza a mostrar la caja con animación
+            container.html('<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Cargando...</span></div> <small>Cargando detalles...</small>')
+                     .slideDown(); // Usa slideDown para mostrar suavemente
+
+            const urlDetallesCliente = urlBaseDetalleCliente.replace('/0/', '/' + clienteSeleccionadoId + '/');
+            console.log("URL Detalles Cliente construida:", urlDetallesCliente); // Para depurar
+
+            // Petición Fetch (igual que antes)
+            fetch(urlDetallesCliente, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => { // Manejo de respuesta (igual que antes)
+                if (!response.ok) {
+                    return response.json().then(errData => {
+                        throw new Error(`Error ${response.status}: ${errData.detail || errData.error || response.statusText}`);
+                    }).catch(() => {
+                         throw new Error(`Error ${response.status}: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => { // Cuando tenemos los datos (igual que antes)
+                console.log("Detalles del cliente recibidos:", data);
+                // Formatear la información HTML (igual que antes)
+                // !!! Recuerda ajustar data.nombre, data.nit, etc. a tus campos !!!
+                let infoHtml = `<h5> ${data.nombre || 'Cliente'}</h5>`;
+                infoHtml += '<dl class="row mb-0">';
+                if (data.nit) { infoHtml += `<dt class="col-sm-4">NIT/ID:</dt><dd class="col-sm-8">${data.nit}</dd>`; }
+                if (data.direccion) { infoHtml += `<dt class="col-sm-4">Dirección:</dt><dd class="col-sm-8">${data.direccion}</dd>`; }
+                if (data.ciudad) { infoHtml += `<dt class="col-sm-4">Municipio:</dt><dd class="col-sm-8">${data.ciudad}</dd>`; }
+                if (data.telefono) { infoHtml += `<dt class="col-sm-4">Teléfono:</dt><dd class="col-sm-8">${data.telefono}</dd>`; }
+                if (data.email) { infoHtml += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${data.email}</dd>`; }
+                // ... añadir más campos si es necesario ...
+                infoHtml += '</dl>';
+
+                // Poner el HTML final en el contenedor (la animación slideDown ya lo hizo visible)
+                container.html(infoHtml);
+            })
+            .catch(error => { // Manejo de errores (igual que antes)
+                console.error('Error al obtener detalles del cliente:', error);
+                container.html(`<p class="text-danger small m-0">Error al cargar detalles: ${error.message}</p>`);
+            });
+        }
+    });
+}
+
+// ******** FIN DEL BLOQUE PARA PEGAR ********
+
+    //================================================
+    // 6. Inicialización al Cargar la Página
+    //================================================
+
+    // --- Inicializar Select2 para Clientes ---
+    if (clienteSelect.length > 0) {
+        try {
+            clienteSelect.select2({
+                placeholder: "-- Busca por Nombre o NIT/ID --",
+                minimumInputLength: 2,
+                allowClear: true,
+                language: "es", // Asegúrate de incluir el archivo de idioma Select2/i18n/es.js
+                ajax: {
+                    url: "{% url 'clientes:api_buscar_clientes' %}", // URL de tu API Django
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { term: params.term }; // Parámetro de búsqueda
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.results // Asume { "results": [{id: ..., text: ...}, ...]}
+                        };
+                    },
+                    cache: true
+                },
+                theme: "bootstrap-5" // O el tema que uses (requiere CSS/JS adicional)
+            });
+            console.log("Select2 para Clientes inicializado.");
+        } catch(e) {
+            console.error("Error inicializando Select2 para Clientes:", e);
+            alert("Error al cargar el buscador de clientes. Intenta recargar la página.");
+        }
+    } else {
+        console.warn("Elemento #id_cliente para Select2 no encontrado.");
+    }
+
+    // --- Inicializar Select2 para Referencias ---
+    if (refSelect.length > 0) {
+        try {
+            refSelect.select2({
+                placeholder: "-- Buscar Referencia --",
+                minimumInputLength: 1,
+                allowClear: true,
+                language: "es",
+                ajax: {
+                    url: "{% url 'productos:api_buscar_referencias' %}", // URL de tu API Django
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { term: params.term };
+                    },
+                    processResults: function (data) {
+                        return { results: data.results };
+                    },
+                    cache: true
+                },
+                theme: "bootstrap-5"
+            });
+             console.log("Select2 para Referencias inicializado.");
+        } catch(e) {
+            console.error("Error inicializando Select2 para Referencia:", e);
+            alert("Error al cargar el buscador de referencias.");
+        }
+    } else {
+        console.warn("Elemento #id_referencia para Select2 no encontrado.");
+    }
+
+    //================================================
+// 7. MANEJADORES DE EVENTOS ADICIONALES (Añadir esta sección)
+//================================================
+        
+    if (tallasContainer.length > 0) {
+
+        console.log("Añadiendo listeners focus/blur para inputs de cantidad.");
+
+        // --- Comportamiento Placeholder '0' para Inputs de Cantidad ---
+        // Usamos delegación de eventos en el contenedor porque los inputs se crean dinámicamente.
+
+        // Evento FOCUS: Cuando el usuario hace clic o entra en el input
+        tallasContainer.on('focus', '.input-cantidad-temp', function() {
+            const input = $(this); // El input específico que recibió el foco
+            // Si el valor actual es '0', lo limpiamos para facilitar la escritura
+            if (input.val() === '0') {
+                input.val('');
+                // console.log(`Input ${input.attr('id')} enfocado, valor '0' limpiado.`); // Descomenta para depurar
+            }
+        });
+
+        // Evento BLUR: Cuando el usuario sale del input
+        tallasContainer.on('blur', '.input-cantidad-temp', function() {
+            const input = $(this); // El input específico que perdió el foco
+            // Si el valor está vacío (después de quitar espacios), lo volvemos a poner a '0'
+            // Usamos trim() por si el usuario solo introduce espacios.
+            if (input.val().trim() === '') {
+                input.val('0');
+                // console.log(`Input ${input.attr('id')} desenfocado, valor vacío restablecido a '0'.`); // Descomenta para depurar
+            }
+        });
+
+    } else {
+        console.warn("Contenedor #tallas-grid-container no encontrado para añadir listeners focus/blur.");
+    }
+
+    const descuentoElement = $('#id_porcentaje_descuento');
+
+    if (descuentoElement.length > 0 && descuentoElement.is('input')) {
+
+        console.log("Añadiendo listeners focus/blur para input de descuento (#id_porcentaje_descuento).");
+    
+        // Evento FOCUS: Cuando el usuario entra en el input de descuento
+        descuentoElement.on('focus', function() {
+            const input = $(this);
+            // Si el valor actual es '0', lo limpiamos
+            if (input.val() === '0') {
+                input.val('');
+            }
+        });
+    
+        // Evento BLUR: Cuando el usuario sale del input de descuento
+        descuentoElement.on('blur', function() {
+            const input = $(this);
+            // Si el valor está vacío (después de quitar espacios), lo volvemos a poner a '0'
+            if (input.val().trim() === '') {
+                input.val('0');
+            }
+    
+            // IMPORTANTE: Disparar manualmente el evento 'change'.
+            // Tu código ya escucha el evento 'change' en este elemento
+            // para recalcular los totales del pedido (con la función
+            // actualizarTodosLosSubtotalesYTotalGeneral).
+            // Necesitamos dispararlo aquí para que esos cálculos se hagan
+            // si el valor se restablece a '0' al salir del campo.
+            console.log("Disparando 'change' en input de descuento después de blur."); // Mensaje para depuración
+            input.trigger('change');
+        });
+    
+    } else if (descuentoElement.length > 0) {
+        console.log("El elemento #id_porcentaje_descuento existe, pero no es un <input>. No se aplican listeners focus/blur.");
+    } else {
+        console.warn("Elemento #id_porcentaje_descuento no encontrado.");
+    }
+
+    // --- Cargar Detalles Iniciales (si se está editando un borrador) ---
+    cargarDetallesIniciales();
+
+    // --- Calcular Totales Iniciales (se llama dentro de cargarDetallesIniciales si hay datos, o al final si no hay) ---
+    // updateGrandTotals(); // Ya se llama desde cargarDetallesIniciales
+
+    console.log("Formulario de pedido inicializado y listo.");
+
+    
+
+}); // --- FIN DEL addEventListener('DOMContentLoaded') ---
+</script>
+{% endblock %}
