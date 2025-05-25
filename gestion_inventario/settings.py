@@ -14,10 +14,10 @@ SITE_ID = 1
 
     # SECURITY WARNING: keep the secret key used in production secret!
 import os
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-%lazc!2vk9ln-$2nk!vav2=iyulutxfab(i9dxdk^p*j=ofl')
+SECRET_KEY = config('DJANGO_SECRET_KEY', default='django-insecure-%lazc!2vk9ln-$2nk!vav2=iyulutxfab(i9dxdk^p*j=ofl')
 
     # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = ['www.pedidoslouisferry.online', 'pedidoslouisferry.online', '168.231.93.109']
                  #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
@@ -107,36 +107,47 @@ WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
    
    
 DATABASES = {
-    'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': config('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')), # SQLite por defecto si no hay .env
-        'USER': config('DB_USER', default=''), # Vacío si es SQLite
-        'PASSWORD': config('DB_PASSWORD', default=''), # Vacío si es SQLite
-        'HOST': config('DB_HOST', default=''), # Vacío si es SQLite
-        'PORT': config('DB_PORT', default=''), # Vacío si es SQLite
-        'OPTIONS': {
-            'charset': 'db.sqlite3', # Buena opción para MariaDB/MySQL
-        },
-    }
+    'default': {} # Iniciar como un diccionario vacío
 }
 
-# Si quieres forzar que use MariaDB/MySQL si las variables están presentes,
-# y solo caer a SQLite si DB_NAME no está definida en .env:
-if config('DB_NAME', default=None): # Si DB_NAME está en .env
-    DATABASES['default']['ENGINE'] = config('DB_ENGINE')
-    DATABASES['default']['NAME'] = config('DB_NAME')
-    DATABASES['default']['USER'] = config('DB_USER')
-    DATABASES['default']['PASSWORD'] = config('DB_PASSWORD')
-    DATABASES['default']['HOST'] = config('DB_HOST')
-    DATABASES['default']['PORT'] = config('DB_PORT')
-else: # Configuración para SQLite si DB_NAME no está en .env (para desarrollo local fácil sin .env)
-    DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
-    DATABASES['default']['NAME'] = BASE_DIR / 'db.sqlite3'
+# Obtener los valores de las variables de entorno una vez
+DB_NAME_FROM_ENV = config('DB_NAME', default=None)
+DB_ENGINE_FROM_ENV = config('DB_ENGINE', default=None)
+
+if DB_NAME_FROM_ENV and DB_ENGINE_FROM_ENV == 'django.db.backends.mysql':
+    # Configuración específica para MariaDB/MySQL
+    DATABASES['default'] = {
+        'ENGINE': DB_ENGINE_FROM_ENV,
+        'NAME': DB_NAME_FROM_ENV,
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT', default='3306'), # Puerto por defecto de MySQL/MariaDB
+        'OPTIONS': {
+            'charset': 'utf8mb4', # Opción específica para MySQL/MariaDB
+        },
+    }
+elif DB_NAME_FROM_ENV and DB_ENGINE_FROM_ENV == 'django.db.backends.postgresql':
+    # Configuración específica para PostgreSQL (ejemplo, si cambias en el futuro)
+    DATABASES['default'] = {
+        'ENGINE': DB_ENGINE_FROM_ENV,
+        'NAME': DB_NAME_FROM_ENV,
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT', default='5432'), # Puerto por defecto de PostgreSQL
+        # PostgreSQL no suele necesitar 'charset' en OPTIONS aquí
+    }
+else:
+    # Configuración para SQLite por defecto (si no se definen DB_NAME y DB_ENGINE para MariaDB/MySQL)
+    # O si DB_ENGINE no es uno de los conocidos
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        # SQLite no usa USER, PASSWORD, HOST, PORT, ni la opción 'charset' en settings.py
+    }
 
 
-
-    # Password validation
-    # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
         {
@@ -226,4 +237,3 @@ LOGGING = {
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'login'
-    # --- FIN DE LA SECCIÓN REST_FRAMEWORK ---
