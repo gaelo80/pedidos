@@ -1,53 +1,56 @@
-from django.db.models.signals import post_save # Señal que se dispara después de guardar un modelo
-from django.dispatch import receiver # Decorador para conectar la función a la señal
+# pedidos/signals.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
 from bodega.models import MovimientoInventario
+import logging
 
-
-
+# Configura un logger para este módulo
+logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender='pedidos.Pedido')
 def registrar_salida_venta_pedido(sender, instance, created, **kwargs):
     """
     Señal que se activa después de guardar un Pedido.
-    Si el estado es 'ENVIADO' (o el que definamos como gatillo de salida de stock)
-    y no se ha registrado ya la salida para este pedido,
-    crea los movimientos de inventario correspondientes.
+    Si el estado es 'ENVIADO', crea los movimientos de inventario correspondientes,
+    asegurándose de que pertenezcan a la misma empresa que el pedido.
     """
-    print(f"Señal post_save recibida para Pedido #{instance.pk} con estado {instance.estado}") # Mensaje de depuración
-
-    # Define el estado que dispara la salida de inventario
-    ESTADO_GATILLO_SALIDA = 'ENVIADO' # O podría ser 'COMPLETADO'
+    ESTADO_GATILLO_SALIDA = 'ENVIADO'
 
     if instance.estado == ESTADO_GATILLO_SALIDA:
-        # --- PREVENCIÓN DE DUPLICADOS ---
-        # Verifica si ya existen movimientos de SALIDA_VENTA para este pedido específico.
+        
+        # 1. --- CORRECCIÓN DE SEGURIDAD: Usar la empresa del pedido ---
+        empresa_del_pedido = instance.empresa
+        
+        # Si por alguna razón el pedido no tiene empresa, no podemos continuar.
+        if not empresa_del_pedido:
+            logger.error(f"Pedido #{instance.pk} no tiene una empresa asociada. No se puede crear movimiento de inventario.")
+            return
+
+        # 2. --- CORRECCIÓN DE SEGURIDAD: Añadir filtro por empresa ---
         existe_movimiento = MovimientoInventario.objects.filter(
+            empresa=empresa_del_pedido, 
             tipo_movimiento='SALIDA_VENTA',
-            documento_referencia=f'PEDIDO_{instance.pk}' # Usamos una referencia única
+            documento_referencia=f'PEDIDO_{instance.pk}'
         ).exists()
 
         if not existe_movimiento:
-            print(f"Estado es {ESTADO_GATILLO_SALIDA} y no hay movimientos previos. Registrando salida...")
+            logger.info(f"Registrando salida de inventario para Pedido #{instance.pk} de la empresa {empresa_del_pedido.nombre}.")
             try:
-                # Recorre cada detalle del pedido
                 for detalle in instance.detalles.all():
+                    # 3. --- CORRECCIÓN DE SEGURIDAD: Asignar la empresa al crear ---
                     MovimientoInventario.objects.create(
+                        empresa=empresa_del_pedido,
                         producto=detalle.producto,
-                        cantidad=-detalle.cantidad, # ¡Importante! Negativo para salida
+                        cantidad=-detalle.cantidad,
                         tipo_movimiento='SALIDA_VENTA',
                         fecha_hora=timezone.now(),
-                        # Asignamos el usuario que figura como vendedor en el pedido
-                        # Podría ser None si el vendedor fue borrado y usamos SET_NULL
                         usuario=instance.vendedor.user if instance.vendedor else None,
-                        documento_referencia=f'PEDIDO_{instance.pk}', # Referencia al pedido
+                        documento_referencia=f'PEDIDO_{instance.pk}',
                         notas=f"Salida automática por {ESTADO_GATILLO_SALIDA} de Pedido #{instance.pk}"
                     )
-                print(f"Movimientos de SALIDA_VENTA creados para Pedido #{instance.pk}")
+                logger.info(f"Movimientos de SALIDA_VENTA creados para Pedido #{instance.pk}")
             except Exception as e:
-                # Es importante manejar posibles errores aquí
-                print(f"ERROR al crear movimientos para Pedido #{instance.pk}: {e}")
+                logger.error(f"ERROR al crear movimientos para Pedido #{instance.pk}: {e}")
         else:
-            print(f"Ya existen movimientos de SALIDA_VENTA para Pedido #{instance.pk}. No se crean nuevos.")
-    else:
-        print(f"El estado del Pedido #{instance.pk} es {instance.estado}, no {ESTADO_GATILLO_SALIDA}. No se registra salida.")
+            logger.warning(f"Ya existen movimientos de SALIDA_VENTA para Pedido #{instance.pk}. No se crean nuevos.")

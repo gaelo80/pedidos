@@ -369,7 +369,7 @@ PANEL_OPTIONS_CONFIG = [
     {
         'titulo': 'VER CATÁLOGO',
         'descripcion': 'Visualizar el catálogo de productos LOUIS FERRY.',
-        'url_nombre': 'catalogo:catalogo_publico_disponible',
+        'url_nombre': 'catalogo:lista_referencias',
         'icono': 'fas fa-book-open', # Icono diferente
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'catalogo.view_catalogo',

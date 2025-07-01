@@ -24,55 +24,76 @@ from .forms import PedidoForm
 from productos.models import Producto
 from vendedores.models import Vendedor
 from bodega.models import MovimientoInventario
-from core.auth_utils import es_admin_sistema_app, es_bodega, es_vendedor, es_cartera
+from core.auth_utils import es_admin_sistema_app, es_bodega, es_vendedor, es_cartera, es_admin_sistema, es_factura
 from core.utils import get_logo_base_64_despacho
 from .utils import preparar_datos_seccion
+from core.mixins import TenantAwareMixin
 
 
-def es_admin_sistema(user):
-    """Verifica si el usuario tiene rol para la lista de aprobación de Administración."""
-    if not user.is_authenticated:
-        return False
-    return user.is_staff or user.groups.filter(name='Administracion').exists()
-
-def es_factura(user):
-    """Verifica si el usuario tiene rol para la lista de aprobación de Administración."""
-    if not user.is_authenticated:
-        return False
-    return user.is_staff or user.groups.filter(name='Factura').exists()
-
-
-class PedidoViewSet(viewsets.ModelViewSet):
+class PedidoViewSet(TenantAwareMixin, viewsets.ModelViewSet):
+    """
+    API endpoint que permite ver y crear pedidos.
+    """
     serializer_class = PedidoSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly] # O los permisos que prefieras
 
     def get_queryset(self):
+        """
+        - CORRECCIÓN DE SEGURIDAD -
+        Filtra los pedidos para mostrar:
+        - A los administradores: Todos los pedidos DE SU EMPRESA.
+        - A los vendedores: Solo los pedidos creados por ellos DENTRO DE SU EMPRESA.
+        """   
+        queryset = super().get_queryset().order_by('-fecha_hora')
+        
         user = self.request.user
+        
         if not user.is_authenticated:
-            return Pedido.objects.none()
+            return queryset.none()
+        
         if user.is_staff or user.is_superuser:
-            return Pedido.objects.all().order_by('-fecha_hora')
-        else:
-            try:
-                vendedor = Vendedor.objects.get(user=user)
-                return Pedido.objects.filter(vendedor=vendedor).order_by('-fecha_hora')
-            except Vendedor.DoesNotExist:
-                return Pedido.objects.none()
+            return queryset.filter(empresa=self.request.tenant)
+        
+        try:
+            vendedor = Vendedor.objects.get(user=user, empresa=self.request.tenant)
+            return queryset.filter(vendedor=vendedor)
+        except Vendedor.DoesNotExist:
+            return queryset.none()
+        
+        
+        
+        
+        
+        
 
     def perform_create(self, serializer):
         try:
-            vendedor = Vendedor.objects.get(user=self.request.user)
-            # El estado inicial para la API debería ser 'PENDIENTE_APROBACION_CARTERA'
-            # si sigue el mismo flujo que la creación web.
-            serializer.save(vendedor=vendedor, estado='PENDIENTE_APROBACION_CARTERA')
+            vendedor = Vendedor.objects.get(user=self.request.user, empresa=self.request.tenant)
+            serializer.save(
+                empresa=self.request.tenant, 
+                vendedor=vendedor, 
+                estado='PENDIENTE_APROBACION_CARTERA'
+            )
         except Vendedor.DoesNotExist:
             raise serializers.ValidationError(
-                "El usuario que realiza la solicitud no tiene un perfil de vendedor asociado."
+                "El usuario que realiza la solicitud no tiene un perfil de vendedor asociado en esta empresa."
             )
+
+
 
 @login_required
 @permission_required('pedidos.add_pedido', login_url='core:acceso_denegado')
 def vista_crear_pedido_web(request, pk=None):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+
+    
+    
+    
     vendedor = None
     try:
         if hasattr(request.user, 'perfil_vendedor'):
@@ -82,27 +103,35 @@ def vista_crear_pedido_web(request, pk=None):
         else:
             messages.error(request, "Perfil de vendedor no encontrado y no es usuario administrador.")
             return redirect('core:acceso_denegado')
+        vendedor = Vendedor.objects.filter(user=request.user, empresa=empresa_actual).first()
     except Vendedor.DoesNotExist:
-        if not (request.user.is_staff or es_admin_sistema_app(request.user)):
-            messages.error(request, "Perfil de vendedor no encontrado.")
+        if not (request.user.is_staff or es_admin_sistema_app(request.user)) and not vendedor:
+            messages.error(request, "Perfil de vendedor no encontrado para esta empresa.")
             return redirect('core:acceso_denegado')
     except AttributeError:
         if not (request.user.is_staff or es_admin_sistema_app(request.user)):
             messages.error(request, "Atributo de perfil de vendedor no encontrado.")
             return redirect('core:acceso_denegado')
+        
+        
+        
+        
+        
+        
 
     pedido_instance = None
     detalles_existentes = None
     if pk is not None:
-        query_params = {'pk': pk, 'estado': 'BORRADOR'}
+        query_params = {'pk': pk, 'estado': 'BORRADOR', 'empresa': empresa_actual}
         if vendedor and not (request.user.is_staff or es_admin_sistema_app(request.user)):
             query_params['vendedor'] = vendedor
         pedido_instance = get_object_or_404(Pedido, **query_params)
-        detalles_existentes = pedido_instance.detalles.select_related('producto').all()
+        
+    detalles_existentes = pedido_instance.detalles.select_related('producto').all() if pedido_instance else None
 
     if request.method == 'POST':
         form_instance = pedido_instance
-        pedido_form = PedidoForm(request.POST, instance=form_instance)
+        pedido_form = PedidoForm(request.POST, instance=pedido_instance, empresa=empresa_actual)
         accion = request.POST.get('accion')
      
         detalles_para_crear = []
@@ -119,7 +148,7 @@ def vista_crear_pedido_web(request, pk=None):
                     if cantidad_pedida > 0:
                         al_menos_un_detalle = True
                         try:
-                            producto_variante = Producto.objects.get(pk=producto_id, activo=True)
+                            producto_variante = Producto.objects.get(pk=producto_id, activo=True, empresa=empresa_actual)
                             detalles_para_crear.append({
                                 'producto': producto_variante,
                                 'cantidad': cantidad_pedida,
@@ -159,20 +188,14 @@ def vista_crear_pedido_web(request, pk=None):
                     try:
                         with transaction.atomic():
                             pedido = pedido_form.save(commit=False)
-                            
+                            pedido.empresa = empresa_actual
                             if vendedor:
                                 pedido.vendedor = vendedor
                             elif request.user.is_staff or es_admin_sistema_app(request.user):
-                                # Aquí debes definir cómo se asigna un vendedor si un admin crea el pedido
-                                # Por ejemplo, si el PedidoForm tuviera un campo 'vendedor' para admins:
-                                # if 'vendedor' in pedido_form.cleaned_data and pedido_form.cleaned_data['vendedor']:
-                                #     pedido.vendedor = pedido_form.cleaned_data['vendedor']
-                                # else:
-                                #     Si es obligatorio y no se puede determinar, lanzar error
-                                pass # Temporalmente
+ 
+                                pass
 
                             if not pedido.vendedor:
-                                print("DEBUG PEDIDO-STOCK: ERROR VENDEDOR - Vendedor no asignado!") # <<<< PRINT 6
                                 messages.error(request, "El vendedor es obligatorio para crear el pedido.")
                                 raise Exception("Vendedor no asignado y es obligatorio.")
 
@@ -201,6 +224,7 @@ def vista_crear_pedido_web(request, pk=None):
                             for detalle_final_mov in detalles_guardados_para_movimiento:
                                 print(f"DEBUG PEDIDO-STOCK: Creando MovInv para Prod ID {detalle_final_mov.producto.id}, Cant: {-detalle_final_mov.cantidad}") # <<<< PRINT 10
                                 MovimientoInventario.objects.create(
+                                    empresa=empresa_actual,
                                     producto=detalle_final_mov.producto,
                                     cantidad= -detalle_final_mov.cantidad,
                                     tipo_movimiento='SALIDA_VENTA_PENDIENTE',
@@ -224,6 +248,7 @@ def vista_crear_pedido_web(request, pk=None):
                 try:
                     with transaction.atomic():
                         pedido = pedido_form.save(commit=False)
+                        pedido.empresa = empresa_actual
                         if vendedor:
                             pedido.vendedor = vendedor
                         elif not pedido.vendedor and (request.user.is_staff or es_admin_sistema_app(request.user)):
@@ -275,19 +300,33 @@ def vista_crear_pedido_web(request, pk=None):
         return render(request, 'pedidos/crear_pedido_web_matriz.html', context)
 
     else: # request.method == 'GET'
-        pedido_form_inicial = PedidoForm(instance=pedido_instance)
-        context = _prepare_crear_pedido_context(
-            pedido_instance=pedido_instance,
-            detalles_existentes=detalles_existentes,
-            pedido_form=pedido_form_inicial
-        )
+        pedido_form = PedidoForm(instance=pedido_instance, empresa=empresa_actual)
+        context = _prepare_crear_pedido_context(request, empresa_actual, pedido_instance, detalles_existentes, pedido_form)
         return render(request, 'pedidos/crear_pedido_web_matriz.html', context)
+
+#////////////////////////////////////////////////////////////////////////////////////
 
 
 @login_required
 @user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
 def lista_pedidos_para_aprobacion_cartera(request):
-    pedidos_pendientes = Pedido.objects.filter(estado='PENDIENTE_APROBACION_CARTERA').order_by('fecha_hora')
+    
+    """
+    Lista los pedidos pendientes de aprobación por cartera, filtrando por la empresa
+    del inquilino actual.
+    """
+    # Lógica de obtención de inquilino robusta
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+    
+    pedidos_pendientes = Pedido.objects.filter(
+        empresa=empresa_actual,
+        estado='PENDIENTE_APROBACION_CARTERA'
+    ).order_by('fecha_hora')
+    
     context = {
         'pedidos_list': pedidos_pendientes,
         'titulo': 'Pedidos Pendientes de Aprobación por Cartera',
@@ -295,11 +334,32 @@ def lista_pedidos_para_aprobacion_cartera(request):
     }
     return render(request, 'pedidos/lista_aprobacion_etapa.html', context)
 
+
+
 @login_required
 @user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
 @require_POST
 def aprobar_pedido_cartera(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk, estado='PENDIENTE_APROBACION_CARTERA')
+    
+    """
+    Aprueba un pedido específico desde la etapa de cartera, asegurando que el pedido
+    pertenezca al inquilino actual.
+    """
+    # Lógica de obtención de inquilino robusta
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('pedidos:lista_aprobacion_cartera') # Redirige a la lista para no perder contexto
+    
+    
+    
+    pedido = get_object_or_404(
+        Pedido, 
+        pk=pk, 
+        empresa=empresa_actual,        
+        estado='PENDIENTE_APROBACION_CARTERA'
+    )
+    
     motivo = request.POST.get('motivo', '')
     try:
         with transaction.atomic(): # Añadido por si acaso, aunque aquí es simple
@@ -309,27 +369,43 @@ def aprobar_pedido_cartera(request, pk):
             if motivo:
                 pedido.motivo_cartera = motivo
             pedido.save()
-            print(f"DEBUG APROB-CARTERA: Pedido #{pedido.pk} guardado con estado {pedido.estado}") # <<<< PRINT
+            print(f"DEBUG APROB-CARTERA: Pedido #{pedido.pk} guardado con estado {pedido.estado}")
             messages.success(request, f"Pedido #{pedido.pk} aprobado por Cartera y enviado a Administración.")
     except Exception as e:
-        print(f"DEBUG APROB-CARTERA: Excepción al aprobar: {e}") # <<<< PRINT
+        print(f"DEBUG APROB-CARTERA: Excepción al aprobar: {e}")
         messages.error(request, f"Error al aprobar el pedido #{pedido.pk} por Cartera: {e}")
-        # Considera redirigir a la misma lista o a una página de error si la transacción falla gravemente
-        # return redirect('pedidos:lista_aprobacion_cartera') 
         
     return redirect('pedidos:lista_aprobacion_cartera')
+
+
+
 
 @login_required
 @user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
 @require_POST
 def rechazar_pedido_cartera(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk, estado='PENDIENTE_APROBACION_CARTERA')
-    motivo = request.POST.get('motivo', '') # Ya no 'Rechazado por Cartera sin motivo específico.'
+    
+    """
+    Rechaza un pedido específico desde la etapa de cartera, asegurando que tanto el pedido
+    como el movimiento de inventario resultante pertenezcan al inquilino actual.
+    """
+    # Lógica de obtención de inquilino robusta
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('pedidos:lista_aprobacion_cartera')
+    
+    
+    pedido = get_object_or_404(
+        Pedido, 
+        pk=pk, 
+        empresa=empresa_actual,
+        estado='PENDIENTE_APROBACION_CARTERA'
+    )
+    motivo = request.POST.get('motivo', '')
 
     if not motivo or not motivo.strip():
         messages.error(request, "Se requiere un motivo para rechazar el pedido por Cartera.")
-        # Podrías querer redirigir al detalle del pedido para que el usuario añada el motivo,
-        # o recargar la lista actual. La redirección a la lista es más simple.
         return redirect('pedidos:lista_aprobacion_cartera')
     
     try:
@@ -339,10 +415,10 @@ def rechazar_pedido_cartera(request, pk):
             pedido.usuario_decision_cartera = request.user
             pedido.fecha_decision_cartera = timezone.now()
             pedido.save()
-
-            # Reintegro de Stock
+            
             for detalle_rechazado in pedido.detalles.all():
                 MovimientoInventario.objects.create(
+                    empresa=empresa_actual,
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_CARTERA',
@@ -356,19 +432,28 @@ def rechazar_pedido_cartera(request, pk):
 
     return redirect('pedidos:lista_aprobacion_cartera')
 
+#88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
 @login_required
 @user_passes_test(es_admin_sistema, login_url='core:acceso_denegado')
 def lista_pedidos_para_aprobacion_admin(request):
-    usuario_actual = request.user
-    print(f"\n--- DEBUG ADMIN LIST: Accediendo lista_pedidos_para_aprobacion_admin ---") # <<<< PRINT
-    print(f"DEBUG ADMIN LIST: Usuario actual = {usuario_actual.username}") # <<<< PRINT
-    print(f"DEBUG ADMIN LIST: Es staff? {usuario_actual.is_staff}") # <<<< PRINT
-    print(f"DEBUG ADMIN LIST: Pertenece al grupo 'Administracion'? {usuario_actual.groups.filter(name='Administracion').exists()}") # <<<< PRINT
-    print(f"DEBUG ADMIN LIST: Resultado de es_admin_sistema = {es_admin_sistema(usuario_actual)}") # <<<< PRINT
-
-    pedidos_pendientes = Pedido.objects.filter(estado='PENDIENTE_APROBACION_ADMIN').order_by('fecha_hora')
-    print(f"DEBUG ADMIN LIST: Pedidos encontrados en estado PENDIENTE_APROBACION_ADMIN = {pedidos_pendientes.count()}") # <<<< PRINT
     
+    """
+    Lista los pedidos pendientes de aprobación por administración, filtrando por
+    la empresa del inquilino actual.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+
+
+    pedidos_pendientes = Pedido.objects.filter(
+        empresa=empresa_actual,
+        estado='PENDIENTE_APROBACION_ADMIN'
+    ).order_by('fecha_hora')
+           
     context = {
         'pedidos_list': pedidos_pendientes,
         'titulo': 'Pedidos Pendientes de Aprobación por Administración',
@@ -376,11 +461,29 @@ def lista_pedidos_para_aprobacion_admin(request):
     }
     return render(request, 'pedidos/lista_aprobacion_etapa.html', context)
 
+
+
 @login_required
-@user_passes_test(lambda u: es_vendedor(u) or es_admin_sistema_app(u) or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(es_admin_sistema, login_url='core:acceso_denegado')
 @require_POST
 def aprobar_pedido_admin(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk, estado='PENDIENTE_APROBACION_ADMIN')
+    
+    """
+    Aprueba un pedido específico desde la etapa de administración, asegurando que
+    pertenezca al inquilino actual.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('pedidos:lista_aprobacion_admin')
+    
+    pedido = get_object_or_404(
+        Pedido, 
+        pk=pk, 
+        empresa=empresa_actual,
+        estado='PENDIENTE_APROBACION_ADMIN'
+    )
+    
     motivo = request.POST.get('motivo', '')
     try:
         with transaction.atomic():
@@ -397,11 +500,30 @@ def aprobar_pedido_admin(request, pk):
         
     return redirect('pedidos:lista_aprobacion_admin')
 
+
+
+
+
 @login_required
-@user_passes_test(es_admin_sistema or es_factura, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_admin_sistema(u) or es_factura(u), login_url='core:acceso_denegado')
 @require_POST
 def rechazar_pedido_admin(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk, estado='PENDIENTE_APROBACION_ADMIN')
+    
+    """
+    Rechaza un pedido específico desde la etapa de administración, asegurando que
+    pertenezca al inquilino actual y que el reintegro de stock se asocie a él.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('pedidos:lista_aprobacion_admin')
+    
+    pedido = get_object_or_404(
+        Pedido, 
+        pk=pk, 
+        empresa=empresa_actual,
+        estado='PENDIENTE_APROBACION_ADMIN'
+    )
     motivo = request.POST.get('motivo', '')
 
     if not motivo or not motivo.strip():
@@ -419,6 +541,7 @@ def rechazar_pedido_admin(request, pk):
             # Reintegro de Stock
             for detalle_rechazado in pedido.detalles.all():
                 MovimientoInventario.objects.create(
+                    empresa=empresa_actual,
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_ADMIN',
@@ -432,12 +555,33 @@ def rechazar_pedido_admin(request, pk):
         
     return redirect('pedidos:lista_aprobacion_admin')
 
+
+
+
+
+
+
 @login_required
 def generar_pedido_pdf(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk)
-    # (Lógica de permisos para el PDF)
-    # ...
     
+    """
+    Genera un PDF para un pedido específico, asegurando que el pedido pertenezca
+    al inquilino actual y que el usuario tenga permisos para verlo.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+    
+    es_su_pedido = (hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor)
+    es_admin_o_staff = request.user.is_superuser or es_admin_sistema(request.user)
+    
+    if not (es_su_pedido or es_admin_o_staff):
+        messages.error(request, "No tienes permiso para ver este pedido.")
+        return redirect('core:acceso_denegado')
+
     detalles_originales = pedido.detalles.select_related('producto').all()
     items_dama, items_caballero, items_unisex = [], [], []
     for detalle in detalles_originales:
@@ -461,7 +605,7 @@ def generar_pedido_pdf(request, pk):
 
     logo_para_pdf = None
     try:
-        logo_para_pdf = get_logo_base_64_despacho()
+        logo_para_pdf = get_logo_base_64_despacho(empresa_actual)
         if not logo_para_pdf: print("Advertencia PDF: get_logo_base_64_despacho() devolvió None.")
     except Exception as e: print(f"Advertencia PDF: Excepción al llamar get_logo_base_64_despacho(): {e}")
         
@@ -491,10 +635,25 @@ def generar_pedido_pdf(request, pk):
         traceback.print_exc()
         messages.error(request, f"Error inesperado al generar el PDF del pedido #{pedido.pk}.")
         return HttpResponse(f'Error interno del servidor al generar el PDF.', status=500)
+    
+    
+    
+    
 
 @login_required
 def vista_pedido_exito(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk)
+    
+    """
+    Muestra la página de éxito después de crear un pedido, asegurando que el pedido
+    pertenezca al inquilino actual.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+    
     whatsapp_url = None
     if pedido.cliente and pedido.cliente.telefono:
         telefono_crudo = pedido.cliente.telefono
@@ -514,10 +673,24 @@ def vista_pedido_exito(request, pk):
     context = {'pedido': pedido, 'whatsapp_url': whatsapp_url, 'titulo': f'Pedido #{pedido.pk} Creado'}
     return render(request, 'pedidos/pedido_exito.html', context)
 
-def _prepare_crear_pedido_context(pedido_instance=None, detalles_existentes=None, pedido_form=None):
+
+
+
+def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None, detalles_existentes=None, pedido_form=None):
+    
+    """
+    Función auxiliar para preparar el contexto del formulario de creación/edición de pedidos.
+    """
+    
     if pedido_form is None:
-        pedido_form = PedidoForm(instance=pedido_instance)
-    referencias_qs = Producto.objects.filter(activo=True).values_list('referencia', flat=True).distinct().order_by('referencia')
+        pedido_form = PedidoForm(instance=pedido_instance, empresa=empresa_actual)
+        
+    referencias_qs = Producto.objects.filter(
+        empresa=empresa_actual,        
+        activo=True
+    ).values_list('referencia', flat=True).distinct().order_by('referencia')
+    
+    
     detalles_agrupados_json, linea_counter_init = None, 0
     if detalles_existentes:
         grupos, linea_counter_init = {}, 0
@@ -559,38 +732,92 @@ def _prepare_crear_pedido_context(pedido_instance=None, detalles_existentes=None
 @login_required
 @permission_required('pedidos.view_pedido', login_url='core:acceso_denegado')
 def vista_lista_pedidos_borrador(request):
+    
+    """
+    Lista los pedidos en estado de borrador, filtrando por la empresa actual y
+    por el vendedor si corresponde.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+    
     user, search_query = request.user, request.GET.get('q', None)
     queryset, titulo = Pedido.objects.none(), 'Mis Pedidos Borrador'
-    es_admin_sistema_general = user.is_staff or user.is_superuser or es_admin_sistema_app(user)
-    if es_admin_sistema_general:
-        queryset, titulo = Pedido.objects.filter(estado='BORRADOR'), 'Todos los Pedidos Borrador'
+    es_admin = es_admin_sistema_app(user) or user.is_superuser
+    
+    base_queryset = Pedido.objects.filter(empresa=empresa_actual, estado='BORRADOR')
+    
+    if es_admin:
+        queryset, titulo = base_queryset, 'Todos los Pedidos Borrador'
     elif es_vendedor(user):
-        try: queryset = Pedido.objects.filter(vendedor__user=user, estado='BORRADOR')
-        except AttributeError: messages.error(request, "Error: Perfil de vendedor no encontrado.")
+        queryset = base_queryset.filter(vendedor__user=user)
+    
     if search_query:
         queryset = queryset.filter(Q(pk__icontains=search_query) | Q(cliente__nombre_completo__icontains=search_query)).distinct()
+        
     pedidos_list = queryset.select_related('cliente').order_by('-fecha_hora')
     context = {'pedidos_list': pedidos_list, 'titulo': titulo, 'search_query': search_query}
     return render(request, 'pedidos/lista_pedidos_borrador.html', context)
+
+
 
 @login_required
 @require_POST
 @user_passes_test(lambda u: not es_bodega(u) or es_admin_sistema_app(u), login_url='core:acceso_denegado')
 def vista_eliminar_pedido_borrador(request, pk):
+    
+    """
+    Elimina un pedido en estado de borrador, asegurando que pertenezca al vendedor
+    y a la empresa actual.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('pedidos:lista_pedidos_borrador')
+    
+    
+    
     try:
-        vendedor = Vendedor.objects.get(user=request.user)
-        pedido = get_object_or_404(Pedido, pk=pk, vendedor=vendedor, estado='BORRADOR')
+        vendedor = Vendedor.objects.get(user=request.user, empresa=empresa_actual)
+        pedido = get_object_or_404(Pedido, pk=pk, vendedor=vendedor, estado='BORRADOR', empresa=empresa_actual)
         pedido_id = pedido.pk
         pedido.delete()
         messages.success(request, f"El pedido borrador #{pedido_id} ha sido eliminado exitosamente.")
-    except Vendedor.DoesNotExist: messages.error(request, "No tienes permiso de vendedor para eliminar borradores.")
-    except Pedido.DoesNotExist: messages.error(request, "El pedido borrador que intentas eliminar no existe o no te pertenece.")
-    except Exception as e: messages.error(request, f"Ocurrió un error inesperado al eliminar el borrador: {e}")
-    return redirect('pedidos:lista_pedidos_borrador') # Ajustado para usar el name de la URL
+    except Vendedor.DoesNotExist:
+        messages.error(request, "No tienes un perfil de vendedor en esta empresa para realizar esta acción.")
+    except Pedido.DoesNotExist:
+        messages.error(request, "El pedido borrador que intentas eliminar no existe o no te pertenece.")
+    except Exception as e:
+        messages.error(request, f"Ocurrió un error inesperado al eliminar el borrador: {e}")
+        
+    return redirect('pedidos:lista_pedidos_borrador')
+
+
 
 @login_required
 def vista_detalle_pedido(request, pk):
-    pedido = get_object_or_404(Pedido.objects.prefetch_related('detalles__producto', 'cliente', 'vendedor__user'), pk=pk)
+    
+    """
+    Muestra el detalle completo de un pedido, asegurando que pertenezca a la empresa
+    y que el usuario tenga permisos para verlo.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+    
+    query = Pedido.objects.prefetch_related('detalles__producto', 'cliente', 'vendedor__user')
+    pedido = get_object_or_404(query, pk=pk, empresa=empresa_actual)
+    
+        # Lógica de permisos de visualización
+    es_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
+    es_admin = es_admin_sistema_app(request.user) or request.user.is_superuser
+    if not (es_su_pedido or es_admin):
+        messages.error(request, "No tienes permisos para ver el detalle de este pedido.")
+        return redirect('pedidos:lista_pedidos_borrador')
+    
     iva_porcentaje = Decimal('0.00')
     if hasattr(pedido, 'IVA_RATE') and pedido.IVA_RATE is not None:
         try: iva_porcentaje = Decimal(pedido.IVA_RATE) * Decimal('100.00')
@@ -599,10 +826,18 @@ def vista_detalle_pedido(request, pk):
                'titulo': f'Detalle del Pedido #{pedido.pk}', 'iva_porcentaje': iva_porcentaje}
     return render(request, 'pedidos/detalle_pedido_template.html', context)
 
-class DescargarFotosPedidoView(View):
+
+
+
+class DescargarFotosPedidoView(TenantAwareMixin, View):
     template_name = 'pedidos/pagina_descarga_fotos.html'
+    
     def get(self, request, token_pedido):
-        pedido = get_object_or_404(Pedido, token_descarga_fotos=token_pedido)
+        empresa_actual = getattr(self.request, 'tenant', None)
+        if not empresa_actual:
+            return HttpResponse("Acceso no válido.", status=404)
+        
+        pedido = get_object_or_404(Pedido, token_descarga_fotos=token_pedido, empresa=empresa_actual)
         fotos_del_pedido, urls_fotos_ya_agregadas = [], set()
         if hasattr(pedido, 'detalles'):
             detalles_del_pedido = pedido.detalles.select_related('producto__articulo_color_fotos') \

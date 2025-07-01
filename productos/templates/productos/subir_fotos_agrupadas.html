@@ -44,13 +44,8 @@
         {# --- FIN DE LA SECCIÓN PARA articulo_color --- #}
 
         <div class="mb-3">
-            <label for="id_imagenes_upload" style="color:white" class="form-label">{{ form.imagenes.label }}</label>
-            <input type="file" name="{{ form.imagenes.html_name }}" multiple required id="id_imagenes_upload" class="form-control">
-            {% if form.imagenes.errors %}
-                <div class="invalid-feedback d-block">
-                    {% for error in form.imagenes.errors %}<li>{{ error }}</li>{% endfor %}
-                </div>
-            {% endif %}
+            <label for="id_imagenes" style="color:white" class="form-label">Seleccionar Imágenes</label>
+            <input type="file" name="imagenes" multiple required id="id_imagenes" class="form-control">
             <small class="form-text" style="color:white">Puedes seleccionar varios archivos.</small>
         </div>
 

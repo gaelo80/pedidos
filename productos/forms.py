@@ -3,6 +3,7 @@ from django import forms
 from .models import Producto, ReferenciaColor
 
 class ProductoForm(forms.ModelForm):
+    
     class Meta:
         model = Producto
         fields = [
@@ -30,68 +31,98 @@ class ProductoForm(forms.ModelForm):
             'codigo_barras': forms.TextInput(attrs={'placeholder': 'Escanee o ingrese el código'}),
             'ubicacion': forms.TextInput(attrs={'placeholder': 'Ej: Estante A, Bodega 2'}),
         }
+        
         help_texts = {
-            'genero': None, # Quitar el help_text por defecto del modelo si no se quiere en el form
+            'genero': None,
         }
 
     def __init__(self, *args, **kwargs):
+        empresa_actual = kwargs.pop('empresa', None)
         super().__init__(*args, **kwargs)
-        # Puedes añadir personalizaciones adicionales aquí si es necesario
-        # Por ejemplo, hacer que algunos campos no sean obligatorios si el modelo lo permite
-        # self.fields['descripcion'].required = False
-        # self.fields['talla'].required = False # Ya son blank=True en el modelo
-        # self.fields['color'].required = False # Ya son blank=True en el modelo
-        # self.fields['codigo_barras'].required = False # Ya es blank=True en el modelo
-        # self.fields['ubicacion'].required = False # Ya es blank=True en el modelo
 
-        # Añadir clases CSS para Bootstrap si no usas crispy-forms en la plantilla del form
-        for field_name, field in self.fields.items():
-            if isinstance(field.widget, (forms.TextInput, forms.Textarea, forms.NumberInput, forms.EmailInput, forms.PasswordInput, forms.DateInput, forms.Select)):
-                current_attrs = field.widget.attrs
-                current_attrs['class'] = current_attrs.get('class', '') + ' form-control'
-                if isinstance(field.widget, forms.CheckboxInput): # Checkbox es diferente
-                     current_attrs['class'] = current_attrs.get('class', '') + ' form-check-input'
-                field.widget.attrs = current_attrs
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                # Los checkboxes usan una clase diferente en Bootstrap.
+                field.widget.attrs['class'] = 'form-check-input'
+            elif isinstance(field.widget, forms.Select):
+                field.widget.attrs['class'] = 'form-select'
+            else:
+                # El resto de los inputs usan 'form-control'.
+                field.widget.attrs['class'] = 'form-control'
 
 
 class ProductoImportForm(forms.Form):
+    """
+    Formulario simple para la subida de archivos de importación masiva.
+    La lógica de seguridad y procesamiento está en el 'ProductoResource', no aquí.
+    """
     archivo_productos = forms.FileField(
         label="Seleccionar archivo (.csv, .xls, .xlsx)",
-        help_text="Asegúrate de que el archivo tenga las columnas correctas: "
-                  "id, referencia, nombre, descripcion, talla, color, genero, costo, "
-                  "precio_venta, unidad_medida, codigo_barras, activo, ubicacion, fecha_creacion. "
-                  "Para 'activo', usa True/False o 1/0.",
+        help_text="Asegúrese de que el archivo coincida con el formato de exportación.",
         widget=forms.ClearableFileInput(attrs={'class': 'form-control'})
     )
     
+class MultipleFileInput(forms.ClearableFileInput):
+    """
+    Un widget personalizado que permite la subida de múltiples archivos.
+    Hereda de ClearableFileInput pero permite el atributo 'multiple'.
+    """
+    allow_multiple_selected = True
 
-# Formulario para seleccionar el Producto (Variante) al que se añadirán las fotos
+class MultipleFileField(forms.FileField):
+    """
+    Un campo de formulario personalizado que utiliza el widget MultipleFileInput
+    y está diseñado para manejar una lista de archivos.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
+    
+
 class SeleccionarAgrupacionParaFotosForm(forms.Form):
+    
+    
+    imagenes = MultipleFileField(
+        label="Seleccionar Imágenes",
+        required=True # Aseguramos que se suba al menos una imagen
+    )
+
     articulo_color = forms.ModelChoiceField(
-        queryset=ReferenciaColor.objects.all().order_by('referencia_base', 'color'),
-        label="Seleccionar Referencia",
-        widget=forms.Select(attrs={'class': 'form-select form-control mb-3'}),
-        empty_label="-- Seleccione una Referencia --"
+        queryset=ReferenciaColor.objects.none(),
+        label="Agrupar por Referencia y Color",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text="Selecciona la combinación de referencia y color a la que pertenecerán las fotos."
     )
-
-    imagenes = forms.ImageField(
-        required=True,
-        label="Seleccionar Imágenes (puede seleccionar varias)"
-    )
-
 
     descripcion_general = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control mb-3'}),
+        label="Descripción General para las Fotos",
         required=False,
-        label="Descripción General (opcional, para todas las fotos subidas)"
+        widget=forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+        help_text="(Opcional) Esta descripción se aplicará a todas las fotos que subas."
     )
+    
+   
+    def __init__(self, *args, **kwargs):
+        """
+        Filtra el queryset de 'articulo_color' para mostrar solo las opciones
+        de la empresa (tenant) actual.
+        """
+        empresa_actual = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
 
-    # Si quitamos el widget explícito arriba, podemos intentar añadir 'multiple' aquí,
-    # aunque el error original sugiere que el __init__ del widget es el problema.
-    # Esta es una forma alternativa de intentar modificar el widget del campo ya creado.
-    #def __init__(self, *args, **kwargs):
-        #super().__init__(*args, **kwargs)
-        #self.fields['imagenes'].widget.attrs.update({
-            #'multiple': True,
-            #'class': 'form-control' # Para el estilo de Bootstrap
-       # })
+        if empresa_actual:
+            self.fields['articulo_color'].queryset = ReferenciaColor.objects.filter(
+                empresa=empresa_actual
+            ).distinct().order_by('referencia_base', 'color')
+        else:
+            # Si no hay empresa, el formulario no puede funcionar de forma segura.
+            # Podrías lanzar un error o simplemente dejar el queryset vacío.
+            self.fields['articulo_color'].queryset = ReferenciaColor.objects.none()

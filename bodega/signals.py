@@ -25,6 +25,7 @@ def crear_movimiento_para_ingreso_detalle(sender, instance, created, **kwargs):
                 doc_ref_movimiento = f'ING_DET_{instance.pk}'
 
                 existe_movimiento_previo = MovimientoInventario.objects.filter(
+                    empresa=instance.producto.empresa,
                     documento_referencia=doc_ref_movimiento,
                     producto=instance.producto,
                     tipo_movimiento='ENTRADA_COMPRA' # Asegúrate que este sea el tipo correcto

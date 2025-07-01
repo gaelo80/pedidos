@@ -23,18 +23,23 @@ from django.template.loader import render_to_string
 from .models import IngresoBodega
 from .models import ComprobanteDespacho, DetalleComprobanteDespacho
 from django.db.models import Max, F
+from core.mixins import TenantAwareMixin
+from factura.models import EstadoFacturaDespacho
 
 
 @login_required
 @permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
 def vista_despacho_pedido(request, pk):
-    """
-    Vista para el proceso de despacho de pedidos usando lector de código de barras.
-    """
-    pedido = get_object_or_404(Pedido.objects.prefetch_related('detalles__producto'), pk=pk) # Precarga detalles y productos
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")  
+        return redirect('core:index')
 
-    # Estados en los que se permite despachar
-    ESTADOS_PERMITIDOS = ['APROBADO_ADMIN', 'PROCESANDO'] # Ajusta según tu flujo
+    prefetch_queryset = Pedido.objects.prefetch_related('detalles__producto__unidades')
+    pedido = get_object_or_404(prefetch_queryset, pk=pk, empresa=empresa_actual)
+
+    ESTADOS_PERMITIDOS = ['APROBADO_ADMIN', 'PROCESANDO']
 
     if pedido.estado not in ESTADOS_PERMITIDOS and not request.user.is_superuser: # Superusuario puede forzar
          messages.warning(request, f"El pedido #{pedido.pk} está en estado '{pedido.get_estado_display()}' y no se puede despachar.")
@@ -153,12 +158,16 @@ def vista_despacho_pedido(request, pk):
 @login_required
 @permission_required('bodega.view_lista_pedidos_bodega', login_url='core:acceso_denegado')
 def vista_lista_pedidos_bodega(request):
-    """Muestra una lista de pedidos para Bodega, permitiendo filtrar por estado (incluido COMPLETADO)."""
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
 
-    # --- Obtener parámetros de búsqueda (sin cambios) ---
+    # --- Obtener parámetros de búsqueda ---
     ref_query = request.GET.get('ref', '').strip()
     cliente_query = request.GET.get('cliente', '').strip()
-    estado_query = request.GET.get('estado', '').strip() # Valor seleccionado por el usuario
+    estado_query = request.GET.get('estado', '').strip()
     ref_producto_query = request.GET.get('ref_producto', '').strip()
 
     # --- Preparar Prefetch (sin cambios) ---
@@ -169,31 +178,33 @@ def vista_lista_pedidos_bodega(request):
     )
 
     # --- Query base SIN filtro de estado inicial ---
-    pedidos_list = Pedido.objects.select_related('cliente', 'vendedor__user').prefetch_related(prefetch_detalles)
+    pedidos_list = Pedido.objects.filter(
+        empresa=empresa_actual
+    ).select_related('cliente', 'vendedor__user').prefetch_related(prefetch_detalles)
 
     # --- Determinar qué estados mostrar ---
     # Asegúrate que estos estados coincidan con los definidos en tu modelo Pedido.ESTADO_PEDIDO_CHOICES
     estados_validos = [choice[0] for choice in Pedido.ESTADO_PEDIDO_CHOICES] # ['PENDIENTE', 'APROBADO_CARTERA', ..., 'CANCELADO']
     estados_por_defecto = ['APROBADO_ADMIN', 'PROCESANDO'] # Estados a mostrar si no se filtra
 
-    titulo = 'Pedidos Bodega' # Título general inicial
+    titulo = f'Pedidos Bodega ({empresa_actual.nombre})'
     estado_display_filtro = "Todos (por defecto)"
 
 
     if estado_query:
         if estado_query in estados_validos:
             pedidos_list = pedidos_list.filter(estado=estado_query)
-            estado_display_filtro = Pedido.get_estado_display() # Obtener el display name del estado
-            titulo = f'Pedidos Bodega ({estado_display_filtro})'
+            # CORREGIDO: Forma correcta de obtener el "display name" de un choice.
+            estado_display_filtro = dict(Pedido.ESTADO_PEDIDO_CHOICES).get(estado_query, estado_query)
+            titulo = f'Pedidos: {estado_display_filtro} ({empresa_actual.nombre})'
         else:
             messages.warning(request, f"El estado '{estado_query}' no es válido.")
-            pedidos_list = Pedido.objects.none() # No mostrar nada si el estado no es válido
-            titulo = 'Pedidos Bodega (Estado Inválido)'
-    else: # No hay estado_query, mostrar los por defecto
+            pedidos_list = Pedido.objects.none()
+            titulo = f'Pedidos Bodega (Estado Inválido) - {empresa_actual.nombre}'
+    else:
         pedidos_list = pedidos_list.filter(estado__in=estados_por_defecto)
-        titulo = f'Pedidos Pendientes Bodega '
-
-
+        titulo = f'Pedidos Pendientes Bodega ({empresa_actual.nombre})'
+        
     # --- Aplicar OTROS filtros (lógica existente) ---
     if ref_query:
         try:
@@ -232,7 +243,13 @@ def vista_lista_pedidos_bodega(request):
 @login_required
 @permission_required(['pedidos.change_pedido', 'bodega.add_comprobantedespacho'], login_url='core:acceso_denegado')
 def vista_verificar_pedido(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk)
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
 
     if request.method == 'GET':
         detalles_para_mostrar = pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color', 'producto__talla')
@@ -325,6 +342,17 @@ def vista_verificar_pedido(request, pk):
                 if items_efectivamente_despachados_para_comprobante:
                     
                     comprobante_creado = ComprobanteDespacho.objects.create(
+                        empresa=empresa_actual,
+                        pedido=pedido,
+                        fecha_hora_despacho=timezone.now(),
+                        usuario_responsable=request.user,
+                    )
+                    print(f"ComprobanteDespacho ID {comprobante_creado.pk} CREADO para empresa '{empresa_actual.nombre}'.")          
+                    
+                    
+                    
+                    
+                    comprobante_creado = ComprobanteDespacho.objects.create(
                         pedido=pedido,
                         fecha_hora_despacho=timezone.now(),
                         usuario_responsable=request.user,
@@ -332,14 +360,25 @@ def vista_verificar_pedido(request, pk):
                     )
                     print(f"ComprobanteDespacho ID {comprobante_creado.pk} CREADO.")
                     
+                    
+                    
+                    
+                    
+                    
+                    
                     if comprobante_creado:
                         from factura.models import EstadoFacturaDespacho # Importar el modelo
                         EstadoFacturaDespacho.objects.create(
+                            empresa=empresa_actual,
                             despacho=comprobante_creado
-                            # No necesitas especificar 'estado' aquí, 
-                            # ya que el modelo tiene default='POR_FACTURAR'
                         )
-                        print(f"EstadoFacturaDespacho CREADO para Comprobante ID {comprobante_creado.pk} con estado por defecto.")
+                        print(f"EstadoFacturaDespacho CREADO para Comprobante ID {comprobante_creado.pk}")
+                        
+                        
+                        
+                        
+                        
+                        
 
 
                     
@@ -405,24 +444,35 @@ def vista_verificar_pedido(request, pk):
 
     else:
         return HttpResponse("Método no permitido.", status=405)
+    
+    #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 @login_required
 @permission_required('bodega.view_comprobantedespacho', login_url='core:acceso_denegado')
 def vista_imprimir_comprobante_especifico(request, pk_comprobante): 
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
    
     try:
+        
+        queryset = ComprobanteDespacho.objects.select_related(
+            'pedido', 
+            'pedido__cliente',
+            'pedido__vendedor__user', 
+            'usuario_responsable' 
+        ).prefetch_related(
+            'detalles__producto' 
+        )
         comprobante = get_object_or_404(
-            ComprobanteDespacho.objects.select_related(
-                'pedido', 
-                'pedido__cliente',
-                'pedido__vendedor__user', 
-                'usuario_responsable' 
-            ).prefetch_related(
-                'detalles__producto' 
-            ), 
-            pk=pk_comprobante
+            queryset, 
+            pk=pk_comprobante, 
+            pedido__empresa=empresa_actual # ¡Este filtro es la clave de la seguridad aquí!
         )
         pedido_asociado = comprobante.pedido
+        
     except ComprobanteDespacho.DoesNotExist:
         messages.error(request, f"El comprobante de despacho con ID #{pk_comprobante} no existe.")
         return redirect('factura:lista_despachos_a_facturar') 
@@ -475,14 +525,16 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
         'pedido': pedido_asociado,           
         'items_despachados_agrupados': items_agrupados_para_pdf,
         'fecha_despacho': comprobante.fecha_hora_despacho, 
-        'logo_base64': get_logo_base_64_despacho(),
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
     }
+    
+    filename = f"Comprobante_Despacho_{empresa_actual.schema_name}_{comprobante.pk}"
     
     return render_pdf_weasyprint(
         request,
         'bodega/comprobante_despacho_pdf.html', 
         context_pdf,
-        filename_prefix=f"Comprobante_Despacho_{comprobante.pk}" 
+        filename_prefix=filename 
     )
 
 @login_required
@@ -492,9 +544,15 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
     Genera el PDF para el ÚLTIMO ComprobanteDespacho asociado a un Pedido específico.
     PK es el ID del Pedido.
     """
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     print(f"--- VISTA_GENERAR_ULTIMO_COMPROBANTE_PEDIDO: INICIO GET para Pedido ID #{pk} ---")
     
-    pedido_obj = get_object_or_404(Pedido, pk=pk)
+    pedido_obj = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
 
     try:
         comprobante = ComprobanteDespacho.objects.select_related(
@@ -562,14 +620,16 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
         'pedido': pedido_asociado,          
         'items_despachados_agrupados': items_agrupados_para_pdf,
         'fecha_despacho': comprobante.fecha_hora_despacho, 
-        'logo_base64': get_logo_base_64_despacho(),
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
     }
+    
+    filename = f"Comprobante_Despacho_{empresa_actual.schema_name}_P{pedido_obj.pk}_C{comprobante.pk}"
     
     return render_pdf_weasyprint(
         request,
         'bodega/comprobante_despacho_pdf.html', 
         context_pdf,
-        filename_prefix=f"Comprobante_Despacho_P{pedido_obj.pk}_C{comprobante.pk}"
+        filename_prefix=filename
     )
 
 
@@ -579,9 +639,16 @@ def vista_registrar_ingreso(request):
     """
     Maneja el registro de un nuevo Ingreso a Bodega con sus detalles.
     """
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     if request.method == 'POST':
-        form = IngresoBodegaForm(request.POST)
-        formset = DetalleIngresoFormSet(request.POST, prefix='detalles_ingreso')
+        form = IngresoBodegaForm(request.POST, empresa=empresa_actual)
+        formset = DetalleIngresoFormSet(request.POST, prefix='detalles_ingreso', form_kwargs={'empresa': empresa_actual})
+
 
         if form.is_valid() and formset.is_valid():
             try:
@@ -589,6 +656,7 @@ def vista_registrar_ingreso(request):
                     ingreso_header = form.save(commit=False)
                     ingreso_header.usuario = request.user
                     ingreso_header.fecha_hora = timezone.now()
+                    ingreso_header.empresa = empresa_actual
                     ingreso_header.save()
 
                     formset.instance = ingreso_header
@@ -599,6 +667,7 @@ def vista_registrar_ingreso(request):
                     for detalle in detalles_guardados:
                         if detalle.cantidad > 0:
                             MovimientoInventario.objects.create(
+                                empresa=empresa_actual,
                                 producto=detalle.producto,
                                 cantidad=detalle.cantidad, 
                                 tipo_movimiento='ENTRADA_COMPRA', 
@@ -616,20 +685,29 @@ def vista_registrar_ingreso(request):
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
     else: 
-        form = IngresoBodegaForm()
-        formset = DetalleIngresoFormSet(prefix='detalles_ingreso')
+        form = IngresoBodegaForm(empresa=empresa_actual)
+        formset = DetalleIngresoFormSet(prefix='detalles_ingreso', form_kwargs={'empresa': empresa_actual})
 
     context = {
         'form': form,
         'formset': formset,
-        'titulo': 'Registrar Nuevo Ingreso a Bodega'
+        'titulo': f'Registrar Ingreso a Bodega ({empresa_actual.nombre})'
     }
     return render(request, 'bodega/registrar_ingreso.html', context)
+
+
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
 @login_required
 @permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado') # Permiso para VER la interfaz
 def vista_conteo_inventario(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     print(f"****** VISTA CONTEO: Método Recibido = {request.method} ******")
     user = request.user # Definir user para usarlo consistentemente
 
@@ -637,22 +715,18 @@ def vista_conteo_inventario(request):
         print("****** VISTA CONTEO: PROCESANDO POST ******")
 
         # ---- VERIFICACIÓN DE PERMISO PARA FINALIZAR/GUARDAR ----
-        if not user.has_perm('bodega.add_cabeceraconteo'): # Permiso para CREAR el conteo (y ajustar stock)
+        if not user.has_perm('bodega.add_cabeceraconteo'):
             messages.error(request, "No tienes permiso para finalizar este conteo y ajustar el stock. Solo puedes ingresar datos.")
-            # Preparamos el contexto para volver a mostrar el formulario GET
-            # con los datos que el usuario podría haber estado ingresando (aunque no se guardarán).
-            # Es importante que el formulario sepa cómo manejar datos POST en modo "solo lectura" o
-            # simplemente mostrar el formulario vacío de nuevo.
-            items_a_contar_get = Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla')
-            info_form_get = InfoGeneralConteoForm(request.POST) # Mostrar los datos que intentó enviar
+
+            items_a_contar_get = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+            info_form_get = InfoGeneralConteoForm(request.POST)
             context_get = {
                 'items_para_conteo': items_a_contar_get,
-                'titulo': "Conteo de Inventario Físico (No Autorizado para Finalizar)",
-                'info_form': info_form_get, # Mostrar el formulario con los datos que intentó enviar
-                'puede_guardar': False # Indicar a la plantilla que no se puede guardar
+                'titulo': f"Conteo Inventario ({empresa_actual.nombre}) - No Autorizado",
+                'info_form': info_form_get,
+                'puede_guardar': False
             }
             return render(request, 'bodega/conteo_inventario.html', context_get)
-        # ---- FIN DE VERIFICACIÓN DE PERMISO PARA FINALIZAR/GUARDAR ----
 
         info_form = InfoGeneralConteoForm(request.POST)
         if info_form.is_valid():
@@ -669,6 +743,7 @@ def vista_conteo_inventario(request):
             try:
                 with transaction.atomic():
                     cabecera = CabeceraConteo.objects.create(
+                        empresa=empresa_actual,
                         fecha_conteo=fecha_ajuste,
                         motivo=motivo,
                         revisado_con=revisado,
@@ -678,7 +753,7 @@ def vista_conteo_inventario(request):
                     cabecera_conteo_guardada = cabecera.pk
                     print(f"  -> Cabecera de Conteo creada con ID: {cabecera.pk}")
 
-                    items_a_procesar = list(Producto.objects.filter(activo=True))
+                    items_a_procesar = list(Producto.objects.filter(empresa=empresa_actual, activo=True))
                     print(f"  -> Encontrados {len(items_a_procesar)} productos activos para procesar en POST.")
 
                     for producto_item in items_a_procesar:
@@ -692,24 +767,26 @@ def vista_conteo_inventario(request):
 
                                 stock_sistema_actual = producto_item.stock_actual
                                 diferencia_stock = cantidad_fisica - stock_sistema_actual
+                                
+                                
 
                                 ConteoInventario.objects.create(
+                                    empresa=empresa_actual,
                                     cabecera_conteo=cabecera,
                                     producto=producto_item,
                                     cantidad_sistema_antes=stock_sistema_actual,
                                     cantidad_fisica_contada=cantidad_fisica,
                                     usuario_conteo=request.user,
-                                    # Asegúrate que estos campos estén en tu modelo ConteoInventario o quítalos de aquí si están solo en CabeceraConteo
-                                    # fecha_actualizacion_stock=fecha_ajuste, 
-                                    # motivo_conteo=motivo,
-                                    # revisado_con=revisado,
-                                    # notas_generales=notas_gral
                                 )
+                                
+                                
+                                
                                 print(f"  -> Detalle Conteo registrado para {producto_item.pk}. Sistema: {stock_sistema_actual}, Físico: {cantidad_fisica}")
 
                                 if diferencia_stock != 0:
                                     tipo_movimiento_ajuste = 'ENTRADA_AJUSTE' if diferencia_stock > 0 else 'SALIDA_AJUSTE'
                                     MovimientoInventario.objects.create(
+                                        empresa=empresa_actual,
                                         producto=producto_item,
                                         cantidad=diferencia_stock, # La cantidad ya tiene el signo correcto de la diferencia
                                         tipo_movimiento=tipo_movimiento_ajuste,
@@ -722,16 +799,17 @@ def vista_conteo_inventario(request):
                             except (ValueError, Exception) as e_item:
                                  messages.error(request, f"Error procesando {producto_item}: {e_item}")
                                  items_con_error_o_sin_cambio += 1
-                        else: # No se ingresó cantidad para este ítem o estaba vacío
+                        else: 
                             items_con_error_o_sin_cambio +=1 
-            # ... (resto de tu lógica POST para mensajes y redirección) ...
-            # Asegúrate que las redirecciones y mensajes se manejen bien después de la lógica try/except
-            # Por ejemplo, si hay un error global:
+
             except Exception as e_global:
                 messages.error(request, f"Error general al guardar el conteo: {e_global}")
                 print(f"****** VISTA CONTEO: ERROR FATAL EN POST: {e_global} ******")
                 # Re-renderizar el formulario como en el GET
-                items_a_contar_err = Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+                items_a_contar_err = Producto.objects.filter(
+                    empresa=empresa_actual, 
+                    activo=True
+                ).order_by('referencia', 'nombre', 'color', 'talla')
                 # puede_guardar_err = user.has_perm('bodega.add_cabeceraconteo') # Pasamos el permiso real
                 context_err = {
                     'items_para_conteo': items_a_contar_err, 
@@ -763,11 +841,11 @@ def vista_conteo_inventario(request):
             print("  -> Formulario InfoGeneralConteoForm NO es VÁLIDO.")
             print("  -> Errores:", info_form.errors.as_json())
             messages.error(request, "Por favor corrige los errores en la información general del conteo.")
-            items_a_contar = Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+            items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
             # puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
             context = {
                 'items_para_conteo': items_a_contar, 
-                'titulo': "Conteo de Inventario Físico", 
+                'titulo': f"Conteo de Inventario ({empresa_actual.nombre})", 
                 'info_form': info_form, 
                 'puede_guardar': user.has_perm('bodega.add_cabeceraconteo') # Enviar el permiso real
             }
@@ -775,10 +853,8 @@ def vista_conteo_inventario(request):
     else: # GET
         # ... (tu lógica GET actual) ...
         print("****** VISTA CONTEO: PROCESANDO GET ******")
-        items_a_contar = Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+        items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
         info_form = InfoGeneralConteoForm() 
-        # Determinar si el usuario actual puede guardar/finalizar el conteo
-        # Este 'puede_guardar' se usará en la plantilla para mostrar/ocultar el botón de finalizar.
         puede_guardar_finalizar = user.has_perm('bodega.add_cabeceraconteo')
 
         print(f"  -> Obtenidos {items_a_contar.count()} productos activos para mostrar.")
@@ -786,9 +862,9 @@ def vista_conteo_inventario(request):
 
         context = {
             'items_para_conteo': items_a_contar,
-            'titulo': "Conteo de Inventario Físico",
+            'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",
             'info_form': info_form,
-            'puede_guardar': puede_guardar_finalizar, # Pasar esta variable a la plantilla
+            'puede_guardar': puede_guardar_finalizar,
         }
         return render(request, 'bodega/conteo_inventario.html', context)
     
@@ -796,7 +872,13 @@ def vista_conteo_inventario(request):
 @login_required
 @permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado')
 def descargar_informe_conteo(request, cabecera_id):
-    cabecera = get_object_or_404(CabeceraConteo, pk=cabecera_id)
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    cabecera = get_object_or_404(CabeceraConteo, pk=cabecera_id, empresa=empresa_actual)
     detalles_conteo = ConteoInventario.objects.filter(cabecera_conteo=cabecera).select_related('producto')
     inconsistencias = [d for d in detalles_conteo if d.diferencia != 0]
 
@@ -804,7 +886,7 @@ def descargar_informe_conteo(request, cabecera_id):
         'cabecera': cabecera,
         'inconsistencias': inconsistencias, # Solo los que tuvieron diferencia
         'detalles_completos': detalles_conteo, # Todos los detalles para un informe completo si se desea
-        'logo_base64': get_logo_base_64_despacho(), # Reutilizar logo
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
         'fecha_generacion': timezone.now(),
     }
 
@@ -813,7 +895,8 @@ def descargar_informe_conteo(request, cabecera_id):
         html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
         pdf_file = html.write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="informe_conteo_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf"'
+        filename = f'informe_conteo_{empresa_actual.schema_name}_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
         print(f"Error generando PDF con WeasyPrint para conteo {cabecera.pk}: {e}")
@@ -821,50 +904,38 @@ def descargar_informe_conteo(request, cabecera_id):
         return redirect('bodega:vista_conteo_inventario')
 
 
-class InformeDespachosView(LoginRequiredMixin, PermissionRequiredMixin, ListView): # Mixin actualizado
+class InformeDespachosView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Pedido
     template_name = 'bodega/informe_despachos.html' 
     context_object_name = 'lista_pedidos'
     paginate_by = 25
     
-    permission_required = 'informes.view_comprobantes_despacho' # Permiso elegido
-    login_url = 'core:acceso_denegado' # O tu LOGIN_URL si prefieres
-    # raise_exception = True # Descomenta para un 403 en lugar de redirect
+    permission_required = 'informes.view_comprobantes_despacho'
+    login_url = 'core:acceso_denegado'
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para acceder a este informe.")
-        return redirect('core:index') # O a donde prefieras
+        return redirect('core:index')
 
     def get_queryset(self):
+        queryset = super().get_queryset()
         user = self.request.user
-        queryset = Pedido.objects.all() 
+        empresa_actual = self.request.tenant
 
-        # La lógica para diferenciar la consulta para vendedores vs otros roles puede mantenerse,
-        # pero ahora se ejecuta DESPUÉS de que el usuario ha pasado el chequeo de 'permission_required'.
-        # Para esto, las funciones es_vendedor, es_admin_sistema etc. de auth_utils aún son necesarias
-        # si quieres este comportamiento diferenciado DENTRO de la vista.
-        # Si no, todos los que tengan el permiso verían el mismo queryset base.
-        
-        # Importa las funciones de auth_utils si las necesitas para la lógica interna
+        # CORRECCIÓN: Las importaciones se mueven aquí, fuera del bloque try/except,
+        # para que Pylance y otros analizadores las reconozcan siempre.
         from core.auth_utils import es_vendedor, es_admin_sistema, es_factura, es_cartera
+        from vendedores.models import Vendedor
 
         if es_vendedor(user) and not (user.is_superuser or es_admin_sistema(user) or es_factura(user) or es_cartera(user)):
             try:
-                # Necesitas importar Vendedor aquí si no está ya importado globalmente en este archivo
-                from vendedores.models import Vendedor
-                vendedor_actual = Vendedor.objects.get(user=user)
-                queryset = queryset.filter(vendedor=vendedor_actual) # Filtra por el vendedor actual
+                vendedor_actual = Vendedor.objects.get(user=user, empresa=empresa_actual)
+                queryset = queryset.filter(vendedor=vendedor_actual)
             except Vendedor.DoesNotExist:
                 messages.warning(self.request, "Tu usuario no está asociado a un perfil de vendedor.")
                 return Pedido.objects.none()
         
-        # ... (resto de tu lógica de filtrado por GET params) ...
-        queryset = queryset.select_related('cliente', 'vendedor__user').annotate(
-            ultima_fecha_despacho=Max('comprobantes_despacho__fecha_hora_despacho')
-        ).order_by('-fecha_hora')
-        
-        # ... (tus filtros por GET params: nit_cliente_query, etc.) ...
-        # (El código de filtrado que ya tenías se mantiene aquí)
+        # --- SECCIÓN DE FILTRADO POR PARÁMETROS GET (INTACTA) ---
         nit_cliente_query = self.request.GET.get('nit_cliente', '').strip()
         nombre_cliente_query = self.request.GET.get('nombre_cliente', '').strip()
         numero_pedido_query = self.request.GET.get('numero_pedido', '').strip()
@@ -880,7 +951,7 @@ class InformeDespachosView(LoginRequiredMixin, PermissionRequiredMixin, ListView
             try:
                 pedido_pk = int(numero_pedido_query)
                 queryset = queryset.filter(pk=pedido_pk)
-            except ValueError:
+            except (ValueError, TypeError):
                 pass 
         if fecha_pedido_inicio_query and fecha_pedido_fin_query:
             queryset = queryset.filter(fecha_hora__date__range=[fecha_pedido_inicio_query, fecha_pedido_fin_query])
@@ -892,21 +963,23 @@ class InformeDespachosView(LoginRequiredMixin, PermissionRequiredMixin, ListView
         if estado_pedido_query:
             queryset = queryset.filter(estado=estado_pedido_query)
             
-        return queryset.distinct()
-
+        # --- OPTIMIZACIÓN Y RETORNO FINAL (INTACTO) ---
+        return queryset.select_related('cliente', 'vendedor__user').annotate(
+            ultima_fecha_despacho=Max('comprobantes_despacho__fecha_hora_despacho')
+        ).order_by('-fecha_hora').distinct()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        # De nuevo, importa las funciones de auth_utils si son necesarias para esta lógica de título
+        empresa_actual = self.request.tenant
+        
         from core.auth_utils import es_vendedor, es_admin_sistema, es_factura, es_cartera
         
         if es_vendedor(user) and not (user.is_superuser or es_admin_sistema(user) or es_factura(user) or es_cartera(user)):
-            context['titulo_pagina'] = "Mis Pedidos y Despachos"
+            context['titulo_pagina'] = f"Mis Pedidos y Despachos ({empresa_actual.nombre})"
         else:
-            context['titulo_pagina'] = "Informe General de Pedidos y Despachos"
-        
-        # ... (resto de tu get_context_data) ...
+            context['titulo_pagina'] = f"Informe General de Despachos ({empresa_actual.nombre})"
+
         context['nit_cliente_query'] = self.request.GET.get('nit_cliente', '')
         context['nombre_cliente_query'] = self.request.GET.get('nombre_cliente', '')
         context['numero_pedido_query'] = self.request.GET.get('numero_pedido', '')
@@ -914,21 +987,29 @@ class InformeDespachosView(LoginRequiredMixin, PermissionRequiredMixin, ListView
         context['fecha_pedido_fin_query'] = self.request.GET.get('fecha_pedido_fin', '')
         context['estado_pedido_query'] = self.request.GET.get('estado_pedido', '')
         context['ESTADO_PEDIDO_CHOICES'] = Pedido.ESTADO_PEDIDO_CHOICES
+        
         return context
 
 @login_required
 @permission_required('factura.view_ingresobodega', login_url='core:acceso_denegado')
 def vista_detalle_ingreso_bodega(request, pk):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     ingreso = get_object_or_404(
         IngresoBodega.objects.select_related('usuario'), 
-        pk=pk
+        pk=pk, 
+        empresa=empresa_actual
     )
     detalles_del_ingreso = ingreso.detalles.select_related('producto').all()
 
     context = {
         'ingreso': ingreso,
         'detalles_del_ingreso': detalles_del_ingreso,
-        'titulo': f'Detalle del Ingreso a Bodega #{ingreso.pk}',
+        'titulo': f'Detalle del Ingreso #{ingreso.pk} ({empresa_actual.nombre})',
         'app_name': 'bodega' 
     }
     return render(request, 'bodega/detalle_ingreso_bodega.html', context)
@@ -937,9 +1018,15 @@ def vista_detalle_ingreso_bodega(request, pk):
 @login_required
 @permission_required(['bodega.add_salidainternacabecera', 'bodega.add_movimientoinventario'], login_url='core:acceso_denegado')
 def registrar_salida_interna(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     if request.method == 'POST':
-        form_cabecera = SalidaInternaCabeceraForm(request.POST)
-        formset_detalles = DetalleSalidaInternaFormSet(request.POST, prefix='detalles_salida')
+        form_cabecera = SalidaInternaCabeceraForm(request.POST) # Este form no tiene campos que dependan de la empresa
+        formset_detalles = DetalleSalidaInternaFormSet(request.POST, prefix='detalles_salida', form_kwargs={'empresa': empresa_actual})
 
         if form_cabecera.is_valid() and formset_detalles.is_valid():
             stock_suficiente = True
@@ -960,9 +1047,8 @@ def registrar_salida_interna(request):
                 for error in errores_stock:
                     messages.error(request, error)
                 context = {
-                    'form_cabecera': form_cabecera,
-                    'formset_detalles': formset_detalles,
-                    'titulo': 'Registrar Nueva Salida Interna (Error)' # Título más genérico
+                    'form_cabecera': form_cabecera, 'formset_detalles': formset_detalles,
+                    'titulo': f'Registrar Salida Interna ({empresa_actual.nombre})'
                 }
                 return render(request, 'bodega/registrar_salida_interna.html', context)
 
@@ -970,6 +1056,7 @@ def registrar_salida_interna(request):
                 with transaction.atomic():
                     cabecera = form_cabecera.save(commit=False)
                     cabecera.responsable_entrega = request.user
+                    cabecera.empresa = empresa_actual
                     
                     if cabecera.tipo_salida == 'DONACION_BAJA':
                         cabecera.estado = 'CERRADA'
@@ -1001,6 +1088,7 @@ def registrar_salida_interna(request):
 
 
                             MovimientoInventario.objects.create(
+                                empresa=empresa_actual,
                                 producto=detalle.producto,
                                 cantidad=-detalle.cantidad_despachada, 
                                 tipo_movimiento=tipo_mov_str,
@@ -1032,35 +1120,55 @@ def registrar_salida_interna(request):
 
     else: # GET
         form_cabecera = SalidaInternaCabeceraForm()
-        formset_detalles = DetalleSalidaInternaFormSet(prefix='detalles_salida')
+        formset_detalles = DetalleSalidaInternaFormSet(prefix='detalles_salida', form_kwargs={'empresa': empresa_actual})
 
     context = {
         'form_cabecera': form_cabecera,
         'formset_detalles': formset_detalles,
-        'titulo': 'Registrar Nueva Salida Interna'
+        'titulo': f'Registrar Nueva Salida Interna ({empresa_actual.nombre})'
     }
     return render(request, 'bodega/registrar_salida_interna.html', context)
 
 @login_required
 @permission_required('bodega.view_salidainternacabecera', login_url='core:acceso_denegado')
 def detalle_salida_interna(request, pk): 
-    salida_interna = get_object_or_404(SalidaInternaCabecera.objects.select_related('responsable_entrega'), pk=pk)
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    salida_interna = get_object_or_404(
+        SalidaInternaCabecera.objects.select_related('responsable_entrega'), 
+        pk=pk, 
+        empresa=empresa_actual
+    )
     detalles_items = salida_interna.detalles.select_related('producto').all()
 
     context = {
         'salida_interna': salida_interna,
         'detalles_items': detalles_items,
-        'titulo': f"Detalle Salida Interna #{salida_interna.pk}"
+        'titulo': f"Detalle Salida Interna #{salida_interna.pk} ({empresa_actual.nombre})"
     }
     return render(request, 'bodega/detalle_salida_interna.html', context)
 
 @login_required
 @permission_required('bodega.view_salidainternacabecera', login_url='core:acceso_denegado')
 def generar_pdf_salida_interna(request, pk):
-    salida_interna = get_object_or_404(SalidaInternaCabecera.objects.select_related('responsable_entrega'), pk=pk)
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    salida_interna = get_object_or_404(
+        SalidaInternaCabecera.objects.select_related('responsable_entrega'), 
+        pk=pk, 
+        empresa=empresa_actual
+    )
     detalles_items = salida_interna.detalles.select_related('producto').all()
     
-    logo_para_pdf = get_logo_base_64_despacho() 
+    logo_para_pdf = get_logo_base_64_despacho(empresa=empresa_actual)
 
     context_pdf = {
         'salida_interna': salida_interna,
@@ -1069,17 +1177,27 @@ def generar_pdf_salida_interna(request, pk):
         'fecha_generacion': timezone.now(),
     }
     
+    filename = f"Salida_Interna_{empresa_actual.schema_name}_{salida_interna.pk}"
+    
     return render_pdf_weasyprint(
         request,
         'bodega/salida_interna_pdf.html',
         context_pdf,
-        filename_prefix=f"Salida_Interna_{salida_interna.pk}"
+        filename_prefix=filename
     )
 
 @login_required
 @permission_required('bodega.view_salidainternacabecera', login_url='core:acceso_denegado')
 def lista_salidas_internas(request):
-    salidas_query = SalidaInternaCabecera.objects.select_related('responsable_entrega').all()
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    salidas_query = SalidaInternaCabecera.objects.filter(
+        empresa=empresa_actual
+    ).select_related('responsable_entrega')
 
     # Filtros
     fecha_inicio = request.GET.get('fecha_inicio')
@@ -1101,7 +1219,7 @@ def lista_salidas_internas(request):
     
     context = {
         'salidas_list': salidas,
-        'titulo': "Listado de Salidas Internas de Bodega",
+        'titulo': f"Salidas Internas de Bodega ({empresa_actual.nombre})",
         'TIPO_SALIDA_CHOICES': SalidaInternaCabecera.TIPO_SALIDA_CHOICES, # Para el dropdown de filtro
         'ESTADO_SALIDA_CHOICES': SalidaInternaCabecera.ESTADO_SALIDA_CHOICES, # Para el dropdown de filtro de estado
         'request_get': request.GET # Para mantener los valores de los filtros en la plantilla
@@ -1110,10 +1228,17 @@ def lista_salidas_internas(request):
 
 @login_required
 @permission_required(['bodega.change_salidainternacabecera', 'bodega.add_movimientoinventario'], login_url='core:acceso_denegado')
-def registrar_devolucion_salida_interna(request, pk_cabecera): 
+def registrar_devolucion_salida_interna(request, pk_cabecera):     
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     salida_interna = get_object_or_404(
         SalidaInternaCabecera.objects.prefetch_related('detalles__producto'), 
-        pk=pk_cabecera
+        pk=pk_cabecera,
+        empresa=empresa_actual
     )
 
     if salida_interna.estado in ['CERRADA', 'DEVUELTA_TOTALMENTE']:
@@ -1163,6 +1288,7 @@ def registrar_devolucion_salida_interna(request, pk_cabecera):
 
 
                         MovimientoInventario.objects.create(
+                            empresa=empresa_actual,
                             producto=detalle_salida.producto,
                             cantidad=cantidad_a_devolver_ahora, 
                             tipo_movimiento=tipo_mov_str,
@@ -1214,12 +1340,11 @@ def registrar_devolucion_salida_interna(request, pk_cabecera):
         'salida_interna': salida_interna,
         'detalles_items': detalles_con_pendientes,
         'hay_algo_pendiente_general': hay_algo_pendiente_general,
-        'titulo': f'Registrar Devolución para Salida Interna #{salida_interna.pk}'
+        'titulo': f'Devolución de Salida Interna #{salida_interna.pk} ({empresa_actual.nombre})'
     }
     return render(request, 'bodega/registrar_devolucion_salida_interna.html', context)
 
 
-# --- NUEVA VISTA PARA COMPROBANTE PDF DE DEVOLUCIÓN ---
 @login_required
 @permission_required('bodega.view_salidainternacabecera', login_url='core:acceso_denegado')
 def generar_pdf_devolucion_salida_interna(request, pk_cabecera):
@@ -1227,15 +1352,18 @@ def generar_pdf_devolucion_salida_interna(request, pk_cabecera):
     Genera un PDF para el comprobante de devolución de una Salida Interna.
     Muestra los ítems que han sido devueltos.
     """
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     salida_interna = get_object_or_404(
-        SalidaInternaCabecera.objects.select_related('responsable_entrega')
-                                     .prefetch_related('detalles__producto'), 
-        pk=pk_cabecera
+        SalidaInternaCabecera.objects.select_related('responsable_entrega').prefetch_related('detalles__producto'),
+        pk=pk_cabecera,
+        empresa=empresa_actual
     )
 
-    # Filtrar detalles para incluir solo aquellos que tienen alguna cantidad devuelta,
-    # o mostrar todos con la información de devolución. Optaremos por mostrar todos
-    # para dar un panorama completo de la salida original y su estado de devolución.
     detalles_para_pdf = []
     for detalle in salida_interna.detalles.all():
         detalles_para_pdf.append({
@@ -1249,23 +1377,22 @@ def generar_pdf_devolucion_salida_interna(request, pk_cabecera):
             'observaciones_detalle': detalle.observaciones_detalle
         })
     
-    # Podrías añadir una fecha específica de "última devolución" si la rastrearas,
-    # por ahora, el comprobante refleja el estado actual de devolución.
     
-    logo_para_pdf = get_logo_base_64_despacho() 
+    logo_para_pdf = get_logo_base_64_despacho(empresa=empresa_actual)
 
     context_pdf = {
         'salida_interna': salida_interna,
-        'detalles_items_devolucion': detalles_para_pdf, # Usar este nombre en la plantilla
+        'detalles_items_devolucion': detalles_para_pdf,
         'logo_base64': logo_para_pdf,
         'fecha_generacion': timezone.now(),
         'titulo_comprobante': f"Comprobante de Devolución - Salida Interna N° {salida_interna.pk}"
     }
     
-    # Necesitarás crear la plantilla 'bodega/devolucion_salida_interna_pdf.html'
+    filename = f"Comprobante_Devolucion_{empresa_actual.schema_name}_{salida_interna.pk}"
+    
     return render_pdf_weasyprint(
         request,
-        'bodega/devolucion_salida_interna_pdf.html', # Nueva plantilla
+        'bodega/devolucion_salida_interna_pdf.html',
         context_pdf,
-        filename_prefix=f"Comprobante_Devolucion_Salida_Interna_{salida_interna.pk}"
+        filename_prefix=filename
     )

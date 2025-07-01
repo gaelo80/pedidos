@@ -4,12 +4,23 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import ROUND_HALF_UP
+from django.core.exceptions import ValidationError
+from clientes.models import Empresa
 
 
 
 
 class IngresoBodega(models.Model):
-        """Representa un ingreso de mercancía a la bodega (ej: compra a proveedor)."""
+        """Representa un ingreso de mercancía a la bodega."""
+    
+        empresa = models.ForeignKey(
+            Empresa,
+            on_delete=models.CASCADE,
+            related_name='ingresos_bodega',
+            verbose_name="Empresa",
+            #null=True
+        )
+        
         fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora Ingreso")
         proveedor_info = models.CharField(max_length=200, blank=True, null=True, verbose_name="Información Proveedor/Origen")
         documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento Referencia (Factura Compra, Remisión, etc.)")
@@ -28,20 +39,28 @@ class IngresoBodega(models.Model):
 
 
 class DetalleIngresoBodega(models.Model):
-        """Representa un producto específico y cantidad ingresado en un IngresoBodega."""
-        ingreso = models.ForeignKey(IngresoBodega, related_name='detalles', on_delete=models.CASCADE, verbose_name="Ingreso Asociado")
-        producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='detalles_ingreso', verbose_name="Producto Ingresado")
-        cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad Ingresada")
-        costo_unitario = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Costo Unitario Ingreso (Opcional)")
+    """Detalle de un producto en un IngresoBodega."""
+    ingreso = models.ForeignKey(IngresoBodega, related_name='detalles', on_delete=models.CASCADE, verbose_name="Ingreso Asociado")
+    producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='detalles_ingreso', verbose_name="Producto Ingresado")
+    cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad Ingresada")
+    costo_unitario = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Costo Unitario (Opcional)")
 
-        def __str__(self):
-            costo_str = f" @ ${self.costo_unitario:,.2f}" if self.costo_unitario is not None else ""
-            return f"{self.cantidad} x {self.producto.nombre}{costo_str}"
+    def clean(self):
+        super().clean()
+        if self.ingreso.empresa and self.producto.empresa != self.ingreso.empresa:
+            raise ValidationError("El producto no pertenece a la misma empresa que el ingreso de bodega.")
 
-        class Meta:
-            verbose_name = "Detalle de Ingreso a Bodega"
-            verbose_name_plural = "Detalles de Ingreso a Bodega"
-            unique_together = ('ingreso', 'producto')
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.cantidad} x {self.producto.nombre}"
+
+    class Meta:
+        verbose_name = "Detalle de Ingreso a Bodega"
+        verbose_name_plural = "Detalles de Ingreso a Bodega"
+        unique_together = ('ingreso', 'producto')
 
 class PersonalBodega(models.Model):
     """
@@ -71,7 +90,14 @@ def __str__(self):
 
 
 class MovimientoInventario(models.Model):
-        """Registra cada entrada o salida de stock para un producto específico."""
+        """Registra cada entrada o salida de stock para un producto."""
+        empresa = models.ForeignKey(
+            Empresa,
+            on_delete=models.CASCADE,
+            related_name='movimientos_inventario',
+            verbose_name="Empresa",
+            #null=True # Temporal para la migración
+        )
         TIPO_MOVIMIENTO_CHOICES = [
         ('ENTRADA_COMPRA', 'Entrada por Compra'),
         ('ENTRADA_AJUSTE', 'Entrada por Ajuste'),
@@ -103,9 +129,14 @@ class MovimientoInventario(models.Model):
         documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento Referencia (ID Pedido, Factura, etc.)")
         notas = models.TextField(blank=True, null=True, verbose_name="Notas")
 
+        def save(self, *args, **kwargs):
+            if not self.empresa_id and self.producto_id:
+                self.empresa = self.producto.empresa
+            super().save(*args, **kwargs)
+
         def __str__(self):
             signo = '+' if self.cantidad > 0 else ''
-            return f"{self.get_tipo_movimiento_display()} ({signo}{self.cantidad}) - {self.producto.referencia} | {self.fecha_hora.strftime('%d-%b-%Y %H:%M')}"
+            return f"{self.get_tipo_movimiento_display()} ({signo}{self.cantidad}) - {self.producto.referencia}"
 
         class Meta:
             verbose_name = "Movimiento de Inventario"
@@ -115,6 +146,16 @@ class MovimientoInventario(models.Model):
             
 class CabeceraConteo(models.Model):
     """Agrupa los registros de un evento de conteo específico."""
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='conteos_inventario',
+        verbose_name="Empresa",
+        #null=True
+    )
+    
+
     fecha_conteo = models.DateField(default=timezone.now, verbose_name="Fecha Efectiva del Conteo")
     motivo = models.CharField(max_length=150, blank=True, null=True, verbose_name="Motivo del Conteo")
     revisado_con = models.CharField(max_length=150, blank=True, null=True, verbose_name="Revisado Con")
@@ -132,13 +173,25 @@ class CabeceraConteo(models.Model):
 
 
 class ConteoInventario(models.Model):
+    
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='detalles_conteo_inventario',
+        verbose_name="Empresa",
+        #null=True
+    )
+    
+    
+    
+    
+    
     cabecera_conteo = models.ForeignKey(
         CabeceraConteo, 
         on_delete=models.CASCADE, 
         related_name='detalles_conteo', 
         verbose_name="Cabecera del Conteo",
-        null=True,  # <--- AÑADIDO
-        blank=True
+        #null=True
 
         )
     
@@ -195,6 +248,21 @@ class ConteoInventario(models.Model):
     @property
     def diferencia(self):
         return self.cantidad_fisica_contada - self.cantidad_sistema_antes
+    
+    def clean(self):
+        super().clean()
+        if self.cabecera_conteo_id and self.producto_id:
+            if self.cabecera_conteo.empresa_id != self.producto.empresa_id:
+                raise ValidationError("El producto y la cabecera del conteo deben pertenecer a la misma empresa.")
+    
+    def save(self, *args, **kwargs):
+        if not self.empresa_id and self.cabecera_conteo_id:
+            self.empresa = self.cabecera_conteo.empresa
+        self.clean()
+        super().save(*args, **kwargs)
+    
+    
+    
 
     def __str__(self):
         # Usamos el __str__ del modelo Producto que ya es descriptivo
@@ -218,8 +286,18 @@ class ComprobanteDespacho(models.Model):
         'pedidos.Pedido',
         on_delete=models.PROTECT, # O SET_NULL si un despacho puede existir sin pedido (raro)
         related_name='comprobantes_despacho',
-        verbose_name="Pedido Asociado"
+        verbose_name="Pedido Asociado",
+        #null=True
     )
+    
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='comprobantes_despacho',
+        verbose_name="Empresa",
+        #null=True # Temporal para la migración
+    )
+    
     fecha_hora_despacho = models.DateTimeField(
         default=timezone.now,
         verbose_name="Fecha y Hora del Despacho"
@@ -238,8 +316,13 @@ class ComprobanteDespacho(models.Model):
     # Un campo para indicar si este comprobante completó el pedido (opcional, para referencia)
     # completo_pedido = models.BooleanField(default=False, verbose_name="¿Completó el Pedido?")
 
+    def save(self, *args, **kwargs):
+        if not self.empresa_id and self.pedido_id:
+            self.empresa = self.pedido.empresa
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Comprobante de Despacho #{self.pk} para Pedido #{self.pedido.pk} ({self.fecha_hora_despacho.strftime('%d-%b-%Y %H:%M')})"
+        return f"Comprobante de Despacho #{self.pk} para Pedido #{self.pedido_id}"
 
     class Meta:
         verbose_name = "Comprobante de Despacho"
@@ -276,6 +359,17 @@ class DetalleComprobanteDespacho(models.Model):
         verbose_name="Línea del Pedido Original"
     )
 
+    def clean(self):
+        super().clean()
+        if self.comprobante_despacho_id and self.producto_id:
+            if self.comprobante_despacho.empresa_id != self.producto.empresa_id:
+                raise ValidationError("El producto y el comprobante de despacho deben pertenecer a la misma empresa.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
     def __str__(self):
         return f"{self.cantidad_despachada} x {self.producto.nombre} (Comprobante #{self.comprobante_despacho.pk})"
 
@@ -287,6 +381,16 @@ class DetalleComprobanteDespacho(models.Model):
 
 
 class SalidaInternaCabecera(models.Model):
+    
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='salidas_internas',
+        verbose_name="Empresa",
+        #null=True
+    )
+      
+    
     TIPO_SALIDA_CHOICES = [
         ('MUESTRARIO', 'Muestrario para Vendedor'),
         ('EXHIBIDOR', 'Para Exhibidor/Punto de Venta'),
@@ -336,6 +440,18 @@ class SalidaInternaDetalle(models.Model):
     @property
     def cantidad_pendiente_devolucion(self):
         return self.cantidad_despachada - self.cantidad_devuelta
+    
+    
+    def clean(self):
+        super().clean()
+        if self.cabecera_salida_id and self.producto_id:
+            if self.cabecera_salida.empresa_id != self.producto.empresa_id:
+                raise ValidationError("El producto y la cabecera de la salida deben pertenecer a la misma empresa.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)  
+    
 
     def __str__(self):
         return f"{self.cantidad_despachada} x {self.producto.nombre} (Salida Interna #{self.cabecera_salida.pk})"
@@ -346,5 +462,5 @@ class SalidaInternaDetalle(models.Model):
         unique_together = ('cabecera_salida', 'producto') # Evitar duplicar producto en la misma salida
         permissions = [
             ("view_lista_pedidos_bodega", "Puede ver la lista de pedidos para bodega"),
-            # ... otros permisos de bodega ...
+
         ]

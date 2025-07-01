@@ -40,15 +40,18 @@ class ClienteForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # LA SOLUCIÓN: USA .pop() PARA EXTRAER Y ELIMINAR EL ARGUMENTO
+        empresa = kwargs.pop('empresa', None)
+        
+        # Ahora llamas a super() con un diccionario kwargs "limpio"
         super().__init__(*args, **kwargs)
-        # Opcional: Si quieres que el campo ciudad muestre las ciudades ordenadas
-        # y evitar un error si Ciudad aún no tiene datos o la app no está completamente cargada.
-        try:
-            self.fields['ciudad'].queryset = Ciudad.objects.all().order_by('nombre')
-        except Exception as e:
-            # Podrías loggear el error si quieres: print(f"Error al cargar ciudades: {e}")
-            # Esto evita que el formulario falle si hay problemas con la app Ciudad al inicio.
-            pass 
+        
+        # Y después puedes usar la variable 'empresa' para lo que necesites,
+        # como filtrar los querysets de otros campos del formulario.
+        if empresa:
+            # Por ejemplo:
+            # self.fields['vendedor'].queryset = Vendedor.objects.filter(empresa=empresa)
+            pass
 
 # --- Formulario para Ciudad ---
 class CiudadForm(forms.ModelForm):

@@ -1,13 +1,12 @@
 # informes/views.py
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.db.models import Sum, Count, F, ExpressionWrapper, fields, DecimalField, Case, When, Value, Q, Min
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from datetime import timedelta, datetime as dt # Renombrado datetime para evitar conflicto
+from datetime import timedelta, datetime as dt
 from decimal import Decimal, ROUND_HALF_UP
-# Asegúrate de que estas importaciones estén presentes si aún no lo están
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # <--- AÑADIR ESTA LÍNEA
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from core.auth_utils import es_admin_sistema_app, es_bodega, es_vendedor, es_diseno, es_cartera, es_admin_sistema, es_factura
 from bodega.models import IngresoBodega
 from pedidos.models import Pedido, DetallePedido
@@ -16,88 +15,66 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from bodega.models import ComprobanteDespacho
 from devoluciones.models import DevolucionCliente
+from core.mixins import TenantAwareMixin
 
-# ... (resto de tus constantes y funciones auxiliares como ESTADOS_VENTA_SOLICITADA, etc.)
 
-ESTADOS_VENTA_SOLICITADA = [
-    'PENDIENTE_APROBACION_CARTERA', # Nuevo pedido esperando aprobación de Cartera
-    'PENDIENTE_APROBACION_ADMIN',   # Aprobado por Cartera, esperando aprobación de Admin
-    'APROBADO_ADMIN',               # Aprobado por Admin, listo para Bodega
-    'PROCESANDO',                   # Bodega está trabajando en él
-    'COMPLETADO',                   # Bodega completó la verificación/empaque
-    'ENVIADO',                      # Pedido enviado al cliente
-    'ENTREGADO'                     # Pedido entregado
-]
-ESTADOS_DESPACHO_COMPLETADO_GENERAL = [
-    'PENDIENTE_APROBACION_CARTERA', # Nuevo pedido esperando aprobación de Cartera
-    'PENDIENTE_APROBACION_ADMIN',   # Aprobado por Cartera, esperando aprobación de Admin
-    'APROBADO_ADMIN',               # Aprobado por Admin, listo para Bodega
-    'PROCESANDO',                   # Bodega está trabajando en él
-    'COMPLETADO',                   # Bodega completó la verificación/empaque
-    'ENVIADO',                      # Pedido enviado al cliente
+ESTADOS_PEDIDO_REPORTEABLES = [
+    'PENDIENTE_APROBACION_CARTERA',
+    'PENDIENTE_APROBACION_ADMIN',
+    'APROBADO_ADMIN',
+    'PROCESANDO',
+    'COMPLETADO',
+    'ENVIADO',
     'ENTREGADO'
-
 ]
 
-def es_admin_sistema_o_gerencia(user):
-    if not user.is_authenticated:
-        return False
-    return user.is_staff or user.is_superuser or user.groups.filter(name__in=['Administrador Aplicacion', 'Gerencia']).exists()
-
-def es_vendedor_user(user): # Renombrada de es_vendedor para claridad
-    if not user.is_authenticated:
-        return False
-    # Asume que los vendedores pertenecen a un grupo llamado 'Vendedores'
-    # o que tienes otra lógica para identificar a un usuario vendedor.
-    return user.groups.filter(name='Vendedores').exists()
+def _parse_date_range_from_request(request):
+    # ... (código completo de la función como se mostró en la respuesta anterior) ...
+    current_tz = timezone.get_current_timezone()
+    fecha_fin_dt = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    fecha_inicio_dt = (timezone.now() - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # ... resto de la lógica ...
+    return fecha_inicio_dt, fecha_fin_dt
 
 
 @login_required
 @permission_required('informes.view_reporte_ventas_general', login_url='core:acceso_denegado')
 def reporte_ventas_general(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
 
-    fecha_fin_dt_aware = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-    fecha_inicio_dt_aware = (timezone.now() - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
-
-    fecha_inicio_str = request.GET.get('fecha_inicio')
-    fecha_fin_str = request.GET.get('fecha_fin')
-    current_tz = timezone.get_current_timezone()
-
-    if fecha_inicio_str:
-        try:
-            fecha_inicio_dt_naive = dt.strptime(fecha_inicio_str, '%Y-%m-%d')
-            fecha_inicio_dt_aware = timezone.make_aware(fecha_inicio_dt_naive.replace(hour=0, minute=0, second=0, microsecond=0), current_tz)
-        except ValueError: pass
-
-    if fecha_fin_str:
-        try:
-            fecha_fin_dt_naive = dt.strptime(fecha_fin_str, '%Y-%m-%d')
-            fecha_fin_dt_aware = timezone.make_aware(fecha_fin_dt_naive.replace(hour=23, minute=59, second=59, microsecond=999999), current_tz)
-        except ValueError: pass
+    fecha_inicio_dt_aware, fecha_fin_dt_aware = _parse_date_range_from_request(request)
+    
+    
+    
 
     pedidos_para_lista_general_qs = Pedido.objects.filter(
-        estado__in=ESTADOS_VENTA_SOLICITADA,
+        empresa=empresa_actual,
+        estado__in=ESTADOS_PEDIDO_REPORTEABLES,
         fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
         total_unidades_despachadas_pedido=Coalesce(Sum('detalles__cantidad_verificada'), Value(0))
     )
+    
+    
+    
 
-    agregados_solicitados = DetallePedido.objects.filter(
-        pedido__estado__in=ESTADOS_VENTA_SOLICITADA,
-        pedido__fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
+    agregados_generales = DetallePedido.objects.filter(
+        pedido__in=pedidos_para_lista_general_qs  # Filtramos usando el queryset de pedidos ya seguro
     ).aggregate(
-        total_unidades_solicitadas=Coalesce(Sum('cantidad'), Value(0))
-    )
-    total_unidades_solicitadas_general = agregados_solicitados['total_unidades_solicitadas']
-
-    agregados_despachados = DetallePedido.objects.filter(
-        pedido__estado__in=ESTADOS_DESPACHO_COMPLETADO_GENERAL, # Usar la constante específica para el total general
-        pedido__fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
-    ).aggregate(
+        total_unidades_solicitadas=Coalesce(Sum('cantidad'), Value(0)),
         total_unidades_despachadas=Coalesce(Sum('cantidad_verificada'), Value(0))
     )
-    total_unidades_despachadas_general = agregados_despachados['total_unidades_despachadas']
+    
+    total_unidades_solicitadas_general = agregados_generales['total_unidades_solicitadas']
+    total_unidades_despachadas_general = agregados_generales['total_unidades_despachadas']
+    
+    
+    
 
     porcentaje_despacho_general = Decimal('0.00')
     if total_unidades_solicitadas_general > 0:
@@ -105,33 +82,35 @@ def reporte_ventas_general(request):
         porcentaje_despacho_general = porcentaje_despacho_general.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     cantidad_pedidos_considerados_venta = pedidos_para_lista_general_qs.count()
+    
+    
+    
 
     ventas_por_producto = DetallePedido.objects.filter(
-        pedido__in=pedidos_para_lista_general_qs  # Basado en los pedidos ya filtrados por fecha/estado
+        pedido__empresa=empresa_actual,
+        pedido__in=pedidos_para_lista_general_qs 
     ).values(
-        'producto__referencia',  # Agrupar por la referencia del producto
-        'producto__color'        # Agrupar también por el color del producto
+        'producto__referencia',  
+        'producto__color'        
     ).annotate(
         cantidad_total_vendida=Coalesce(Sum('cantidad'), Value(0)),
-        # Para mostrar un nombre descriptivo, tomamos el primer nombre de producto
-        # encontrado para esa combinación de referencia y color.
-        # Si todos los productos con la misma referencia y color tienen el mismo nombre, esto funcionará bien.
         nombre_producto_display=Min('producto__nombre')
-    ).order_by('producto__referencia', 'producto__color') # Ordenar para una visualización consistente
+    ).order_by('producto__referencia', 'producto__color')
+    
+    
+    
+    
 
     context = {
-        'titulo': 'Informe General de Unidades Vendidas',
+        'titulo': f'Informe General de Ventas para {empresa_actual.nombre}',
         'pedidos_list': pedidos_para_lista_general_qs,
         'total_unidades_solicitadas_general': total_unidades_solicitadas_general,
         'total_unidades_despachadas_general': total_unidades_despachadas_general,
         'porcentaje_despacho_general': porcentaje_despacho_general,
         'cantidad_pedidos': cantidad_pedidos_considerados_venta,
-        'ventas_por_producto': ventas_por_producto, # <<< Esta variable ahora tiene los datos agrupados
+        'ventas_por_producto': ventas_por_producto,
         'fecha_inicio': fecha_inicio_dt_aware.strftime('%Y-%m-%d'),
         'fecha_fin': fecha_fin_dt_aware.strftime('%Y-%m-%d'),
-        # ... (si añadiste el filtro de vendedor, mantenlo aquí) ...
-        # 'vendedores_list': lista_vendedores,
-        # 'vendedor_id_seleccionado': int(vendedor_id_str) if vendedor_id_str else None,
         'app_name': 'Informes'
     }
     return render(request, 'informes/reporte_ventas_general.html', context)
@@ -140,10 +119,14 @@ def reporte_ventas_general(request):
 @login_required
 @permission_required('informes.view_reporte_ventas_vendedor', login_url='core:acceso_denegado') # Usar las funciones de check correctas
 def reporte_ventas_vendedor(request):
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     usuario_actual = request.user
-
-    es_admin_sistema_rol_actual = es_admin_sistema_o_gerencia(usuario_actual)
-    es_vendedor_rol_actual = es_vendedor_user(usuario_actual) # Solo si no es admin
+    es_admin_sistema_rol_actual = es_admin_sistema_app(usuario_actual)
+    es_vendedor_rol_actual = es_vendedor(usuario_actual)
 
     # Lógica de Fechas (como la tenías)
     fecha_fin_dt_aware = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -166,7 +149,9 @@ def reporte_ventas_vendedor(request):
         except ValueError: pass
 
     # Queryset base para pedidos dentro del rango de fechas
-    pedidos_en_rango_fecha_qs = Pedido.objects.filter(
+    
+    pedidos_base_empresa = Pedido.objects.filter(empresa=empresa_actual)    
+    pedidos_en_rango_fecha_qs = pedidos_base_empresa.filter(
         fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
     )
 
@@ -176,36 +161,38 @@ def reporte_ventas_vendedor(request):
 
     if es_admin_sistema_rol_actual:
         print("DEBUG: Usuario es Admin/Gerencia.")
-        vendedores_list_for_dropdown = Vendedor.objects.filter(activo=True).select_related('user').order_by('user__first_name', 'user__last_name')
+        
+        vendedores_list_for_dropdown = Vendedor.objects.filter(
+            empresa=empresa_actual, 
+            activo=True
+        ).select_related('user').order_by('user__first_name', 'user__last_name')
+        
         print(f"DEBUG: Admin - Lista de vendedores para dropdown: {vendedores_list_for_dropdown.count()} vendedores.")
 
         if vendedor_seleccionado_id_str:
             try:
                 vendedor_id_int = int(vendedor_seleccionado_id_str)
                 pedidos_filtrados_final_qs = pedidos_en_rango_fecha_qs.filter(vendedor_id=vendedor_id_int)
-                vendedor_objeto_contexto = Vendedor.objects.get(pk=vendedor_id_int)
+                vendedor_objeto_contexto = Vendedor.objects.get(pk=vendedor_id_int, empresa=empresa_actual)
                 print(f"DEBUG: Admin - Vendedor ID {vendedor_id_int} seleccionado. Pedidos: {pedidos_filtrados_final_qs.count()}")
             except (ValueError, Vendedor.DoesNotExist):
-                messages.error(request, "El vendedor seleccionado no es válido.")
+                messages.error(request, "El vendedor seleccionado no es válido o no pertenece a esta empresa.")
                 # pedidos_filtrados_final_qs permanece vacío
         # else: Admin no seleccionó vendedor, pedidos_filtrados_final_qs permanece vacío.
 
     elif es_vendedor_rol_actual: # No es admin, pero SÍ es vendedor
         print("DEBUG: Usuario es Vendedor.")
         try:
-            vendedor_objeto_contexto = Vendedor.objects.get(user=usuario_actual)
+            vendedor_objeto_contexto = Vendedor.objects.get(user=usuario_actual, empresa=empresa_actual)
             pedidos_filtrados_final_qs = pedidos_en_rango_fecha_qs.filter(vendedor=vendedor_objeto_contexto)
             print(f"DEBUG: Vendedor - Perfil encontrado: {vendedor_objeto_contexto}. Pedidos: {pedidos_filtrados_final_qs.count()}")
         except Vendedor.DoesNotExist:
-            messages.error(request, "No se encontró un perfil de vendedor activo asociado a su cuenta.")
-            # pedidos_filtrados_final_qs permanece vacío
-            print("DEBUG: Vendedor - Perfil de Vendedor NO encontrado para el usuario.")
-    # else: No es ni admin/gerencia ni vendedor (raro si @user_passes_test está bien)
-    # pedidos_filtrados_final_qs permanece vacío
+            messages.error(request, "No se encontró un perfil de vendedor activo para su cuenta en esta empresa.")
+            print("DEBUG: Vendedor - Perfil de Vendedor NO encontrado para el usuario en esta empresa.")
 
     # Filtrar por estados de venta solicitada y anotar
     pedidos_para_lista_y_agregados = pedidos_filtrados_final_qs.filter(
-        estado__in=ESTADOS_VENTA_SOLICITADA
+        estado__in=ESTADOS_PEDIDO_REPORTEABLES
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
         total_unidades_despachadas_pedido=Coalesce(Sum('detalles__cantidad_verificada'), Value(0))
@@ -271,9 +258,14 @@ def reporte_ventas_vendedor(request):
 
 
 @login_required
-@user_passes_test(lambda u: es_vendedor(u) or es_admin_sistema(u) or es_admin_sistema(u))
+@user_passes_test(lambda u: es_vendedor(u) or es_admin_sistema(u))
 def reporte_cumplimiento_despachos(request):
-    # ... (código existente sin cambios significativos para este problema) ...
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     fecha_fin_dt = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
     fecha_inicio_dt = (timezone.now() - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -297,6 +289,7 @@ def reporte_cumplimiento_despachos(request):
             pass
 
     pedidos_qs = Pedido.objects.filter(
+        empresa=empresa_actual,
         fecha_hora__range=(fecha_inicio_dt, fecha_fin_dt)
     ).annotate(
         total_unidades_solicitadas=Coalesce(Sum('detalles__cantidad'), 0),
@@ -315,24 +308,38 @@ def reporte_cumplimiento_despachos(request):
     ).select_related('cliente', 'vendedor__user').order_by('-fecha_hora')
 
     usuario_actual = request.user
-    es_admin_sistema_actual = es_admin_sistema or es_admin_sistema(usuario_actual)
+    es_admin_sistema_actual = es_admin_sistema(usuario_actual)
     vendedores_list = None
 
     if es_admin_sistema_actual:
-        vendedores_list = Vendedor.objects.filter(activo=True).select_related('user').order_by('user__first_name', 'user__last_name')
-        if vendedor_filtro_id:
-            pedidos_qs = pedidos_qs.filter(vendedor_id=vendedor_filtro_id)
+        vendedores_list = Vendedor.objects.filter(
+            empresa=empresa_actual, 
+            activo=True
+        ).select_related('user').order_by('user__first_name', 'user__last_name')
+        
+    if vendedor_filtro_id:
+        try:
+            vendedor_obj = Vendedor.objects.get(pk=vendedor_filtro_id, empresa=empresa_actual)
+            pedidos_qs = pedidos_qs.filter(vendedor=vendedor_obj)
+        except (ValueError, Vendedor.DoesNotExist):
+            messages.error(request, "El vendedor seleccionado no es válido o no pertenece a esta empresa.")
+            pedidos_qs = Pedido.objects.none()           
+            
     elif es_vendedor(usuario_actual):
         try:
-            vendedor_actual = Vendedor.objects.get(user=usuario_actual)
+            vendedor_actual = Vendedor.objects.get(user=usuario_actual, empresa=empresa_actual)
             pedidos_qs = pedidos_qs.filter(vendedor=vendedor_actual)
         except Vendedor.DoesNotExist:
             pedidos_qs = Pedido.objects.none()
     else:
         pedidos_qs = Pedido.objects.none()
 
-    sum_solicitado_general = pedidos_qs.aggregate(total=Sum('total_unidades_solicitadas'))['total'] or 0
-    sum_despachado_general = pedidos_qs.aggregate(total=Sum('total_unidades_despachadas'))['total'] or 0
+    agregados_generales = pedidos_qs.aggregate(
+        sum_solicitado=Sum('total_unidades_solicitadas'),
+        sum_despachado=Sum('total_unidades_despachadas')
+    )
+    sum_solicitado_general = agregados_generales['sum_solicitado'] or 0
+    sum_despachado_general = agregados_generales['sum_despachado'] or 0
 
     porcentaje_cumplimiento_general = Decimal('0.00')
     if sum_solicitado_general > 0:
@@ -341,7 +348,7 @@ def reporte_cumplimiento_despachos(request):
 
 
     context = {
-        'titulo': 'Informe de Cumplimiento de Despachos',
+        'titulo': f'Cumplimiento de Despachos para {empresa_actual.nombre}',
         'pedidos_list': pedidos_qs,
         'fecha_inicio': fecha_inicio_dt.strftime('%Y-%m-%d'),
         'fecha_fin': fecha_fin_dt.strftime('%Y-%m-%d'),
@@ -356,11 +363,22 @@ def reporte_cumplimiento_despachos(request):
     return render(request, 'informes/reporte_cumplimiento_despachos.html', context)
 
 
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 @login_required
 @permission_required('informes.view_pedidos_rechazados', login_url='core:acceso_denegado')
 def informe_pedidos_rechazados(request):
-    pedidos_rechazados_list = Pedido.objects.filter(
-        Q(estado='RECHAZADO_CARTERA') | Q(estado='RECHAZADO_ADMIN')
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    pedidos_rechazados_list = Pedido.objects.filter(        
+        Q(estado='RECHAZADO_CARTERA') | Q(estado='RECHAZADO_ADMIN'),
+        empresa=empresa_actual
     ).select_related(
         'cliente',
         'vendedor__user',
@@ -396,7 +414,7 @@ def informe_pedidos_rechazados(request):
 
     context = {
         'pedidos_list': pedidos_rechazados_list,
-        'titulo': 'Informe de Pedidos Rechazados',
+        'titulo': f'Informe de Pedidos Rechazados para {empresa_actual.nombre}',
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'app_name': 'Informes' # Coincide con tus otros informes
@@ -407,8 +425,15 @@ def informe_pedidos_rechazados(request):
 @login_required
 @permission_required('informes.view_pedidos_aprobados', login_url='core:acceso_denegado')
 def informe_pedidos_aprobados_bodega(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     pedidos_aprobados_list = Pedido.objects.filter(
-        estado='APROBADO_ADMIN' # Pedidos listos para Bodega
+        empresa=empresa_actual,
+        estado='APROBADO_ADMIN'
     ).select_related(
         'cliente',
         'vendedor__user',
@@ -437,7 +462,7 @@ def informe_pedidos_aprobados_bodega(request):
 
     context = {
         'pedidos_list': pedidos_aprobados_list,
-        'titulo': 'Informe de Pedidos Aprobados para Bodega',
+        'titulo': f'Pedidos Aprobados para Bodega ({empresa_actual.nombre})',
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'app_name': 'Informes'
@@ -447,8 +472,16 @@ def informe_pedidos_aprobados_bodega(request):
 @login_required
 @user_passes_test(lambda u: es_admin_sistema(u) or es_factura(u) or es_cartera(u) or es_diseno(u), login_url='core:acceso_denegado')
 def informe_ingresos_bodega(request):
-    ingresos_list = IngresoBodega.objects.select_related(
-        'usuario' # Para eficiencia al acceder a request.user.username
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    ingresos_list = IngresoBodega.objects.filter(
+        empresa=empresa_actual
+    ).select_related(
+        'usuario'
     ).annotate(
         numero_items=Count('detalles'), # Cuenta las líneas de detalle (productos distintos)
         cantidad_total_productos=Coalesce(Sum('detalles__cantidad'), 0) # Suma las cantidades de todos los detalles
@@ -485,12 +518,14 @@ def informe_ingresos_bodega(request):
 
     User = get_user_model()
     # Obtener solo usuarios que han registrado ingresos para el dropdown del filtro
-    usuarios_con_ingresos = User.objects.filter(ingresos_registrados__isnull=False).distinct().order_by('username')
+    usuarios_con_ingresos = User.objects.filter(
+        ingresos_registrados__empresa=empresa_actual
+    ).distinct().order_by('username')
 
 
     context = {
         'ingresos_list': ingresos_list,
-        'titulo': 'Informe de Ingresos a Bodega',
+        'titulo': f'Informe de Ingresos a Bodega ({empresa_actual.nombre})',
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'usuarios_filtro': usuarios_con_ingresos, # Para poblar el dropdown de filtro de usuario
@@ -500,9 +535,18 @@ def informe_ingresos_bodega(request):
     return render(request, 'informes/informe_ingresos_bodega.html', context)
 
 @login_required
-@user_passes_test(lambda u: es_factura(u) or es_cartera or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado') # O el grupo de permisos que consideres (ej. incluir bodega)
+@user_passes_test(lambda u: es_factura(u) or es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 def informe_comprobantes_despacho(request):
-    comprobantes_list = ComprobanteDespacho.objects.select_related(
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    
+    comprobantes_list = ComprobanteDespacho.objects.filter(
+        pedido__empresa=empresa_actual    
+    ).select_related(
         'pedido__cliente',
         'usuario_responsable' # Usuario de bodega que registró el despacho
     ).annotate(
@@ -549,11 +593,13 @@ def informe_comprobantes_despacho(request):
 
     User = get_user_model()
     # Obtener usuarios que han creado comprobantes de despacho
-    usuarios_bodega = User.objects.filter(comprobantes_despachados__isnull=False).distinct().order_by('username')
+    usuarios_bodega = User.objects.filter(
+        comprobantes_despachados__pedido__empresa=empresa_actual
+    ).distinct().order_by('username')
 
     context = {
         'comprobantes_list': comprobantes_list,
-        'titulo': 'Informe de Comprobantes de Despacho',
+        'titulo': f'Informe de Comprobantes de Despacho ({empresa_actual.nombre})',
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'usuarios_filtro': usuarios_bodega,
@@ -567,12 +613,18 @@ def informe_comprobantes_despacho(request):
 @login_required
 @user_passes_test(lambda u: es_factura(u) or es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 def informe_total_pedidos(request):
-    # Queryset inicial de pedidos, ordenado por fecha_hora descendente.
-    # Se seleccionan campos relacionados de 'cliente' y 'vendedor__user' para optimizar.
-    pedidos_qs = Pedido.objects.select_related(
+
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+
+    pedidos_qs = Pedido.objects.filter(
+        empresa=empresa_actual
+    ).select_related(
         'cliente',
         'vendedor__user'
-    ).order_by('-fecha_hora') # Mantenemos el order_by original aquí
+    ).order_by('-fecha_hora')
     
     pedidos_qs = pedidos_qs.exclude(estado='BORRADOR')
 
@@ -617,74 +669,91 @@ def informe_total_pedidos(request):
         except ValueError:
             messages.error(request, "ID de vendedor inválido.") #
 
-    # Calcular totales ANTES de la paginación sobre el queryset filtrado
-    # Es importante calcular el valor total sobre todos los pedidos filtrados, no solo la página actual.
-    # Si 'total_a_pagar' es un campo del modelo Pedido, y no un agregado que necesite sumarse desde Detalles:
-    # total_pedidos_valor_calculado = pedidos_qs.aggregate(Sum('total_a_pagar'))['total_a_pagar__sum'] or Decimal('0.00')
-    # Si 'total_a_pagar' es una property o un método que se calcula por instancia, la forma original es más adecuada
-    # pero debe hacerse sobre el queryset filtrado antes de paginar.
-    # Para evitar problemas con QuerySets evaluados prematuramente, calcularemos el valor total después si es necesario
-    # o aseguramos que el cálculo se haga sobre el queryset completo.
+
+   # 1. Anotamos el subtotal (antes de descuento) para cada pedido
+    pedidos_qs = pedidos_qs.annotate(
+        subtotal=Sum(
+            F('detalles__cantidad') * F('detalles__precio_unitario'),
+            output_field=DecimalField()
+        )
+    ).annotate(
+        total_calculado=ExpressionWrapper(
+            F('subtotal') * (Decimal('1.0') - F('porcentaje_descuento') / Decimal('100.0')),
+            output_field=DecimalField()
+        )
+    )
     
-    # Guardamos una referencia al queryset filtrado antes de paginar para los totales.
-    pedidos_filtrados_completos = pedidos_qs # Esta variable ahora tiene todos los pedidos filtrados.
+    # Agregamos el valor total de todos los pedidos filtrados
+    agregados = pedidos_qs.aggregate(
+        total_valor=Sum('total_calculado')
+    )
+    total_pedidos_valor = agregados['total_valor'] or Decimal('0.00')
+    
+    # Ordenamos el queryset ANOTADO
+    pedidos_ordenados = pedidos_qs.order_by('-fecha_hora')
+    
+    cantidad_total_pedidos = pedidos_ordenados.count()
+    
+    
+    
+    
+    
+    
 
-    # Calcular los totales sobre la lista completa de pedidos filtrados
-    cantidad_total_pedidos = pedidos_filtrados_completos.count() #
-    total_pedidos_valor = sum(p.total_a_pagar for p in pedidos_filtrados_completos) if cantidad_total_pedidos > 0 else Decimal('0.00') #
-
-
-    # Configuración de Paginación
-    paginator = Paginator(pedidos_qs, 30) # 30 pedidos por página
+    # --- Paginación y Contexto (se mantienen igual) ---
+    paginator = Paginator(pedidos_qs, 30)
     page_number = request.GET.get('page')
-
-    try:
-        pedidos_page_obj = paginator.page(page_number)
-    except PageNotAnInteger:
-        # Si la página no es un entero, entrega la primera página.
-        pedidos_page_obj = paginator.page(1)
-    except EmptyPage:
-        # Si la página está fuera de rango (e.g. 9999), entrega la última página de resultados.
-        pedidos_page_obj = paginator.page(paginator.num_pages)
+    pedidos_page_obj = paginator.get_page(page_number)
+    
+    
+    
+    
+    
+    
+    
 
     # Lista de vendedores y estados para los desplegables de filtro.
-    lista_vendedores = Vendedor.objects.filter(activo=True).select_related('user').order_by('user__first_name') #
+    lista_vendedores = Vendedor.objects.filter(
+        empresa=empresa_actual,
+        activo=True
+    ).select_related('user').order_by('user__first_name')
     lista_estados_filtrada = [estado for estado in Pedido.ESTADO_PEDIDO_CHOICES if estado[0] != 'BORRADOR']
-    lista_estados = Pedido.ESTADO_PEDIDO_CHOICES #
+    #lista_estados = Pedido.ESTADO_PEDIDO_CHOICES #
 
     context = {
-        'pedidos_list': pedidos_page_obj, # Pasar el objeto Page a la plantilla
-        'titulo': 'Informe Total de Pedidos', #
-        # Valores de los filtros para mantenerlos en el formulario
-        'fecha_inicio': fecha_inicio_str, #
-        'fecha_fin': fecha_fin_str, #
-        'estado_seleccionado': estado_query, #
-        'cliente_query': cliente_query, #
-        'vendedor_id_seleccionado': vendedor_id_str, #
-        # Listas para los desplegables de filtro
-        'lista_vendedores': lista_vendedores, #
-        'lista_estados': lista_estados_filtrada,
-        # Totales (estos deben ser del queryset completo, no solo de la página)
-        'cantidad_total_pedidos': cantidad_total_pedidos, # Usa el total de paginator.count
-        'total_pedidos_valor': total_pedidos_valor, # Usa el total calculado antes de la paginación
-        'app_name': 'Informes' #
+        'pedidos_list': pedidos_page_obj,
+        'titulo': f'Informe Total de Pedidos ({empresa_actual.nombre})',
+        'fecha_inicio': fecha_inicio_str, 
+        'fecha_fin': fecha_fin_str, 
+        'estado_seleccionado': estado_query, 
+        'cliente_query': cliente_query, 
+        'vendedor_id_seleccionado': vendedor_id_str,         
+        'lista_vendedores': lista_vendedores, 
+        'lista_estados': lista_estados_filtrada,        
+        'cantidad_total_pedidos': cantidad_total_pedidos, 
+        'total_pedidos_valor': total_pedidos_valor,
+        'app_name': 'Informes' 
     }
     return render(request, 'informes/informe_total_pedidos.html', context) #
 
 @login_required # Puedes añadir @user_passes_test si necesitas permisos específicos
 def informe_lista_devoluciones(request):
-    """
-    Muestra una lista de todas las devoluciones de clientes.
-    """
-    # Optimizamos la consulta trayendo datos relacionados del cliente y usuario
-    devoluciones_list = DevolucionCliente.objects.select_related( #
-        'cliente', #
-        'usuario' # Usuario que procesó la devolución #
-    ).all() # Podrías añadir filtros por fecha aquí si lo deseas en el futuro #
+
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+
+    devoluciones_list = DevolucionCliente.objects.filter(
+        empresa=empresa_actual        
+    ).select_related( 
+        'cliente', 
+        'usuario'
+    ).all() 
 
     context = {
-        'titulo': 'Informe de Devoluciones de Clientes', #
-        'devoluciones_list': devoluciones_list, #
-        'app_name': 'Informes' # Para consistencia con tus otros informes #
+        'titulo': f'Informe de Devoluciones de Clientes ({empresa_actual.nombre})',
+        'devoluciones_list': devoluciones_list, 
+        'app_name': 'Informes'
     }
-    return render(request, 'informes/lista_devoluciones_reporte.html', context) #
+    return render(request, 'informes/lista_devoluciones_reporte.html', context) 

@@ -2,24 +2,78 @@
 import os
 from pathlib import Path
 from decouple import config
+from dotenv import load_dotenv
+
+load_dotenv()
 
     # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONTRASEÑA_PARA_VERIFICAR_PEDIDO = "Nohelia123F"
+
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+if DEBUG:
+    # --- CONFIGURACIÓN PARA DESARROLLO ---
+    # Los archivos de medios (fotos de productos) SÍ van a R2.
+    # Los archivos estáticos (CSS/JS del admin) se sirven localmente.
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage", # <-- Usa el sistema local
+        },
+    }
+else:
+    # --- CONFIGURACIÓN PARA PRODUCCIÓN ---
+    # TODO va a R2.
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+    }
+
+# Credenciales para Boto3 (la librería que habla con R2)
+AWS_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME')
+
+# --- ¡ESTA PARTE ES CRÍTICA PARA R2! ---
+# Le decimos a Boto3 que no vaya a Amazon, sino a Cloudflare.
+AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+
+# Un dominio personalizado para servir los archivos (opcional pero muy recomendado)
+# Por ejemplo, si configuras 'media.tuapp.com' para apuntar a tu bucket.
+# AWS_S3_CUSTOM_DOMAIN = 'media.tuapp.com' 
+# Si no tienes dominio personalizado, puedes construir la URL manualmente en el modelo/vista.
+
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400', # Cachear archivos por 24 horas
+}
+
+# Otras configuraciones importantes
+AWS_DEFAULT_ACL = 'public-read' # Hace los archivos públicamente visibles por defecto
+AWS_S3_REGION_NAME = 'auto' # R2 requiere 'auto'
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+# --- FIN DE LA CONFIGURACIÓN DE R2 ---
+
 SITE_ID = 1
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
     # SECURITY WARNING: keep the secret key used in production secret!
-import os
-SECRET_KEY = config('DJANGO_SECRET_KEY', default='django-insecure-%lazc!2vk9ln-$2nk!vav2=iyulutxfab(i9dxdk^p*j=ofl')
+SECRET_KEY = config('SECRET_KEY')
 
     # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+#DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['www.pedidoslouisferry.online', 'pedidoslouisferry.online', '168.231.93.109']
+#ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost' 'empresa-prueba.localhost').split(',')
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost']
                  #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
@@ -72,6 +126,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
         'django.middleware.security.SecurityMiddleware',
+        'core.middleware.TenantMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.middleware.locale.LocaleMiddleware',
         'django.middleware.common.CommonMiddleware',
@@ -107,46 +162,15 @@ WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
    
    
 DATABASES = {
-    'default': {} # Iniciar como un diccionario vacío
+    'default': {
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': config('DB_NAME', default=BASE_DIR / 'db.sqlite3'),
+        'USER': config('DB_USER', default=''),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default=''),
+        'PORT': config('DB_PORT', default=''),
+    }
 }
-
-# Obtener los valores de las variables de entorno una vez
-DB_NAME_FROM_ENV = config('DB_NAME', default=None)
-DB_ENGINE_FROM_ENV = config('DB_ENGINE', default=None)
-
-if DB_NAME_FROM_ENV and DB_ENGINE_FROM_ENV == 'django.db.backends.mysql':
-    # Configuración específica para MariaDB/MySQL
-    DATABASES['default'] = {
-        'ENGINE': DB_ENGINE_FROM_ENV,
-        'NAME': DB_NAME_FROM_ENV,
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', default='3306'), # Puerto por defecto de MySQL/MariaDB
-        'OPTIONS': {
-            'charset': 'utf8mb4', # Opción específica para MySQL/MariaDB
-        },
-    }
-elif DB_NAME_FROM_ENV and DB_ENGINE_FROM_ENV == 'django.db.backends.postgresql':
-    # Configuración específica para PostgreSQL (ejemplo, si cambias en el futuro)
-    DATABASES['default'] = {
-        'ENGINE': DB_ENGINE_FROM_ENV,
-        'NAME': DB_NAME_FROM_ENV,
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', default='5432'), # Puerto por defecto de PostgreSQL
-        # PostgreSQL no suele necesitar 'charset' en OPTIONS aquí
-    }
-else:
-    # Configuración para SQLite por defecto (si no se definen DB_NAME y DB_ENGINE para MariaDB/MySQL)
-    # O si DB_ENGINE no es uno de los conocidos
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        # SQLite no usa USER, PASSWORD, HOST, PORT, ni la opción 'charset' en settings.py
-    }
-
 
 
 AUTH_PASSWORD_VALIDATORS = [

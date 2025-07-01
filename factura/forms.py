@@ -2,16 +2,19 @@
 from django import forms
 from .models import EstadoFacturaDespacho
 
+# --- FORMULARIO PARA LA VISTA DE DETALLE ---
 class MarcarFacturadoForm(forms.ModelForm):
     """
-    Formulario para marcar un despacho como Facturado y añadir
-    información relevante del sistema contable externo.
+    Formulario para editar la información de facturación de un despacho.
     """
-    # Hacemos que la referencia externa sea opcional en el formulario,
-    # pero podrías quererla obligatoria dependiendo de tu proceso.
+    # NOTA: Este formulario edita un objeto 'EstadoFacturaDespacho' existente.
+    # No necesita ser consciente del inquilino porque no tiene campos que
+    # consulten la base de datos (como un ModelChoiceField). La seguridad
+    # se garantiza en la vista al obtener el objeto.
+    
     referencia_factura_externa = forms.CharField(
         max_length=100,
-        required=False, # Cambia a True si siempre se debe ingresar
+        required=False,
         label="Referencia de Factura Externa",
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: FEV-001234'}),
         help_text="Opcional. Ingrese el número o ID de la factura generada en el sistema contable."
@@ -27,39 +30,9 @@ class MarcarFacturadoForm(forms.ModelForm):
         model = EstadoFacturaDespacho
         fields = ['referencia_factura_externa', 'notas_facturacion']
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Podrías añadir más personalizaciones aquí si es necesario,
-        # por ejemplo, si el formulario se usa para actualizar y quieres
-        # mostrar datos existentes de una manera específica.
-class MarcarFacturadoForm(forms.ModelForm):
-    """
-    Formulario para marcar un despacho como Facturado y añadir
-    información relevante del sistema contable externo.
-    """
-    referencia_factura_externa = forms.CharField(
-        max_length=100,
-        required=False,
-        label="Referencia de Factura Externa",
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: FEV-001234'}),
-        help_text="Opcional. Ingrese el número o ID de la factura generada en el sistema contable."
-    )
-    notas_facturacion = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Anotaciones adicionales sobre esta facturación...'}),
-        required=False,
-        label="Notas Adicionales de Facturación"
-    )
 
-    class Meta:
-        model = EstadoFacturaDespacho
-        fields = ['referencia_factura_externa', 'notas_facturacion']
+# --- FORMULARIOS PARA LOS INFORMES ---
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Podrías añadir más personalizaciones aquí si es necesario
-
-
-# NUEVO FORMULARIO PARA EL INFORME POR FECHAS
 class InformeFacturadosFechaForm(forms.Form):
     """
     Formulario para seleccionar el rango de fechas para el informe
@@ -81,47 +54,44 @@ class InformeFacturadosFechaForm(forms.Form):
         fecha_inicio = cleaned_data.get("fecha_inicio")
         fecha_fin = cleaned_data.get("fecha_fin")
 
-        if fecha_inicio and fecha_fin:
-            if fecha_fin < fecha_inicio:
-                raise forms.ValidationError(
-                    "La fecha de fin no puede ser anterior a la fecha de inicio."
-                )
+        if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
+            raise forms.ValidationError(
+                "La fecha de fin no puede ser anterior a la fecha de inicio."
+            )
         return cleaned_data
     
 class InformeDespachosPorClienteForm(forms.Form):
     """
     Formulario para buscar despachos por cliente.
-    Permite buscar por nombre o identificación del cliente.
     """
     termino_busqueda_cliente = forms.CharField(
         label="Buscar Cliente (Nombre o Identificación)",
         max_length=100,
-        required=True, # Se requiere un término para buscar
+        required=True,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ingrese nombre o NIT/Cédula del cliente'})
     )
     
-    ESTADO_CHOICES_REPORTE = [('', 'Cualquier Estado')] + EstadoFacturaDespacho.ESTADO_CHOICES
-    estado_factura = forms.ChoiceField(
-         label="Estado de Facturación",
-         choices=ESTADO_CHOICES_REPORTE,
-         required=False,
-         widget=forms.Select(attrs={'class': 'form-select'})
-     )
+    # --- INICIO DE CAMBIOS MULTI-INQUILINO ---
+    # AUNQUE ESTE FORMULARIO NO USA DIRECTAMENTE LA EMPRESA PARA FILTRAR UN QUERYSET,
+    # ES UNA BUENA PRÁCTICA PREPARARLO PARA RECIBIR EL ARGUMENTO DESDE LA VISTA.
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        # Aquí podrías usar 'empresa' en el futuro si añades, por ejemplo,
+        # un ModelChoiceField que necesite ser filtrado.
+    # --- FIN DE CAMBIOS MULTI-INQUILINO ---
 
 
 class InformeDespachosPorEstadoForm(forms.Form):
     """
     Formulario para seleccionar el estado de facturación para el informe.
     """
-    # Usamos los choices directamente del modelo EstadoFacturaDespacho
-    # Añadimos una opción para "Todos" si se quisiera, aunque el requerimiento es por estado específico.
-    # Si solo quieres "Facturado" y "Por Facturar", puedes hardcodear esas opciones.
     ESTADO_CHOICES_REPORTE = [('', 'Seleccione un estado')] + EstadoFacturaDespacho.ESTADO_CHOICES
     
     estado = forms.ChoiceField(
         label="Estado de Facturación",
         choices=ESTADO_CHOICES_REPORTE,
-        required=True, # Se requiere seleccionar un estado
+        required=True,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     
@@ -135,3 +105,10 @@ class InformeDespachosPorPedidoForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ingrese el ID numérico del pedido'}),
         help_text="Ingrese el número identificador del pedido."
     )
+
+    # --- INICIO DE CAMBIOS MULTI-INQUILINO ---
+    # MISMA NOTA QUE EN InformeDespachosPorClienteForm.
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+    # --- FIN DE CAMBIOS MULTI-INQUILINO ---

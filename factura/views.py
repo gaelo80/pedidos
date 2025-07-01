@@ -16,11 +16,10 @@ from clientes.models import Cliente
 from pedidos.models import Pedido
 from .models import EstadoFacturaDespacho
 from .forms import InformeDespachosPorClienteForm, InformeDespachosPorEstadoForm, InformeDespachosPorPedidoForm, InformeFacturadosFechaForm, MarcarFacturadoForm
+from core.mixins import TenantAwareMixin
 
 
-
-
-class ListaDespachosAFacturarView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class ListaDespachosAFacturarView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
     model = ComprobanteDespacho
     template_name = 'factura/lista_despachos_a_facturar.html' 
@@ -32,15 +31,21 @@ class ListaDespachosAFacturarView(LoginRequiredMixin, PermissionRequiredMixin, L
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver los despachos por facturar.")
-        return redirect(self.login_url) # O reverse_lazy('core:index')
-
+        return redirect(self.login_url) 
+        
     def get_queryset(self):
 
+        empresa_actual = self.request.tenant
+        
+        
         despachos_ya_facturados_ids = EstadoFacturaDespacho.objects.filter(
-            estado=EstadoFacturaDespacho.ESTADO_CHOICES[1][0] # 'FACTURADO'
+            empresa=empresa_actual,
+            estado='FACTURADO'
         ).values_list('despacho_id', flat=True)
 
-        queryset = ComprobanteDespacho.objects.select_related(
+        queryset = ComprobanteDespacho.objects.filter(
+            pedido__empresa=empresa_actual
+        ).select_related(
             'pedido', 
             'pedido__cliente', 
             'usuario_responsable' 
@@ -53,20 +58,17 @@ class ListaDespachosAFacturarView(LoginRequiredMixin, PermissionRequiredMixin, L
             try:
                 queryset = queryset.filter(pedido_id=int(pedido_id_query))
             except ValueError:
-
                 pass
         
         return queryset
 
     def get_context_data(self, **kwargs):
-
         context = super().get_context_data(**kwargs)
         context['titulo'] = "Despachos Pendientes de Facturar"
         context['pedido_id_query'] = self.request.GET.get('pedido_id', '')
-        
         return context
 
-class DetalleDespachoFacturaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
 
     template_name = 'factura/detalle_despacho_factura.html'
     form_class = MarcarFacturadoForm
@@ -90,7 +92,8 @@ class DetalleDespachoFacturaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
                 'detalles__producto', # Detalles del ComprobanteDespacho y sus productos
                 'estado_facturacion_info'
             ),
-            pk=pk_despacho
+            pk=pk_despacho,
+            empresa=self.request.tenant
         )
 
     def get_estado_factura_despacho(self, comprobante_despacho):
@@ -98,6 +101,7 @@ class DetalleDespachoFacturaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
         try:
             estado_factura, created = EstadoFacturaDespacho.objects.get_or_create(
                 despacho=comprobante_despacho,
+                empresa=self.request.tenant, # <-- FILTRO DE SEGURIDAD
                 defaults={
                     'estado': 'POR_FACTURAR',
                     'usuario_responsable': self.request.user
@@ -231,7 +235,7 @@ class DetalleDespachoFacturaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
         return render(request, self.template_name, context)
 
 
-class InformeFacturadosPorFechaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class InformeFacturadosPorFechaView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
     template_name = 'factura/informe_facturados_fecha.html'
     form_class = InformeFacturadosFechaForm
     permission_required = 'factura.view_informe_facturados_fecha'
@@ -261,6 +265,7 @@ class InformeFacturadosPorFechaView(LoginRequiredMixin, PermissionRequiredMixin,
             )
 
             resultados = EstadoFacturaDespacho.objects.filter(
+                empresa=self.request.tenant,
                 estado='FACTURADO',
                 fecha_hora_facturado_sistema__gte=fecha_inicio_ajustada,
                 fecha_hora_facturado_sistema__lte=fecha_fin_ajustada
@@ -282,7 +287,7 @@ class InformeFacturadosPorFechaView(LoginRequiredMixin, PermissionRequiredMixin,
         return render(request, self.template_name, context)
     
     
-class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class InformeDespachosPorClienteView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
 
     template_name = 'factura/informe_despachos_cliente.html'
     form_class = InformeDespachosPorClienteForm
@@ -295,7 +300,8 @@ class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin
         return redirect(self.login_url)
 
     def get(self, request, *args, **kwargs):
-        form = self.form_class(request.GET or None)
+        
+        form = self.form_class(request.GET or None, empresa=self.request.tenant)
         clientes_encontrados = None 
         cliente_seleccionado = None
         despachos_cliente = None
@@ -307,7 +313,7 @@ class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin
             query_cliente = Q(nombre_completo__icontains=termino_busqueda) | \
                             Q(identificacion__icontains=termino_busqueda)
             
-            clientes_qs = Cliente.objects.filter(query_cliente)
+            clientes_qs = Cliente.objects.filter(query_cliente, empresa=self.request.tenant)
 
             if clientes_qs.count() == 1:
                 cliente_seleccionado = clientes_qs.first()
@@ -321,9 +327,9 @@ class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin
                     'usuario_responsable' # Usuario de bodega
                 ).prefetch_related(
                     Prefetch(
-                        'estado_facturacion_info', # El related_name de OneToOneField en EstadoFacturaDespacho
-                        queryset=EstadoFacturaDespacho.objects.all(),
-                        to_attr='estado_factura_cached' # Nombre del atributo para acceder al objeto cacheado
+                        'estado_facturacion_info', # El related_name de OneToOneField en EstadoFacturaDespacho                       
+                        queryset=EstadoFacturaDespacho.objects.filter(empresa=self.request.tenant),
+                        to_attr='estado_factura_cached'
                     ),
                     'detalles__producto' # Para contar ítems o mostrar info si es necesario
                 ).order_by('-fecha_hora_despacho')
@@ -345,7 +351,7 @@ class InformeDespachosPorClienteView(LoginRequiredMixin, PermissionRequiredMixin
         return render(request, self.template_name, context)
 
 
-class InformeDespachosPorEstadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class InformeDespachosPorEstadoView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
     template_name = 'factura/informe_despachos_estado.html'
     form_class = InformeDespachosPorEstadoForm
     
@@ -372,6 +378,7 @@ class InformeDespachosPorEstadoView(LoginRequiredMixin, PermissionRequiredMixin,
 
             # Filtrar los EstadoFacturaDespacho por el estado seleccionado
             resultados = EstadoFacturaDespacho.objects.filter(
+                empresa=self.request.tenant,
                 estado=estado_query
             ).select_related(
                 'despacho',
@@ -389,7 +396,7 @@ class InformeDespachosPorEstadoView(LoginRequiredMixin, PermissionRequiredMixin,
         }
         return render(request, self.template_name, context)
     
-class InformeDespachosPorPedidoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class InformeDespachosPorPedidoView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
     """
     Muestra un informe de todos los Comprobantes de Despacho asociados a un
     ID de Pedido específico, junto con su estado de facturación.
@@ -405,14 +412,17 @@ class InformeDespachosPorPedidoView(LoginRequiredMixin, PermissionRequiredMixin,
         return redirect(self.login_url)
 
     def get(self, request, *args, **kwargs):
-        form = self.form_class(request.GET or None)
+        form = self.form_class(request.GET or None, empresa=self.request.tenant)
         pedido_obj = None
         despachos_del_pedido = None
 
         if form.is_valid():
             pedido_id_query = form.cleaned_data['pedido_id']
             try:
-                pedido_obj = Pedido.objects.select_related('cliente').get(pk=pedido_id_query)
+                pedido_obj = Pedido.objects.select_related('cliente').get(
+                    pk=pedido_id_query, 
+                    empresa=self.request.tenant # <-- FILTRO DE SEGURIDAD
+                )
                 
                 # Obtener todos los ComprobanteDespacho para este pedido
                 # y pre-cargar la información de EstadoFacturaDespacho
@@ -423,7 +433,7 @@ class InformeDespachosPorPedidoView(LoginRequiredMixin, PermissionRequiredMixin,
                 ).prefetch_related(
                     Prefetch(
                         'estado_facturacion_info',
-                        queryset=EstadoFacturaDespacho.objects.all(),
+                        queryset=EstadoFacturaDespacho.objects.filter(empresa=self.request.tenant),
                         to_attr='estado_factura_cached'
                     ),
                     'detalles__producto' # Para contar ítems o mostrar info si es necesario

@@ -10,6 +10,7 @@ from django.contrib.auth.views import LoginView
 from django.shortcuts import render
 from decimal import Decimal, InvalidOperation # Para convertir_saldo_excel
 from datetime import datetime # Para convertir_fecha_excel
+from core.mixins import TenantAwareMixin
 
 # Importa tus funciones de rol desde auth_utils.py
 from .auth_utils import (
@@ -38,7 +39,7 @@ ROL_CHECKERS_MAP = {
 }
 
 # --- CustomLoginView (al principio después de imports) ---
-class CustomLoginView(LoginView):
+class CustomLoginView(TenantAwareMixin, LoginView):
     template_name = 'registration/login.html'
     def get_success_url(self):
         user = self.request.user
@@ -93,33 +94,38 @@ def acceso_denegado_view(request):
 # --- VISTA INDEX REFACTORIZADA COMPLETA ---
 @login_required
 def vista_index(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
     user = request.user
     opciones_visibles_dict = {}
-    titulo_pagina = "Panel Principal"
+    
 
     # Determinar el título de la página basado en el rol principal
+    titulo_base = "Panel Principal"
     if user.is_superuser or es_admin_sistema_app(user):
-        titulo_pagina = "Panel de Administración General"
+        titulo_base = "Panel de Administración General"
     elif es_admin_sistema(user):
-        titulo_pagina = "Panel Área Administrativa"
+        titulo_base = "Panel Área Administrativa"
     elif es_bodega(user):
-        titulo_pagina = "Panel de Bodega"
+        titulo_base = "Panel de Bodega"
     elif es_vendedor(user):
-        titulo_pagina = "Panel de Vendedor"
+        titulo_base = "Panel de Vendedor"
     elif es_cartera(user):
-        titulo_pagina = "Panel de Cartera"
+        titulo_base = "Panel de Cartera"
     elif es_factura(user):
-        titulo_pagina = "Panel de Facturación"
+        titulo_base = "Panel de Facturación"
     elif es_diseno(user):
-        titulo_pagina = "Panel de Diseño"
+        titulo_base = "Panel de Diseño"
     elif es_online(user):
-        titulo_pagina = "Panel de Ventas Online"
+        titulo_base = "Panel de Ventas Online"
     else:
-        titulo_pagina = "Panel Principal"
+        titulo_base = "Panel Principal"
 
     print(f"DEBUG: Usuario: {user.username}, Superuser: {user.is_superuser}, Staff: {user.is_staff}")
     if not PANEL_OPTIONS_CONFIG:
         print("DEBUG: PANEL_OPTIONS_CONFIG está vacío o no se importó correctamente.")
+        
+    titulo_pagina = f"{titulo_base} ({empresa_actual.nombre})" if empresa_actual else titulo_base
 
     for opcion_config in PANEL_OPTIONS_CONFIG:
         perm_requerido_config = opcion_config.get('permiso_requerido')

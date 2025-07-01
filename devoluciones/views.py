@@ -21,101 +21,98 @@ def vista_crear_devolucion(request):
     """
     Maneja la creación de una nueva Devolución de Cliente con sus detalles.
     """
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     if request.method == 'POST':
-        # Crear instancias del formulario principal y del formset con los datos POST
-        form = DevolucionClienteForm(request.POST)
-        formset = DetalleDevolucionFormSet(request.POST, prefix='detalles') # Usar prefijo
+        form = DevolucionClienteForm(request.POST, empresa=empresa_actual)
+        formset = DetalleDevolucionFormSet(request.POST, prefix='detalles', form_kwargs={'empresa': empresa_actual})
 
-        # Validar ambos
+
         if form.is_valid() and formset.is_valid():
             try:
-                with transaction.atomic(): # Asegura que todo se guarde o nada
-                    # 1. Guardar la cabecera (DevolucionCliente)
+                with transaction.atomic():
+
                     devolucion_header = form.save(commit=False)
-                    devolucion_header.usuario = request.user # Asignar usuario logueado
-                    devolucion_header.fecha_hora = timezone.now() # Asignar fecha/hora actual
-                    devolucion_header.save() # Guardar cabecera en BD
+                    devolucion_header.usuario = request.user
+                    devolucion_header.fecha_hora = timezone.now()
+                    devolucion_header.empresa = empresa_actual
+                    devolucion_header.save()
 
-                    # 2. Guardar los detalles (DetalleDevolucion) asociados a la cabecera
-                    # Necesitamos asignar la instancia padre al formset ANTES de guardarlo
+
                     formset.instance = devolucion_header
-                    formset.save() # Guarda todas las líneas de detalle válidas
+                    formset.save() 
 
-                    # 3. Actualizar Stock para productos en buen estado
+
                     print(f"Procesando stock para Devolución #{devolucion_header.pk}...")
-                    detalles_guardados = devolucion_header.detalles.all() # Obtener detalles recién guardados
+                    detalles_guardados = devolucion_header.detalles.all() 
                     for detalle in detalles_guardados:
-                        # Verificar si el estado es 'BUENO' (o como lo hayas llamado en el modelo)
+                       
                         if detalle.estado_producto == 'BUENO' and detalle.cantidad > 0:
                             MovimientoInventario.objects.create(
+                                empresa=empresa_actual,
                                 producto=detalle.producto,
-                                cantidad=detalle.cantidad, # Positivo para ENTRADA por devolución
-                                tipo_movimiento='ENTRADA_DEVOLUCION', # Asegúrate que este tipo exista en tus CHOICES
+                                cantidad=detalle.cantidad, 
+                                tipo_movimiento='ENTRADA_DEVOLUCION', 
                                 documento_referencia=f'Devolución #{devolucion_header.pk}',
                                 usuario=request.user,
                                 notas=f'Entrada por devolución cliente {devolucion_header.cliente} (Estado: Bueno)'
                             )
                             print(f" + Stock actualizado para {detalle.producto}: +{detalle.cantidad}")
 
-                   # messages.success(request, f"Devolución #{devolucion_header.pk} registrada exitosamente.")
-                    # Redirigir a una página de éxito, puede ser la misma vista (para nueva devolución)
-                    # o una lista de devoluciones (que aún no hemos creado)
                     return redirect('devoluciones:detalle_devolucion', pk=devolucion_header.pk) # Redirige a la misma vista para limpiar
 
             except Exception as e:
-                # Si algo falla dentro de la transacción, se revierte todo
                 messages.error(request, f"Error al guardar la devolución: {e}")
-                # Se re-renderizará el formulario con errores abajo
+
 
         else:
-            # Si el form o el formset no son válidos, mostrar errores
             messages.error(request, "Por favor corrige los errores en el formulario.")
-            # El form y formset con errores se pasarán al contexto abajo
+    else: 
 
-    else: # Si es solicitud GET (cargar página por primera vez)
-        # Crear instancias vacías del formulario y el formset
-        form = DevolucionClienteForm()
-        formset = DetalleDevolucionFormSet(prefix='detalles') # Usar prefijo también aquí
+        form = DevolucionClienteForm(empresa=empresa_actual)
+        formset = DetalleDevolucionFormSet(prefix='detalles', form_kwargs={'empresa': empresa_actual})
 
-    # Preparar contexto para la plantilla
     context = {
-        'form': form, # Formulario de cabecera
-        'formset': formset, # Formulario para los detalles
-        'titulo': 'Registrar Devolución de Cliente'
+        'form': form,
+        'formset': formset,
+        'titulo': f'Registrar Devolución ({empresa_actual.nombre})'
     }
-    # Renderizar la plantilla (que crearemos en el siguiente paso)
+
     return render(request, 'devoluciones/crear_devolucion.html', context)
 
 
-# Create your views here.
-@login_required # Mantener si es necesario
+
+@login_required
 def imprimir_comprobante_devolucion(request, devolucion_id): # Mantenemos el nombre original o cámbialo a generar_devolucion_pdf
     """
     Genera un comprobante de devolución en formato PDF usando WeasyPrint.
     """
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return HttpResponse("Acceso no válido. Empresa no identificada.", status=403)
+    
     try:
-        # 1. Obtener Devolución y Detalles
-        devolucion = get_object_or_404(DevolucionCliente, pk=devolucion_id)
-        # ¡IMPORTANTE! Ajusta 'detalles_devolucion' al related_name correcto si es diferente
-        # Usamos select_related para optimizar (si tienes ForeignKey a Producto, Color, Talla en Detalle)
-        detalles = devolucion.detalles.select_related(
-            'producto'
-
-        ).all()
-
-        # 2. Calcular Totales (simplificado para devolución)
+        
+        devolucion = get_object_or_404(DevolucionCliente, pk=devolucion_id, empresa=empresa_actual)
+        detalles = devolucion.detalles.select_related('producto').all()
         total_cantidad_devuelta = detalles.aggregate(total=Sum('cantidad'))['total'] or 0
 
-        # 3. Cargar Logo (usando la misma lógica que en tu vista de pedido)
+
         logo_b64 = None
         try:
-            # ¡AJUSTA RUTA A TU LOGO DENTRO DE LA CARPETA STATIC!
-            logo_b64 = get_logo_base_64_despacho()
+            
+            logo_b64 = get_logo_base_64_despacho(empresa=empresa_actual)
         except Exception as e:
             print(f"Advertencia PDF Devolución: No se pudo cargar el logo: {e}")
 
         # 4. Preparar Contexto (¡SIMPLIFICADO!)
         context = {
+            'empresa': empresa_actual,
             'devolucion': devolucion,
             'detalles': detalles, # Pasamos la lista directa de detalles
             'total_cantidad_devuelta': total_cantidad_devuelta,
@@ -156,14 +153,30 @@ def imprimir_comprobante_devolucion(request, devolucion_id): # Mantenemos el nom
         return HttpResponse(f"Error inesperado al generar el comprobante.", status=500)
 
 
-@login_required # O los permisos que necesites
+@login_required # O AÑADE UN @permission_required si es necesario
 def vista_detalle_devolucion(request, pk):
-    devolucion = get_object_or_404(DevolucionCliente, pk=pk)
-    # Podrías pasar también los detalles si quieres mostrarlos aquí
-    # detalles = devolucion.detalles_devolucion.all()
+    """
+    Muestra el detalle de una devolución específica, asegurando
+    que pertenezca al inquilino actual.
+    """
+    # 1. OBTENER EL INQUILINO ACTUAL
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. Empresa no identificada.")
+        return redirect('core:index')
+
+    # 2. OBTENER DEVOLUCIÓN DE FORMA SEGURA
+    devolucion = get_object_or_404(DevolucionCliente, pk=pk, empresa=empresa_actual)
+    
+    # 3. CARGAR LOS DETALLES DE FORMA EFICIENTE
+    detalles_devolucion = devolucion.detalles.select_related('producto').all()
+
+    # 4. PREPARAR EL CONTEXTO
     context = {
         'devolucion': devolucion,
-        # 'detalles': detalles
+        'detalles': detalles_devolucion,
+        'empresa': empresa_actual,
+        'titulo': f"Detalle Devolución #{devolucion.pk} ({empresa_actual.nombre})"
     }
-    # Renderizaremos una nueva plantilla para mostrar los detalles
+    
     return render(request, 'devoluciones/devolucion_detalle.html', context)

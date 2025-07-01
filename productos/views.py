@@ -17,24 +17,27 @@ from .forms import ProductoForm, ProductoImportForm
 from .resources import ProductoResource
 from tablib import Dataset
 from .forms import SeleccionarAgrupacionParaFotosForm
+from core.mixins import TenantAwareMixin
+from django.contrib.auth.mixins import UserPassesTestMixin
 
-# --- Vistas CRUD para Productos (Variantes) ---
 
-class ProductoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+
+class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Producto
-    template_name = 'productos/producto_list.html' # Necesitarás crear esta plantilla
+    template_name = 'productos/producto_list.html'
     context_object_name = 'productos'
-    paginate_by = 15 # Número de productos por página
+    paginate_by = 15
     
-    permission_required = 'productos.view_producto' # PERMISO REQUERIDO
-    login_url = reverse_lazy('core:acceso_denegado') # O tu URL de login
-    # raise_exception = True # Opcional, para error 403
+    permission_required = 'productos.view_producto' 
+    login_url = reverse_lazy('core:acceso_denegado')
+    
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver el listado de productos.")
         return redirect(self.login_url)
 
     def get_queryset(self):
+
         queryset = super().get_queryset().order_by('referencia', 'nombre', 'color', 'talla')
         query = self.request.GET.get('q')
         if query:
@@ -44,25 +47,31 @@ class ProductoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 Q(talla__icontains=query) |
                 Q(color__icontains=query) |
                 Q(codigo_barras__icontains=query)
-            ).distinct() 
-        return super().get_queryset()
+            ).distinct()
+        # RECOMENDACIÓN: Retornar el queryset modificado, no llamar a super() de nuevo.
+        return queryset
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):        
         context = super().get_context_data(**kwargs)
         context['titulo_pagina'] = "Listado de Productos (Variantes)"
-        context['search_query'] = self.request.GET.get('q', '')
-        return super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')        
+        return context
 
-class ProductoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class ProductoCreateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     model = Producto
     form_class = ProductoForm
     template_name = 'productos/producto_form.html' # Usa la plantilla que diseñamos
     success_url = reverse_lazy('productos:producto_listado') # Redirige a la lista después de crear
     success_message = "Producto (Variante) '%(referencia)s - %(nombre)s' creado exitosamente."
-    # permission_classes = [IsAuthenticated] # Si usas DRF, pero esto es para vistas Django
+   
     
-    permission_required = 'productos.add_producto' # PERMISO REQUERIDO
+    permission_required = 'productos.add_producto'
     login_url = reverse_lazy('core:acceso_denegado')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = self.request.tenant
+        return kwargs
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para crear nuevos productos.")
@@ -71,15 +80,13 @@ class ProductoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo_form'] = "Registrar Nuevo Producto"
-        context['nombre_boton'] = "Guardar Producto"
-        return super().get_context_data(**kwargs)
+        context['nombre_boton'] = "Guardar Producto"        
+        return context
 
     def test_func(self):
-        if es_diseno(self.request.user):
-            return True
-        return False
+        return self.request.user.is_superuser or es_diseno(self.request.user)
 
-class ProductoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+class ProductoUpdateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Producto
     form_class = ProductoForm
     template_name = 'productos/producto_form.html' # Reutiliza la misma plantilla de formulario
@@ -88,6 +95,11 @@ class ProductoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     # permission_classes = [IsAuthenticated]
     permission_required = 'productos.change_producto' # PERMISO REQUERIDO
     login_url = reverse_lazy('core:acceso_denegado')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = self.request.tenant
+        return kwargs
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para modificar productos.")
@@ -98,15 +110,13 @@ class ProductoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
         context = super().get_context_data(**kwargs)
         context['titulo_form'] = f"Editar Producto: {self.object.nombre} ({self.object.referencia})"
         context['nombre_boton'] = "Actualizar Producto"
-        return super().get_context_data(**kwargs)
+        return context
     
     def test_func(self):
-        if es_diseno(self.request.user):
-            return True
-        return False
+        return self.request.user.is_superuser or es_diseno(self.request.user)
 
-# Opcional: Vista de Detalle (si la necesitas)
-class ProductoDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+
+class ProductoDetailView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Producto
     template_name = 'productos/producto_detalle.html' # Necesitarás crear esta plantilla
     context_object_name = 'producto'
@@ -121,10 +131,10 @@ class ProductoDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo_pagina'] = f"Detalle: {self.object.nombre} ({self.object.referencia})"
-        return super().get_context_data(**kwargs)
+        return context
 
 # Opcional: Vista de Eliminación (si la necesitas)
-class ProductoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, DeleteView):
+class ProductoDeleteView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, DeleteView):
     model = Producto
     template_name = 'productos/producto_confirm_delete.html' # Necesitarás crear esta plantilla
     success_url = reverse_lazy('productos:producto_listado')
@@ -145,13 +155,22 @@ class ProductoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
 
 
 
+
+
 @login_required
 @permission_required('productos.add_producto', login_url=reverse_lazy('core:acceso_denegado'))
-def producto_import_view(request):
+def producto_import_view(request):    
+       
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
+    
     if request.method == 'POST':
-        form = ProductoImportForm(request.POST, request.FILES)
+        form = ProductoImportForm(request.POST, request.FILES, empresa=empresa_actual)
         if form.is_valid():
-            producto_resource = ProductoResource()
+            producto_resource = ProductoResource(empresa=empresa_actual)            
             dataset = Dataset()
             archivo_importado = request.FILES['archivo_productos']
 
@@ -200,10 +219,19 @@ def producto_import_view(request):
     return render(request, 'productos/producto_import_form.html', context)
 
 @login_required
-@permission_required('productos.view_producto', login_url=reverse_lazy('core:acceso_denegado'))
 def producto_export_view(request, file_format='xlsx'):
+    if not request.user.has_perm('productos.view_producto'):
+        messages.error(request, "No tienes permiso para exportar productos.")
+        return redirect(reverse_lazy('core:acceso_denegado')) # O a donde prefieras
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return HttpResponse("Acceso no válido.", status=403)
+    
+    queryset = Producto.objects.filter(empresa=empresa_actual)
+    
     producto_resource = ProductoResource()
-    dataset = producto_resource.export() 
+    dataset = producto_resource.export(queryset)
     
     if file_format.lower() == 'csv':
         response_content = dataset.csv
@@ -226,50 +254,56 @@ def producto_export_view(request, file_format='xlsx'):
 
 @login_required
 @permission_required('productos.upload_fotos_producto', login_url=reverse_lazy('core:acceso_denegado'))
-def subir_fotos_agrupadas_view(request): # Nombre sugerido para la vista
-    print("DEBUG: >>> Entrando a subir_fotos_agrupadas_view <<<")
+def subir_fotos_agrupadas_view(request):
+    """
+    Gestiona la subida masiva de fotos, filtrando los artículos
+    por la empresa identificada a través del dominio (request.tenant).
+    """
+    
+    # 1. OBTENEMOS LA EMPRESA GRACIAS A NUESTRO MIDDLEWARE
+    # getattr busca 'tenant' en request. Si no existe, devuelve None para evitar errores.
+    empresa_actual = getattr(request, 'tenant', None)
+
+    # Si por alguna razón no se identifica una empresa (ej. dominio no registrado),
+    # no podemos continuar.
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa desde el dominio.")
+        return redirect('core:index') # O a una página de error
+
     if request.method == 'POST':
-        # El form ahora se llama SeleccionarAgrupacionParaFotosForm
-        form = SeleccionarAgrupacionParaFotosForm(request.POST, request.FILES)
+        # 2. AL PROCESAR EL FORMULARIO, LE PASAMOS LA EMPRESA
+        # para que pueda validar correctamente la selección del usuario.
+        form = SeleccionarAgrupacionParaFotosForm(request.POST, request.FILES, empresa=empresa_actual)
+        
         if form.is_valid():
-            # El campo en el form que selecciona la ReferenciaColor
-            # DEBE llamarse 'articulo_color' si así lo definimos en el form.
             referencia_color_seleccionada = form.cleaned_data['articulo_color']
             descripcion_general = form.cleaned_data.get('descripcion_general', '')
-            imagenes_subidas = request.FILES.getlist('imagenes')
+            imagenes_subidas = request.FILES.getlist('imagenes') # 'imagenes' es el name del input en tu form.
 
-            if not imagenes_subidas:
-                messages.error(request, "Por favor, seleccione al menos una imagen para subir.")
-            else:
-                fotos_creadas_count = 0
-                for imagen_file in imagenes_subidas:
-                    try:
-                        # --- CORRECCIÓN AQUÍ ---
-                        # Ahora usamos 'articulo_agrupador' para la FK a ReferenciaColor
-                        foto = FotoProducto.objects.create(
-                            articulo_agrupador=referencia_color_seleccionada, # <--- CAMBIO CLAVE
-                            imagen=imagen_file,
-                            descripcion_foto=descripcion_general
-                            # El campo 'orden' tomará su valor por defecto (0)
-                        )
-                        fotos_creadas_count += 1
-                    except Exception as e:
-                        messages.error(request, f"Error al guardar la imagen {imagen_file.name}: {e}")
-                        # Considera loggear el error completo con traceback si es necesario
-                        # import traceback
-                        # print(traceback.format_exc())
-
-                if fotos_creadas_count > 0:
-                    messages.success(request, f"¡{fotos_creadas_count} foto(s) subida(s) exitosamente para {referencia_color_seleccionada}!")
-                
-                return redirect('productos:producto_subir_fotos_agrupadas') # O el nombre de tu URL
-        else:
-            messages.error(request, "Por favor, corrige los errores en el formulario.")
-    else: # Método GET
-        form = SeleccionarAgrupacionParaFotosForm()
+            fotos_creadas_count = 0
+            for imagen_file in imagenes_subidas:
+                try:
+                    # La lógica de creación se queda igual. El modelo se encargará del resto.
+                    FotoProducto.objects.create(
+                        referencia_color=referencia_color_seleccionada,
+                        imagen=imagen_file,
+                        descripcion_foto=descripcion_general
+                    )
+                    fotos_creadas_count += 1
+                except Exception as e:
+                    messages.error(request, f"Error al guardar la imagen {imagen_file.name}: {e}")
+            
+            if fotos_creadas_count > 0:
+                messages.success(request, f"¡{fotos_creadas_count} foto(s) subida(s) exitosamente para {referencia_color_seleccionada}!")
+            
+            return redirect('productos:producto_subir_fotos_agrupadas') # Asegúrate que el nombre de la URL sea correcto
+    else: # Método GET (cuando se carga la página por primera vez)
+        # 3. TAMBIÉN LE PASAMOS LA EMPRESA AL CREAR EL FORMULARIO VACÍO
+        # Esto es lo que filtra el menú desplegable que ve el usuario.
+        form = SeleccionarAgrupacionParaFotosForm(empresa=empresa_actual)
 
     context = {
         'form': form,
-        'titulo': "Subir Fotos",
+        'titulo': f"Subir Fotos para: {empresa_actual.nombre}", # Título personalizado
     }
-    return render(request, 'productos/subir_fotos_agrupadas.html', context) # Nombre de tu plantilla
+    return render(request, 'productos/subir_fotos_agrupadas.html', context)

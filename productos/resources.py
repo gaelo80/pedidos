@@ -1,55 +1,98 @@
-# productos/resources.py
+# Archivo: productos/resources.py
+
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget, BooleanWidget
-from .models import Producto 
-# Si tuvieras campos ForeignKey a otros modelos como Categoria, Marca, etc., también los importarías aquí.
-# from .models import Categoria 
+from .models import Producto
+
 
 class ProductoResource(resources.ModelResource):
-    # Si tienes campos ForeignKey y quieres importar/exportar usando un campo específico
-    # del modelo relacionado (ej. 'nombre' de Categoria en lugar de su ID),
-    # puedes definir widgets. Ejemplo:
-    # categoria = fields.Field(
-    #     column_name='categoria',
-    #     attribute='categoria',
-    #     widget=ForeignKeyWidget(Categoria, 'nombre')) # Asume que Categoria tiene un campo 'nombre' único
+    """
+    Este recurso ahora es consciente del inquilino. Se ha modificado para
+    requerir una 'empresa' durante la inicialización y usarla para
+    asignar la empresa correcta a cada producto durante la importación.
+    """
+    
+    # REGLA DE ORO: Añadir un campo para la empresa, usando un ForeignKeyWidget.
+    # Esto es útil tanto para la exportación (mostrará el nombre de la empresa)
+    # como para la importación (puede buscar la empresa por nombre si es necesario).
+    empresa = fields.Field(
+        column_name='empresa',
+        attribute='empresa',
+        widget=ForeignKeyWidget('clientes.Empresa', 'nombre')
+    )
 
-    # Para campos Booleanos, es bueno usar BooleanWidget para manejar 'True'/'False', '1'/'0', etc.
     activo = fields.Field(
         column_name='activo',
         attribute='activo',
         widget=BooleanWidget()
     )
 
+    # ==========================================================================
+    # REFACTORIZACIÓN CLAVE PARA MULTI-INQUILINO
+    # ==========================================================================
+    def __init__(self, empresa=None, **kwargs):
+        """
+        Sobrescribimos __init__ para almacenar la empresa del inquilino actual.
+        La vista le pasará la empresa al crear una instancia de este recurso.
+        """
+        super().__init__(**kwargs)
+        if not empresa:
+            raise ValueError("ProductoResource debe ser instanciado con una empresa.")
+        self.empresa_actual = empresa
+
+    def before_import_row(self, row, **kwargs):
+        """
+        Este método se ejecuta para cada fila ANTES de que se intente guardar.
+        Es el lugar perfecto para inyectar el ID de la empresa.
+        """
+        # REGLA DE ORO: Asignar el ID de la empresa actual a la columna 'empresa'
+        # de la fila que se va a importar. Esto asegura que cada nuevo producto
+        # pertenezca al inquilino correcto.
+        row['empresa'] = self.empresa_actual.id
+        
+        
+    def get_or_init_instance(self, instance_loader, row):
+        """
+        Este es el método de seguridad más importante para las actualizaciones.
+        
+        Sobrescribimos este método para asegurar que cuando django-import-export
+        busque un producto existente para actualizarlo, la búsqueda se filtre
+        POR LA EMPRESA DEL USUARIO ACTUAL.
+        
+        Sin esto, un usuario podría adivinar el 'id' o la 'referencia' de un
+        producto de otra empresa y sobrescribir sus datos.
+        """
+        # Obtenemos los campos que definen la unicidad de un producto.
+        lookup_kwargs = instance_loader.get_lookup_kwargs(row)
+        
+        # AÑADIMOS EL FILTRO DEL INQUILINO a los argumentos de búsqueda.
+        lookup_kwargs['empresa'] = self.empresa_actual
+        
+        try:
+            # Intentamos encontrar la instancia DENTRO de la empresa actual.
+            return self.get_queryset().get(**lookup_kwargs)
+        except self.get_queryset().model.DoesNotExist:
+            # Si no existe, procedemos a crear una nueva instancia (pero sin guardarla aún).
+            return self.init_instance(row)   
+    # ==========================================================================
+
     class Meta:
         model = Producto
-        # Especifica los campos que quieres incluir en la importación/exportación.
-        # Si omites 'fields', se incluirán todos los campos del modelo.
+        
         fields = (
-            'id', 'referencia', 'nombre', 'descripcion', 'talla', 'color', 
+            'id', 'empresa', 'referencia', 'nombre', 'descripcion', 'talla', 'color', 
             'genero', 'costo', 'precio_venta', 'unidad_medida', 
-            'codigo_barras', 'activo', 'ubicacion', 'fecha_creacion'
+            'codigo_barras', 'activo', 'ubicacion'
         )
-        # Puedes excluir campos si es más fácil:
-        # exclude = ('campo_a_excluir',)
         
-        # Si quieres que la importación actualice registros existentes basados en 'id' (o 'codigo_barras' si es único y lo prefieres)
-        import_id_fields = ['id'] 
-        # Si quieres permitir la creación de nuevos registros si no se encuentra el id:
-        skip_unchanged = True # No actualiza filas si no han cambiado
-        report_skipped = True # Informa sobre filas omitidas
+        # --- MEJORA DE SEGURIDAD ---
+        # Cambiamos import_id_fields a una clave natural que tiene sentido dentro
+        # de una empresa. Esto, combinado con get_or_init_instance, asegura
+        # que las actualizaciones sean seguras.
+        import_id_fields = ('referencia', 'talla', 'color')
         
-        # Para manejar errores durante la importación:
-        # raise_errors = False # No detiene la importación en el primer error
-        # skip_diff = True # Para el export, solo exporta si hay diferencias
-
-    # Opcional: Puedes añadir lógica personalizada para limpiar datos durante la importación
-    # def before_import_row(self, row, **kwargs):
-    #     # Ejemplo: convertir un campo a mayúsculas
-    #     if 'referencia' in row and row['referencia']:
-    #         row['referencia'] = str(row['referencia']).upper()
-    #     super().before_import_row(row, **kwargs)
-
-    # def dehydrate_activo(self, producto):
-    #     # Para personalizar cómo se exporta el campo 'activo'
-    #     return 'Sí' if producto.activo else 'No'
+        skip_unchanged = True
+        report_skipped = True
+        # Excluimos 'fecha_creacion' de la importación para evitar errores.
+        # Este campo generalmente se gestiona automáticamente por la base de datos.
+        exclude = ('fecha_creacion',)

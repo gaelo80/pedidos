@@ -2,6 +2,8 @@
 from django.db import models
 from django.conf import settings 
 from django.utils import timezone
+from clientes.models import Empresa
+from django.core.exceptions import ValidationError
 
 
 class Factura(models.Model):
@@ -11,6 +13,16 @@ class Factura(models.Model):
         ('FACTURADO', 'Facturado'),
         ('ANULADO', 'Factura Anulada'),
     ]
+
+    # --- CORRECCIÓN PARA LA MIGRACIÓN ---
+    # Se añade null=True para permitir la migración en bases de datos existentes.
+    empresa = models.ForeignKey(
+        Empresa, 
+        on_delete=models.CASCADE, 
+        related_name='facturas',
+        null=True,
+        blank=True
+    )
 
     pedido = models.OneToOneField(
         'pedidos.Pedido',
@@ -46,14 +58,29 @@ class Factura(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales de Facturación")
+    
+    def save(self, *args, **kwargs):
+        # Si la instancia no tiene una empresa asignada pero tiene un pedido,
+        # se asigna automáticamente la empresa del pedido.
+        if not self.empresa_id and self.pedido_id:
+            self.empresa = self.pedido.empresa
+        
+        # Validación explícita para asegurar que el pedido y la factura pertenezcan a la misma empresa.
+        if self.pedido_id and self.empresa_id and self.pedido.empresa_id != self.empresa_id:
+            raise ValidationError('Error de inconsistencia: La empresa de la factura no coincide con la empresa del pedido.')
+            
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Facturación Pedido #{self.pedido.pk} - {self.get_estado_facturacion_display()}"
 
     class Meta:
-        verbose_name = "Registro de Facturación de Pedido" # Ajustado para diferenciar
+        verbose_name = "Registro de Facturación de Pedido"
         verbose_name_plural = "Registros de Facturación de Pedidos"
         ordering = ['-pedido__fecha_hora']
+        constraints = [
+            models.UniqueConstraint(fields=['empresa', 'pedido'], name='factura_unica_por_empresa_pedido')
+        ]
 
 
 class EstadoFacturaDespacho(models.Model):
@@ -62,6 +89,16 @@ class EstadoFacturaDespacho(models.Model):
         ('POR_FACTURAR', 'Por Facturar'),
         ('FACTURADO', 'Facturado'),
     ]
+
+    # --- CORRECCIÓN PARA LA MIGRACIÓN ---
+    # Se añade null=True para permitir la migración en bases de datos existentes.
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='estados_factura_despachos',
+        null=True,
+        blank=True
+    )
 
     despacho = models.OneToOneField(
         'bodega.ComprobanteDespacho',
@@ -105,6 +142,17 @@ class EstadoFacturaDespacho(models.Model):
     )
     fecha_creacion_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación del Registro")
     fecha_ultima_modificacion = models.DateTimeField(auto_now=True, verbose_name="Fecha de Última Modificación")
+    
+    def save(self, *args, **kwargs):
+        # --- REFUERZO DE SEGURIDAD Y COHERENCIA ---
+        if not self.empresa_id and self.despacho_id:
+            self.empresa = self.despacho.empresa
+        
+        # Validación explícita de consistencia de inquilino.
+        if self.despacho_id and self.empresa_id and self.despacho.empresa_id != self.empresa_id:
+            raise ValidationError('Error de inconsistencia: La empresa del estado de facturación no coincide con la empresa del despacho.')
+            
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Facturación para Despacho Bodega ID: {self.despacho_id} - Estado: {self.get_estado_display()}"
@@ -112,9 +160,8 @@ class EstadoFacturaDespacho(models.Model):
     class Meta:
         verbose_name = "Estado de Facturación de Despacho"
         verbose_name_plural = "Estados de Facturación de Despachos"
-        ordering = ['despacho__fecha_hora_despacho']
+        ordering = ['empresa', 'despacho__fecha_hora_despacho']
         permissions = [
-
             ("view_despachos_a_facturar", "Puede ver lista de despachos por facturar"),
             ("can_mark_despacho_facturado", "Puede marcar un despacho como facturado"),
             ("view_informe_facturados_fecha", "Puede ver informe de facturados por fecha"),

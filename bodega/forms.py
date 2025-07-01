@@ -31,6 +31,18 @@ class IngresoBodegaForm(forms.ModelForm):
         # Campos a mostrar en el formulario de cabecera
         # Excluimos fecha_hora y usuario (se asignan en la vista)
         fields = ['proveedor_info', 'documento_referencia', 'notas']
+        
+    def __init__(self, *args, **kwargs):
+        """
+        Este método se personaliza para manejar argumentos extra enviados desde la vista.
+        """
+        # Capturamos y eliminamos el argumento 'empresa' que nos envía la vista.
+        # Aunque no usemos la variable 'empresa' directamente en este formulario,
+        # es crucial removerla de 'kwargs' para evitar el TypeError.
+        empresa = kwargs.pop('empresa', None)
+
+        # Llamamos al constructor padre con los argumentos ya "limpios".
+        super().__init__(*args, **kwargs)
 
 
 # --- NUEVO: Formulario para UNA línea de Detalle de Ingreso ---
@@ -58,10 +70,28 @@ class DetalleIngresoBodegaForm(forms.ModelForm):
         required=False, # El costo puede no saberse o registrarse siempre
         widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.01', 'placeholder': 'Opcional'})
     )
-
+    
     class Meta:
         model = DetalleIngresoBodega
         fields = ['producto', 'cantidad', 'costo_unitario']
+        
+    def __init__(self, *args, **kwargs):
+            # 1. Extraemos y eliminamos 'empresa' de los argumentos para evitar el TypeError.
+        empresa = kwargs.pop('empresa', None)
+            
+            # 2. Llamamos al constructor padre con los kwargs ya "limpios".
+        super().__init__(*args, **kwargs)
+            
+            # 3. Usamos la 'empresa' para filtrar el campo de productos.
+            #    ¡Este es un paso de seguridad muy importante!
+        if empresa:
+            self.fields['producto'].queryset = Producto.objects.filter(
+                empresa=empresa, 
+                activo=True
+            ).order_by('referencia', 'nombre')
+        else:
+                # Como medida de seguridad, si no se proporciona una empresa, no mostramos ningún producto.
+            self.fields['producto'].queryset = Producto.objects.none()
 
 
 # --- NUEVO: FormSet para manejar MÚLTIPLES Detalles de Ingreso ---
@@ -128,17 +158,25 @@ class SalidaInternaDetalleForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None) # Extraer el kwarg 'empresa'
         super().__init__(*args, **kwargs)
-        # Filtrar productos activos para el dropdown
-        self.fields['producto'].queryset = Producto.objects.filter(activo=True).order_by('referencia', 'nombre')
+        
+        if empresa:
+            # Filtrar productos activos de la empresa actual para el dropdown
+            self.fields['producto'].queryset = Producto.objects.filter(
+                empresa=empresa,
+                activo=True
+            ).order_by('referencia', 'nombre')
+        else:
+            self.fields['producto'].queryset = Producto.objects.none()
 
 
 DetalleSalidaInternaFormSet = forms.inlineformset_factory(
     SalidaInternaCabecera,
     SalidaInternaDetalle,
     form=SalidaInternaDetalleForm,
-    extra=1, # Número de formularios extra vacíos
+    extra=1,
     can_delete=True,
-    min_num=1, # Al menos un detalle
+    min_num=1,
     validate_min=True
 )

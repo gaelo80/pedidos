@@ -1,107 +1,128 @@
+# pedidos/forms.py
 from django import forms
 from productos.models import Producto
 from decimal import Decimal
-from django.utils import timezone
 from clientes.models import Cliente
 from pedidos.models import Pedido, DetallePedido
 
-
+# ===================================================================
+# FORMULARIO PARA LA CABECERA DEL PEDIDO
+# ===================================================================
 class PedidoForm(forms.ModelForm):
-    """Formulario para la cabecera del Pedido (cliente, descuento, notas)."""
+    """
+    Formulario para la cabecera del Pedido (cliente, descuento, notas).
+    Asegura que el cliente seleccionado pertenezca a la empresa correcta.
+    """
+    def __init__(self, *args, **kwargs):
+        """
+        Filtra el queryset del campo 'cliente' según la empresa (tenant)
+        proporcionada desde la vista.
+        """
+        # 1. Extraemos el argumento 'empresa' que la vista debe pasar.
+        empresa_actual = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
 
-    # Definir Cliente (ya lo tenías)
-    cliente = forms.ModelChoiceField(
-        queryset=Cliente.objects.order_by('nombre_completo'),
-        widget=forms.Select(attrs={'class': 'form-control'}), # Select2 lo reemplazará
-        label="Cliente"
-    )
-    
-    referencia = forms.CharField(
-        # Solo la opción inicial vacía/placeholder
-        #choices=[('', '-- Selecciona Referencia --')],
-        required=False, # O False, según necesites que sea obligatorio elegir una ref para añadir productos
-        label="Referencia", # Etiqueta que se mostrará
-        widget=forms.Select(attrs={
-            'class': 'form-select', # Clase para estilo Bootstrap
-            'id': 'id_referencia'   # ID ESPECÍFICO que usará tu JavaScript para Select2
-        })
-    )
+        # 2. Es una medida de seguridad fallar si no se proporciona la empresa.
+        if empresa_actual is None:
+            raise ValueError("El formulario PedidoForm debe recibir un argumento 'empresa'.")
 
-    # Definir Descuento (como lo teníamos antes)
-
-    porcentaje_descuento = forms.IntegerField(
-        #max_digits=3,       # Máximo 5 dígitos en total (ej: 100.00)
-        #decimal_places=0,   # Permitir 0 decimales
-        required=False,     # No es obligatorio poner descuento
-        initial=Decimal('0'), # Valor inicial 0%
-        min_value=Decimal('0'),    # Mínimo
-        max_value=Decimal('100'),  # Máximo
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control form-control-sm', # Campo más pequeño
-            'step': '1', # Permite pasos decimales pequeños
-            'id': 'id_porcentaje_descuento' # Asegurar ID si es necesario
-        }),
-           label="Descuento (%)",
-        help_text=""
-    )
-
-
-
-    # Definir Notas (como lo tenías antes)
-    notas = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'id':'id_notas'}), # Aseguramos ID para CSS
-        required=False,
-       
-    )
+        # 3. Modificamos el queryset del campo 'cliente' para filtrar por empresa.
+        self.fields['cliente'].queryset = Cliente.objects.filter(
+            empresa=empresa_actual
+        ).order_by('nombre_completo')
 
     class Meta:
+        # Define el modelo y los campos que se usarán, siguiendo las buenas prácticas.
         model = Pedido
         fields = ['cliente', 'porcentaje_descuento', 'notas']
-        
-        
-        
+        widgets = {
+            'cliente': forms.Select(attrs={'class': 'form-control'}),
+            'porcentaje_descuento': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm', 'step': '1', 'min': '0', 'max': '100'
+            }),
+            'notas': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+        labels = {
+            'porcentaje_descuento': 'Descuento (%)'
+        }
+
+# ===================================================================
+# FORMULARIO PARA LOS DETALLES DEL PEDIDO (PRODUCTOS)
+# ===================================================================
 class DetallePedidoForm(forms.ModelForm):
-    """Formulario para un producto en el pedido."""
-    #producto = forms.ModelChoiceField(
-        #queryset=Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla'),
-        #widget=forms.Select(attrs={'class': 'form-control'})
-    #)
-    cantidad = forms.IntegerField(
-        min_value=1,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'})
-    )
+    """
+    Formulario para una línea de producto en el pedido.
+    Asegura que el producto seleccionado pertenezca a la empresa correcta.
+    """
+    def __init__(self, *args, **kwargs):
+        # 1. Recibimos la empresa, igual que en PedidoForm.
+        #    Esto es posible gracias a nuestro BaseDetallePedidoFormSet.
+        self.empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        """
+        Método de validación para asegurar la pertenencia del producto.
+        Esta es la corrección de seguridad crítica.
+        """
+        cleaned_data = super().clean()
+        producto = cleaned_data.get("producto")
+
+        if self.empresa is None:
+            raise forms.ValidationError("No se pudo verificar la empresa para el detalle del pedido.")
+
+        # 2. Si el producto existe, verificamos que su empresa coincida.
+        if producto and producto.empresa != self.empresa:
+            raise forms.ValidationError(
+                f"El producto '{producto}' no es válido para esta empresa."
+            )
+        return cleaned_data
 
     class Meta:
         model = DetallePedido
         fields = ['producto', 'cantidad']
+        # El producto se maneja como un campo oculto porque la interfaz
+        # de la matriz lo asigna. La seguridad está en el método clean().
+        widgets = {'producto': forms.HiddenInput()}
 
 
-# --- DetallePedidoFormSet (sin cambios necesarios aquí) ---
+# ===================================================================
+# FORMSET PARA MANEJAR MÚLTIPLES DETALLES DE PEDIDO
+# ===================================================================
+# 1. Creamos una clase base personalizada para poder "inyectar" la empresa
+#    en cada formulario DetallePedidoForm.
+class BaseDetallePedidoFormSet(forms.BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        # Pasamos la empresa a cada formulario individual.
+        kwargs['empresa'] = self.empresa
+        return super()._construct_form(i, **kwargs)
+
+# 2. Usamos la clase base para crear nuestro formset.
 DetallePedidoFormSet = forms.inlineformset_factory(
     Pedido,
     DetallePedido,
     form=DetallePedidoForm,
+    formset=BaseDetallePedidoFormSet, # ¡Usamos nuestra clase personalizada!
     extra=1,
-    can_delete=False,
-    min_num=1,
-    validate_min=True,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
 )
 
+# ===================================================================
+# FORMULARIOS AUXILIARES (PARA APROBACIÓN/RECHAZO)
+# ===================================================================
 class MotivoDecisionForm(forms.Form):
+    """
+    Formulario simple para capturar un motivo en las vistas de
+    aprobación o rechazo de pedidos.
+    """
     motivo = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-        required=False, # Puede ser opcional si solo se aprueba
+        required=False,
         label="Motivo/Observaciones"
     )
-
-# Opcional: Un formulario más específico si quieres actualizar el estado también
-class DecisionPedidoForm(forms.ModelForm):
-    motivo_decision = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-        required=False, # O True si el motivo es siempre obligatorio al rechazar
-        label="Motivo/Observaciones para esta etapa"
-    )
-
-    class Meta:
-        model = Pedido
-        fields = ['motivo_decision'] # Un campo temporal, lo mapearemos al campo correcto en la vista

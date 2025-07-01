@@ -1,24 +1,21 @@
 from django import forms
-from productos.models import Producto
-from .models import DevolucionCliente, DetalleDevolucion
-from decimal import Decimal
-from django.utils import timezone
-from clientes.models import Cliente
+from django.forms import inlineformset_factory
 
+# Ajusta las rutas de importación si es necesario
+from productos.models import Producto
+from clientes.models import Cliente
+from .models import DevolucionCliente, DetalleDevolucion
 
 class DevolucionClienteForm(forms.ModelForm):
     """Formulario para los datos generales de la devolución."""
 
-    # Usar ModelChoiceField para permitir búsqueda fácil (luego con Select2)
+    # El campo se define aquí para poder modificar su queryset en __init__
     cliente = forms.ModelChoiceField(
-        queryset=Cliente.objects.order_by('nombre_completo'),
-        label="Cliente que Devuelve", # Etiqueta que se mostrará
-        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_cliente_devolucion'}) # ID único
+        queryset=Cliente.objects.none(), # Se inicia vacío, se poblará en __init__
+        label="Cliente que Devuelve",
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_cliente_devolucion'})
     )
-    # Pedido original es opcional y puede ser difícil de buscar sin Select2-AJAX
-    # Por ahora, un campo simple o lo excluimos y lo añadimos luego.
-    # pedido_original = forms.ModelChoiceField(...)
-
+    
     motivo = forms.CharField(
         label="Motivo General de la Devolución",
         widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
@@ -27,22 +24,32 @@ class DevolucionClienteForm(forms.ModelForm):
 
     class Meta:
         model = DevolucionCliente
-        # Campos a mostrar en el formulario de cabecera
-        # Excluimos fecha_hora y usuario (se asignan en la vista)
-        # Excluimos pedido_original por ahora para simplificar
         fields = ['cliente', 'motivo']
+    
+    # --- INICIO DE CAMBIOS MULTI-INQUILINO ---
+    def __init__(self, *args, **kwargs):
+        # 1. OBTENER LA EMPRESA QUE SE PASA DESDE LA VISTA
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        # 2. FILTRAR EL QUERYSET DEL CAMPO 'cliente'
+        if empresa:
+            self.fields['cliente'].queryset = Cliente.objects.filter(
+                empresa=empresa
+            ).order_by('nombre_completo')
+        else:
+            # Si no se pasa empresa, el queryset permanece vacío para seguridad.
+            self.fields['cliente'].queryset = Cliente.objects.none()
+    # --- FIN DE CAMBIOS MULTI-INQUILINO ---
 
 
-# --- NUEVO: Formulario para UNA línea de Detalle de Devolución ---
 class DetalleDevolucionForm(forms.ModelForm):
     """Formulario para un producto devuelto."""
 
-    # Usaremos Select2 con AJAX para buscar producto aquí
-    # Por ahora, un ModelChoiceField simple, lo mejoraremos con JS
     producto = forms.ModelChoiceField(
-        queryset=Producto.objects.filter(activo=True).order_by('referencia', 'nombre', 'color', 'talla'),
+        queryset=Producto.objects.none(), # Se inicia vacío
         label="Producto Devuelto",
-        widget=forms.Select(attrs={'class': 'form-control producto-select-devolucion'}) # Clase para JS
+        widget=forms.Select(attrs={'class': 'form-control producto-select-devolucion'})
     )
 
     cantidad = forms.IntegerField(
@@ -51,22 +58,36 @@ class DetalleDevolucionForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'style': 'width: 80px;'})
     )
 
-    # Usar el campo Choice del modelo directamente
-    # estado_producto se renderizará como un Select por defecto
     class Meta:
         model = DetalleDevolucion
         fields = ['producto', 'cantidad', 'estado_producto']
         widgets = {
             'estado_producto': forms.Select(attrs={'class': 'form-select form-select-sm'})
         }
+    
+    # --- INICIO DE CAMBIOS MULTI-INQUILINO ---
+    def __init__(self, *args, **kwargs):
+        # 1. OBTENER LA EMPRESA QUE SE PASA DESDE LA VISTA A TRAVÉS DEL FORMSET
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        # 2. FILTRAR EL QUERYSET DEL CAMPO 'producto'
+        if empresa:
+            self.fields['producto'].queryset = Producto.objects.filter(
+                empresa=empresa, 
+                activo=True
+            ).order_by('referencia', 'nombre', 'color', 'talla')
+        else:
+            self.fields['producto'].queryset = Producto.objects.none()
+    # --- FIN DE CAMBIOS MULTI-INQUILINO ---
 
 
-DetalleDevolucionFormSet = forms.inlineformset_factory(
-    parent_model=DevolucionCliente, # El modelo padre
-    model=DetalleDevolucion,       # El modelo de los detalles
-    form=DetalleDevolucionForm,    # El formulario a usar para cada detalle
-    extra=0,                       # Cuántos formularios extra mostrar por defecto (para añadir nuevos)
-    can_delete=True,              # Poner True si quieres permitir borrar líneas al editar
-    min_num=1,                     # Requerir al menos 1 detalle
-    validate_min=True,             # Validar que se envíe al menos min_num
+DetalleDevolucionFormSet = inlineformset_factory(
+    parent_model=DevolucionCliente,
+    model=DetalleDevolucion,
+    form=DetalleDevolucionForm,
+    extra=1, # Cambiado a 1 para que siempre aparezca una línea para añadir
+    can_delete=True,
+    min_num=1,
+    validate_min=True,
 )

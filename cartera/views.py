@@ -15,6 +15,7 @@ from core.auth_utils import es_admin_sistema_app, es_vendedor, es_cartera, es_ad
 from vendedores.models import Vendedor # De la app vendedores
 from .models import DocumentoCartera
 from .forms import UploadCarteraFileForm
+from core.mixins import TenantAwareMixin
 
 def convertir_fecha_excel(valor_excel, num_fila=None, nombre_campo_para_error="Fecha"):
     if pd.isna(valor_excel) or valor_excel == '':
@@ -67,7 +68,13 @@ def convertir_saldo_excel(valor_excel, num_fila=None, nombre_campo_para_error="S
 @login_required
 def api_cartera_cliente(request, cliente_id):
     """Devuelve la información de cartera pendiente para un cliente."""
-    cliente = get_object_or_404(Cliente, pk=cliente_id) 
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        # Si no hay un inquilino, devolvemos un error. Es crucial para una API.
+        return JsonResponse({'error': 'Empresa no identificada. Acceso denegado.'}, status=403)
+    
+    cliente = get_object_or_404(Cliente, pk=cliente_id, empresa=empresa_actual) 
     
     documentos_pendientes = DocumentoCartera.objects.filter(
         cliente=cliente, 
@@ -113,6 +120,14 @@ def api_cartera_cliente(request, cliente_id):
 @login_required
 @user_passes_test(lambda u: u.is_staff or es_admin_sistema_app(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado') # Ajusta el permiso según necesites
 def vista_importar_cartera(request):
+    
+        # --- INICIO DE LA LÓGICA MULTI-INQUILINO ---
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index') # O a la página principal de tu app
+    # --- FIN DE LA LÓGICA MULTI-INQUILINO ---
+    
     if request.method == 'POST':
         form = UploadCarteraFileForm(request.POST, request.FILES)
         if form.is_valid():
@@ -136,9 +151,10 @@ def vista_importar_cartera(request):
                 
                 with transaction.atomic():
                     registros_borrados, _ = DocumentoCartera.objects.filter(
+                        empresa=empresa_actual,
                         tipo_documento=tipo_documento_bd
                     ).delete()
-                    messages.info(request, f"Se eliminaron {registros_borrados} registros anteriores de tipo '{tipo_documento_bd}'.")
+                    messages.info(request, f"Se eliminaron {registros_borrados} registros anteriores de tipo '{tipo_documento_bd}' para la empresa '{empresa_actual.nombre}'.")
 
                     for index, row in df.iterrows():
                         num_fila_excel = index + 3 + 1 # +1 por 0-indexed, +3 por header=2. Si header es 0, sería index + 1.
@@ -160,7 +176,10 @@ def vista_importar_cartera(request):
                                 continue
                             
                             try:
-                                cliente_obj = Cliente.objects.get(identificacion=codigo_cliente_excel)
+                                cliente_obj = Cliente.objects.get(
+                                    identificacion=codigo_cliente_excel, 
+                                    empresa=empresa_actual
+                                )
                             except Cliente.DoesNotExist:
                                 clientes_no_encontrados.add(codigo_cliente_excel)
                                 continue
@@ -176,6 +195,7 @@ def vista_importar_cartera(request):
 
                             # --- CREACIÓN DEL DOCUMENTO DE CARTERA ---
                             DocumentoCartera.objects.create(
+                                empresa=empresa_actual,
                                 cliente=cliente_obj,
                                 tipo_documento=tipo_documento_bd,
                                 numero_documento=numero_doc_excel,
@@ -227,7 +247,7 @@ def vista_importar_cartera(request):
 
     context = {
         'form': form,
-        'titulo': 'Importar Cartera desde Excel LF Y FYN',
+        'titulo': f'Importar Cartera desde Excel LF Y FYN ({empresa_actual.nombre})',
         'app_name': 'Cartera' # Para diferenciar en la plantilla base si es necesario
     }
     # Asegúrate que la plantilla exista en cartera/templates/cartera/upload_cartera.html
@@ -237,11 +257,20 @@ def vista_importar_cartera(request):
 @login_required
 @user_passes_test(lambda u: es_vendedor(u) or es_admin_sistema(u) or es_cartera(u) or u.is_superuser, login_url='core:acceso_denegado')
 def reporte_cartera_general(request):
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+    
     user = request.user
-    titulo_original = "Informe General de Cartera"
+    titulo_original = f"Informe General de Cartera ({empresa_actual.nombre})"
     titulo_dinamico = titulo_original # Título que puede cambiar
     
-    queryset_documentos = DocumentoCartera.objects.filter(saldo_actual__gt=Decimal('0.00')).select_related('cliente')
+    queryset_documentos = DocumentoCartera.objects.filter(
+        empresa=empresa_actual, 
+        saldo_actual__gt=Decimal('0.00')
+    ).select_related('cliente')
 
     # Determinar si el usuario es un tipo de administrador general o de cartera que puede filtrar
     # es_admin_sistema_general = user.is_staff or user.is_superuser or es_admin_sistema_app(user)
@@ -254,7 +283,7 @@ def reporte_cartera_general(request):
     if not puede_filtrar_por_vendedor_dropdown and es_vendedor(user):
         # Si es un vendedor (y no admin/cartera con capacidad de elegir), filtra por su propio código
         try:
-            vendedor_actual = Vendedor.objects.get(user=user)
+            vendedor_actual = Vendedor.objects.get(user=user, empresa=empresa_actual)
             if vendedor_actual.codigo_interno:
                 codigo_vendedor_para_filtrar = str(vendedor_actual.codigo_interno)
                 titulo_dinamico = f"Cartera de: {vendedor_actual.user.get_full_name() or vendedor_actual.user.username}"
@@ -268,7 +297,10 @@ def reporte_cartera_general(request):
     elif puede_filtrar_por_vendedor_dropdown and vendedor_seleccionado_id_get:
         # Si es admin/cartera Y ha seleccionado un vendedor del dropdown
         try:
-            vendedor_obj_seleccionado = Vendedor.objects.get(pk=int(vendedor_seleccionado_id_get))
+            vendedor_obj_seleccionado = Vendedor.objects.get(
+                pk=int(vendedor_seleccionado_id_get),
+                empresa=empresa_actual
+            ) 
             if vendedor_obj_seleccionado.codigo_interno:
                 codigo_vendedor_para_filtrar = str(vendedor_obj_seleccionado.codigo_interno)
                 titulo_dinamico = f"Cartera de Vendedor: {vendedor_obj_seleccionado.user.get_full_name() or vendedor_obj_seleccionado.user.username}"
@@ -284,7 +316,7 @@ def reporte_cartera_general(request):
     if codigo_vendedor_para_filtrar:
         queryset_documentos = queryset_documentos.filter(codigo_vendedor_cartera=codigo_vendedor_para_filtrar)
     elif puede_filtrar_por_vendedor_dropdown and not vendedor_seleccionado_id_get:
-        titulo_dinamico = "Informe General de Cartera (Todos los Vendedores)"
+        titulo_dinamico = f"Informe General de Cartera ({empresa_actual.nombre}) - Todos los Vendedores"
 
 
     # --- Tus filtros existentes por cliente y estado de vencimiento ---
@@ -314,7 +346,10 @@ def reporte_cartera_general(request):
     # --- Lista de vendedores para el dropdown (solo para admin/cartera) ---
     vendedores_para_dropdown = None
     if puede_filtrar_por_vendedor_dropdown:
-        vendedores_para_dropdown = Vendedor.objects.filter(activo=True).select_related('user').order_by('user__first_name', 'user__last_name')
+        vendedores_para_dropdown = Vendedor.objects.filter(
+            empresa=empresa_actual,
+            activo=True
+            ).select_related('user').order_by('user__first_name', 'user__last_name')
 
     context = {
         'titulo': titulo_dinamico,
