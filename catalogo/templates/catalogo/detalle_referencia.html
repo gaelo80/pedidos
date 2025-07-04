@@ -107,9 +107,11 @@
 
 
       <div class="all-photos-button-container">
-        <a href="{% url 'catalogo:ver_todas_fotos_referencia' referencia_actual %}" class="btn btn-lg btn-outline-primary">
-            <i class="fas fa-images me-2"></i>Ver Todas las Fotos de la Referencia {{ referencia_actual }}
-        </a>
+            {% if referencia.referencia %}
+            <a href="{% url 'catalogo:ver_todas_fotos' referencia.referencia %}">Ver todas las fotos</a>
+            {% else %}
+            <span class="text-danger"></span>
+            {% endif %}
     </div>
 
       {% if variantes_list %}

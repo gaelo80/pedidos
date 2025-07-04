@@ -62,12 +62,24 @@ class ProductoImportForm(forms.Form):
         widget=forms.ClearableFileInput(attrs={'class': 'form-control'})
     )
     
+    def __init__(self, *args, **kwargs):
+        # "Atrapamos" el parámetro 'empresa' y lo quitamos de kwargs
+        self.empresa = kwargs.pop('empresa', None)
+        # Llamamos al __init__ original sin el argumento inesperado
+        super().__init__(*args, **kwargs)
+    
 class MultipleFileInput(forms.ClearableFileInput):
     """
     Un widget personalizado que permite la subida de múltiples archivos.
     Hereda de ClearableFileInput pero permite el atributo 'multiple'.
     """
     allow_multiple_selected = True
+    
+    def __init__(self, *args, **kwargs):
+        # "Atrapamos" el parámetro 'empresa' y lo quitamos de kwargs
+        self.empresa = kwargs.pop('empresa', None)
+        # Llamamos al __init__ original sin el argumento inesperado
+        super().__init__(*args, **kwargs)
 
 class MultipleFileField(forms.FileField):
     """

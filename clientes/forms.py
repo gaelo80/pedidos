@@ -2,6 +2,8 @@
 from django import forms
 from .models import Cliente, Ciudad
 
+
+
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
@@ -86,3 +88,6 @@ class CiudadImportForm(forms.Form):
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv,.xls,.xlsx'}),
         help_text="El archivo debe tener una columna llamada 'nombre' para los nombres de las ciudades."
     )
+    
+    
+

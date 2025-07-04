@@ -29,5 +29,6 @@ urlpatterns = [
     path('api/buscar/', api_views.buscar_clientes_api, name='api_buscar_clientes'),
     path('api/detalle/<int:cliente_id>/', api_views.api_detalle_cliente, name='api_detalle_cliente'),
     path('v2/listado/', views.ClienteListV2View.as_view(), name='cliente_listado_v2'),
-    path('v2/detalle/<int:pk>/', views.ClienteDetailV2View.as_view(), name='cliente_detalle_v2')
+    path('v2/detalle/<int:pk>/', views.ClienteDetailV2View.as_view(), name='cliente_detalle_v2'),
+    
 ]

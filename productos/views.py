@@ -230,7 +230,7 @@ def producto_export_view(request, file_format='xlsx'):
     
     queryset = Producto.objects.filter(empresa=empresa_actual)
     
-    producto_resource = ProductoResource()
+    producto_resource = ProductoResource(empresa=empresa_actual)
     dataset = producto_resource.export(queryset)
     
     if file_format.lower() == 'csv':

@@ -163,19 +163,27 @@
     </style>
 </head>
 <body>
-    {# --- Contenido para la Cabecera HTML (Opcional, si quieres algo además del logo/datos) --- #}
-    <div id="header_content">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <!-- Logo a la izquierda -->
+    <div style="flex: 0 0 auto;">
         {% if logo_base64 %}
-        <img src="{{ logo_base64 }}" alt="Logo" class="logo">
+            <img src="{{ logo_base64 }}" alt="Logo" style="height: 100px;">
         {% endif %}
-        <div class="company-details">
-            <strong>Louis Ferry SAS</strong> - responsable de IVA<br>
-            Carrera 56 B N° 49-45 Edf Bitania 1 Piso 6, Medellín - Colombia<br>
-            Tel: 604 407 60 65 | Cel: 317 437 36 62 | secretaria.louisferrysas@outlook.es
-        </div>
     </div>
 
-<br> {# Un pequeño espacio #}
+    <!-- Información de la empresa a la derecha -->
+    <div style="flex: 1; text-align: right;">
+        {% if empresa_actual %}
+            {#<p style="margin: 0; font-weight: bold;">{{ empresa_actual.nombre }}</p>#}
+            {% if empresa_actual.nit %}<p style="margin: 0;">NIT: {{ empresa_actual.nit }}</p>{% endif %}
+            {% if empresa_actual.direccion %}<p style="margin: 0;">Dirección: {{ empresa_actual.direccion }}</p>{% endif %}
+            {% if empresa_actual.telefono %}<p style="margin: 0;">Teléfono: {{ empresa_actual.telefono }}</p>{% endif %}
+        {% else %}
+            <p><strong>Empresa no disponible</strong></p>
+        {% endif %}
+    </div>
+</div>
+
 
     {# --- TÍTULO DEL PEDIDO (con clase para color) --- #}
     <h1 class="numero-pedido">Pedido N° {{ pedido.pk }}</h1>

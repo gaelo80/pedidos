@@ -14,8 +14,10 @@ from .forms import ClienteForm, CiudadForm, CiudadImportForm
 from .resources import CiudadResource
 from tablib import Dataset
 from django.db.models import Q
-from core.auth_utils import es_admin_sistema, es_cartera, es_factura
+from core.auth_utils import es_admin_sistema, es_cartera, es_factura, es_vendedor
 from core.mixins import TenantAwareMixin
+
+
 
 
 class CiudadViewSet(viewsets.ReadOnlyModelViewSet):
@@ -335,7 +337,12 @@ class ClienteListV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     paginate_by = 20
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user)
+        return (
+            es_admin_sistema(self.request.user) or 
+            es_cartera(self.request.user) or            
+            es_vendedor(self.request.user) or 
+            self.request.user.is_superuser
+        )
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para acceder a este listado de clientes.")
@@ -372,7 +379,12 @@ class ClienteDetailV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMi
     context_object_name = 'cliente'
     
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user)
+        return (
+            es_admin_sistema(self.request.user) or 
+            es_cartera(self.request.user) or            
+            es_vendedor(self.request.user) or 
+            self.request.user.is_superuser
+        )
 
     def get_queryset(self):
         empresa_actual = getattr(self.request, 'tenant', None)
@@ -387,3 +399,8 @@ class ClienteDetailV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMi
         if context.get('cliente'):
             print(f"Nombre del cliente: {context.get('cliente').nombre_completo}")
         return context
+    
+    
+    
+    
+   

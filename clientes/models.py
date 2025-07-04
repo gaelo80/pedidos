@@ -1,11 +1,15 @@
+#clientes/models.py
+
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.conf import settings
+
 
 class Empresa(models.Model):
     nombre = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Empresa")
     nit = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name="NIT")
     direccion = models.CharField(max_length=255, blank=True, null=True)
-    telefono = models.CharField(max_length=50, blank=True, null=True)
+    telefono = models.CharField(max_length=100, blank=True, null=True)
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     
@@ -89,3 +93,6 @@ class Dominio(models.Model):
     class Meta:
         verbose_name = "Dominio de Empresa"
         verbose_name_plural = "Dominios de Empresas"
+        
+        
+      

@@ -6,14 +6,7 @@
 
 {% block content %}
 <div class="container mt-4">
-{# --- INICIO: Logo de la Empresa --- #}
-    <div class="text-end mb-4"> {# Centrar el logo y darle un margen inferior #}
-        <img src="{% static 'core/img/logo.jpeg' %}" alt="Logo de la Empresa" style="max-width: 400px; height: auto;">
-        {# AJUSTA 'images/logo.png' a la ruta correcta de tu logo dentro de la carpeta static #}
-        {# AJUSTA el estilo (max-width) según necesites #}
-    </div>
-    {# --- FIN: Logo de la Empresa --- #}
-    {#<h1>{{ titulo|default:"Fotos del Pedido" }} #{{ pedido.id }}</h1>#}
+
     <p style="color: white;">¡Hola {{ pedido.cliente.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
     <hr>
 

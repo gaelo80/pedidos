@@ -149,6 +149,82 @@ def ver_todas_fotos_referencia_view(request, referencia_str):
     }
     return render(request, 'catalogo/todas_fotos_referencia.html', context)
 
+
+def catalogo_publico_disponible(request):
+    """
+    Muestra un catálogo público de ReferenciaColor que tienen al menos una variante
+    (Producto) activa y con stock. Detalla la disponibilidad por talla.
+    """
+    query = request.GET.get('q', '')
+
+    # 1. Obtener todas las ReferenciaColor.
+    #    Prefetch sus fotos y sus variantes (Productos activos).
+    referencias_colores_qs = ReferenciaColor.objects.prefetch_related(
+        Prefetch(
+            'fotos_agrupadas', # related_name desde FotoProducto a ReferenciaColor
+            queryset=FotoProducto.objects.order_by('orden')
+        ),
+        Prefetch(
+            'variantes', # related_name desde Producto a ReferenciaColor
+            queryset=Producto.objects.filter(activo=True).order_by('talla') # Solo Productos (variantes) activos
+        )
+    ).order_by('referencia_base', 'color') #
+
+    # 2. Aplicar filtro de búsqueda si existe (sobre campos de ReferenciaColor)
+    if query:
+        referencias_colores_qs = referencias_colores_qs.filter(
+            Q(referencia_base__icontains=query) |
+            Q(color__icontains=query) |
+            Q(nombre_display__icontains=query)
+        ).distinct()
+
+    # 3. Procesar en Python para verificar stock (ya que stock_actual es una property)
+    #    y construir la lista final de ítems para el catálogo.
+    items_catalogo_final = []
+    for rc_item in referencias_colores_qs:
+        variantes_con_info_stock = []
+        tiene_algun_stock_esta_rc = False
+
+        # rc_item.variantes ya contiene los Productos activos prefetcheados
+        for producto_variante in rc_item.variantes.all(): # Iterar sobre las variantes (Producto)
+            stock = producto_variante.stock_actual # Llama a la property
+            if stock > 0:
+                tiene_algun_stock_esta_rc = True
+            variantes_con_info_stock.append({
+                'objeto': producto_variante, # El objeto Producto completo
+                'talla': producto_variante.talla, #
+                'stock': stock,
+                'disponible': stock > 0
+            })
+
+        # Solo incluir esta ReferenciaColor si tiene al menos una variante con stock
+        if tiene_algun_stock_esta_rc:
+            items_catalogo_final.append({
+                'referencia_color_obj': rc_item, # El objeto ReferenciaColor
+                'nombre_display_final': rc_item.nombre_display or f"{rc_item.referencia_base} - {rc_item.color or 'Sin Color'}", #
+                'fotos': list(rc_item.fotos_agrupadas.all()), # Lista de objetos FotoProducto
+                'variantes_info': variantes_con_info_stock, # Lista de dicts con info de stock por talla
+            })
+
+    # Paginación
+    paginator = Paginator(items_catalogo_final, 9) # Ajusta el número de ítems por página
+    page_number = request.GET.get('page')
+    try:
+        pagina_items = paginator.page(page_number)
+    except PageNotAnInteger:
+        pagina_items = paginator.page(1)
+    except EmptyPage:
+        pagina_items = paginator.page(paginator.num_pages)
+
+    context = {
+        'pagina_items': pagina_items,
+        'titulo': 'Catálogo Disponible',
+        'query': query,
+    }
+    return render(request, 'catalogo/catalogo_publico_disponible.html', context)
+
+
+
 def catalogo_publico_temporal_view(request, token):
     """
     Muestra un catálogo filtrado por la empresa asociada al token.
@@ -206,7 +282,7 @@ def catalogo_publico_temporal_view(request, token):
 
     context = {
         'pagina_items': pagina_items,
-        'titulo': 'Catálogo Disponible (Compartido)',
+        'titulo': f"Catálogo Disponible {enlace.empresa.nombre}",
         'query': query,
         'es_enlace_temporal': True,
         'valido_hasta': enlace.expira_el.strftime('%d/%m/%Y %H:%M %Z')
@@ -246,9 +322,9 @@ def generar_enlace_usuario_view(request):
             'descripcion': nuevo_enlace.descripcion,
             'expira': nuevo_enlace.expira_el.strftime('%d/%m/%Y a las %H:%M %Z')
         }
-        return redirect('catalogo:mostrar_formulario_generar_enlace')
+        return redirect('catalogo:catalogo_mostrar_formulario_enlace')
     
-    return redirect('catalogo:mostrar_formulario_generar_enlace')
+    return redirect('catalogo:catalogo_mostrar_formulario_enlace')
 
 @login_required
 @user_passes_test(es_vendedor, login_url='core:acceso_denegado')

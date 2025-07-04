@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
@@ -9,8 +9,10 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import Group
 from vendedores.models import Vendedor
+from core.auth_utils import es_admin_sistema
+from core.mixins import TenantAwareMixin
 
-
+User = get_user_model()
 
 class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = User
@@ -19,22 +21,28 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'auth.view_user' # Permiso para ver usuarios    
     paginate_by = 20 # Puedes ajustar el número de usuarios por página
     
+    def test_func(self):
+        # SOLO LOS ADMINS DEL SISTEMA PUEDEN VER ESTA LISTA
+        return es_admin_sistema(self.request.user)
+
+    # AÑADIDO: PATRÓN DE MANEJO DE PERMISOS DE 'clientes'
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para acceder a la gestión de usuarios.")
+        return redirect('core:index') 
 
     def get_queryset(self):
-        """ 
-        Filtra el listado de usuarios para que solo muestre los pertenecientes al tenant actual.
-        """
-        # Si el usuario es un superadmin, puede ver a todos los usuarios.
+        """MODIFICADO: APLICANDO EL PATRÓN EXACTO DE 'clientes/views.py'"""
+        empresa_actual = getattr(self.request, 'tenant', None)
         if self.request.user.is_superuser:
-            return User.objects.all().order_by('username')
+            base_qs = User.objects.all()
+        elif empresa_actual and es_admin_sistema(self.request.user):
+            # AHORA USAMOS EL CAMPO 'empresa' DIRECTO EN EL MODELO User
+            base_qs = User.objects.filter(empresa=empresa_actual)
+        else:
+            return User.objects.none()
 
-        # Si es un usuario normal, filtramos.
-        if hasattr(self.request, 'tenant'):
-            empresa_actual = self.request.tenant
-            user_ids = Vendedor.objects.filter(empresa=empresa_actual).values_list('user_id', flat=True)
-            return User.objects.filter(id__in=user_ids).order_by('username')
-        
-        return User.objects.none()
+        # AQUÍ PUEDES AÑADIR LÓGICA DE BÚSQUEDA SI LO NECESITAS
+        return base_qs.select_related('empresa').order_by('username')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -48,34 +56,35 @@ class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     template_name = 'user_management/user_form.html'
     success_url = reverse_lazy('user_management:user_list') 
     permission_required = 'auth.add_user'
+    success_message = "¡Usuario '%(username)s' creado exitosamente!"
+    
+    def test_func(self):
+        return es_admin_sistema(self.request.user)
+
+    # AÑADIDO: PATRÓN DE MANEJO DE PERMISOS
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para crear usuarios.")
+        return redirect('user_management:user_list')
+
+    # AÑADIDO: MÉTODO PARA PASAR LA EMPRESA AL FORMULARIO
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = getattr(self.request, 'tenant', None)
+        return kwargs
 
     def form_valid(self, form):
-        """
-        Al crear un usuario, automáticamente creamos su perfil de Vendedor
-        y lo asociamos a la empresa del administrador que lo está creando.
-        """
-        response = super().form_valid(form)        
-
-        if not self.request.user.is_superuser and hasattr(self.request, 'tenant'):
-
-            Vendedor.objects.create(
-                user=self.object,
-                empresa=self.request.tenant
-            )
-            messages.success(self.request, f"Usuario '{self.object.username}' creado y asignado a su empresa.")
-        else:
-            messages.success(self.request, f"Usuario '{self.object.username}' creado exitosamente.")
-        
-        return response
+        """MODIFICADO: ASIGNAMOS LA EMPRESA ANTES DE GUARDAR"""
+        if not self.request.user.is_superuser:
+            form.instance.empresa = getattr(self.request, 'tenant', None)
+        # La llamada a super().form_valid(form) ahora guarda el usuario con la empresa
+        return super().form_valid(form)
     
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo'] = 'Crear Nuevo Usuario'
         context['nombre_boton'] = 'Crear Usuario'
-        return context
-    
-    
+        return context 
     
     
     
@@ -90,19 +99,29 @@ class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     template_name = 'user_management/user_form.html'
     success_url = reverse_lazy('user_management:user_list')
     permission_required = 'auth.change_user'
+    success_message = "Usuario '%(username)s' actualizado exitosamente."
+    
+    def test_func(self):
+        return es_admin_sistema(self.request.user)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para editar usuarios.")
+        return redirect('user_management:user_list')
+
 
     def get_queryset(self):
-        """
-        Aplica el mismo filtro que la vista de lista. Esto previene que un usuario
-        pueda editar a otro de una empresa diferente adivinando la URL (ej: /users/5/edit/).
-        """
-        qs = super().get_queryset()
+        """MODIFICADO: APLICANDO EL PATRÓN EXACTO DE 'clientes/views.py'"""
+        empresa_actual = getattr(self.request, 'tenant', None)
         if self.request.user.is_superuser:
-            return qs
-        if hasattr(self.request, 'tenant'):
-            user_ids = Vendedor.objects.filter(empresa=self.request.tenant).values_list('user_id', flat=True)
-            return qs.filter(id__in=user_ids)
-        return qs.none()
+            return User.objects.all()
+        if empresa_actual and es_admin_sistema(self.request.user):
+            return User.objects.filter(empresa=empresa_actual)
+        return User.objects.none()
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = getattr(self.request, 'tenant', None)
+        return kwargs
 
 
     def get_context_data(self, **kwargs):
@@ -117,13 +136,6 @@ class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         return response
     
     
-    
-    
-    
-    
-    
-    
-    
 class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = User
     template_name = 'user_management/user_confirm_delete.html'
@@ -134,14 +146,16 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
     def get_queryset(self):
         """
-        Misma protección que en la vista de edición para evitar eliminaciones no autorizadas.
+        MODIFICADO: APLICANDO EL PATRÓN DE FILTRADO DIRECTO.
         """
         qs = super().get_queryset()
         if self.request.user.is_superuser:
-            return qs
-        if hasattr(self.request, 'tenant'):
-            user_ids = Vendedor.objects.filter(empresa=self.request.tenant).values_list('user_id', flat=True)
-            return qs.filter(id__in=user_ids)
+            return qs        
+        
+        empresa_actual = getattr(self.request, 'tenant', None)
+        if empresa_actual:
+            return qs.filter(empresa=empresa_actual) # Filtro directo
+        
         return qs.none()
 
 
@@ -165,19 +179,17 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         if user_to_delete.is_superuser and not request.user.is_superuser:
             raise PermissionDenied("No tienes permiso para eliminar a un superusuario.")
         return super().dispatch(request, *args, **kwargs)
-
-
-    
-    
-    
-    
-    
-    
+   
     
 @login_required
 @permission_required('auth.change_user', raise_exception=True)
 def user_set_password_view(request, pk):
     user_to_change = get_object_or_404(User, pk=pk)
+    
+    empresa_actual = getattr(request, 'tenant', None)
+    if not request.user.is_superuser and empresa_actual:
+        if user_to_change.empresa != empresa_actual:
+            raise PermissionDenied("No tienes permiso para cambiar la contraseña de este usuario.")
     
     if not request.user.is_superuser and hasattr(request, 'tenant'):
         if not Vendedor.objects.filter(user=user_to_change, empresa=request.tenant).exists():

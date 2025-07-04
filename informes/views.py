@@ -16,6 +16,7 @@ from django.contrib import messages
 from bodega.models import ComprobanteDespacho
 from devoluciones.models import DevolucionCliente
 from core.mixins import TenantAwareMixin
+from django.core.exceptions import PermissionDenied
 
 
 ESTADOS_PEDIDO_REPORTEABLES = [
@@ -183,7 +184,11 @@ def reporte_ventas_vendedor(request):
     elif es_vendedor_rol_actual: # No es admin, pero SÍ es vendedor
         print("DEBUG: Usuario es Vendedor.")
         try:
-            vendedor_objeto_contexto = Vendedor.objects.get(user=usuario_actual, empresa=empresa_actual)
+            vendedor_objeto_contexto = Vendedor.objects.get(user=usuario_actual)
+
+            # Validación opcional si quieres reforzar seguridad multi-inquilino:
+            if vendedor_objeto_contexto.user.empresa != empresa_actual:
+                raise PermissionDenied("Este vendedor no pertenece a tu empresa.")
             pedidos_filtrados_final_qs = pedidos_en_rango_fecha_qs.filter(vendedor=vendedor_objeto_contexto)
             print(f"DEBUG: Vendedor - Perfil encontrado: {vendedor_objeto_contexto}. Pedidos: {pedidos_filtrados_final_qs.count()}")
         except Vendedor.DoesNotExist:
@@ -535,7 +540,7 @@ def informe_ingresos_bodega(request):
     return render(request, 'informes/informe_ingresos_bodega.html', context)
 
 @login_required
-@user_passes_test(lambda u: es_factura(u) or es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_factura(u) or es_bodega(u) or es_vendedor(u) or es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 def informe_comprobantes_despacho(request):
     
     empresa_actual = getattr(request, 'tenant', None)
@@ -692,29 +697,16 @@ def informe_total_pedidos(request):
     # Ordenamos el queryset ANOTADO
     pedidos_ordenados = pedidos_qs.order_by('-fecha_hora')
     
-    cantidad_total_pedidos = pedidos_ordenados.count()
-    
-    
-    
-    
-    
-    
+    cantidad_total_pedidos = pedidos_ordenados.count()   
 
     # --- Paginación y Contexto (se mantienen igual) ---
     paginator = Paginator(pedidos_qs, 30)
     page_number = request.GET.get('page')
-    pedidos_page_obj = paginator.get_page(page_number)
-    
-    
-    
-    
-    
-    
-    
+    pedidos_page_obj = paginator.get_page(page_number)    
 
     # Lista de vendedores y estados para los desplegables de filtro.
     lista_vendedores = Vendedor.objects.filter(
-        empresa=empresa_actual,
+        user__empresa=empresa_actual,
         activo=True
     ).select_related('user').order_by('user__first_name')
     lista_estados_filtrada = [estado for estado in Pedido.ESTADO_PEDIDO_CHOICES if estado[0] != 'BORRADOR']

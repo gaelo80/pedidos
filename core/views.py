@@ -3,6 +3,7 @@ import os
 import base64
 import pandas as pd # DESCOMENTA ESTO si tus funciones convertir_... lo usan. Asegúrate que pandas esté instalado.
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.urls import reverse, reverse_lazy, NoReverseMatch # NoReverseMatch es importante
 from django.conf import settings
@@ -41,12 +42,33 @@ ROL_CHECKERS_MAP = {
 # --- CustomLoginView (al principio después de imports) ---
 class CustomLoginView(TenantAwareMixin, LoginView):
     template_name = 'registration/login.html'
+    
+    def form_valid(self, form):
+        user = form.get_user()
+        empresa_actual = self.request.tenant # Usamos el estándar
+
+        # Los superusuarios pueden entrar a cualquier sitio
+        if user.is_superuser:
+            return super().form_valid(form)
+
+        # La validación ahora es una comparación directa y simple
+        if user.empresa and user.empresa == empresa_actual:
+            return super().form_valid(form)
+        else:
+            # Esto cubre usuarios sin empresa o de una empresa incorrecta
+            messages.error(self.request, "No tienes permiso para acceder a este sitio.")
+            return self.form_invalid(form)
+
     def get_success_url(self):
+        """
+        Esta función solo se llamará si form_valid tiene éxito.
+        """
         user = self.request.user
-        # ... (tu lógica completa de get_success_url)
-        if user.is_staff or user.is_superuser: return reverse_lazy('core:index')
-        if es_admin_sistema_app(user): return reverse_lazy('core:index')
-        # ... y así para los otros roles ...
+        if user.is_staff or user.is_superuser:
+            return reverse_lazy('core:index')
+        if es_admin_sistema_app(user):
+            return reverse_lazy('core:index')
+        
         return settings.LOGIN_REDIRECT_URL
 
 # --- Tus funciones de utilidad ---

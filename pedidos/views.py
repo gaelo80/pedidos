@@ -89,11 +89,7 @@ def vista_crear_pedido_web(request, pk=None):
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
-    
-
-    
-    
-    
+        
     vendedor = None
     try:
         if hasattr(request.user, 'perfil_vendedor'):
@@ -103,7 +99,7 @@ def vista_crear_pedido_web(request, pk=None):
         else:
             messages.error(request, "Perfil de vendedor no encontrado y no es usuario administrador.")
             return redirect('core:acceso_denegado')
-        vendedor = Vendedor.objects.filter(user=request.user, empresa=empresa_actual).first()
+        vendedor = Vendedor.objects.filter(user=request.user, user__empresa=empresa_actual).first()
     except Vendedor.DoesNotExist:
         if not (request.user.is_staff or es_admin_sistema_app(request.user)) and not vendedor:
             messages.error(request, "Perfil de vendedor no encontrado para esta empresa.")
@@ -113,12 +109,6 @@ def vista_crear_pedido_web(request, pk=None):
             messages.error(request, "Atributo de perfil de vendedor no encontrado.")
             return redirect('core:acceso_denegado')
         
-        
-        
-        
-        
-        
-
     pedido_instance = None
     detalles_existentes = None
     if pk is not None:
@@ -577,8 +567,10 @@ def generar_pedido_pdf(request, pk):
     
     es_su_pedido = (hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor)
     es_admin_o_staff = request.user.is_superuser or es_admin_sistema(request.user)
+    grupos_autorizados = ['Bodega', 'Cartera', 'Factura']
+    pertenece_a_grupo_autorizado = request.user.groups.filter(name__in=grupos_autorizados).exists()
     
-    if not (es_su_pedido or es_admin_o_staff):
+    if not (es_su_pedido or es_admin_o_staff or pertenece_a_grupo_autorizado):
         messages.error(request, "No tienes permiso para ver este pedido.")
         return redirect('core:acceso_denegado')
 
@@ -611,6 +603,7 @@ def generar_pedido_pdf(request, pk):
         
     context = {
         'pedido': pedido,
+        'empresa_actual': empresa_actual,
         'logo_base64': logo_para_pdf,
         'fecha_generacion': timezone.now(),
         'tasa_iva_pct': int(pedido.IVA_RATE * 100) if hasattr(pedido, 'IVA_RATE') else 19,
@@ -798,11 +791,6 @@ def vista_eliminar_pedido_borrador(request, pk):
 
 @login_required
 def vista_detalle_pedido(request, pk):
-    
-    """
-    Muestra el detalle completo de un pedido, asegurando que pertenezca a la empresa
-    y que el usuario tenga permisos para verlo.
-    """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
@@ -810,20 +798,37 @@ def vista_detalle_pedido(request, pk):
     
     query = Pedido.objects.prefetch_related('detalles__producto', 'cliente', 'vendedor__user')
     pedido = get_object_or_404(query, pk=pk, empresa=empresa_actual)
-    
-        # Lógica de permisos de visualización
-    es_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
-    es_admin = es_admin_sistema_app(request.user) or request.user.is_superuser
-    if not (es_su_pedido or es_admin):
-        messages.error(request, "No tienes permisos para ver el detalle de este pedido.")
-        return redirect('pedidos:lista_pedidos_borrador')
-    
+
+    # --- Reglas de acceso ---
+    es_superuser = request.user.is_superuser
+    es_admin = es_admin_sistema_app(request.user)
+    es_vendedor_y_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
+    estado_borrador = pedido.estado == 'BORRADOR'
+
+    if estado_borrador:
+        if not es_vendedor_y_su_pedido and not es_superuser and not es_admin:
+            messages.error(request, "No tienes permisos para ver este pedido en estado borrador.")
+            return redirect('pedidos:lista_pedidos_borrador')
+    else:
+        if not es_superuser and not es_admin:
+            # Aquí permitimos que usuarios normales (ej. bodega) puedan ver pedidos NO borrador
+            pass  # Permitido
+
+    # --- Cálculo del IVA ---
     iva_porcentaje = Decimal('0.00')
     if hasattr(pedido, 'IVA_RATE') and pedido.IVA_RATE is not None:
-        try: iva_porcentaje = Decimal(pedido.IVA_RATE) * Decimal('100.00')
-        except (TypeError, ValueError): pass
-    context = {'pedido': pedido, 'detalles_pedido': pedido.detalles.all(),
-               'titulo': f'Detalle del Pedido #{pedido.pk}', 'iva_porcentaje': iva_porcentaje}
+        try:
+            iva_porcentaje = Decimal(pedido.IVA_RATE) * Decimal('100.00')
+        except (TypeError, ValueError):
+            pass
+
+    context = {
+        'pedido': pedido,
+        'detalles_pedido': pedido.detalles.all(),
+        'titulo': f'Detalle del Pedido #{pedido.pk}',
+        'iva_porcentaje': iva_porcentaje
+    }
+
     return render(request, 'pedidos/detalle_pedido_template.html', context)
 
 

@@ -12,6 +12,8 @@ PANEL_OPTIONS_CONFIG = [
         'roles_info': ['vendedor', 'admin'], # Mantener para info si se usa en plantilla
         #ok
     },
+    
+    
     {
         'titulo': 'Borradores Guardados',
         'descripcion': 'Aquí encontrarás tus Borradores.',

@@ -6,6 +6,9 @@ from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from django.db import transaction
 from .models import SalidaInternaCabecera
 from .forms import SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
@@ -33,126 +36,109 @@ def vista_despacho_pedido(request, pk):
     
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
-        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")  
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.") 
         return redirect('core:index')
 
-    prefetch_queryset = Pedido.objects.prefetch_related('detalles__producto__unidades')
+    prefetch_queryset = Pedido.objects.prefetch_related('detalles__producto')
     pedido = get_object_or_404(prefetch_queryset, pk=pk, empresa=empresa_actual)
 
     ESTADOS_PERMITIDOS = ['APROBADO_ADMIN', 'PROCESANDO']
 
-    if pedido.estado not in ESTADOS_PERMITIDOS and not request.user.is_superuser: # Superusuario puede forzar
-         messages.warning(request, f"El pedido #{pedido.pk} está en estado '{pedido.get_estado_display()}' y no se puede despachar.")
-         # Redirige a donde tenga sentido, quizás la lista de pedidos de bodega
-         return redirect('bodega:lista_pedidos_bodega') # Ajusta nombre URL
+    if pedido.estado not in ESTADOS_PERMITIDOS and not request.user.is_superuser:
+        messages.info(request, f"El pedido #{pedido.pk} ya fue enviado. Puedes revisar el comprobante generado.")
+        return redirect('bodega:imprimir_comprobante_especifico', pk_comprobante=comprobante.pk)
 
+
+    # --- Lógica POST (cuando se guarda o finaliza) ---
     if request.method == 'POST':
-        print(f"--- VISTA_DESPACHO_PEDIDO (POST) --- Pedido #{pk}")
-        # Indica qué acción se realizó (Guardar Parcial o Finalizar Despacho)
         action = request.POST.get('action', 'guardar_parcial')
 
         try:
             with transaction.atomic():
                 hubo_cambios = False
-                detalles_completos = True # Asumimos inicialmente que todo se despachará
-
-                # Recorrer los detalles del pedido para actualizar cantidades verificadas
+                detalles_completos = True
+                
+                # Tu lógica para actualizar cantidades verificadas está bien.
                 for detalle in pedido.detalles.all():
-                    input_name = f'despachado_{detalle.pk}' # Nombre del input hidden que actualizará el JS
-                    cantidad_despachada_str = request.POST.get(input_name, '0') # Obtener valor del form
+                    input_name = f'despachado_{detalle.pk}'
+                    cantidad_despachada_str = request.POST.get(input_name, str(detalle.cantidad_verificada or 0))
+                    cantidad_despachada_actual = int(cantidad_despachada_str)
 
-                    try:
-                        cantidad_despachada_actual = int(cantidad_despachada_str)
-                        if cantidad_despachada_actual < 0:
-                            raise ValueError("Cantidad despachada no puede ser negativa.")
+                    if cantidad_despachada_actual > detalle.cantidad:
+                         messages.error(request, f"Error en producto {detalle.producto}: Se intentó despachar {cantidad_despachada_actual} pero solo se pidieron {detalle.cantidad}.")
+                         raise transaction.TransactionManagementError("Cantidad despachada excede la pedida.")
 
-                        # Validar que no se despache más de lo pedido
-                        if cantidad_despachada_actual > detalle.cantidad:
-                             messages.error(request, f"Error en producto {detalle.producto}: Se intentó despachar {cantidad_despachada_actual} pero solo se pidieron {detalle.cantidad}.")
-                             raise transaction.TransactionManagementError("Cantidad despachada excede la pedida.")
+                    if detalle.cantidad_verificada != cantidad_despachada_actual:
+                        detalle.cantidad_verificada = cantidad_despachada_actual
+                        detalle.save(update_fields=['cantidad_verificada'])
+                        hubo_cambios = True
 
-                        # Actualizar si el valor es diferente al guardado
-                        if detalle.cantidad_verificada != cantidad_despachada_actual:
-                            detalle.cantidad_verificada = cantidad_despachada_actual
-                            detalle.verificado_bodega = True # Marcar como verificado
-                            detalle.save(update_fields=['cantidad_verificada', 'verificado_bodega'])
-                            hubo_cambios = True
-                            print(f"  Detalle {detalle.pk} actualizado. Cantidad Verificada: {cantidad_despachada_actual}")
+                    if detalle.cantidad_verificada < detalle.cantidad:
+                        detalles_completos = False
 
-                        # Verificar si este detalle quedó completamente despachado
-                        if detalle.cantidad_verificada < detalle.cantidad:
-                             detalles_completos = False # Si alguno falta, el pedido no está completo
-
-                    except (ValueError, TypeError) as e:
-                        messages.error(request, f"Error procesando cantidad para {detalle.producto}: {e}. Se recibió '{cantidad_despachada_str}'.")
-                        raise transaction.TransactionManagementError("Error en datos de cantidad.")
-
-                # --- Actualizar Estado del Pedido ---
-                if hubo_cambios:
-                    estado_anterior = pedido.estado
-                    if action == 'finalizar_despacho':
-                        if detalles_completos:
-                            # Cambia a ENVIADO (o el estado que sigue después del despacho completo)
-                            pedido.estado = 'ENVIADO' # ¡Ajusta este estado!
-                            messages.success(request, f"Pedido #{pedido.pk} marcado como Despachado/Enviado.")
+                # --- Lógica para Finalizar y Crear Comprobante ---
+                if action == 'finalizar_despacho':
+                    if not detalles_completos:
+                        messages.warning(request, f"No se puede finalizar. Faltan ítems por despachar en el Pedido #{pedido.pk}.")
+                    else:
+                        # ✅ CORRECCIÓN 1: LÓGICA PARA CREAR COMPROBANTE AÑADIDA
+                        comprobante, created = ComprobanteDespacho.objects.get_or_create(
+                            pedido=pedido,
+                            empresa=empresa_actual,
+                            defaults={'usuario_responsable': request.user}
+                        )
+                        
+                        if created:
+                            detalles_a_crear = [
+                                DetalleComprobanteDespacho(
+                                    comprobante_despacho=comprobante,
+                                    producto=d.producto,
+                                    cantidad_despachada=d.cantidad_verificada,
+                                    detalle_pedido_origen=d
+                                )
+                                for d in pedido.detalles.filter(cantidad_verificada__gt=0)
+                            ]
+                            DetalleComprobanteDespacho.objects.bulk_create(detalles_a_crear)
+                            
+                            pedido.estado = 'ENVIADO'
+                            pedido.save(update_fields=['estado'])
+                            messages.success(request, f"Comprobante #{comprobante.pk} creado. Pedido #{pedido.pk} marcado como 'Enviado'.")
                         else:
-                            # No se puede finalizar si faltan items
-                            messages.warning(request, f"No se puede finalizar el despacho del Pedido #{pedido.pk} porque faltan ítems por escanear/confirmar.")
-                            # Mantenemos el estado PROCESANDO si ya estaba, o lo cambiamos a PROCESANDO
-                            if pedido.estado == 'PENDIENTE': # Originalmente PENDIENTE_BODEGA?
-                                pedido.estado = 'PROCESANDO'
-                    else: # Guardar Parcial
-                        # Si estaba PENDIENTE y hubo cambios, pasa a PROCESANDO
-                        if pedido.estado == 'PENDIENTE': # Originalmente PENDIENTE_BODEGA?
-                             pedido.estado = 'PROCESANDO'
-                        messages.info(request, f"Despacho parcial guardado para Pedido #{pedido.pk}.")
-
-                    # Guardar cambio de estado si ocurrió
-                    if pedido.estado != estado_anterior:
-                         pedido.save(update_fields=['estado'])
-                         print(f"  Estado del Pedido {pedido.pk} cambiado de '{estado_anterior}' a '{pedido.estado}'")
+                            messages.info(request, f"El Pedido #{pedido.pk} ya tiene un comprobante (#{comprobante.pk}) asociado.")
+                
+                elif hubo_cambios: # Guardado parcial
+                    if pedido.estado != 'PROCESANDO':
+                       pedido.estado = 'PROCESANDO'
+                       pedido.save(update_fields=['estado'])
+                    messages.info(request, f"Despacho parcial del Pedido #{pedido.pk} guardado.")
                 else:
-                    messages.info(request, f"No se detectaron cambios en el despacho para guardar.")
+                    messages.info(request, "No se detectaron cambios para guardar.")
 
-
-            # Redirigir a la misma página después de guardar
-            return redirect('bodega:despacho_pedido', pk=pk) # Ajusta nombre URL
-
-        except transaction.TransactionManagementError as e:
-            print(f"Error de transacción (rollback): {e}")
-            # El mensaje de error ya se añadió antes
-            # Vuelve a renderizar el GET con los datos actuales (no los del POST fallido)
-            pass # Dejar que caiga al render GET de abajo
         except Exception as e:
-            print(f"Error inesperado guardando despacho: {e}")
-            import traceback
-            traceback.print_exc()
-            messages.error(request, f"Error inesperado al guardar el despacho: {e}")
-            # Vuelve a renderizar el GET
+            messages.error(request, f"Ocurrió un error inesperado al guardar: {e}")
+            
+        return redirect('bodega:despacho_pedido', pk=pk)
 
-    # --- Lógica GET (Mostrar el formulario/interfaz) ---
-    detalles_pedido = pedido.detalles.all().order_by('producto__referencia', 'producto__nombre', 'producto__color', 'producto__talla')
-    # Convertir detalles a un formato JSON para usar fácilmente en JavaScript
+    # --- Lógica GET (cuando se muestra la página) ---
+    detalles_pedido = pedido.detalles.all().order_by('producto__referencia', 'producto__talla')
+
+    # ✅ CORRECCIÓN 2: LÓGICA PARA HABILITAR EL BOTÓN 'FINALIZAR'
+    # Calculamos si todas las cantidades ya fueron verificadas
+    cantidades_completas = all(d.cantidad == d.cantidad_verificada for d in detalles_pedido)
+    
     detalles_json = json.dumps([
-        {
-            'id': d.pk,
-            'producto_id': d.producto.pk,
-            'codigo_barras': d.producto.codigo_barras or "", # Incluir código de barras
-            'nombre': str(d.producto), # Usar el __str__ del producto para descripción
-            'cantidad_pedida': d.cantidad,
-            'cantidad_verificada': d.cantidad_verificada or 0
-        }
-        for d in detalles_pedido
+        {'id': d.pk, 'codigo_barras': d.producto.codigo_barras or "", 'cantidad_pedida': d.cantidad, 'cantidad_verificada': d.cantidad_verificada or 0} for d in detalles_pedido
     ])
 
     context = {
         'pedido': pedido,
-        'detalles_pedido': detalles_pedido, # Para la tabla inicial
-        'detalles_json': detalles_json,     # Para el JavaScript
+        'detalles_pedido': detalles_pedido,
+        'detalles_json': detalles_json,
         'titulo': f"Despacho Pedido #{pedido.pk}",
-        'puede_finalizar': pedido.estado in ESTADOS_PERMITIDOS # Lógica simple, podría ser más compleja
+        # La variable ahora depende de si las cantidades están completas Y del estado del pedido
+        'puede_finalizar': cantidades_completas and pedido.estado in ESTADOS_PERMITIDOS
     }
-    return render(request, 'bodega/despacho_pedido.html', context) # Ajusta ruta plantilla
+    return render(request, 'bodega/despacho_pedido.html', context)
 
 
 @login_required
@@ -373,15 +359,7 @@ def vista_verificar_pedido(request, pk):
                             despacho=comprobante_creado
                         )
                         print(f"EstadoFacturaDespacho CREADO para Comprobante ID {comprobante_creado.pk}")
-                        
-                        
-                        
-                        
-                        
-                        
-
-
-                    
+                                   
                     for item_data in items_efectivamente_despachados_para_comprobante:
                         DetalleComprobanteDespacho.objects.create(
                             comprobante_despacho=comprobante_creado,
@@ -528,7 +506,7 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
         'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
     }
     
-    filename = f"Comprobante_Despacho_{empresa_actual.schema_name}_{comprobante.pk}"
+    filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_{comprobante.pk}"
     
     return render_pdf_weasyprint(
         request,
@@ -623,7 +601,7 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
         'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
     }
     
-    filename = f"Comprobante_Despacho_{empresa_actual.schema_name}_P{pedido_obj.pk}_C{comprobante.pk}"
+    filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_P{pedido_obj.pk}_C{comprobante.pk}"
     
     return render_pdf_weasyprint(
         request,
@@ -895,7 +873,7 @@ def descargar_informe_conteo(request, cabecera_id):
         html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
         pdf_file = html.write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
-        filename = f'informe_conteo_{empresa_actual.schema_name}_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf'
+        filename = f'Comprobante_Despacho_Empresa{empresa_actual.pk}_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
@@ -929,7 +907,7 @@ class InformeDespachosView(TenantAwareMixin, LoginRequiredMixin, PermissionRequi
 
         if es_vendedor(user) and not (user.is_superuser or es_admin_sistema(user) or es_factura(user) or es_cartera(user)):
             try:
-                vendedor_actual = Vendedor.objects.get(user=user, empresa=empresa_actual)
+                vendedor_actual = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
                 queryset = queryset.filter(vendedor=vendedor_actual)
             except Vendedor.DoesNotExist:
                 messages.warning(self.request, "Tu usuario no está asociado a un perfil de vendedor.")
@@ -1177,7 +1155,7 @@ def generar_pdf_salida_interna(request, pk):
         'fecha_generacion': timezone.now(),
     }
     
-    filename = f"Salida_Interna_{empresa_actual.schema_name}_{salida_interna.pk}"
+    filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_{salida_interna.pk}"
     
     return render_pdf_weasyprint(
         request,
@@ -1388,7 +1366,7 @@ def generar_pdf_devolucion_salida_interna(request, pk_cabecera):
         'titulo_comprobante': f"Comprobante de Devolución - Salida Interna N° {salida_interna.pk}"
     }
     
-    filename = f"Comprobante_Devolucion_{empresa_actual.schema_name}_{salida_interna.pk}"
+    filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_{salida_interna.pk}"
     
     return render_pdf_weasyprint(
         request,
@@ -1396,3 +1374,56 @@ def generar_pdf_devolucion_salida_interna(request, pk_cabecera):
         context_pdf,
         filename_prefix=filename
     )
+
+
+@csrf_exempt
+@require_POST
+def validar_item_despacho_ajax(request):
+    """
+    Valida un producto escaneado contra un pedido, actualizando la cantidad despachada.
+    Devuelve una respuesta JSON para ser manejada por el frontend.
+    """
+    try:
+        data = json.loads(request.body)
+        pedido_id = data.get('pedido_id')
+        codigo_barras = data.get('codigo_barras')
+
+        if not pedido_id or not codigo_barras:
+            return JsonResponse({'status': 'error', 'message': 'Faltan datos (pedido o código de barras).'}, status=400)
+
+        # 1. Buscar el producto por su código de barras
+        try:
+            # Asegúrate que el campo en tu modelo Producto se llame 'codigo_barras'
+            producto = Producto.objects.get(codigo_barras=codigo_barras, empresa=request.tenant)
+        except Producto.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': f'Código de barras "{codigo_barras}" no encontrado.'}, status=404)
+
+        # 2. Validar si el producto pertenece al pedido
+        detalle = DetallePedido.objects.filter(pedido_id=pedido_id, producto=producto).first()
+
+        if not detalle:
+            return JsonResponse({'status': 'error', 'message': f'El producto "{producto}" no pertenece a este pedido.'}, status=400)
+
+        # 3. Verificar si aún se pueden despachar unidades de este ítem
+        # Usamos el campo 'cantidad_verificada' que tienes en tu input
+        if detalle.cantidad_verificada >= detalle.cantidad:
+            return JsonResponse({
+                'status': 'warning', # Usamos 'warning' para un estado diferente
+                'message': f'Todas las unidades de "{producto}" ya fueron despachadas.',
+                'detalle_id': detalle.pk
+            }, status=200) # Devolvemos 200 para que el success de AJAX lo maneje
+
+        # ¡Éxito! La validación es correcta.
+        # Opcional: Aquí podrías incrementar 'cantidad_verificada' en la BD si quieres persistencia en cada escaneo.
+        # detalle.cantidad_verificada += 1
+        # detalle.save()
+
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Correcto: {producto}',
+            'detalle_id': detalle.pk,
+            'producto_nombre': str(producto)
+        })
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error interno del servidor: {str(e)}'}, status=500)

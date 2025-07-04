@@ -11,40 +11,40 @@ class CustomUserCreationForm(UserCreationForm):
     first_name = forms.CharField(max_length=150, required=False, label='Nombre')
     last_name = forms.CharField(max_length=150, required=False, label='Apellidos')
     
-    tenant = forms.CharField(widget=forms.HiddenInput(), required=False)
-
-    class Meta(UserCreationForm.Meta):
-        model = User
-        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email',)
-
-    def __init__(self, *args, **kwargs):
-        self.tenant = kwargs.pop('tenant', None)
-        super().__init__(*args, **kwargs)
-
-        for field in self.fields.values():
-            field.widget.attrs.update({'class': 'form-control mb-2'})
-
-        if 'groups' in self.fields:
-            # Esta línea es un ejemplo si quisiéramos filtrar. Por ahora no es necesaria.
-            # if self.tenant:
-            #     self.fields['groups'].queryset = Group.objects.filter(empresa=self.tenant)
-            self.fields['groups'].queryset = Group.objects.order_by('name')           
-            
-            
-class CustomUserChangeForm(forms.ModelForm):
-    """
-    Formulario para la edición de usuarios existentes.
-    Permite modificar datos básicos y asignar roles (grupos) y permisos.
-    """    
-    email = forms.EmailField(required=True, help_text='Requerido.')
-    
-        # Campo para asignar los grupos/roles al usuario.
     groups = forms.ModelMultipleChoiceField(
         queryset=Group.objects.all(),
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Roles Asignados"
+        label="Roles a Asignar"
     )
+    
+    tenant = forms.CharField(widget=forms.HiddenInput(), required=False)
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'groups',)
+
+    def __init__(self, *args, **kwargs):        
+        empresa_actual = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        
+        
+
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control mb-2'})
+
+        if empresa_actual:
+            grupos_excluidos = ['Supervisores', 'Gerencia', 'Superusuario']
+            self.fields['groups'].queryset = Group.objects.exclude(name__in=grupos_excluidos)         
+            
+            
+            
+            
+            
+            
+            
+            
+class CustomUserChangeForm(UserChangeForm):
 
     class Meta:
         model = User
@@ -53,33 +53,27 @@ class CustomUserChangeForm(forms.ModelForm):
         
 
     def __init__(self, *args, **kwargs):
+            
+            empresa_actual = kwargs.pop('empresa', None)
+            super().__init__(*args, **kwargs)
+            
+            
+            self.fields.pop('password', None)
 
-        super().__init__(*args, **kwargs)
-
-        # Si el formulario está ligado a una instancia de usuario, establecemos los grupos iniciales.
-        if self.instance.pk:
-            self.fields['groups'].initial = self.instance.groups.all()
-
-        # Aplicamos estilos de Bootstrap
-        for field_name, field in self.fields.items():
-            widget = field.widget
-            if isinstance(widget, forms.CheckboxInput):
-                widget.attrs.update({'class': 'form-check-input'})
-            elif isinstance(widget, forms.CheckboxSelectMultiple):
-                # Dejamos los checkboxes de selección múltiple sin clase para un estilo más limpio
-                pass
-            else:
-                widget.attrs.update({'class': 'form-control mb-2'})
+            
+            for field_name, field in self.fields.items():
+                widget = field.widget
+                if isinstance(widget, forms.CheckboxInput):
+                    widget.attrs.update({'class': 'form-check-input'})
+                elif not isinstance(widget, forms.CheckboxSelectMultiple):
+                    widget.attrs.update({'class': 'form-control mb-2'})
+            
+            
+            if empresa_actual:
+                grupos_excluidos = ['Supervisores', 'Gerencia', 'Superusuario']
+                self.fields['groups'].queryset = Group.objects.exclude(name__in=grupos_excluidos)
                 
-                
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        if commit:
-            user.save()
-            user.groups.set(self.cleaned_data['groups'])
-            self.save_m2m()
-        return user
-       
+        
             
 class AdminSetPasswordForm(SetPasswordForm):
     def __init__(self, user, *args, **kwargs):

@@ -73,7 +73,7 @@ class FotoProducto(models.Model):
         related_name='fotos_agrupadas',
         on_delete=models.CASCADE,
         verbose_name="Artículo por Color (Agrupador de Fotos)",
-        null=True # Se añade para permitir la migración en bases de datos existentes.
+        #null=True # Se añade para permitir la migración en bases de datos existentes.
     )
     imagen = models.ImageField(
         upload_to=ruta_guardado_foto_producto_agrupada,

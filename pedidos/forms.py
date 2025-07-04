@@ -4,6 +4,7 @@ from productos.models import Producto
 from decimal import Decimal
 from clientes.models import Cliente
 from pedidos.models import Pedido, DetallePedido
+from clientes.models import Empresa
 
 # ===================================================================
 # FORMULARIO PARA LA CABECERA DEL PEDIDO
@@ -13,23 +14,28 @@ class PedidoForm(forms.ModelForm):
     Formulario para la cabecera del Pedido (cliente, descuento, notas).
     Asegura que el cliente seleccionado pertenezca a la empresa correcta.
     """
+    
+    referencia = forms.ModelChoiceField(
+        label="Referencia",
+        queryset=Producto.objects.none(),  # lo filtras en __init__
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_referencia'})
+    )
+    
     def __init__(self, *args, **kwargs):
-        """
-        Filtra el queryset del campo 'cliente' según la empresa (tenant)
-        proporcionada desde la vista.
-        """
-        # 1. Extraemos el argumento 'empresa' que la vista debe pasar.
-        empresa_actual = kwargs.pop('empresa', None)
+        empresa = kwargs.pop('empresa', None)
         super().__init__(*args, **kwargs)
 
-        # 2. Es una medida de seguridad fallar si no se proporciona la empresa.
-        if empresa_actual is None:
-            raise ValueError("El formulario PedidoForm debe recibir un argumento 'empresa'.")
+        if empresa is None:
+            raise ValueError("Se requiere 'empresa' para inicializar PedidoForm.")
 
-        # 3. Modificamos el queryset del campo 'cliente' para filtrar por empresa.
-        self.fields['cliente'].queryset = Cliente.objects.filter(
-            empresa=empresa_actual
-        ).order_by('nombre_completo')
+        self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
+
+        referencias_unicas = Producto.objects.filter(empresa=empresa).values_list('referencia', flat=True).distinct()
+        self.fields['referencia'].queryset = Producto.objects.filter(
+            empresa=empresa,
+            referencia__in=referencias_unicas
+        ).order_by('referencia')
 
     class Meta:
         # Define el modelo y los campos que se usarán, siguiendo las buenas prácticas.
@@ -77,13 +83,21 @@ class DetallePedidoForm(forms.ModelForm):
                 f"El producto '{producto}' no es válido para esta empresa."
             )
         return cleaned_data
+    
+    cantidad = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'})
+    )
 
     class Meta:
         model = DetallePedido
         fields = ['producto', 'cantidad']
         # El producto se maneja como un campo oculto porque la interfaz
         # de la matriz lo asigna. La seguridad está en el método clean().
-        widgets = {'producto': forms.HiddenInput()}
+        widgets = {
+            'producto': forms.Select(attrs={'class': 'form-control'})
+        }
+
 
 
 # ===================================================================

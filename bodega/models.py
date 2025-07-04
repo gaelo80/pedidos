@@ -7,9 +7,6 @@ from decimal import ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from clientes.models import Empresa
 
-
-
-
 class IngresoBodega(models.Model):
         """Representa un ingreso de mercancía a la bodega."""
     
@@ -24,7 +21,10 @@ class IngresoBodega(models.Model):
         fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora Ingreso")
         proveedor_info = models.CharField(max_length=200, blank=True, null=True, verbose_name="Información Proveedor/Origen")
         documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento Referencia (Factura Compra, Remisión, etc.)")
-        usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='ingresos_registrados', verbose_name="Usuario Registrador")
+        
+        usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='ingresos_registrados', verbose_name="Usuario Registrador")
+        
+        
         notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales")
 
         def __str__(self):
@@ -47,11 +47,15 @@ class DetalleIngresoBodega(models.Model):
 
     def clean(self):
         super().clean()
-        if self.ingreso.empresa and self.producto.empresa != self.ingreso.empresa:
+        
+        ingreso_empresa = getattr(self.ingreso, 'empresa', None) if self.ingreso_id else None
+        producto_empresa = getattr(self.producto, 'empresa', None) if self.producto_id else None
+
+        if ingreso_empresa and producto_empresa and ingreso_empresa != producto_empresa:
             raise ValidationError("El producto no pertenece a la misma empresa que el ingreso de bodega.")
+               
 
     def save(self, *args, **kwargs):
-        self.clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -125,7 +129,7 @@ class MovimientoInventario(models.Model):
         cantidad = models.IntegerField(verbose_name="Cantidad Movida")
         tipo_movimiento = models.CharField(max_length=35, choices=TIPO_MOVIMIENTO_CHOICES, verbose_name="Tipo de Movimiento")
         fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora")
-        usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimientos_registrados', verbose_name="Usuario Registrador")
+        usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimientos_registrados', verbose_name="Usuario Registrador")
         documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento Referencia (ID Pedido, Factura, etc.)")
         notas = models.TextField(blank=True, null=True, verbose_name="Notas")
 
@@ -153,6 +157,7 @@ class CabeceraConteo(models.Model):
         related_name='conteos_inventario',
         verbose_name="Empresa",
         #null=True
+        #default=1
     )
     
 
@@ -288,6 +293,7 @@ class ComprobanteDespacho(models.Model):
         related_name='comprobantes_despacho',
         verbose_name="Pedido Asociado",
         #null=True
+        
     )
     
     empresa = models.ForeignKey(
@@ -310,12 +316,9 @@ class ComprobanteDespacho(models.Model):
         related_name='comprobantes_despachados',
         verbose_name="Usuario Responsable (Bodega)"
     )
-    # Podrías añadir un número de comprobante secuencial si lo necesitas
-    # numero_comprobante = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    notas = models.TextField(blank=True, null=True, verbose_name="Notas del Despacho")
-    # Un campo para indicar si este comprobante completó el pedido (opcional, para referencia)
-    # completo_pedido = models.BooleanField(default=False, verbose_name="¿Completó el Pedido?")
 
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas del Despacho")
+    
     def save(self, *args, **kwargs):
         if not self.empresa_id and self.pedido_id:
             self.empresa = self.pedido.empresa

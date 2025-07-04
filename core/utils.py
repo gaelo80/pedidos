@@ -10,42 +10,30 @@ from django.contrib import messages
 from django.utils import timezone
 
 
-def get_logo_base_64_despacho():
-    # Ajusta esta ruta para que sea relativa a una carpeta 'static' de tu app 'core'
-    # Por ejemplo, si tu logo está en 'core/static/core/img/logo.jpg',
-    # la ruta para finders.find sería 'core/img/logo.jpg'.
-    path_relativo_a_static = 'core/img/logo.jpg' # ¡¡¡AJUSTA ESTO!!!
-    print(f"DEBUG (get_logo_base64): Buscando logo con path_relativo_a_static: '{path_relativo_a_static}'")
-
-    logo_path_abs = finders.find(path_relativo_a_static)
-
-    if not logo_path_abs:
-        print(f"ERROR (get_logo_base_64): Logo NO ENCONTRADO usando staticfiles finders para '{path_relativo_a_static}'.")
-        print("Verifica que la app 'core' esté en INSTALLED_APPS y la ruta al logo sea correcta dentro de 'core/static/'.")
-        # Puedes añadir un fallback si es absolutamente necesario, pero finders es lo preferido.
+def get_logo_base_64_despacho(empresa):
+    """
+    Retorna el logo en base64 para una empresa dada, si tiene uno.
+    """
+    if not empresa or not empresa.logo:
+        print("DEBUG: Empresa no tiene logo asignado.")
         return None
 
-    if not os.path.exists(logo_path_abs):
-        print(f"ERROR (get_logo_base_64): El archivo de logo NO EXISTE en la ruta absoluta resuelta: {logo_path_abs}")
-        return None
     try:
-        with open(logo_path_abs, "rb") as image_file:
+        with empresa.logo.open('rb') as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
 
-        filename_lower = logo_path_abs.lower()
+        filename_lower = empresa.logo.name.lower()
         if filename_lower.endswith((".jpg", ".jpeg")):
             image_type = "image/jpeg"
         elif filename_lower.endswith(".png"):
             image_type = "image/png"
-        # ... (otros tipos si es necesario) ...
         else:
-            print(f"Advertencia (get_logo_base_64): Tipo de imagen desconocido. Usando image/jpeg.")
-            image_type = "image/jpeg" 
+            image_type = "image/jpeg"  # Fallback
 
-        print(f"DEBUG (get_logo_base_64): Logo cargado desde {logo_path_abs}, tipo: {image_type}")
+        print(f"DEBUG: Logo cargado dinámicamente para empresa '{empresa.nombre}'")
         return f"data:{image_type};base64,{encoded_string}"
     except Exception as e:
-        print(f"Excepción al procesar el logo en get_logo_base_64_despacho: {e}")
+        print(f"Error al leer el logo para la empresa '{empresa.nombre}': {e}")
         return None
 
 def render_pdf_weasyprint(request, template_src, context_dict={}, filename_prefix="documento"):

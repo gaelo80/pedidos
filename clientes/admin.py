@@ -77,6 +77,16 @@ class ClienteAdmin(ImportExportModelAdmin):
         
         # El modelo se encargará de validar que la empresa no sea nula antes de guardar.
         super().save_model(request, obj, form, change)
+        
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser  # o la condición que necesites
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+    
+    def has_view_permission(self, request, obj=None):
+        return request.user.has_perm('clientes.view_cliente')
+
 
     @admin.display(description='Empresa', ordering='empresa__nombre')
     def get_empresa_nombre(self, obj):

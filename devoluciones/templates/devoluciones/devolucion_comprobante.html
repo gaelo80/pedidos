@@ -4,7 +4,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <h1 style="color: #007bff;">Comprobante Devolución N° {{ devolucion.pk }}</h1>
+  
 
     <style type="text/css">
         /* --- Colores (Valores directos) --- */
@@ -164,15 +164,24 @@
 
 <body>
     <div id="header_content">
-        {% if logo_base64 %}
-        <img src="{{ logo_base64 }}" alt="Logo" class="logo">
-        {% endif %}
-        <div class="company-details">
-            <strong>Louis Ferry SAS</strong> - responsable de IVA<br>
-            Carrera 56 B N° 49-45 Edf Bitania 1 Piso 6, Medellín - Colombia<br>
-            Tel: 604 407 60 65 | Cel: 317 437 36 62 | secretaria.louisferrysas@outlook.es
-        </div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                <div class="logo-container" style="flex: 0 0 auto;">
+                {% if empresa.logo %}
+                    <img src="{{ empresa.logo.url }}" alt="Logo de {{ empresa.nombre }}" style="max-height: 120px;">
+                {% else %}
+                    <p><em>No hay logo disponible.</em></p>
+                {% endif %}
+                </div>
+            <!-- Si tienes info de la empresa a la derecha -->
+                <div class="company-details" style="text-align: center;">
+                    <strong>{{ empresa.nombre }}</strong><br>
+                    {{ empresa.direccion }}<br>
+                    Tel: {{ empresa.telefono }}<br>
+                    {% if empresa.nit %}NIT: {{ empresa.nit }}{% endif %}
+                </div>
+            </div>
     </div>
+      <h1 style="color: #007bff; text-align: center;">Comprobante Devolución N° {{ devolucion.pk }}</h1>
     <br>
 
     <div id="footer_content">

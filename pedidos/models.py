@@ -17,7 +17,7 @@ class Pedido(models.Model):
         on_delete=models.CASCADE, 
         related_name='pedidos',
         verbose_name="Empresa",
-        null=True
+        #null=True
     )
     
     ESTADO_PEDIDO_CHOICES = [
@@ -53,25 +53,22 @@ class Pedido(models.Model):
     
     def clean(self):
         super().clean()
-        # --- REFUERZO DE SEGURIDAD ---
-        # Si el pedido tiene una empresa asignada, se valida la consistencia.
-        if self.empresa:
+        empresa = getattr(self, 'empresa', None)
+        if empresa:
             if self.cliente and self.cliente.empresa_id != self.empresa_id:
-                raise ValidationError(f"El cliente '{self.cliente}' no pertenece a la empresa '{self.empresa}'.")
-            
-            if self.vendedor and self.vendedor.empresa_id != self.empresa_id:
-                raise ValidationError(f"El vendedor '{self.vendedor}' no pertenece a la empresa '{self.empresa}'.")
+                raise ValidationError(f"El cliente '{self.cliente}' no pertenece a la empresa '{empresa}'.")
 
+            if self.vendedor and hasattr(self.vendedor.user, 'empresa') and self.vendedor.user.empresa_id != self.empresa_id:
+                raise ValidationError(f"El vendedor '{self.vendedor}' no pertenece a la empresa '{empresa}'.")
+            
+            
     def save(self, *args, **kwargs):
-        # --- LÓGICA DE AUTO-ASIGNACIÓN ---
-        # Si no tiene empresa, intenta asignarla desde el cliente o vendedor.
         if not self.empresa_id:
             if self.cliente and self.cliente.empresa_id:
                 self.empresa_id = self.cliente.empresa_id
             elif self.vendedor and self.vendedor.empresa_id:
                 self.empresa_id = self.vendedor.empresa_id
-        
-        self.clean()
+
         super().save(*args, **kwargs)
 
     @property

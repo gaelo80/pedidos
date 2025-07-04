@@ -46,27 +46,28 @@ class DevolucionCliente(models.Model):
         verbose_name="Usuario que Procesa"
     )
 
-    def clean(self):
-        """
-        <<< REFUERZO DE SEGURIDAD E INTEGRIDAD >>>
-        Validaciones para asegurar la consistencia de datos entre inquilinos.
-        """
+    def clean(self):  
         super().clean()
-        # 1. Validar que el cliente pertenezca a la misma empresa que la devolución.
-        if self.cliente_id and self.cliente.empresa_id != self.empresa_id:
-            raise ValidationError({
-                'cliente': f"El cliente '{self.cliente}' no pertenece a la empresa '{self.empresa}'."
-            })
-        
-        # 2. Validar que el pedido original (si existe) pertenezca a la misma empresa.
-        if self.pedido_original_id and self.pedido_original.empresa_id != self.empresa_id:
-            raise ValidationError({
-                'pedido_original': f"El pedido #{self.pedido_original_id} no pertenece a la empresa '{self.empresa}'."
-            })
-            
+        if self.empresa_id:
+            if self.cliente_id and self.cliente.empresa_id != self.empresa_id:
+                raise ValidationError({
+                    'cliente': f"El cliente '{self.cliente}' no pertenece a la empresa '{self.empresa}'."
+                })
+
+            if self.pedido_original_id and self.pedido_original.empresa_id != self.empresa_id:
+                raise ValidationError({
+                    'pedido_original': f"El pedido #{self.pedido_original_id} no pertenece a la empresa '{self.empresa}'."
+                })
+                
     def save(self, *args, **kwargs):
-        # Ejecuta las validaciones antes de intentar guardar.
-        self.clean()
+        # Si aún no se ha definido empresa, intenta deducirla del cliente o pedido
+        if not self.empresa_id:
+            if self.cliente_id:
+                self.empresa_id = self.cliente.empresa_id
+            elif self.pedido_original_id:
+                self.empresa_id = self.pedido_original.empresa_id
+
+        self.full_clean()  # Esto llama a .clean() y asegura validación completa
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1811,44 +1811,32 @@ if (btnMostrarInfoCliente.length > 0) {
         console.warn("Contenedor #tallas-grid-container no encontrado para añadir listeners focus/blur.");
     }
 
+$(document).ready(function() {
     const descuentoElement = $('#id_porcentaje_descuento');
 
     if (descuentoElement.length > 0 && descuentoElement.is('input')) {
 
         console.log("Añadiendo listeners focus/blur para input de descuento (#id_porcentaje_descuento).");
-    
-        // Evento FOCUS: Cuando el usuario entra en el input de descuento
+
+        // Evento FOCUS
         descuentoElement.on('focus', function() {
             const input = $(this);
-            // Si el valor actual es '0', lo limpiamos
-            if (input.val() === '0') {
+            if (parseFloat(input.val()) === 0) {
                 input.val('');
             }
         });
-    
-        // Evento BLUR: Cuando el usuario sale del input de descuento
+
+        // Evento BLUR
         descuentoElement.on('blur', function() {
             const input = $(this);
-            // Si el valor está vacío (después de quitar espacios), lo volvemos a poner a '0'
             if (input.val().trim() === '') {
-                input.val('0');
+                input.val('0.00');
             }
-    
-            // IMPORTANTE: Disparar manualmente el evento 'change'.
-            // Tu código ya escucha el evento 'change' en este elemento
-            // para recalcular los totales del pedido (con la función
-            // actualizarTodosLosSubtotalesYTotalGeneral).
-            // Necesitamos dispararlo aquí para que esos cálculos se hagan
-            // si el valor se restablece a '0' al salir del campo.
-            console.log("Disparando 'change' en input de descuento después de blur."); // Mensaje para depuración
+            console.log("Disparando 'change' en input de descuento después de blur.");
             input.trigger('change');
         });
-    
-    } else if (descuentoElement.length > 0) {
-        console.log("El elemento #id_porcentaje_descuento existe, pero no es un <input>. No se aplican listeners focus/blur.");
-    } else {
-        console.warn("Elemento #id_porcentaje_descuento no encontrado.");
     }
+});
 
     // --- Cargar Detalles Iniciales (si se está editando un borrador) ---
     cargarDetallesIniciales();

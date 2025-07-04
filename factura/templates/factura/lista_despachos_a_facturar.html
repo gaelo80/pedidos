@@ -58,9 +58,9 @@
                             {# Asume que la URL en bodega se llama 'comprobante_despacho_pdf' #}
                             {# y que toma el pk del ComprobanteDespacho como argumento 'comprobante_id'. #}
                             {# Ajusta si tu URL o el nombre del argumento es diferente. #}
-                            <a href="{% url 'bodega:generar_comprobante_despacho' pk=despacho.pk %}" target="_blank" title="Ver Comprobante PDF">
-                                {{ despacho.pk }} <i class="fas fa-file-pdf text-danger"></i>
-                            </a>
+                        <a href="{% url 'bodega:imprimir_comprobante_especifico' pk_comprobante=despacho.pk %}" target="_blank" title="Ver Comprobante PDF">
+                            {{ despacho.pk }} <i class="fas fa-file-pdf text-danger"></i>
+                        </a>
                         </td>
                         <td>{{ despacho.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
                         <td>

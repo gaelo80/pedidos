@@ -8,15 +8,7 @@
 {# Ya NO necesitas los <link> a Bootstrap CSS y Lightbox CSS aquí, porque están en base_publica.html #}
 
 {% block content %}
-    <div class="row">
-        <div class="col-md-8">
-        </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
-            </a>
-        </div>
-    </div>
+
 <div class="container mt-4">
     <h1 class="mb-4 text-white">{{ titulo|default:"Catálogo Disponible" }}</h1>
 
@@ -58,7 +50,7 @@
                             </div>
                         {% else %}
                             {# Imagen placeholder si no hay fotos #}
-                            <img src="{% static 'core/img/placeholder_image.png' %}" class="card-img-top" alt="Imagen no disponible" style="aspect-ratio: 1 / 1; object-fit: cover;">
+                            <img src="{% static 'core/img/placeholder_image.jpg' %}" class="card-img-top" alt="Imagen no disponible" style="aspect-ratio: 1 / 1; object-fit: cover;">
                         {% endif %}
                         {# --- FIN DE LA SECCIÓN DE IMAGEN --- #}
 

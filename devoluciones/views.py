@@ -180,3 +180,7 @@ def vista_detalle_devolucion(request, pk):
     }
     
     return render(request, 'devoluciones/devolucion_detalle.html', context)
+
+def vista_mi_template(request):
+    empresa = request.user.empresa  # la empresa del usuario autenticado
+    return render(request, 'mi_template.html', {'empresa': empresa})

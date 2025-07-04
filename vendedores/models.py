@@ -8,20 +8,12 @@ class Vendedor(models.Model):
     Representa a un vendedor o empleado.
     Este modelo está ligado a una Empresa específica (inquilino).
     """
-
-    # --- CORRECCIÓN PARA LA MIGRACIÓN ---
-    # Se añade null=True para permitir que las filas existentes en la base de datos
-    # tengan este campo vacío temporalmente.
-    empresa = models.ForeignKey(
-        'clientes.Empresa', 
-        on_delete=models.CASCADE, 
-        verbose_name="Empresa",
-        related_name='vendedores',
-        null=True
-    )
     
     # El OneToOneField ya asegura que un usuario solo puede tener un perfil de vendedor
     # en todo el sistema. La restricción en Meta asegura que también sea único por empresa.
+    
+    
+    
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -35,25 +27,16 @@ class Vendedor(models.Model):
     def __str__(self):
         nombre_completo = self.user.get_full_name()
         nombre_display = nombre_completo if nombre_completo else self.user.username
-        empresa_str = self.empresa.nombre if self.empresa else "Sin Empresa"
+        empresa_str = self.user.empresa.nombre if self.user.empresa else "Global"        
         return f"{nombre_display} ({empresa_str})"
 
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
-        ordering = ['empresa', 'user__first_name', 'user__last_name']
+        ordering = ['user__first_name', 'user__last_name']
+        
+    @property
+    def empresa(self):
+        return self.user.empresa
 
-        constraints = [
-            # Un código de vendedor interno debe ser único dentro de una misma empresa.
-            models.UniqueConstraint(
-                fields=['empresa', 'codigo_interno'], 
-                name='unique_codigo_vendedor_por_empresa',
-                condition=models.Q(codigo_interno__isnull=False)
-            ),
-            # Un usuario solo puede ser vendedor para una empresa.
-            # Esta restricción es una capa extra de seguridad sobre el OneToOneField.
-            models.UniqueConstraint(
-                fields=['empresa', 'user'],
-                name='unique_usuario_vendedor_por_empresa'
-            )
-        ]
+

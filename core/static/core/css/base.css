@@ -331,6 +331,15 @@
             margin-left: 0; 
         }
     }
+    .highlight-success {
+        animation: flashSuccess 1s ease;
+        background-color: #d1e7dd !important; /* Verde suave Bootstrap */
+    }
+    @keyframes flashSuccess {
+        0%   { background-color: #d1e7dd; }
+        50%  { background-color: #bcd0c7; }
+        100% { background-color: #d1e7dd; }
+    }
 
     /* Estilos para mensajes de Django (adaptación básica) */
     .alert { /* Estilo base para las alertas de Bootstrap que usas en messages.html */

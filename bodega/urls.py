@@ -26,5 +26,6 @@ urlpatterns = [
      path('salidas-internas/<int:pk>/pdf/', views.generar_pdf_salida_interna, name='generar_pdf_salida_interna'),
      path('salidas-internas/<int:pk_cabecera>/registrar-devolucion/', views.registrar_devolucion_salida_interna, name='registrar_devolucion_salida_interna'),
      path('salidas-internas/<int:pk_cabecera>/pdf-devolucion/', views.generar_pdf_devolucion_salida_interna, name='generar_pdf_devolucion_salida_interna'),
+     path('despacho/validar_item/', views.validar_item_despacho_ajax, name='validar_item_despacho_ajax'),
           
 ]

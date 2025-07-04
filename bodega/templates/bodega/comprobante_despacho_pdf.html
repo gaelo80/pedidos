@@ -135,15 +135,11 @@
     {# --- Cabecera con Logo y Datos de la Empresa (de tu plantilla original) --- #}
     <div id="header_content">
         {% if logo_base64 %}
-            <img src="{{ logo_base64 }}" alt="Logo de la Empresa" class="logo">
+            <img src="{{ logo_base64 }}" alt="Logo de la Empresa" style="width: 180px; height: auto;">
+
         {% else %}
              {% endif %}
-        <div class="company-details">
-            <strong>Louis Ferry SAS</strong> - responsable de IVA<br>
-            Carrera 56 B N° 49-45 Edf Bitania 1 Piso 6, Medellín - Colombia<br>
-            Tel: 604 407 60 65 | Cel: 317 437 36 62 | secretaria.louisferrysas@outlook.es
-        </div>
-    </div>
+
 
     {# --- Título del Comprobante y Número de Pedido --- #}
     <h1 class="comprobante-title">COMPROBANTE DE DESPACHO</h1>
@@ -152,24 +148,28 @@
     </p>
 
     {# --- Información del Pedido y Despacho (usando tu estructura de .info-table) --- #}
-    <table class="info-table section">
-        <tr>
-            <td style="width: 60%; padding-right: 10px; vertical-align: top;">
-                <h3>Cliente</h3>
-                <p><strong>Nombre:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
-                <p><strong>ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
-                {% if pedido.cliente.telefono %}<p><strong>Teléfono:</strong> {{ pedido.cliente.telefono }}</p>{% endif %}
-                {% if pedido.cliente.direccion %}<p><strong>Dirección:</strong> {{ pedido.cliente.direccion }}{% if pedido.cliente.ciudad %}, {{ pedido.cliente.ciudad.nombre }}{% endif %}</p>{% endif %}
-            </td>
-            <td style="width: 40%; padding-left: 10px; vertical-align: top;">
-                <h3>Datos del Despacho</h3>
-                <p><strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
-                <p><strong>Fecha Despacho:</strong> {{ fecha_despacho|date:"d/m/Y H:i:s" }}</p>
-                <p><strong>Vendedor:</strong> {{ pedido.vendedor|default:"N/A" }}</p>
-                <p><strong>Estado Pedido:</strong> {{ pedido.get_estado_display }}</p>
-            </td>
-        </tr>
-    </table>
+<table class="info-table section" style="width: 100%; table-layout: fixed;">
+    <tr>
+        <td style="width: 50%; text-align: left; padding-right: 15px; vertical-align: top;">
+            <h3>Cliente</h3>
+            <p><strong>Nombre:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
+            <p><strong>ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
+            {% if pedido.cliente.telefono %}
+                <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono }}</p>
+            {% endif %}
+            {% if pedido.cliente.direccion %}
+                <p><strong>Dirección:</strong> {{ pedido.cliente.direccion }}{% if pedido.cliente.ciudad %}, {{ pedido.cliente.ciudad.nombre }}{% endif %}</p>
+            {% endif %}
+        </td>
+        <td style="width: 50%; text-align: right; padding-left: 15px; vertical-align: top;">
+            <h3>Datos del Despacho</h3>
+            <p><strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
+            <p><strong>Fecha Despacho:</strong> {{ fecha_despacho|date:"d/m/Y H:i:s" }}</p>
+            <p><strong>Vendedor:</strong> {{ pedido.vendedor|default:"N/A" }}</p>
+            <p><strong>Estado Pedido:</strong> {{ pedido.get_estado_display }}</p>
+        </td>
+    </tr>
+</table>
 
     {# --- Tabla de Artículos Despachados --- #}
     <h3>Artículos Despachados en esta Entrega</h3>

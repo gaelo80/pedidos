@@ -283,7 +283,7 @@ def reporte_cartera_general(request):
     if not puede_filtrar_por_vendedor_dropdown and es_vendedor(user):
         # Si es un vendedor (y no admin/cartera con capacidad de elegir), filtra por su propio código
         try:
-            vendedor_actual = Vendedor.objects.get(user=user, empresa=empresa_actual)
+            vendedor_actual = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
             if vendedor_actual.codigo_interno:
                 codigo_vendedor_para_filtrar = str(vendedor_actual.codigo_interno)
                 titulo_dinamico = f"Cartera de: {vendedor_actual.user.get_full_name() or vendedor_actual.user.username}"
@@ -299,7 +299,7 @@ def reporte_cartera_general(request):
         try:
             vendedor_obj_seleccionado = Vendedor.objects.get(
                 pk=int(vendedor_seleccionado_id_get),
-                empresa=empresa_actual
+                user__empresa=empresa_actual
             ) 
             if vendedor_obj_seleccionado.codigo_interno:
                 codigo_vendedor_para_filtrar = str(vendedor_obj_seleccionado.codigo_interno)
@@ -346,8 +346,8 @@ def reporte_cartera_general(request):
     # --- Lista de vendedores para el dropdown (solo para admin/cartera) ---
     vendedores_para_dropdown = None
     if puede_filtrar_por_vendedor_dropdown:
-        vendedores_para_dropdown = Vendedor.objects.filter(
-            empresa=empresa_actual,
+        vendedores_para_dropdown = Vendedor.objects.filter(            
+            user__empresa=empresa_actual,
             activo=True
             ).select_related('user').order_by('user__first_name', 'user__last_name')
 

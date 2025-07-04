@@ -1,60 +1,38 @@
+# vendedores/admin.py
 from django.contrib import admin
 from .models import Vendedor
 
 @admin.register(Vendedor)
 class VendedorAdmin(admin.ModelAdmin):
     
-    list_display = ('__str__', 'telefono_contacto', 'codigo_interno', 'activo', 'empresa')
+    # 1. MOSTRAMOS LA EMPRESA A TRAVÉS DE UN MÉTODO
+    list_display = ('user', 'get_empresa_del_usuario', 'telefono_contacto', 'codigo_interno', 'activo')
     
-    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'codigo_interno', 'empresa__nombre')
-    
-
-    list_filter = ('empresa', 'activo')
-    
+    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'codigo_interno')
+    list_filter = ('activo',)
     list_per_page = 25
 
+    # 2. USAMOS 'fields' PARA DEFINIR UN FORMULARIO SIMPLE SIN EL CAMPO 'empresa'
+    fields = ('user', 'telefono_contacto', 'codigo_interno', 'activo')
 
+    # 3. CORREGIMOS EL FILTRADO DEL QUERYSET
     def get_queryset(self, request):
-        """
-        Filtra los objetos que se muestran en la lista principal del admin.
-        - Si el usuario es un superadministrador, ve todos los objetos.
-        - Si es un usuario normal, solo ve los de su propia empresa.
-        """
         qs = super().get_queryset(request)
-
         if request.user.is_superuser:
             return qs
 
-        if hasattr(request, 'tenant'):
-            return qs.filter(empresa=request.tenant)        
-
+        empresa_actual = getattr(request, 'tenant', None)
+        if empresa_actual:
+            # Filtramos a través de la relación: Vendedor -> User -> Empresa
+            return qs.filter(user__empresa=empresa_actual)
+        
         return qs.none()
 
-    def save_model(self, request, obj, form, change):
-        """
-        Asegura que al crear un nuevo Vendedor, se le asigne la empresa correcta.
-        """
-
-        if not obj.pk and not request.user.is_superuser:
-            if hasattr(request, 'tenant'):
-                obj.empresa = request.tenant
-        
-        super().save_model(request, obj, form, change)
-
-    def get_fieldsets(self, request, obj=None):
-        """
-        Controla qué campos se muestran en el formulario de edición/creación.
-        """
-
-        fieldsets = (
-            (None, {'fields': ('empresa', 'user', 'activo')}),
-            ('Información Adicional', {'fields': ('telefono_contacto', 'codigo_interno')}),
-        )        
-
-        if not request.user.is_superuser:
-            fieldsets = (
-                (None, {'fields': ('user', 'activo')}),
-                ('Información Adicional', {'fields': ('telefono_contacto', 'codigo_interno')}),
-            )
-            
-        return fieldsets
+    # 4. AÑADIMOS EL MÉTODO PARA MOSTRAR LA EMPRESA EN LA LISTA
+    def get_empresa_del_usuario(self, obj):
+        # Accedemos a la empresa a través del usuario vinculado
+        if obj.user and obj.user.empresa:
+            return obj.user.empresa.nombre
+        return "Sin Empresa Asignada"
+    get_empresa_del_usuario.short_description = 'Empresa'
+    get_empresa_del_usuario.admin_order_field = 'user__empresa'

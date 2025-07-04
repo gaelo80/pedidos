@@ -99,7 +99,7 @@ INSTALLED_APPS = [
     
         
         # MIS APPS
-        'core',
+        'core.apps.CoreConfig',
         'productos',
         'clientes',
         'vendedores',
@@ -121,6 +121,7 @@ INSTALLED_APPS = [
         'crispy_forms',  
         'crispy_bootstrap5',
         'widget_tweaks',
+        'bootstrap4',
        
     ]
 
@@ -149,12 +150,14 @@ TEMPLATES = [
                     'django.template.context_processors.request',
                     'django.contrib.auth.context_processors.auth',
                     'django.contrib.messages.context_processors.messages',
+                    'core.context_processors.empresa_context',
                 ],
             },
         },
     ]
 
 WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 
     # Database
@@ -188,6 +191,7 @@ AUTH_PASSWORD_VALIDATORS = [
         },
     ]
 
+AUTH_USER_MODEL = 'core.User'
 
     # Internationalization
     # https://docs.djangoproject.com/en/5.1/topics/i18n/
