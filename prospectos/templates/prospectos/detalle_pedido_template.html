@@ -1,0 +1,168 @@
+{% extends 'core/base.html' %} {# O tu plantilla base principal #}
+{% load humanize %} {# Para filtros como intcomma #}
+{% load static %} {# Si necesitas archivos estáticos específicos aquí #}
+
+{% block page_title %}{{ titulo|default:"Detalle de Pedido" }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ titulo }}</h4>
+                <div>
+                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-danger btn-sm" target="_blank">
+                        <i class="fas fa-file-pdf me-1"></i>Generar PDF
+                    </a>
+                    {% if pedido.estado == 'BORRADOR' %}
+                        <a href="{% url 'pedidos:editar_pedido_web' pedido.pk %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit me-1"></i>Editar Pedido
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {# Información General del Pedido #}
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Datos del Cliente</h5>
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
+                    <p><strong>Identificación:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
+                    <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono|default:"N/A" }}</p>
+                    <p><strong>Email:</strong> {{ pedido.cliente.email|default:"N/A" }}</p>
+                    <p><strong>Dirección:</strong> {{ pedido.cliente.direccion|default:"" }}{% if pedido.cliente.ciudad %}, {{ pedido.cliente.ciudad.nombre }}{% endif %}</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Datos del Pedido</h5>
+                    <p><strong>Pedido N°:</strong> {{ pedido.pk }}</p>
+                    <p><strong>Fecha y Hora:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i:s" }}</p>
+                    <p><strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</p>
+                    <p><strong>Estado:</strong> <span class="badge bg-primary">{{ pedido.get_estado_display }}</span></p>
+                </div>
+            </div>
+
+            {# Detalles del Pedido (Productos) #}
+            <h5 class="mt-4">Productos en el Pedido</h5>
+            {% if detalles_pedido %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-striped">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto (Referencia)</th>
+                                <th>Descripción</th>
+                                <th>Color</th>
+                                <th>Talla</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Precio Unit. (IVA Incl.)</th>
+                                <th class="text-end">Subtotal (IVA Incl.)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detalle in detalles_pedido %}
+                            <tr>
+                                <td>{{ detalle.producto.referencia|default:"N/A" }}</td>
+                                <td>{{ detalle.producto.nombre }}</td>
+                                <td>{{ detalle.producto.color|default:"N/A" }}</td>
+                                <td>{{ detalle.producto.talla|default:"N/A" }}</td>
+                                <td class="text-center">{{ detalle.cantidad|intcomma }}</td>
+                                <td class="text-end">${{ detalle.precio_unitario|intcomma:0 }}</td>
+                                <td class="text-end">${{ detalle.subtotal|intcomma:0 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted">Este pedido no tiene productos detallados.</p>
+            {% endif %}
+
+            {# Totales del Pedido #}
+            <div class="row justify-content-end mt-4">
+                <div class="col-md-5">
+                    <h5>Resumen de Totales</h5>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td>Cantidad Total de Productos:</td>
+                                <td class="text-end fw-bold">{{ pedido.total_cantidad_productos|intcomma }}</td>
+                            </tr>
+                            <tr>
+                                <td>Subtotal Base Bruto (Sin IVA):</td>
+                                <td class="text-end fw-bold">${{ pedido.subtotal_base_bruto|intcomma:0 }}</td>
+                            </tr>
+                            {% if pedido.porcentaje_descuento > 0 %}
+                            <tr>
+                                <td>Descuento ({{ pedido.porcentaje_descuento|floatformat:"0" }}%):</td>
+                                <td class="text-end fw-bold text-danger">- ${{ pedido.valor_total_descuento|intcomma:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Subtotal Neto (Sin IVA, Post-Dcto):</td>
+                                <td class="text-end fw-bold">${{ pedido.subtotal_final_neto|intcomma:0 }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td>IVA ({{ iva_porcentaje|floatformat:"0" }}%):</td>
+                                <td class="text-end fw-bold">${{ pedido.valor_iva_final|intcomma:0 }}</td>
+                            </tr>
+                            <tr class="table-primary fs-5">
+                                <td class="fw-bold">TOTAL A PAGAR:</td>
+                                <td class="text-end fw-bold">${{ pedido.total_a_pagar|intcomma:0 }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {# Observaciones del Vendedor #}
+            {% if pedido.notas %}
+            <div class="mt-4">
+                <h5>Observaciones del Vendedor:</h5>
+                <div class="card card-body bg-light">
+                    <p style="white-space: pre-wrap;" class="mb-0">{{ pedido.notas }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {# Decisión Cartera #}
+            {% if pedido.estado == 'RECHAZADO_CARTERA' or pedido.estado == 'PENDIENTE_APROBACION_ADMIN' or pedido.estado == 'APROBADO_ADMIN' or pedido.estado == 'RECHAZADO_ADMIN' %}
+                {% if pedido.fecha_decision_cartera %}
+                <div class="mt-4">
+                    <h5>Decisión Cartera</h5>
+                    <div class="card card-body {% if pedido.estado == 'RECHAZADO_CARTERA' %}border-danger{% else %}border-success{% endif %}">
+                        <p><strong>Usuario:</strong> {{ pedido.usuario_decision_cartera.get_full_name|default:pedido.usuario_decision_cartera.username|default:"N/A" }}</p>
+                        <p><strong>Fecha:</strong> {{ pedido.fecha_decision_cartera|date:"d/m/Y H:i" }}</p>
+                        {% if pedido.motivo_cartera %}
+                        <p><strong>Observaciones Cartera:</strong></p>
+                        <p style="white-space: pre-wrap;" class="mb-0">{{ pedido.motivo_cartera }}</p>
+                        {% endif %}
+                         {% if pedido.estado == 'PENDIENTE_APROBACION_ADMIN'%} <span class="badge bg-success mt-2">Aprobado por Cartera</span> {% endif %}
+                         {% if pedido.estado == 'RECHAZADO_CARTERA'%} <span class="badge bg-danger mt-2">Rechazado por Cartera</span> {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            {# Decisión Administración #}
+            {% if pedido.estado == 'APROBADO_ADMIN' or pedido.estado == 'RECHAZADO_ADMIN' %}
+                {% if pedido.fecha_decision_admin %}
+                <div class="mt-4">
+                    <h5>Decisión Administración</h5>
+                    <div class="card card-body {% if pedido.estado == 'RECHAZADO_ADMIN' %}border-danger{% else %}border-success{% endif %}">
+                        <p><strong>Usuario:</strong> {{ pedido.usuario_decision_admin.get_full_name|default:pedido.usuario_decision_admin.username|default:"N/A" }}</p>
+                        <p><strong>Fecha:</strong> {{ pedido.fecha_decision_admin|date:"d/m/Y H:i" }}</p>
+                        {% if pedido.motivo_admin %}
+                        <p><strong>Observaciones Administración:</strong></p>
+                        <p style="white-space: pre-wrap;" class="mb-0">{{ pedido.motivo_admin }}</p>
+                        {% endif %}
+                        {% if pedido.estado == 'APROBADO_ADMIN'%} <span class="badge bg-success mt-2">Aprobado por Administración</span> {% endif %}
+                        {% if pedido.estado == 'RECHAZADO_ADMIN'%} <span class="badge bg-danger mt-2">Rechazado por Administración</span> {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock content %}

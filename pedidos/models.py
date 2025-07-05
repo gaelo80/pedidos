@@ -8,19 +8,15 @@ from django.db.models import Sum
 from django.core.exceptions import ValidationError
 
 class Pedido(models.Model):
-    # --- CORRECCIÓN PARA LA MIGRACIÓN ---
-    # Se añade null=True para permitir que las filas existentes en la base de datos
-    # tengan este campo vacío temporalmente. Después de la migración, se puede
-    # escribir un script para poblar este campo y luego quitar null=True.
     empresa = models.ForeignKey(
         'clientes.Empresa', 
         on_delete=models.CASCADE, 
         related_name='pedidos',
-        verbose_name="Empresa",
-        #null=True
+        verbose_name="Empresa",        
     )
     
     ESTADO_PEDIDO_CHOICES = [
+        ('PENDIENTE_CLIENTE', 'Pendiente por Aprobación de Cliente'),
         ('BORRADOR', 'Borrador'),
         ('PENDIENTE_APROBACION_CARTERA', 'Pendiente Aprobación Cartera'),
         ('RECHAZADO_CARTERA', 'Rechazado por Cartera'),
@@ -34,7 +30,26 @@ class Pedido(models.Model):
         ('CANCELADO', 'Cancelado'),
     ]
     
-    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.PROTECT, related_name='pedidos', verbose_name="Cliente", null=True, blank=True)
+    cliente = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.PROTECT, 
+        related_name='pedidos', 
+        verbose_name="Cliente", 
+        null=True, 
+        blank=True
+    )
+    
+    prospecto = models.ForeignKey(
+        'prospectos.Prospecto',
+        on_delete=models.SET_NULL,
+        related_name='pedidos',
+        verbose_name="Prospecto (Cliente Nuevo)",
+        null=True,
+        blank=True
+    )
+    
+    
+    
     vendedor = models.ForeignKey('vendedores.Vendedor', on_delete=models.PROTECT, related_name='pedidos', verbose_name="Vendedor")
     fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora del Pedido")
     estado = models.CharField(max_length=35, choices=ESTADO_PEDIDO_CHOICES, default='BORRADOR', verbose_name="Estado del Pedido")
@@ -51,16 +66,44 @@ class Pedido(models.Model):
     IVA_RATE = Decimal('0.19')
     IVA_FACTOR = Decimal('1.00') + IVA_RATE
     
+    @property
+    def destinatario(self):
+        """
+        Devuelve el objeto del cliente o del prospecto asociado al pedido.
+        Esto simplifica el acceso a los datos del destinatario en las plantillas.
+        """
+        if self.cliente:
+            return self.cliente
+        if self.prospecto:
+            return self.prospecto
+        
+        # Objeto de respaldo si no hay ni cliente ni prospecto, para evitar errores.
+        class DestinatarioVacio:
+            nombre_completo = "No Asignado"
+            identificacion = "N/A"
+            telefono = "N/A"
+            direccion = "N/A"
+            email = "N/A"
+            ciudad = None
+        
+        return DestinatarioVacio()  
+    
+    
+    
     def clean(self):
         super().clean()
+        if self.cliente and self.prospecto:
+            raise ValidationError("Un pedido no puede estar asociado a un cliente existente y a un prospecto al mismo tiempo.")
+        if not self.cliente and not self.prospecto:
+            raise ValidationError("El pedido debe estar asociado a un cliente o a un prospecto.")
         empresa = getattr(self, 'empresa', None)
         if empresa:
             if self.cliente and self.cliente.empresa_id != self.empresa_id:
                 raise ValidationError(f"El cliente '{self.cliente}' no pertenece a la empresa '{empresa}'.")
-
             if self.vendedor and hasattr(self.vendedor.user, 'empresa') and self.vendedor.user.empresa_id != self.empresa_id:
                 raise ValidationError(f"El vendedor '{self.vendedor}' no pertenece a la empresa '{empresa}'.")
-            
+            if self.prospecto and self.prospecto.empresa_id != self.empresa_id:
+                 raise ValidationError(f"El prospecto '{self.prospecto}' no pertenece a la empresa '{empresa}'.")
             
     def save(self, *args, **kwargs):
         if not self.empresa_id:
@@ -68,7 +111,8 @@ class Pedido(models.Model):
                 self.empresa_id = self.cliente.empresa_id
             elif self.vendedor and self.vendedor.empresa_id:
                 self.empresa_id = self.vendedor.empresa_id
-
+            elif self.prospecto and self.prospecto.empresa_id:
+                self.empresa_id = self.prospecto.empresa_id
         super().save(*args, **kwargs)
 
     @property
@@ -80,7 +124,6 @@ class Pedido(models.Model):
                 total += (base_unitaria * detalle.cantidad)
         return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-    # (El resto de las properties no necesitan cambios)
     @property
     def subtotal_base_para_descuento(self):
         return self.subtotal_base_bruto
@@ -122,11 +165,15 @@ class Pedido(models.Model):
                 return request.build_absolute_uri(path)
             return path
         except Exception:
-            return None
+            return None        
+        
 
     def __str__(self):
-        cliente_str = self.cliente.nombre_completo if self.cliente else "Sin Cliente"
-        return f"Pedido #{self.pk} - {cliente_str} ({self.get_estado_display()})"
+        nombre_referencia = self.destinatario.nombre_completo
+        if self.prospecto:
+            nombre_referencia = f"[Prospecto] {nombre_referencia}"
+        return f"Pedido #{self.pk} - {nombre_referencia} ({self.get_estado_display()})"
+    
     
     class Meta:
         verbose_name = "Pedido"

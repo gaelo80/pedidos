@@ -38,6 +38,7 @@ urlpatterns = [
     path('facturacion/', include('factura.urls', namespace='factura')),
     path('catalogo/', include('catalogo.urls', namespace='catalogo')),
     path('gestion-usuarios/', include('user_management.urls')),
+    path('prospectos/', include('prospectos.urls', namespace='prospectos')),
     
 
    

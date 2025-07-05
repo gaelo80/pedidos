@@ -1,0 +1,312 @@
+{% extends "core/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}Crear Solicitud de Cliente{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h1 class="h2 mb-0">{{ titulo_pagina }}</h1>
+            <p class="text-muted mb-0">Diligencia los datos y adjunta la documentación requerida.</p>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver al Panel
+            </a>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate id="solicitud-form">
+        {% csrf_token %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light py-3">
+                <h5 class="mb-0"><i class="fas fa-user-tie me-2 text-primary"></i>Información del Prospecto</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">{{ form.nombre_completo|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.identificacion|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.email|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.telefono|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.ciudad|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.direccion|as_crispy_field }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-light py-3">
+                <h5 class="mb-0"><i class="fas fa-file-upload me-2 text-primary"></i>Documentación para Estudio</h5>
+            </div>
+            <div class="card-body p-4">
+                {{ documentos_formset.management_form }}
+
+                <div id="documento-activo-container">
+                    {% for doc_form in documentos_formset %}
+                        {% if not doc_form.instance.pk %}
+                        <div class="document-form-row p-3 border rounded bg-light">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-5">{{ doc_form.tipo_documento|as_crispy_field }}</div>
+                                <div class="col-md-6">
+                                    {{ doc_form.archivo|as_crispy_field }}
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara">
+                                        <i class="fas fa-camera me-1"></i> Tomar Foto
+                                    </button>
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    <button type="button" class="btn btn-sm btn-danger remove-form-btn">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="text-center my-3">
+                    <button type="button" id="add-document-btn" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Añadir Documento a la Lista
+                    </button>
+                </div>
+                
+                <hr>
+
+                <h6 class="text-muted mb-3" id="lista-adjuntos-titulo" style="display: none;">Documentos Adjuntados:</h6>
+                <div id="documentos-adjuntados-lista" class="vstack gap-1"></div>
+
+                <div id="empty-form" class="document-form-row p-3 border rounded bg-light" style="display: none;">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-5">{{ documentos_formset.empty_form.tipo_documento|as_crispy_field }}</div>
+                        <div class="col-md-6">
+                            {{ documentos_formset.empty_form.archivo|as_crispy_field }}
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara">
+                                <i class="fas fa-camera me-1"></i> Tomar Foto
+                            </button>
+                        </div>
+                        <div class="col-md-1 text-end">
+                             <button type="button" class="btn btn-sm btn-danger remove-form-btn">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex justify-content-end gap-2">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+                <i class="fas fa-times me-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-save me-2"></i>Enviar Solicitud
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Tomar Foto del Documento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <video id="camera-stream" width="100%" height="auto" autoplay playsinline></video>
+        <canvas id="camera-canvas" style="display:none;"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="capture-btn">Capturar Foto</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addButton = document.querySelector('#add-document-btn');
+    const totalFormsInput = document.querySelector('#id_documentos-TOTAL_FORMS');
+    const formContainer = document.querySelector('#solicitud-form');
+    const listaAdjuntados = document.querySelector('#documentos-adjuntados-lista');
+    const activoContainer = document.querySelector('#documento-activo-container');
+    const listaAdjuntosTitulo = document.querySelector('#lista-adjuntos-titulo');
+
+    function updateDocumentOptions() {
+        const selects = formContainer.querySelectorAll('.tipo-documento-select');
+        let selectedValues = [];
+        selects.forEach(select => {
+            const formRow = select.closest('.document-form-row');
+            if (select.value && formRow && formRow.style.display !== 'none') {
+                selectedValues.push(select.value);
+            }
+        });
+        selects.forEach(select => {
+            const currentSelectedValue = select.value;
+            for (const option of select.options) {
+                if (!selectedValues.includes(option.value) || option.value === currentSelectedValue) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    addButton.addEventListener('click', () => {
+        const formActivo = activoContainer.querySelector('.document-form-row');
+        if (!formActivo) return;
+
+        const tipoSelect = formActivo.querySelector('.tipo-documento-select');
+        const fileInput = formActivo.querySelector('input[type="file"]');
+        
+        if (!tipoSelect.value || !fileInput || fileInput.files.length === 0) {
+            alert('Por favor, seleccione un tipo de documento y adjunte el archivo correspondiente.');
+            return;
+        }
+
+        // Leer los valores ANTES de hacer cualquier cambio
+        const tipoText = tipoSelect.options[tipoSelect.selectedIndex].text;
+        const fileText = fileInput.files[0].name;
+
+        // **INICIO DE LA SOLUCIÓN DEFINITIVA**
+        
+        // 1. Ocultar los campos de formulario originales
+        const tipoWrapper = formActivo.querySelector('.row > div:nth-child(1)');
+        const archivoWrapper = formActivo.querySelector('.row > div:nth-child(2)');
+        if (tipoWrapper) tipoWrapper.style.display = 'none';
+        if (archivoWrapper) archivoWrapper.style.display = 'none';
+
+        // 2. Crear la nueva vista de solo lectura y añadirla
+        const vistaSoloLectura = document.createElement('div');
+        vistaSoloLectura.classList.add('col-md-11', 'd-flex', 'align-items-center');
+        vistaSoloLectura.innerHTML = `
+            <div class="col-5"><strong>${tipoText}</strong></div>
+            <div class="col-7 fst-italic text-muted">${fileText}</div>
+        `;
+        formActivo.querySelector('.row.g-3').prepend(vistaSoloLectura);
+        
+        // 3. Limpiar y mover el formulario
+        formActivo.classList.remove('p-3', 'border', 'bg-light');
+        formActivo.classList.add('py-2');
+        listaAdjuntados.appendChild(formActivo);
+        listaAdjuntosTitulo.style.display = 'block';
+
+        // **FIN DE LA SOLUCIÓN DEFINITIVA**
+
+        // Añadir un nuevo formulario vacío (esta parte no cambia)
+        const emptyFormTemplate = document.querySelector('#empty-form');
+        const newForm = emptyFormTemplate.cloneNode(true);
+        newForm.removeAttribute('id');
+        newForm.style.display = 'block';
+        
+        let formNum = parseInt(totalFormsInput.value);
+        newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
+        
+        activoContainer.innerHTML = '';
+        activoContainer.appendChild(newForm);
+        
+        totalFormsInput.value = formNum + 1;
+        updateDocumentOptions();
+    });
+
+    // Delegación de eventos (sin cambios)
+    formContainer.addEventListener('click', function(e) {
+        const removeButton = e.target.closest('.remove-form-btn');
+        if (removeButton) {
+            const formRow = removeButton.closest('.document-form-row');
+            const esActivo = activoContainer.contains(formRow);
+
+            if (esActivo && listaAdjuntados.children.length === 0) {
+                 alert("No se puede eliminar el único formulario de carga.");
+                 return;
+            }
+            formRow.style.display = 'none';
+            const deleteInput = formRow.querySelector('input[type="file"]');
+            if (deleteInput) {
+                deleteInput.value = ''; 
+            }
+            const deleteCheckbox = formRow.querySelector('input[type="checkbox"]');
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+            }
+            if (!esActivo) {
+                 formRow.remove();
+            } else {
+                activoContainer.innerHTML = '';
+            }
+            if (listaAdjuntados.children.length === 0) {
+                listaAdjuntosTitulo.style.display = 'none';
+            }
+            updateDocumentOptions();
+        }
+
+        const cameraButton = e.target.closest('.btn-camara');
+        if (cameraButton) {
+            startCamera(cameraButton);
+        }
+    });
+    
+    updateDocumentOptions();
+
+    // Lógica de la cámara (sin cambios)
+    const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+    const video = document.getElementById('camera-stream');
+    const canvas = document.getElementById('camera-canvas');
+    const captureBtn = document.getElementById('capture-btn');
+    let currentStream = null;
+    let targetFileInput = null;
+
+    async function startCamera(button) {
+        targetFileInput = button.closest('.row.g-3 > div').querySelector('input[type="file"]');
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = currentStream;
+                cameraModal.show();
+            } catch (err) {
+                console.error("Error al acceder a la cámara: ", err);
+                alert("No se pudo acceder a la cámara. Asegúrate de dar permisos y de estar en un sitio seguro (https).");
+            }
+        } else {
+            alert("Tu navegador no soporta el acceso a la cámara.");
+        }
+    }
+    
+    function stopCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            currentStream = null;
+        }
+    }
+
+    captureBtn.addEventListener('click', () => {
+        if (currentStream && targetFileInput) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(function(blob) {
+                const fileName = `captura-${new Date().toISOString()}.jpg`;
+                const capturedFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(capturedFile);
+                targetFileInput.files = dataTransfer.files;
+                targetFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                cameraModal.hide();
+            }, 'image/jpeg');
+        }
+    });
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', stopCamera);
+});
+</script>
+{% endblock extra_scripts %}

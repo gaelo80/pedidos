@@ -56,38 +56,67 @@
         <input type="hidden" name="pedido_id_editado" value="{{ pedido_instance.pk }}">
     {% endif %}
 
+
+
+
     {# --- Sección Cliente y Notas (Sin cambios) --- #}
     <div class="form-section mb-3 p-3 border bg-light rounded">
-        <h2></h2>
-        {% if pedido_form.non_field_errors and not pedido_form.cliente.errors and not pedido_form.notas.errors %}
+        <h5 class="mb-3">1. Seleccione el destinatario del pedido</h5>
+        
+        {% if pedido_form.non_field_errors %}
              <div class="alert alert-danger p-2">{{ pedido_form.non_field_errors }}</div>
         {% endif %}
+
+
+ <!-- Radio buttons para elegir el tipo -->
         <div class="mb-3">
-            <label for="{{ pedido_form.cliente.id_for_label }}" class="form-label fw-bold">{{ pedido_form.cliente.label }}:</label>
-        
-            <div class="input-group">
-                {{ pedido_form.cliente }} {# Aquí Django pondrá el <select> que usa Select2 #}
-                <button class="btn btn-outline-info" type="button" id="btn-mostrar-info-cliente" style="display: none;" title="Ver detalles del cliente">
-                    <i class="fas fa-info-circle"></i> Ver Info
-                </button>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_cliente_seleccion" id="tipo_existente" value="existente" checked>
+                <label class="form-check-label" for="tipo_existente">Cliente Existente</label>
             </div>
-            <div id="info-cartera-cliente" class="mt-3 mb-3 p-3 border rounded bg-light" style="display: none;"> 
-                {# El estilo display:none lo oculta inicialmente #}
-                <h5><i class="fas fa-wallet me-2"></i>Información de Cartera</h5>
-                <hr class="my-2">
-                <div id="cartera-contenido">
-                    <p class="text-muted">Seleccione un cliente para ver su estado de cartera.</p> 
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_cliente_seleccion" id="tipo_prospecto" value="prospecto">
+                <label class="form-check-label" for="tipo_prospecto">Cliente Nuevo (Prospecto)</label>
+            </div>
+        </div>
+
+        <!-- Contenedor para el selector de Cliente Existente -->
+        <div id="contenedor_cliente_existente">
+            <div class="mb-3">
+                <label for="{{ pedido_form.cliente.id_for_label }}" class="form-label fw-bold">{{ pedido_form.cliente.label }}:</label>
+                <div class="input-group">
+                    {{ pedido_form.cliente }}
+                    <button class="btn btn-outline-info" type="button" id="btn-mostrar-info-cliente" style="display: none;" title="Ver detalles del cliente">
+                        <i class="fas fa-info-circle"></i> Ver Info
+                    </button>
                 </div>
+                {% if pedido_form.cliente.errors %}
+                    <div class="text-danger small mt-1">{{ pedido_form.cliente.errors }}</div>
+                {% endif %}
             </div>
-            {% if pedido_form.cliente.errors %}
-                <div class="text-danger small mt-1">{{ pedido_form.cliente.errors }}</div>
-            {% endif %}
-             <div class="form-text">{{ pedido_form.cliente.help_text }}</div>
+        </div>
+
+        <!-- Contenedor para el selector de Prospecto (inicialmente oculto) -->
+        <div id="contenedor_prospecto" style="display: none;">
+            <div class="mb-3">
+                <label for="{{ pedido_form.prospecto.id_for_label }}" class="form-label fw-bold">{{ pedido_form.prospecto.label }}:</label>
+                {{ pedido_form.prospecto }}
+                {% if pedido_form.prospecto.errors %}
+                    <div class="text-danger small mt-1">{{ pedido_form.prospecto.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="info-cartera-cliente" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;"> 
+            <h5><i class="fas fa-wallet me-2"></i>Información de Cartera</h5>
+            <hr class="my-2">
+            <div id="cartera-contenido">
+                <p class="text-muted">Seleccione un cliente para ver su estado de cartera.</p> 
+            </div>
+        </div>
         
-            <div id="info-cliente-container" class="mt-4 p-2 border bg-white rounded" style="display: none;">
-                {# La información del cliente aparecerá aquí #}
-                <small class="text-muted">Cargando detalles...</small>
-            </div>
+        <div id="info-cliente-container" class="mt-4 p-2 border bg-white rounded" style="display: none;">
+            <small class="text-muted">Cargando detalles...</small>
         </div>
     </div>
 
@@ -297,6 +326,80 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
+
+    $('#id_cliente').select2({
+        placeholder: "-- Busca por Nombre o NIT/ID --",
+        minimumInputLength: 2,
+        allowClear: true,
+        language: "es",
+        theme: "bootstrap-5",
+        ajax: {
+            url: "{% url 'clientes:api_buscar_clientes' %}",
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { term: params.term };
+            },
+            processResults: function (data) {
+                return { results: data.results };
+            },
+            cache: true
+        }
+    });
+
+    // Inicializar Select2 para Prospecto
+    $('#id_prospecto').select2({
+        placeholder: "-- Busca por Nombre o NIT/ID del Prospecto --",
+        minimumInputLength: 2,
+        allowClear: true,
+        language: "es",
+        theme: "bootstrap-5",
+        ajax: {
+            url: "{% url 'prospectos:api_buscar_prospectos' %}", // <-- La nueva URL de API
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { term: params.term };
+            },
+            processResults: function (data) {
+                return { results: data.results };
+            },
+            cache: true
+        }
+    });
+
+    // Lógica para mostrar/ocultar los selectores
+    const radioExistente = document.getElementById('tipo_existente');
+    const radioProspecto = document.getElementById('tipo_prospecto');
+    const contCliente = document.getElementById('contenedor_cliente_existente');
+    const contProspecto = document.getElementById('contenedor_prospecto');
+    const infoCartera = $('#info-cartera-cliente');
+
+    function toggleSelector() {
+        if (radioExistente.checked) {
+            contCliente.style.display = 'block';
+            contProspecto.style.display = 'none';
+            $('#id_prospecto').val(null).trigger('change'); // Limpiar selección de prospecto
+            
+            // Mostrar info cartera solo si hay un cliente seleccionado
+            if ($('#id_cliente').val()) {
+                infoCartera.slideDown();
+            } else {
+                infoCartera.slideUp();
+            }
+
+        } else { // Si se selecciona prospecto
+            contCliente.style.display = 'none';
+            contProspecto.style.display = 'block';
+            $('#id_cliente').val(null).trigger('change'); // Limpiar selección de cliente
+            infoCartera.slideUp(); // Ocultar siempre la info de cartera
+        }
+    }
+
+    radioExistente.addEventListener('change', toggleSelector);
+    radioProspecto.addEventListener('change', toggleSelector);
+    
 
     const refSelect = $('#id_referencia'); // jQuery para Select2
     const colorSelectDiv = $('#color-selector-div');
@@ -1845,7 +1948,7 @@ $(document).ready(function() {
     // updateGrandTotals(); // Ya se llama desde cargarDetallesIniciales
 
     console.log("Formulario de pedido inicializado y listo.");
-
+    toggleSelector();
     
 
 }); // --- FIN DEL addEventListener('DOMContentLoaded') ---

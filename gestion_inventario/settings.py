@@ -107,6 +107,7 @@ INSTALLED_APPS = [
         'cartera',
         'factura',
         'pedidos',
+        'prospectos',
         'devoluciones',
         'informes',
         'catalogo',
@@ -158,7 +159,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'gestion_inventario.wsgi.application'
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
-
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
     # Database
     # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

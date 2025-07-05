@@ -4,203 +4,77 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-
-    <title>Pedido N° {{ pedido.pk }} - {{ pedido.cliente.nombre_completo|default:'Sin Cliente' }}</title>
-
-    <style type="text/css">
-        /* --- Colores (Valores directos) --- */
-        /* :root { ... } */ /* Comentado */
-
-        /* --- Configuración de Página (CORREGIDA FINAL) --- */
+    <title>Pedido N° {{ pedido.pk }} - {{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</title>
+   <style type="text/css">
         @page {
-            size: letter; /* Tamaño de página */
-            margin: 1.5cm 1.5cm 2cm 1.5cm; /* Márgenes: Arriba, Derecha, Abajo, Izquierda. Abajo 2cm para pie */
-
-            /* --- Regla para el número de página en el centro inferior --- */
-            @bottom-center {
-                content: "Página " counter(page) " de " counter(pages); /* Texto completo */
-                font-size: 8pt;         /* Tamaño */
-                color: #555555;         /* Color gris oscuro */
-                vertical-align: top;
-                padding-top: 5px;       /* Espacio sobre el número */
+            size: letter;
+            margin: 1.5cm;
+            @frame footer {
+                -pdf-frame-content: footer-content;
+                bottom: 1cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 1cm;
             }
-            /* --- Fin regla número de página --- */
-
-            /* Ya no incluimos @frame header_frame, footer_frame, content_frame */
         }
-        /* --- Fin @page --- */
-
-        /* --- Estilo para el DIV de pie de página HTML (si contiene otro texto) --- */
-        #footer_content {
-            text-align: center;
-            font-size: 8pt;
-            color: #555555;
-            /* border-top: 1px solid #CCCCCC; */ /* Puedes añadir borde si quieres */
-            padding-top: 5px;
-        }
-
-
-        /* --- Estilos Generales (Como los tenías) --- */
-        body {
-            font-family: "Helvetica", Arial, sans-serif;
-            font-size: 9pt;
-            color: #333333;
-            line-height: 1.4;
-        }
-        h1, h2, h3 {
-            font-weight: bold;
-            margin: 0 0 10px 0;
-            padding: 0;
-            color: #000000;
-        }
-        h1 { font-size: 18pt; margin-bottom: 15px; text-align: right; }
-         /* Estilo para el número de pedido (rojo) */
-         .numero-pedido {
-            color: #FF0000; /* Rojo */
-        }
-        h2 { font-size: 14pt; margin-bottom: 15px; border-bottom: 1px solid #4A90E2; padding-bottom: 5px; color: #4A90E2; }
-        h3 { font-size: 11pt; margin-bottom: 8px; color: #333333; }
-        p { margin: 0 0 5px 0; }
-        strong { font-weight: bold; }
+        body { font-family: "Helvetica", Arial, sans-serif; font-size: 9pt; line-height: 1.3; }
+        h1, h2, h3 { font-weight: bold; margin: 0; padding: 0; color: #000000; }
+        h1 { font-size: 18pt; margin-bottom: 15px; text-align: right; color: #FF0000; }
+        h2 { font-size: 14pt; margin-bottom: 10px; border-bottom: 1px solid #4A90E2; padding-bottom: 3px; color: #4A90E2; }
+        h3 { font-size: 11pt; margin-bottom: 5px; }
+        p { margin: 0 0 3px 0; }
         table { border-collapse: collapse; width: 100%; }
-        td, th { vertical-align: top; }
-
-        /* --- Cabecera HTML (Como la tenías) --- */
-        #header_content {
-            text-align: center;
-        }
-        #header_content .logo {
-            max-width: 240px; /* Tamaño logo ajustado */
-            max-height: 90px; /* Tamaño logo ajustado */
-            margin-bottom: 5px;
-        }
-        #header_content .company-details {
-            font-size: 8pt;
-            color: #555555;
-            line-height: 1.3;
-        }
-        #header_content .company-details strong {
-             font-size: 9pt; color: #333333;
-        }
-
-
-        /* --- Layout del Contenido Principal (Como lo tenías) --- */
-        .section { margin-bottom: 20px; page-break-inside: avoid; }
-        .info-table { width: 100%; margin-bottom: 20px; border-spacing: 0; }
-        .info-table td { padding: 0; border: none; vertical-align: top; }
-        /* .info-table .label { font-weight: bold; width: 100px; } */ /* No usado en layout actual */
-        /* .info-table .value {} */
-
-        /* --- Tabla de Detalles (Como la tenías) --- */
-        .items-table { margin-bottom: 20px; }
-        .items-table th, .items-table td {
-            border: 1px solid #CCCCCC;
-            padding: 6px 8px;
-            text-align: left;
-        }
-        .items-table thead th {
-            background-color: #F5F5F5;
-            font-weight: bold;
-            text-align: center;
-        }
-        .items-table .text-center { text-align: center; }
-        .items-table .text-right { text-align: right; }
-        .items-table .col-ref { width: 10%; }
-        .items-table .col-prod { width: 30%; }
-        .items-table .col-talla { width: 8%; text-align: center;}
-        .items-table .col-color { width: 12%; }
-        .items-table .col-cant { width: 8%; text-align: center; }
-        .items-table .col-precio { width: 16%; text-align: right; }
-        .items-table .col-subtotal { width: 16%; text-align: right; }
-
-         /* --- Tabla de Totales (Como la tenías) --- */
-        .totals-section {
-             page-break-inside: avoid;
-             margin-top: 20px;
-             padding-top: 10px;
-             border-top: 1px solid #aaa;
-        }
-        .totals-table {
-            width: 50%;
-            margin-left: 50%;
-            font-size: 10pt;
-        }
-        .totals-table td {
-            border: none;
-            padding: 4px 5px;
-            text-align: right;
-        }
-        .totals-table .label {
-            text-align: right;
-            color: #555555;
-            padding-right: 10px;
-        }
-        .totals-table .value {
-             font-weight: bold;
-        }
-        .totals-table .grand-total {
-            font-size: 12pt;
-            border-top: 2px solid #4A90E2;
-            margin-top: 5px;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            background-color: #EEEEEE;
-        }
-        .totals-table .grand-total .label { color: #333333; }
-
-
-        /* --- Sección de Notas (Como la tenías) --- */
-        .notes-section {
-            margin-top: 25px;
-            padding-top: 10px;
-            border-top: 1px dotted #ccc;
-            page-break-inside: avoid;
-            font-size: 9pt;
-        }
-        .notes-section h3 { font-size: 11pt; margin-bottom: 5px; }
-        .notes-section p { white-space: pre-wrap; line-height: 1.5; }
-
+        .info-table td { padding: 0; vertical-align: top; }
+        .items-table { margin-bottom: 15px; }
+        .items-table th, .items-table td { border: 1px solid #CCCCCC; padding: 4px 6px; text-align: left; font-size: 8.5pt; }
+        .items-table thead th { background-color: #F5F5F5; font-weight: bold; text-align: center; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .totals-section { page-break-inside: avoid; margin-top: 15px; padding-top: 5px; } /* Se quitó el borde superior */
+        .totals-table { width: 50%; margin-left: 50%; font-size: 9pt; }
+        .totals-table td { border: none; padding: 2px 5px; text-align: right; }
+        .totals-table .label { text-align: right; color: #555555; padding-right: 10px; }
+        .totals-table .value { font-weight: bold; }
+        .grand-total { font-size: 11pt; padding-top: 5px; } /* Se quitó el borde y el fondo */
+        .notes-section { margin-top: 15px; page-break-inside: avoid; }
     </style>
 </head>
 <body>
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <!-- Logo a la izquierda -->
-    <div style="flex: 0 0 auto;">
-        {% if logo_base64 %}
-            <img src="{{ logo_base64 }}" alt="Logo" style="height: 100px;">
-        {% endif %}
+    <div id="footer-content" style="text-align: center; font-size: 8pt; color: #555;">
+        Página <pdf:pagecount /> de <pdf:totalPages />
     </div>
 
-    <!-- Información de la empresa a la derecha -->
-    <div style="flex: 1; text-align: right;">
-        {% if empresa_actual %}
-            {#<p style="margin: 0; font-weight: bold;">{{ empresa_actual.nombre }}</p>#}
-            {% if empresa_actual.nit %}<p style="margin: 0;">NIT: {{ empresa_actual.nit }}</p>{% endif %}
-            {% if empresa_actual.direccion %}<p style="margin: 0;">Dirección: {{ empresa_actual.direccion }}</p>{% endif %}
-            {% if empresa_actual.telefono %}<p style="margin: 0;">Teléfono: {{ empresa_actual.telefono }}</p>{% endif %}
-        {% else %}
-            <p><strong>Empresa no disponible</strong></p>
-        {% endif %}
-    </div>
-</div>
-
-
-    {# --- TÍTULO DEL PEDIDO (con clase para color) --- #}
-    <h1 class="numero-pedido">Pedido N° {{ pedido.pk }}</h1>
-
-    {# --- Información Cliente y Pedido (Layout 2 columnas 60/40 AJUSTADO) --- #}
-    <table class="info-table section" style="border-spacing: 0;">
+    <!-- Cabecera con logo y datos de empresa -->
+    <table style="width: 100%; border: 0; margin-bottom: 20px;">
         <tr>
-            {# Columna Izquierda: Datos Cliente (60%) #}
-            <td style="width: 60%; padding-right: 20px; vertical-align: top;">
-                <h3>Cliente</h3>
-                <p><strong>Nombre:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
-                <p><strong>ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
-                <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono|default:"N/A" }}</p>
-                <p><strong>Dirección:</strong> {{ pedido.cliente.direccion|default:"" }}{% if pedido.cliente.ciudad %}, {{ pedido.cliente.ciudad.nombre }}{% endif %}</p>
+            <td style="width: 60%; text-align: left; vertical-align: top;">
+                 {% if logo_base64 %}
+                    <img src="{{ logo_base64 }}" alt="Logo" style="max-height: 35px; max-width: 140px;">
+                {% endif %}
             </td>
-            {# Columna Derecha: Datos Pedido (40%) #}
-            <td style="width: 40%; padding-left: 20px; vertical-align: top;">
+            <td style="width: 40%; text-align: right; vertical-align: top; font-size: 8pt; line-height: 1.2;">
+                {% if empresa_actual %}
+                    <p style="font-size: 10pt; font-weight: bold; margin-bottom: 5px;">{{ empresa_actual.nombre }}</p>
+                    {% if empresa_actual.nit %}<p>NIT: {{ empresa_actual.nit }}</p>{% endif %}
+                    {% if empresa_actual.direccion %}<p>{{ empresa_actual.direccion }}</p>{% endif %}
+                    {% if empresa_actual.telefono %}<p>Tel: {{ empresa_actual.telefono }}</p>{% endif %}
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <h1>Pedido N° {{ pedido.pk }}</h1>
+
+    <table class="info-table" style="margin-bottom: 20px;">
+        <tr>
+            <td style="width: 60%; padding-right: 15px;">
+                <h3>{% if pedido.prospecto %}Datos del Prospecto{% else %}Cliente{% endif %}</h3>
+                <p><strong>Nombre:</strong> {{ pedido.destinatario.nombre_completo|default:"N/A" }}</p>
+                <p><strong>ID:</strong> {{ pedido.destinatario.identificacion|default:"N/A" }}</p>
+                <p><strong>Teléfono:</strong> {{ pedido.destinatario.telefono|default:"N/A" }}</p>
+                <p><strong>Dirección:</strong> {{ pedido.destinatario.direccion|default:"" }}{% if pedido.destinatario.ciudad %}, {{ pedido.destinatario.ciudad.nombre }}{% endif %}</p>
+            </td>
+            <td style="width: 40%; padding-left: 15px;">
                 <h3>Datos del Pedido</h3>
                 <p><strong>Fecha:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
                 <p><strong>Vendedor:</strong> {{ pedido.vendedor|default:"N/A" }}</p>
@@ -214,110 +88,102 @@
     <div class="section"> {# Mantenemos la clase section si quieres #}
 
         {# --- SECCIÓN DAMA --- #}
-        {% if grupos_dama %}
-            <h2>PEDIDO DAMA</h2>
-            <table class="items-table matrix-table"> {# Clase extra opcional para CSS #}
-                <thead>
-                    <tr>
-                        <th class="col-ref">Ref.</th>
-                        {% if incluir_color %}<th class="col-color">Color</th>{% endif %}
-                        {% for talla in tallas_cols_dama %}
-                            <th class="col-talla-matrix text-center">{{ talla }}</th> {# CSS para tallas #}
-                        {% endfor %}
-                        <th class="col-cant-total text-center">Total</th> {# CSS para Cant Total #}
-                        {% if incluir_vr_unit %}<th class="col-precio text-right">Vr. Unit</th>{% endif %}
-                        <th class="col-valor text-right">VALOR</th> {# CSS para VALOR #}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for grupo in grupos_dama %} {# Usamos la variable correcta #}
-                    <tr>
-                        <td>{{ grupo.ref }}</td>
-                        {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                        {% for talla_col in tallas_cols_dama %}
-                            {# Usamos el filtro 'get_item' para buscar en el diccionario #}
-                            <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
-                        {% endfor %}
-                        <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                        {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                        <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
-                    </tr>
+    {% if grupos_dama %}
+        <h2>PEDIDO DAMA</h2>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Ref.</th>
+                    {% if incluir_color %}<th>Color</th>{% endif %}
+                    {% for talla in tallas_cols_dama %}
+                        <th class="text-center">{{ talla }}</th>
                     {% endfor %}
-                </tbody>
-            </table>
-            <br/> {# Espacio #}
-        {% endif %}
-    
-        {# --- SECCIÓN CABALLERO --- #}
-        {% if grupos_caballero %} {# Esta condición debería ser TRUE ahora #}
-            <h2>PEDIDO CABALLERO</h2>
-            {# Descomenta esta línea si quieres depurar en el HTML: #}
-            {# <p>DEBUG HTML: Hay {{ grupos_caballero|length }} grupo(s) de Caballero.</p> #}
-            <table class="items-table matrix-table">
-                <thead>
-                     <tr>
-                        <th class="col-ref">Ref.</th>
-                        {% if incluir_color %}<th class="col-color">Color</th>{% endif %}
-                        {% for talla in tallas_cols_caballero %}
-                            <th class="col-talla-matrix text-center">{{ talla }}</th>
-                        {% endfor %}
-                        <th class="col-cant-total text-center">Total</th>
-                        {% if incluir_vr_unit %}<th class="col-precio text-right">Vr. Unit</th>{% endif %}
-                        <th class="col-valor text-right">VALOR</th>
-                    </tr>
-                </thead>
-                <tbody>
-                     {% for grupo in grupos_caballero %} 
-                     <tr>
-                        <td>{{ grupo.ref }}</td>
-                         {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                        {% for talla_col in tallas_cols_caballero %}
-                            <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
-                        {% endfor %}
-                        <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                        {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                        <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
-                    </tr>
-                     {% endfor %}
-                </tbody>
-            </table>
-             <br/> {# Espacio #}
-        {% endif %}
+                    <th class="text-center">Total</th>
+                    {% if incluir_vr_unit %}<th class="text-right">Vr. Unit</th>{% endif %}
+                    <th class="text-right">VALOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in grupos_dama %}
+                <tr>
+                    <td>{{ grupo.ref }}</td>
+                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
+                    {% for talla_col in tallas_cols_dama %}
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                    {% endfor %}
+                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
+                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    {% if grupos_caballero %}
+        <h2>PEDIDO CABALLERO</h2>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Ref.</th>
+                    {% if incluir_color %}<th>Color</th>{% endif %}
+                    {% for talla in tallas_cols_caballero %}
+                        <th class="text-center">{{ talla }}</th>
+                    {% endfor %}
+                    <th class="text-center">Total</th>
+                    {% if incluir_vr_unit %}<th class="text-right">Vr. Unit</th>{% endif %}
+                    <th class="text-right">VALOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in grupos_caballero %}
+                <tr>
+                    <td>{{ grupo.ref }}</td>
+                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
+                    {% for talla_col in tallas_cols_caballero %}
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                    {% endfor %}
+                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
+                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
     
         {# --- SECCIÓN UNISEX --- #}
-        {% if grupos_unisex %}
-            <h2>PEDIDO UNISEX</h2>
-            <table class="items-table matrix-table">
-                 <thead>
-                     <tr>
-                        <th class="col-ref">Ref.</th>
-                        {% if incluir_color %}<th class="col-color">Color</th>{% endif %}
-                        {# Usa tallas_cols_unisex que pasaste del view #}
-                        {% for talla in tallas_cols_unisex %}
-                            <th class="col-talla-matrix text-center">{{ talla }}</th>
-                        {% endfor %}
-                        <th class="col-cant-total text-center">Total</th>
-                        {% if incluir_vr_unit %}<th class="col-precio text-right">Vr. Unit</th>{% endif %}
-                        <th class="col-valor text-right">VALOR</th>
-                    </tr>
-                </thead>
-                <tbody>
-                     {% for grupo in grupos_unisex %} 
-                     <tr>
-                        <td>{{ grupo.ref }}</td>
-                        {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                        {% for talla_col in tallas_cols_unisex %}
-                             <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
-                        {% endfor %}
-                        <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                        {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                        <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
-                    </tr>
-                     {% endfor %}
-                </tbody>
-            </table>
-             <br/>
-        {% endif %}
+    {% if grupos_unisex %}
+        <h2>PEDIDO UNISEX</h2>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Ref.</th>
+                    {% if incluir_color %}<th>Color</th>{% endif %}
+                    {% for talla in tallas_cols_unisex %}
+                        <th class="text-center">{{ talla }}</th>
+                    {% endfor %}
+                    <th class="text-center">Total</th>
+                    {% if incluir_vr_unit %}<th class="text-right">Vr. Unit</th>{% endif %}
+                    <th class="text-right">VALOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in grupos_unisex %}
+                <tr>
+                    <td>{{ grupo.ref }}</td>
+                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
+                    {% for talla_col in tallas_cols_unisex %}
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                    {% endfor %}
+                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
+                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
     
         {# --- Mensaje si NINGUNA sección tuvo items --- #}
          {% if not grupos_dama and not grupos_caballero and not grupos_unisex %}
@@ -384,12 +250,8 @@
     </div>
     {% endif %}
 
-    {# --- Contenido para el Pie de Página HTML (Opcional) --- #}
-    {# Este div se usa si quieres texto fijo ADEMÁS del número de página generado por CSS #}
-    {# Si no quieres nada más que el número, puedes incluso borrar este div #}
     <div id="footer_content">
-         {# Ejemplo: Gracias por su pedido | Generado el {{ fecha_generacion|date:"d/m/Y H:i" }} #}
-         {# --- NO pongas aquí el número de página --- #}
+
     </div>
 
 </body>

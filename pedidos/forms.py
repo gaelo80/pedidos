@@ -5,6 +5,7 @@ from decimal import Decimal
 from clientes.models import Cliente
 from pedidos.models import Pedido, DetallePedido
 from clientes.models import Empresa
+from prospectos.models import Prospecto
 
 # ===================================================================
 # FORMULARIO PARA LA CABECERA DEL PEDIDO
@@ -22,6 +23,13 @@ class PedidoForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_referencia'})
     )
     
+    prospecto = forms.ModelChoiceField(
+        queryset=Prospecto.objects.none(), # Se llena con JS vía API
+        required=False, # No es obligatorio
+        label="Cliente Nuevo (Prospecto)",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
     def __init__(self, *args, **kwargs):
         empresa = kwargs.pop('empresa', None)
         super().__init__(*args, **kwargs)
@@ -29,18 +37,39 @@ class PedidoForm(forms.ModelForm):
         if empresa is None:
             raise ValueError("Se requiere 'empresa' para inicializar PedidoForm.")
 
+        self.fields['cliente'].required = False
         self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
+        self.fields['prospecto'].queryset = Prospecto.objects.filter(empresa=empresa, estado__in=['PENDIENTE', 'EN_ESTUDIO'])
 
         referencias_unicas = Producto.objects.filter(empresa=empresa).values_list('referencia', flat=True).distinct()
         self.fields['referencia'].queryset = Producto.objects.filter(
             empresa=empresa,
             referencia__in=referencias_unicas
         ).order_by('referencia')
+        
+    def clean(self):
+        """
+        Asegura que solo se seleccione un cliente o un prospecto, pero no ambos,
+        y que al menos uno de los dos sea seleccionado.
+        """
+        cleaned_data = super().clean()
+        cliente = cleaned_data.get('cliente')
+        prospecto = cleaned_data.get('prospecto')
+
+        if cliente and prospecto:
+            raise forms.ValidationError("Por favor, seleccione un cliente existente O un prospecto, no ambos.", code='ambos_seleccionados')
+        
+        if not cliente and not prospecto:
+            raise forms.ValidationError("Debe seleccionar un cliente existente o un prospecto para crear el pedido.", code='ninguno_seleccionado')
+            
+        return cleaned_data   
+        
+    
 
     class Meta:
         # Define el modelo y los campos que se usarán, siguiendo las buenas prácticas.
         model = Pedido
-        fields = ['cliente', 'porcentaje_descuento', 'notas']
+        fields = ['cliente', 'prospecto', 'porcentaje_descuento', 'notas']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-control'}),
             'porcentaje_descuento': forms.NumberInput(attrs={

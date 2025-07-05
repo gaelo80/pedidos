@@ -90,16 +90,20 @@ def vista_crear_pedido_web(request, pk=None):
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
         
+        
     vendedor = None
     try:
         if hasattr(request.user, 'perfil_vendedor'):
              vendedor = request.user.perfil_vendedor
         elif request.user.is_staff or es_admin_sistema_app(request.user):
             pass
+        
         else:
             messages.error(request, "Perfil de vendedor no encontrado y no es usuario administrador.")
             return redirect('core:acceso_denegado')
+        
         vendedor = Vendedor.objects.filter(user=request.user, user__empresa=empresa_actual).first()
+        
     except Vendedor.DoesNotExist:
         if not (request.user.is_staff or es_admin_sistema_app(request.user)) and not vendedor:
             messages.error(request, "Perfil de vendedor no encontrado para esta empresa.")
@@ -156,13 +160,16 @@ def vista_crear_pedido_web(request, pk=None):
             for error in errores_generales: messages.error(request, error)
 
         if pedido_form.is_valid() and not errores_generales:
+            
+            
+            
             if accion == 'crear_definitivo':
-                print("DEBUG PEDIDO-STOCK: Entrando a lógica de 'crear_definitivo'") # <<<< PRINT 2
+                
+                
                 stock_suficiente_para_crear = True
                 if not al_menos_un_detalle:
                     messages.error(request, "Debes agregar al menos un producto para crear el pedido.")
                     stock_suficiente_para_crear = False
-                    print("DEBUG PEDIDO-STOCK: 'al_menos_un_detalle' es False") # <<<< PRINT 3
                 else:
                     for detalle_data_check in detalles_para_crear:
                         if detalle_data_check['cantidad'] > detalle_data_check['producto'].stock_actual:
@@ -171,10 +178,10 @@ def vista_crear_pedido_web(request, pk=None):
                 
                 if not stock_suficiente_para_crear:
                     for error in errores_stock: messages.error(request, error)
-                    print(f"DEBUG PEDIDO-STOCK: 'stock_suficiente_para_crear' es False. Errores: {errores_stock}") # <<<< PRINT 4
+
                 
                 if not errores_generales and stock_suficiente_para_crear: # Condición combinada
-                    print("DEBUG PEDIDO-STOCK: Condiciones previas a transacción CUMPLIDAS.") # <<<< PRINT 5
+
                     try:
                         with transaction.atomic():
                             pedido = pedido_form.save(commit=False)
@@ -187,11 +194,20 @@ def vista_crear_pedido_web(request, pk=None):
 
                             if not pedido.vendedor:
                                 messages.error(request, "El vendedor es obligatorio para crear el pedido.")
-                                raise Exception("Vendedor no asignado y es obligatorio.")
+                                raise Exception("Vendedor no asignado y es obligatorio.")                                
+                                       
+                            if pedido.prospecto:
 
-                            pedido.estado = 'PENDIENTE_APROBACION_CARTERA'
+                                pedido.estado = 'PENDIENTE_CLIENTE'
+                            else:
+
+                                pedido.estado = 'PENDIENTE_APROBACION_CARTERA'
+
                             pedido.save()
-                            print(f"DEBUG PEDIDO-STOCK: Pedido #{pedido.pk} guardado con estado {pedido.estado}.") # <<<< PRINT 7
+                            
+                            
+                            
+                            
 
                             productos_guardados_ids = set()
                             detalles_guardados_para_movimiento = []
@@ -559,9 +575,16 @@ def generar_pedido_pdf(request, pk):
     al inquilino actual y que el usuario tenga permisos para verlo.
     """
     empresa_actual = getattr(request, 'tenant', None)
-    if not empresa_actual:
-        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:acceso_denegado')
+    
+    # --- LÓGICA DE ACCESO CORREGIDA ---
+    query_params = {'pk': pk}
+    # Si el usuario NO es superusuario, forzamos el filtro por su empresa.
+    if not request.user.is_superuser:
+        if not empresa_actual:
+            messages.error(request, "Acceso no válido. Su usuario no está asociado a ninguna empresa.")
+            return redirect('core:acceso_denegado')
+        query_params['empresa'] = empresa_actual
+    
     
     pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
     
@@ -577,14 +600,20 @@ def generar_pedido_pdf(request, pk):
     detalles_originales = pedido.detalles.select_related('producto').all()
     items_dama, items_caballero, items_unisex = [], [], []
     for detalle in detalles_originales:
-        genero_producto = None
-        try:
-            genero_producto = detalle.producto.get_genero_display()
-            if genero_producto not in ['Dama', 'Caballero', 'Unisex']: genero_producto = None
-        except AttributeError: pass
-        if genero_producto == 'Dama': items_dama.append(detalle)
-        elif genero_producto == 'Caballero': items_caballero.append(detalle)
-        else: items_unisex.append(detalle) # Incluir sin género o 'Unisex' aquí
+        # Asumiendo que el modelo Producto tiene un campo 'genero'
+        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        if genero_producto == 'DAMA':
+            items_dama.append(detalle)
+        elif genero_producto == 'CABALLERO':
+            items_caballero.append(detalle)
+        else:
+            items_unisex.append(detalle)
+        
+        
+        
+        
+        
+        
 
     tallas_col_dama = ['3', '5', '7', '9', '11', '16', '18', '20', '22']
     tallas_col_caballero = [str(t) for t in range(28, 45, 2)]
@@ -604,34 +633,27 @@ def generar_pedido_pdf(request, pk):
     context = {
         'pedido': pedido,
         'empresa_actual': empresa_actual,
-        'logo_base64': logo_para_pdf,
-        'fecha_generacion': timezone.now(),
-        'tasa_iva_pct': int(pedido.IVA_RATE * 100) if hasattr(pedido, 'IVA_RATE') else 19,
+        'logo_base64': get_logo_base_64_despacho(empresa_actual),
+        'tasa_iva_pct': int(pedido.IVA_RATE * 100),
         'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
         'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
         'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
-        'incluir_color': True, 'incluir_vr_unit': True,
+        'incluir_color': True,
+        'incluir_vr_unit': True,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
     }
-    template_path = 'pedidos/pedido_pdf.html'
-    template = get_template(template_path)
-    html_string = template.render(context)
+    
+    template = get_template('pedidos/pedido_pdf.html')
+    html = template.render(context)
+
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.pk}_{timezone.now():%Y%m%d}.pdf"'
-    try:
-        base_url = request.build_absolute_uri('/')
-        HTML(string=html_string, base_url=base_url).write_pdf(response)
-        return response
-    except Exception as e:
-        print(f"Error generando PDF con WeasyPrint para Pedido {pk}: {e}")
-        import traceback
-        traceback.print_exc()
-        messages.error(request, f"Error inesperado al generar el PDF del pedido #{pedido.pk}.")
-        return HttpResponse(f'Error interno del servidor al generar el PDF.', status=500)
+    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.pk}.pdf"'
     
-    
-    
-    
+    from xhtml2pdf import pisa
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+       return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    return response
 
 @login_required
 def vista_pedido_exito(request, pk):

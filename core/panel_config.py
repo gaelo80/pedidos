@@ -13,6 +13,31 @@ PANEL_OPTIONS_CONFIG = [
         #ok
     },
     
+    {
+        'titulo': 'Formulario de Solicitud de Cliente Nuevo',
+        'descripcion': 'Ingresa requisitos de estudio para nuevo cliente',
+        'url_nombre': 'prospectos:crear_solicitud',
+        'icono': 'fas fa-plus-circle',
+        'icono_color_class': 'icon-success',
+        #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
+        'rol_requerido': 'es_vendedor', # No se necesita si se usa permiso_requerido
+        'order': 5,
+        'roles_info': ['Vendedor', 'admin'], # Mantener para info si se usa en plantilla
+        #ok
+    },
+    
+    {
+        'titulo': 'Lista de clientes Prospectos pendientes por aprobar',
+        'descripcion': 'Estudiar solicitudes de clientes nuevos.',
+        'url_nombre': 'prospectos:lista_solicitudes',
+        'icono': 'fas fa-plus-circle',
+        'icono_color_class': 'icon-success',
+        #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
+        'rol_requerido': ['es_cartera', 'es_vendedor'], # No se necesita si se usa permiso_requerido
+        'order': 4,
+        'roles_info': ['Cartera', 'admin'], # Mantener para info si se usa en plantilla
+        #ok
+    },
     
     {
         'titulo': 'Borradores Guardados',
