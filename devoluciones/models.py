@@ -8,6 +8,14 @@ from clientes.models import Empresa
 class DevolucionCliente(models.Model):
     """Representa una devolución de productos realizada por un cliente."""
     
+    ESTADO_DEVOLUCION_CHOICES = [
+        ('INICIADA', 'Iniciada por Vendedor'),
+        ('RECIBIDA_EN_BODEGA', 'Recibida en Bodega'),
+        ('VERIFICADA', 'Verificada y Finalizada'),
+        ('CON_DIFERENCIAS', 'Verificada con Diferencias'),
+    ]
+    
+    
     empresa = models.ForeignKey(
         Empresa, 
         on_delete=models.CASCADE, 
@@ -45,6 +53,13 @@ class DevolucionCliente(models.Model):
         related_name='devoluciones_procesadas', 
         verbose_name="Usuario que Procesa"
     )
+    
+    estado = models.CharField(
+        max_length=20, 
+        choices=ESTADO_DEVOLUCION_CHOICES, 
+        default='INICIADA',
+        verbose_name="Estado de la Devolución"
+    )
 
     def clean(self):  
         super().clean()
@@ -77,6 +92,9 @@ class DevolucionCliente(models.Model):
         verbose_name = "Devolución de Cliente"
         verbose_name_plural = "Devoluciones de Clientes"
         ordering = ['-empresa', '-fecha_hora']
+        permissions = [
+            ("can_receive_devolucion", "Puede recibir y verificar devoluciones en bodega"),
+        ]
 
 
 class DetalleDevolucion(models.Model):
@@ -98,10 +116,19 @@ class DetalleDevolucion(models.Model):
         related_name='productos_devueltos', 
         verbose_name="Producto Devuelto"
     )
+    
+    
     cantidad = models.PositiveIntegerField(
         default=1, 
-        verbose_name="Cantidad Devuelta"
+        verbose_name="Cantidad Reportada por Vendedor" 
     )
+
+    cantidad_recibida_bodega = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Cantidad Recibida en Bodega"
+    )
+    
+    
     estado_producto = models.CharField(
         max_length=15, 
         choices=ESTADO_PRODUCTO_DEVOLUCION_CHOICES, 

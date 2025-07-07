@@ -1,0 +1,22 @@
+{% extends "core/base.html" %}
+{% block title %}Nuevo Costeo{% endblock %}
+{% block content %}
+<div class="card shadow-sm bg-white p-4">
+    <h2 class="mb-3">Nuevo Costeo</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            {% for field in form %}
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-success">Continuar con insumos <i class="fas fa-arrow-right"></i></button>
+    </form>
+</div>
+{% endblock %}

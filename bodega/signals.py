@@ -1,10 +1,19 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction # Sigue siendo bueno para la atomicidad de la creación del movimiento
-from .models import MovimientoInventario, DetalleIngresoBodega
+from .models import MovimientoInventario, DetalleIngresoBodega, ComprobanteDespacho
 # La importación de Producto desde productos.models es correcta según tu archivo
 from productos.models import Producto
+from django.contrib.auth.models import Group
+from notificaciones.models import Notificacion
+from django.urls import reverse, NoReverseMatch
+from django.contrib.auth import get_user_model
+import logging
 
+
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=DetalleIngresoBodega)
 def crear_movimiento_para_ingreso_detalle(sender, instance, created, **kwargs):
@@ -56,4 +65,51 @@ def crear_movimiento_para_ingreso_detalle(sender, instance, created, **kwargs):
 
     else:
         print(f"DEBUG SEÑAL INGRESO DETALLE: Ignorada para DetalleIngresoBodega #{instance.pk} (no fue una creación, created=False).")
+        
+        
+@receiver(post_save, sender=ComprobanteDespacho)
+def crear_notificacion_despacho_listo(sender, instance, created, **kwargs):
+    """
+    Crea una notificación cuando se CREA un nuevo Comprobante de Despacho.
+    """
+    # La señal ahora se dispara solo en la creación del comprobante (created=True)
+    if not created:
+        return
 
+    grupo_destino = 'Factura'
+    url_destino = None
+    
+    try:
+        # El mensaje se genera siempre que se crea un comprobante
+        mensaje = f"El despacho #{instance.id} para el cliente {instance.pedido.destinatario.nombre_completo} está listo para facturar."
+        
+        # Se intenta obtener la URL para la lista de despachos a facturar
+        url_destino = reverse('factura:lista_despachos_a_facturar')
+    except NoReverseMatch:
+        logger.warning("No se encontró la URL 'factura:lista_despachos_a_facturar'.")
+    except Exception as e:
+        logger.error(f"Error al generar mensaje o URL para despacho #{instance.id}: {e}")
+        return
+
+    try:
+        if not hasattr(instance, 'empresa'):
+             logger.error(f"El ComprobanteDespacho #{instance.id} no tiene un campo 'empresa'. No se puede notificar.")
+             return
+
+        usuarios_a_notificar = User.objects.filter(
+            groups__name=grupo_destino,
+            empresa=instance.empresa,
+            is_active=True
+        )
+        
+        for usuario in usuarios_a_notificar:
+            if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
+                Notificacion.objects.create(
+                    destinatario=usuario,
+                    mensaje=mensaje,
+                    url=url_destino
+                )
+    except Group.DoesNotExist:
+        logger.warning(f"El grupo '{grupo_destino}' no existe. No se pudo notificar.")
+    except Exception as e:
+        logger.error(f"Error creando notificación para despacho #{instance.id}: {e}")

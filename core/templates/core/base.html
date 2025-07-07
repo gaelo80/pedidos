@@ -39,7 +39,7 @@
             background-color: var(--color-fondo-principal); /* FONDO PRINCIPAL */
             color: var(--color-texto-principal); /* Color de texto por defecto para el body */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fuente más moderna */
-            zoom: 80%;          
+            zoom: 90%;          
             -moz-transform: scale(0.8);
             -moz-transform-origin: 0 0;
         }
@@ -88,9 +88,22 @@
 
     </style>
 
-    {% block extra_head %}{% endblock extra_head %}
+    {% block extra_head %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Gracias al context processor, esta variable está disponible en todas las páginas.
+                const notificationCount = {{ unread_notifications_count|default:0 }};
+                if (notificationCount > 0) {
+                    document.title = `(${notificationCount}) ${document.title}`;
+                }
+            });
+        </script>
+    
+    {% endblock extra_head %}
 </head>
 <body>
+    
+    
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
         <a class="navbar-brand" href="{% url 'core:index' %}">
             {# Considera agregar tu logo o nombre de marca aquí #}
@@ -105,7 +118,13 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:index' %}"><i class="fas fa-home"></i> INICIO</a>
                     </li>
+        
+        </div>
 
+
+
+        <div hidden>    
+                    
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownCartera" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             CARTERA
@@ -209,12 +228,30 @@
                         
                         </ul>
                     </li>
-
+        
 
                 {% endif %}
+
+        </div>
+
+        
             </ul>
             <ul class="navbar-nav ms-auto mb-2 mb-md-0">
              {% if user.is_authenticated %}
+
+
+
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'notificaciones:lista_notificaciones' %}">
+                        <i class="fas fa-bell"></i>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="badge rounded-pill bg-danger" style="position: relative; top: -10px; left: -5px;">
+                                {{ unread_notifications_count }}
+                            </span>
+                        {% endif %}
+                    </a>
+                </li>
                  <li class="nav-item">
                      <span class="navbar-text me-2">Hola, {{ user.username }}!</span>
                  </li>
@@ -234,6 +271,7 @@
           </ul>
         </div>
     </nav>
+  
 
     <main class="container mt-4">
       {% include 'core/partials/messages.html' %}

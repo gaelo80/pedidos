@@ -1,0 +1,86 @@
+{# devoluciones/templates/devoluciones/recibir_devolucion.html #}
+{% extends 'core/base.html' %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-boxes me-2"></i>{{ titulo }}</h4>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-info" role="alert">
+                <p class="mb-0"><strong>Instrucciones:</strong> Verifica la cantidad de cada producto recibido físicamente y anótala en la columna "Cantidad Recibida". El stock solo se actualizará con las cantidades que confirmes aquí.</p>
+            </div>
+
+            <h5 class="mt-4">Resumen de la Devolución</h5>
+            <p><strong>Cliente:</strong> {{ devolucion.cliente.nombre_completo|default:"N/A" }}</p>
+            <p><strong>Fecha de Creación:</strong> {{ devolucion.fecha_hora|date:"d/m/Y P" }}</p>
+            <p><strong>Motivo:</strong> {{ devolucion.motivo|default:"Sin motivo." }}</p>
+
+            <hr>
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+
+
+
+                <thead class="table-light">
+                    <tr>
+                        <th>Producto (Referencia)</th>
+                        <th class="text-center">Cant. Reportada</th>
+                        <th class="text-center">Cant. Recibida</th>
+                        <th style="width: 25%;">Estado Final (En Bodega)</th> {# <-- NUEVA COLUMNA #}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in devolucion.detalles.all %}
+                    <tr>
+                        <td>
+                            {{ detalle.producto.nombre }} 
+                            <br>
+                            <small class="text-muted">Ref: {{ detalle.producto.referencia }}</small>
+                        </td>
+                        <td class="text-center fs-5 align-middle">{{ detalle.cantidad }}</td>
+                        <td class="align-middle">
+                            <input 
+                                type="number" 
+                                name="cantidad_recibida_{{ detalle.pk }}" 
+                                class="form-control text-center" 
+                                value="{{ detalle.cantidad }}" 
+                                min="0" 
+                                max="{{ detalle.cantidad }}"
+                                required>
+                        </td>
+                        <td class="align-middle">
+                            
+                            <select name="estado_final_{{ detalle.pk }}" class="form-select">
+                                <option value="BUENO" {% if detalle.estado_producto == 'BUENO' %}selected{% endif %}>Buen estado (Reingresa a stock)</option>
+                                <option value="DEFECTUOSO" {% if detalle.estado_producto == 'DEFECTUOSO' %}selected{% endif %}>Defectuoso (Revisión/Reparación)</option>
+                                <option value="DESECHAR" {% if detalle.estado_producto == 'DESECHAR' %}selected{% endif %}>Para Desechar</option>
+                            </select>
+                            
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+
+
+
+                    </table>
+                </div>
+                <div class="text-center mt-4">
+                    <a href="{% url 'devoluciones:detalle_devolucion' pk=devolucion.pk %}" class="btn btn-secondary btn-lg">Cancelar</a>
+                    <button type="submit" class="btn btn-success btn-lg ms-2">
+                        <i class="fas fa-check-circle me-2"></i>Confirmar Recepción y Actualizar Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

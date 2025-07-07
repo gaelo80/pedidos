@@ -1,0 +1,62 @@
+{% extends "core/base.html" %}
+
+{% block title %}Gestión de Costos Fijos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="color: white;">Costos Fijos y Generales</h1>
+        <div>
+            <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+            <a href="{% url 'costeo_jeans:costofijo_create' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Añadir Costo Fijo
+            </a>
+        </div>
+    </div>
+    <div class="card bg-light text-dark">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th>Incluir por Defecto</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for costo in costos_fijos %}
+                        <tr>
+                            <td>{{ costo.nombre }}</td>
+                            <td>{{ costo.get_tipo_display }}</td>
+                            <td>
+                                {% if costo.tipo == "PORCENTAJE" %}
+                                    {{ costo.valor|floatformat:2 }}%
+                                {% else %}
+                                    ${{ costo.valor|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if costo.incluir_por_defecto %}
+                                    <i class="fas fa-check-circle text-success"></i> Sí
+                                {% else %}
+                                    <i class="fas fa-times-circle text-secondary"></i> No
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'costeo_jeans:costofijo_update' costo.pk %}" class="btn btn-primary btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'costeo_jeans:costofijo_delete' costo.pk %}" class="btn btn-danger btn-sm" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center">No hay costos fijos registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

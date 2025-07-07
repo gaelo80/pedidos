@@ -1,0 +1,73 @@
+{% extends "core/base.html" %}
+
+{% block title %}Historial de Costeos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+        <h1 style="color: white;">Historial de Costeos</h1>
+        <a href="{% url 'costeo_jeans:costeo_create_step1' %}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Crear Nuevo Costeo
+        </a>
+    </div>
+
+    <!-- Formulario de Filtros -->
+    <div class="card bg-light text-dark mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-center">
+                <div class="col-md-5">
+                    <input type="text" name="referencia" class="form-control" placeholder="Buscar por referencia..." value="{{ search_ref }}">
+                </div>
+                <div class="col-md-5">
+                    <input type="date" name="fecha" class="form-control" value="{{ search_date }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Resultados -->
+    <div class="card bg-light text-dark">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Referencia</th>
+                            <th>Cantidad Producida</th>
+                            <th>Costo Unitario</th>
+                            <th>Costo Total</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for costeo in costeos %}
+                        <tr>
+                            <td>{{ costeo.fecha }}</td>
+                            <td>{{ costeo.referencia }}</td>
+                            <td>{{ costeo.cantidad_producida }}</td>
+                            <td>${{ costeo.costo_unitario|floatformat:2 }}</td>
+                            <td>${{ costeo.costo_total|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'costeo_jeans:costeo_summary' costeo.pk %}" class="btn btn-info btn-sm" title="Ver Resumen">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <!-- Futuro botón de PDF -->
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No se encontraron costeos con los filtros aplicados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

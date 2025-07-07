@@ -1,0 +1,95 @@
+/* static/css/print.css */
+
+@page {
+    size: letter;
+    margin: 1.5cm;
+}
+
+body {
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    color: #333;
+    font-size: 11pt;
+}
+
+/* Ocultar botones y elementos de navegación */
+.no-print {
+    display: none !important;
+}
+
+/* Encabezado del reporte */
+.report-header {
+    text-align: center;
+    border-bottom: 2px solid #0056b3;
+    padding-bottom: 10px;
+    margin-bottom: 30px;
+}
+
+.report-header h1 {
+    margin: 0;
+    color: #0056b3;
+}
+
+.report-header p {
+    margin: 5px 0 0;
+    font-size: 12pt;
+}
+
+/* Contenedor de información principal */
+.info-grid {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+/* Usar tablas para los detalles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 25px;
+}
+
+th, td {
+    border: 1px solid #dee2e6;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
+
+td.text-right, th.text-right {
+    text-align: right;
+}
+
+/* Bloque de totales */
+.totals-block {
+    float: right;
+    width: 45%;
+    margin-top: 30px;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.totals-block h3, .totals-block h4 {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+}
+
+.totals-block span {
+    font-weight: normal;
+    color: #000;
+}
+
+.totals-block h3 span {
+   font-weight: bold;
+   color: #28a745;
+}

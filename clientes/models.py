@@ -7,11 +7,14 @@ from django.conf import settings
 
 class Empresa(models.Model):
     nombre = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Empresa")
-    nit = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name="NIT")
+    responsable_de_iva = models.BooleanField('Responsable de IVA', default=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
+    ciudad = models.ForeignKey('Ciudad', on_delete=models.SET_NULL, null=True, blank=True)
     telefono = models.CharField(max_length=100, blank=True, null=True)
+    correo_electronico = models.EmailField('Correo Electrónico', blank=True)    
+    nit = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name="NIT")    
     activo = models.BooleanField(default=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)       
     
     logo = models.ImageField(
         upload_to='logos/', # Directorio donde se guardarán los logos
@@ -55,12 +58,7 @@ class Cliente(models.Model):
         related_name='clientes',
     )
     nombre_completo = models.CharField(max_length=200, verbose_name="Nombre Completo")
-    
-    # --- CORRECCIÓN CRÍTICA DE SEGURIDAD ---
-    # Se elimina 'unique=True'. La unicidad a nivel de inquilino se maneja
-    # con 'unique_together' en la clase Meta, que es la forma correcta.
-    identificacion = models.CharField(max_length=20, blank=True, null=True, verbose_name="Identificación (NIT/Cédula)")
-    
+    identificacion = models.CharField(max_length=20, blank=True, null=True, verbose_name="Identificación (NIT/Cédula)")    
     direccion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección")
     ciudad = models.ForeignKey(
         Ciudad,
@@ -70,6 +68,7 @@ class Cliente(models.Model):
     )
     telefono = models.CharField(max_length=30, blank=True, null=True, verbose_name="Teléfono")
     email = models.EmailField(max_length=100, blank=True, null=True, verbose_name="Correo Electrónico")
+    activo = models.BooleanField(default=True, verbose_name="¿Está Activo?")
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
 
     def __str__(self):

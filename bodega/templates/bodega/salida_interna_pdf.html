@@ -3,237 +3,114 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Comprobante Salida Interna N° {{ salida_interna.pk }}</title>
-    <style type="text/css">
-        @page { 
-            size: letter; 
-            margin: 1.5cm; 
-            @bottom-center {
-                content: "Página " counter(page) " de " counter(pages);
-                font-size: 8pt;
-                color: #555555;
-                vertical-align: top;
-                padding-top: 5px;
-            }
-        }
-        body { 
-            font-family: "Helvetica", Arial, sans-serif; 
-            font-size: 10pt; 
-            color: #333; 
-            line-height: 1.4;
-        }
-        .header-container { 
-            text-align: center; 
-            margin-bottom: 20px; 
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 10px;
-        }
-        .logo { 
-            max-height: 70px; 
-            max-width: 250px; /* Ajusta si es necesario */
-            margin-bottom: 10px; 
-        }
-        .company-info {
-            font-size: 8pt;
-            color: #555;
-        }
-        h1 { 
-            font-size: 16pt; 
-            text-align: center; 
-            margin-bottom: 5px; /* Reducido para el subtitulo */
-            color: #000; 
-            text-transform: uppercase;
-        }
-        h1.subtitle { /* Para el subtitulo de Salida Interna N° */
-            font-size: 12pt;
-            text-align: center;
-            margin-bottom: 15px;
-            color: #333;
-            font-weight: normal; /* Para que no sea tan fuerte como el título principal */
-        }
-        h2 { 
-            font-size: 12pt; 
-            margin-top: 20px;
-            margin-bottom: 10px; 
-            border-bottom: 1px solid #eee; 
-            padding-bottom: 5px;
-            color: #444;
-        }
-        table.info-table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            font-size: 9pt; 
-            margin-bottom:15px;
-        }
-        .info-table td { 
-            border: none; 
-            padding: 3px 0px; /* Ajusta el padding vertical */
-            vertical-align: top;
-        }
-        .info-table td:first-child { /* Para la etiqueta */
-            font-weight: bold;
-            width: 30%; /* Ajusta el ancho de la columna de etiquetas */
-        }
-        table.items-table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            font-size: 9pt; 
-            margin-bottom:15px;
-        }
-        .items-table th, .items-table td { 
-            border: 1px solid #ccc; 
-            padding: 6px; 
-            text-align: left; 
-            vertical-align: top;
-        }
-        .items-table th { 
-            background-color: #f0f0f0; 
-            font-weight: bold; 
-        }
+    <title>Comprobante Salida N° {{ salida_interna.pk }}</title>
+    <style>
+        @page { size: letter; margin: 1.5cm; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #333; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .header-table td { vertical-align: top; padding: 5px; }
+        .company-info { width: 55%; }
+        .document-info { width: 45%; text-align: right; }
+        .logo { max-width: 180px; max-height: 50px; margin-bottom: 10px; }
+        h1 { font-size: 18pt; color: #000; margin: 0; padding: 0; }
+        .document-info p { margin: 2px 0; font-size: 10pt; }
+        .document-info .label { font-weight: bold; }
+        .info-section { border-top: 2px solid #333; border-bottom: 2px solid #333; padding: 10px 0; margin-bottom: 25px; }
+        .info-grid td { padding: 3px 5px; font-size: 9.5pt; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .items-table th, .items-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .items-table thead th { background-color: #f2f2f2; font-size: 8pt; text-transform: uppercase; color: #333; border-bottom-width: 2px; border-color: #333; }
         .items-table .text-center { text-align: center; }
-        .items-table .text-right { text-align: right; }
-        /* Estilos de columna similares al de devolución, adaptados para salida */
-        .items-table .col-cantidad { background-color: #e6f7ff; } /* Azul claro para cantidad despachada */
-
-        .signatures { 
-            margin-top: 40px; /* Más espacio antes de las firmas */
-            page-break-inside: avoid; /* Evitar que las firmas se corten entre páginas */
-        }
-        .signature-block { 
-            width: 100%;
-        }
-        .signature-block td {
-            width: 50%;
-            text-align: center;
-            padding-top: 30px; /* Espacio para la línea */
-        }
-        .signature-line { 
-            border-bottom: 1px solid #333; 
-            margin: 0 auto 5px auto; /* Centrar la línea y espacio debajo */
-            width: 70%; /* Ancho de la línea de firma */
-            display: block; /* Para que el margin auto funcione */
-        }
-        .signature-label {
-            font-size: 9pt;
-            color: #333;
-        }
-        .footer-text { 
-            position: fixed;
-            bottom: 0.5cm; 
-            left: 1.5cm;
-            right: 1.5cm;
-            text-align: center;
-            font-size: 8pt;
-            color: #777;
-        }
+        .signatures { margin-top: 70px; page-break-inside: avoid; width: 100%; }
+        .signatures td { width: 50%; padding: 0 20px; text-align: center; }
+        .signature-line { border-top: 1px solid #333; margin-top: 50px; }
+        .signature-label { font-size: 9pt; }
+        .footer { position: fixed; bottom: -1cm; left: 0; right: 0; text-align: center; font-size: 8pt; color: #999; }
     </style>
 </head>
 <body>
-    <div class="header-container">
-        {% if logo_base64 %}
-            <img src="{{ logo_base64 }}" alt="Logo Empresa" class="logo">
-        {% endif %}
-    </div>
-
-    <h1>Comprobante de Salida Interna</h1>
-    <h1 class="subtitle">N° {{ salida_interna.pk }}</h1>
-    
-    <h2>Información General</h2>
-    <table class="info-table">
+    <table class="header-table">
         <tr>
-            <td>Fecha y Hora de Salida:</td>
-            <td>{{ salida_interna.fecha_hora_salida|date:"d/m/Y H:i:s" }}</td>
-        </tr>
-        <tr>
-            <td>Tipo de Salida:</td>
-            <td>{{ salida_interna.get_tipo_salida_display }}</td>
-        </tr>
-        <tr>
-            <td>Destino / Entregado A:</td>
-            <td>{{ salida_interna.destino_descripcion|default:"No especificado" }}</td>
-        </tr>
-        <tr>
-            <td>Responsable de Entrega (Bodega):</td>
-            <td>{{ salida_interna.responsable_entrega.get_full_name|default:salida_interna.responsable_entrega.username|default:"N/A" }}</td>
-        </tr>
-        {% if salida_interna.documento_referencia_externo %}
-        <tr>
-            <td>Documento Referencia Externo:</td>
-            <td>{{ salida_interna.documento_referencia_externo }}</td>
-        </tr>
-        {% endif %}
-        {% if salida_interna.fecha_prevista_devolucion %}
-        <tr>
-            <td>Fecha Prevista Devolución:</td>
-            <td>{{ salida_interna.fecha_prevista_devolucion|date:"d/m/Y" }}</td>
-        </tr>
-        {% endif %}
-         <tr>
-            <td>Estado Actual:</td>
-            <td><strong>{{ salida_interna.get_estado_display }}</strong></td>
+            <td class="company-info">
+                {% if logo_base64 %}<img src="{{ logo_base64 }}" alt="Logo" class="logo">{% endif %}
+                <p style="font-weight:bold; margin:0;">{{ salida_interna.empresa.nombre }}</p>
+                {% if salida_interna.empresa.nit %}<p style="margin:0;">NIT: {{ salida_interna.empresa.nit }}</p>{% endif %}
+                {% if salida_interna.empresa.direccion %}<p style="margin:0;">{{ salida_interna.empresa.direccion }}, {{ salida_interna.empresa.ciudad.nombre }}</p>{% endif %}
+            </td>
+            <td class="document-info">
+                <h1>SALIDA INTERNA</h1>
+                <p><span class="label">N°:</span> {{ salida_interna.pk }}</p>
+                <p><span class="label">Fecha:</span> {{ salida_interna.fecha_hora_salida|date:"d/m/Y H:i" }}</p>
+                <p><span class="label">Estado:</span> <strong>{{ salida_interna.get_estado_display }}</strong></p>
+            </td>
         </tr>
     </table>
 
-    <h2>Productos Despachados</h2>
+    <div class="info-section">
+        <table style="width:100%;">
+            <tr>
+                <td style="width:20%;"><strong>Tipo Salida:</strong></td>
+                <td style="width:80%;">{{ salida_interna.get_tipo_salida_display }}</td>
+            </tr>
+            <tr>
+                <td><strong>Destino:</strong></td>
+                <td>{{ salida_interna.destino_descripcion|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Responsable:</strong></td>
+                <td>{{ salida_interna.responsable_entrega.get_full_name|default:"N/A" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <h3 style="margin-bottom: 5px;">Productos Despachados</h3>
     <table class="items-table">
         <thead>
             <tr>
                 <th>Ref.</th>
-                <th>Producto / Descripción</th>
+                <th>Producto</th>
                 <th>Color</th>
                 <th>Talla</th>
-                <th class="text-center col-cantidad">Cantidad Despachada</th>
-                <th>Observaciones del Ítem</th>
+                <th class="text-center">Cantidad</th>
+                <th>Observaciones</th>
             </tr>
         </thead>
         <tbody>
             {% for detalle in detalles_items %}
             <tr>
-                <td>{{ detalle.producto.referencia|default:"N/A" }}</td>
-                <td>{{ detalle.producto.nombre|default:"N/A" }}</td>
-                <td>{{ detalle.producto.color|default:"N/A" }}</td>
-                <td>{{ detalle.producto.talla|default:"N/A" }}</td>
-                <td class="text-center col-cantidad">{{ detalle.cantidad_despachada|intcomma }}</td>
+                <td>{{ detalle.producto.referencia|default:"-" }}</td>
+                <td>{{ detalle.producto.nombre|default:"-" }}</td>
+                <td>{{ detalle.producto.color|default:"-" }}</td>
+                <td>{{ detalle.producto.talla|default:"-" }}</td>
+                <td class="text-center">{{ detalle.cantidad_despachada|intcomma }}</td>
                 <td>{{ detalle.observaciones_detalle|default:"" }}</td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="6" class="text-center">No hay productos detallados en este comprobante.</td>
-            </tr>
+            <tr><td colspan="6" class="text-center" style="padding: 20px;">No hay productos detallados.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
     {% if salida_interna.observaciones_salida %}
-        <h2>Observaciones Generales de la Salida</h2>
-        <p style="white-space: pre-wrap; border: 1px solid #eee; padding: 10px; background-color: #f9f9f9;">
-            {{ salida_interna.observaciones_salida }}
-        </p>
+        <h3 style="margin-top:25px;">Observaciones Generales</h3>
+        <p style="font-size: 9pt; font-style: italic;">{{ salida_interna.observaciones_salida|linebreaksbr }}</p>
     {% endif %}
 
-    <div class="signatures">
-        <table class="signature-block">
-            <tr>
-                <td>
-                    <div class="signature-line"></div>
-                    <span class="signature-label">Entregado por (Bodega)</span><br>
-                    <span class="signature-label">
-                        {{ salida_interna.responsable_entrega.get_full_name|default:salida_interna.responsable_entrega.username|default:"Firma y Nombre" }}
-                    </span>
-                </td>
-                <td>
-                    <div class="signature-line"></div>
-                    <span class="signature-label">Recibido por</span><br>
-                    <span class="signature-label">
-                         {{ salida_interna.destino_descripcion|truncatechars:40|default:"Firma y Nombre" }}
-                    </span>
-                </td>
-            </tr>
-        </table>
-    </div>
+    <table class="signatures">
+        <tr>
+            <td>
+                <p class="signature-line"></p>
+                <p class="signature-label">Entregado por (Bodega)</p>
+            </td>
+            <td>
+                <p class="signature-line"></p>
+                <p class="signature-label">Recibido por (Firma y Nombre)</p>
+            </td>
+        </tr>
+    </table>
 
-    <div class="footer-text">
-        Generado el: {{ fecha_generacion|date:"d/m/Y H:i:s" }}
+    <div class="footer">
+        Comprobante generado el {{ fecha_generacion|date:"d/m/Y H:i" }}
     </div>
 </body>
 </html>

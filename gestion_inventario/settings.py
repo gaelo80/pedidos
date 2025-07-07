@@ -112,6 +112,9 @@ INSTALLED_APPS = [
         'informes',
         'catalogo',
         'user_management',
+        'costeo_jeans',
+        'recaudos',
+        'notificaciones',
         
         # APLICACIONES DE TERCERO
         'rest_framework',
@@ -152,6 +155,7 @@ TEMPLATES = [
                     'django.contrib.auth.context_processors.auth',
                     'django.contrib.messages.context_processors.messages',
                     'core.context_processors.empresa_context',
+                    'core.context_processors.notificaciones_context', 
                 ],
             },
         },

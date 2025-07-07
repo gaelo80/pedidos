@@ -1,18 +1,17 @@
 {% extends 'core/base.html' %}
-{% load static %}
-{% load widget_tweaks %} {# Necesario para render_field si quieres más control, o usa clases directas #}
+{% load static widget_tweaks %}
 
-{% block page_title %}{{ titulo|default:"Registrar Salida Interna" }}{% endblock %}
+{% block page_title %}Registrar Salida Interna{% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0"><i class="fas fa-truck-loading me-2"></i>{{ titulo|default:"Registrar Salida Interna" }}</h4>
-        </div>
-        <div class="card-body">
-            <form method="post" novalidate>
-                {% csrf_token %}
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-dolly-flatbed me-2"></i>Registrar Salida Interna</h4>
+            </div>
+            <div class="card-body p-4">
 
                 {% if messages %}
                     {% for message in messages %}
@@ -22,185 +21,138 @@
                         </div>
                     {% endfor %}
                 {% endif %}
-
-                {% if form_cabecera.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in form_cabecera.non_field_errors %}
-                            <p class="mb-0">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                {% if formset_detalles.non_form_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in formset_detalles.non_form_errors %}
-                            <p class="mb-0">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                <fieldset class="mb-4">
-                    <legend class="h5">Datos Generales de la Salida</legend>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form_cabecera.tipo_salida.id_for_label }}" class="form-label">{{ form_cabecera.tipo_salida.label }}</label>
-                            {% render_field form_cabecera.tipo_salida class="form-select" %}
-                            {% if form_cabecera.tipo_salida.help_text %}<small class="form-text text-muted">{{ form_cabecera.tipo_salida.help_text }}</small>{% endif %}
-                            {% if form_cabecera.tipo_salida.errors %}<div class="invalid-feedback d-block">{{ form_cabecera.tipo_salida.errors|join:", " }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form_cabecera.destino_descripcion.id_for_label }}" class="form-label">{{ form_cabecera.destino_descripcion.label }}</label>
-                            {% render_field form_cabecera.destino_descripcion class="form-control" placeholder=form_cabecera.destino_descripcion.field.widget.attrs.placeholder %}
-                            {% if form_cabecera.destino_descripcion.help_text %}<small class="form-text text-muted">{{ form_cabecera.destino_descripcion.help_text }}</small>{% endif %}
-                            {% if form_cabecera.destino_descripcion.errors %}<div class="invalid-feedback d-block">{{ form_cabecera.destino_descripcion.errors|join:", " }}</div>{% endif %}
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form_cabecera.documento_referencia_externo.id_for_label }}" class="form-label">{{ form_cabecera.documento_referencia_externo.label }}</label>
-                            {% render_field form_cabecera.documento_referencia_externo class="form-control" %}
-                            {% if form_cabecera.documento_referencia_externo.help_text %}<small class="form-text text-muted">{{ form_cabecera.documento_referencia_externo.help_text }}</small>{% endif %}
-                            {% if form_cabecera.documento_referencia_externo.errors %}<div class="invalid-feedback d-block">{{ form_cabecera.documento_referencia_externo.errors|join:", " }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form_cabecera.fecha_prevista_devolucion.id_for_label }}" class="form-label">{{ form_cabecera.fecha_prevista_devolucion.label }}</label>
-                            {% render_field form_cabecera.fecha_prevista_devolucion class="form-control" type="date" %}
-                            {% if form_cabecera.fecha_prevista_devolucion.help_text %}<small class="form-text text-muted">{{ form_cabecera.fecha_prevista_devolucion.help_text }}</small>{% endif %}
-                            {% if form_cabecera.fecha_prevista_devolucion.errors %}<div class="invalid-feedback d-block">{{ form_cabecera.fecha_prevista_devolucion.errors|join:", " }}</div>{% endif %}
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="{{ form_cabecera.observaciones_salida.id_for_label }}" class="form-label">{{ form_cabecera.observaciones_salida.label }}</label>
-                        {% render_field form_cabecera.observaciones_salida class="form-control" rows="3" %}
-                        {% if form_cabecera.observaciones_salida.help_text %}<small class="form-text text-muted">{{ form_cabecera.observaciones_salida.help_text }}</small>{% endif %}
-                        {% if form_cabecera.observaciones_salida.errors %}<div class="invalid-feedback d-block">{{ form_cabecera.observaciones_salida.errors|join:", " }}</div>{% endif %}
-                    </div>
-                </fieldset>
-
-                <hr class="my-4">
-                
-                <fieldset>
-                    <legend class="h5">Productos a Despachar</legend>
-                    {{ formset_detalles.management_form }}
-                    
-                    <div id="detalle-salida-formset-container">
-                        {% for form_detalle in formset_detalles %}
-                            <div class="detalle-form-row mb-3 p-3 border rounded bg-light"> {# Clase para el plugin JS #}
-                                {% if form_detalle.non_field_errors %}
-                                    <div class="alert alert-danger p-2">
-                                        {% for error in form_detalle.non_field_errors %} {{ error }} {% endfor %}
-                                    </div>
-                                {% endif %}
-                                {{ form_detalle.id }} {# Campo oculto para el ID del detalle si existe #}
-                                <div class="row g-3 align-items-center">
-                                    <div class="col-md-5 mb-3">
-                                        <label for="{{ form_detalle.producto.id_for_label }}" class="form-label">{{ form_detalle.producto.label }}</label>
-                                        {% render_field form_detalle.producto class="form-select select2-producto" %}
-                                        {% if form_detalle.producto.errors %}<div class="invalid-feedback d-block">{{ form_detalle.producto.errors|join:", " }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label for="{{ form_detalle.cantidad_despachada.id_for_label }}" class="form-label">{{ form_detalle.cantidad_despachada.label }}</label>
-                                        {% render_field form_detalle.cantidad_despachada class="form-control" type="number" min="1" %}
-                                        {% if form_detalle.cantidad_despachada.errors %}<div class="invalid-feedback d-block">{{ form_detalle.cantidad_despachada.errors|join:", " }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label for="{{ form_detalle.observaciones_detalle.id_for_label }}" class="form-label">{{ form_detalle.observaciones_detalle.label }}</label>
-                                        {% render_field form_detalle.observaciones_detalle class="form-control form-control-sm" %}
-                                        {% if form_detalle.observaciones_detalle.errors %}<div class="invalid-feedback d-block">{{ form_detalle.observaciones_detalle.errors|join:", " }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-1 align-self-center text-center">
-                                        {% if formset_detalles.can_delete %}
-                                            <div style="display:none;">{{ form_detalle.DELETE }}</div> {# El checkbox real, oculto. El plugin JS lo maneja #}
-                                            {# El plugin JS debería añadir aquí el botón/link de eliminar si está configurado con deleteText #}
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    {# El botón "Añadir" será generado por el script de formset si está bien configurado #}
-                     <small class="form-text text-muted d-block mt-2">
-                        Utilice el botón "Añadir otro Producto" (generado por JavaScript) para agregar más ítems.
-                        Si no aparece, asegúrese que JavaScript esté habilitado y la librería de formsets esté cargada.
-                    </small>
-                </fieldset>
-                
-                <hr class="my-4">
-                <div class="text-center">
-                    <button type="submit" class="btn btn-success btn-lg me-2">
-                        <i class="fas fa-save me-1"></i> Registrar Salida
-                    </button>
-                    <a href="{% url 'bodega:lista_salidas_internas' %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+                {% if form_cabecera.non_field_errors or formset_detalles.non_form_errors %}
+                <div class="alert alert-danger">
+                    {{ form_cabecera.non_field_errors }}
+                    {{ formset_detalles.non_form_errors }}
                 </div>
-            </form>
+                {% endif %}
+
+                <h5 class="mb-3">1. Datos Generales</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form_cabecera.tipo_salida.label }}</label>
+                        {% render_field form_cabecera.tipo_salida class="form-select" %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form_cabecera.destino_descripcion.label }}</label>
+                        {% render_field form_cabecera.destino_descripcion class="form-control" %}
+                    </div>
+                    <div class="col-md-6">
+                         <label class="form-label">{{ form_cabecera.documento_referencia_externo.label }}</label>
+                        {% render_field form_cabecera.documento_referencia_externo class="form-control" %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form_cabecera.fecha_prevista_devolucion.label }}</label>
+                        {% render_field form_cabecera.fecha_prevista_devolucion class="form-control" type="date" %}
+                    </div>
+                    <div class="col-12">
+                         <label class="form-label">{{ form_cabecera.observaciones_salida.label }}</label>
+                        {% render_field form_cabecera.observaciones_salida class="form-control" rows="2" %}
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <h5 class="mb-3">2. Productos a Despachar</h5>
+                {{ formset_detalles.management_form }}
+
+                <div id="detalles-container">
+                    {% for form_detalle in formset_detalles %}
+                    <div class="detalle-form-row row g-3 align-items-center mb-3 p-3 border rounded">
+                        {{ form_detalle.id }}
+                        <div class="col-md-5">
+                            <label class="form-label">{{ form_detalle.producto.label }}</label>
+                            {% render_field form_detalle.producto class="form-select" %}
+                            {% if form_detalle.producto.errors %}<div class="invalid-feedback d-block">{{ form_detalle.producto.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">{{ form_detalle.cantidad_despachada.label }}</label>
+                            {% render_field form_detalle.cantidad_despachada class="form-control" type="number" min="1" %}
+                            {% if form_detalle.cantidad_despachada.errors %}<div class="invalid-feedback d-block">{{ form_detalle.cantidad_despachada.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ form_detalle.observaciones_detalle.label }}</label>
+                            {% render_field form_detalle.observaciones_detalle class="form-control form-control-sm" %}
+                        </div>
+                        <div class="col-md-1 text-center align-self-end pb-2">
+                            {% if form_detalle.instance.pk %}
+                                <div class="d-none">{{ form_detalle.DELETE }}</div>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="Eliminar Ítem"><i class="fas fa-trash"></i></button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div id="add-button-container" class="mt-2"></div>
+
+                <div id="empty-form-template" class="d-none">
+                    <div class="detalle-form-row row g-3 align-items-center mb-3 p-3 border rounded">
+                        {{ formset_detalles.empty_form.id }}
+                        <div class="col-md-5">
+                            <label class="form-label">{{ formset_detalles.empty_form.producto.label }}</label>
+                            {% render_field formset_detalles.empty_form.producto class="form-select" %}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">{{ formset_detalles.empty_form.cantidad_despachada.label }}</label>
+                            {% render_field formset_detalles.empty_form.cantidad_despachada class="form-control" type="number" min="1" %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ formset_detalles.empty_form.observaciones_detalle.label }}</label>
+                            {% render_field formset_detalles.empty_form.observaciones_detalle class="form-control form-control-sm" %}
+                        </div>
+                        <div class="col-md-1 text-center align-self-end pb-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="Eliminar Ítem"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="card-footer text-center py-3">
+                <a href="{% url 'bodega:lista_salidas_internas' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fas fa-save me-2"></i>Registrar Salida
+                </button>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
-{# Asegúrate de que jQuery esté cargado ANTES de este script #}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-{# Ejemplo de CDN para jquery.formset.js. Reemplaza con tu static si lo tienes local #}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.formset/1.2.2/jquery.formset.min.js"></script> 
-{# O si tu 'js/django-formset.js' es el correcto: #}
-<script src="{% static 'js/django-formset.js' %}"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    const container = $('#detalles-container');
+    const addButtonContainer = $('#add-button-container');
+    const template = $('#empty-form-template').html();
+    const formsetPrefix = '{{ formset_detalles.prefix }}';
+    const totalFormsInput = $(`#id_${formsetPrefix}-TOTAL_FORMS`);
 
-<script type="text/javascript">
-    $(document).ready(function() {
-        // Aplicar el plugin formset a cada fila de detalle dentro del contenedor
-        $('#detalle-salida-formset-container .detalle-form-row').formset({
-            prefix: '{{ formset_detalles.prefix }}', // Muy importante: usa el prefijo del formset
-            formCssClass: 'detalle-form-row', // Clase que identifica cada formulario (fila)
-            addText: '<i class="fas fa-plus"></i> Añadir otro Producto',
-            deleteText: '<i class="fas fa-trash"></i> Eliminar este producto', // Texto para el botón/link de eliminar
-            addCssClass: 'btn btn-outline-primary btn-sm mt-3 mb-3', // Clase para el botón "Añadir"
-            deleteCssClass: 'btn btn-danger btn-sm d-inline-block', // Clase para el botón/link "Eliminar"
-            added: function(row) {
-                // Se llama después de que se añade una nueva fila
-                // Inicializar Select2 para el nuevo campo de producto
-                var productoSelect = $(row).find('.select2-producto');
-                initializeSelect2(productoSelect);
-                console.log("Nueva fila añadida y Select2 inicializado si existe.");
-            },
-            removed: function(row) {
-                // Se llama después de que una fila es marcada para eliminación (o removida si era nueva)
-                console.log("Fila eliminada.");
-            }
-            // Puedes añadir más opciones/callbacks aquí según la documentación de tu plugin formset
-        });
+    addButtonContainer.html('<button type="button" id="add-form-btn" class="btn btn-outline-primary btn-sm"><i class="fas fa-plus"></i> Añadir Producto</button>');
 
-        // Función para inicializar Select2 (si lo usas)
-        function initializeSelect2(element) {
-            if (!$(element).length) return; // Salir si el elemento no existe
-
-            // Prevenir reinicialización si ya es un Select2
-            if ($(element).hasClass("select2-hidden-accessible")) {
-                return;
-            }
-            
-            $(element).select2({
-                theme: 'bootstrap-5', // Asegúrate de tener el tema de Select2 para Bootstrap 5 si usas BS5
-                width: '100%',
-                placeholder: 'Seleccione un producto',
-                // Si necesitas AJAX:
-                // ajax: {
-                //     url: '/ruta/a/tu/api/productos/',
-                //     dataType: 'json',
-                //     delay: 250,
-                //     processResults: function (data) {
-                //         return {
-                //             results: data.items
-                //         };
-                //     },
-                //     cache: true
-                // }
-            });
-        }
-
-        // Inicializar Select2 para los campos de producto existentes al cargar la página
-        $('#detalle-salida-formset-container .select2-producto').each(function() {
-            initializeSelect2(this);
-        });
+    $('#add-form-btn').on('click', function() {
+        let formIdx = parseInt(totalFormsInput.val());
+        let newFormHtml = template.replace(/__prefix__/g, formIdx);
+        container.append(newFormHtml);
+        totalFormsInput.val(formIdx + 1);
     });
+
+    container.on('click', '.delete-row-btn', function() {
+        const row = $(this).closest('.detalle-form-row');
+        const deleteCheckbox = row.find('input[type="checkbox"][id$="-DELETE"]');
+
+        if (deleteCheckbox.length) {
+            deleteCheckbox.prop('checked', true);
+            row.fadeOut();
+        } else {
+            row.remove();
+            // Actualizar contador total de formularios si se borra uno nuevo
+            let currentForms = container.find('.detalle-form-row');
+            totalFormsInput.val(currentForms.length);
+        }
+    });
+});
 </script>
 {% endblock %}

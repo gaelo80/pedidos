@@ -1,6 +1,7 @@
 # cartera/admin.py
 from django.contrib import admin
 from .models import DocumentoCartera
+from .models import DocumentoCartera, PerfilImportacionCartera
 
 @admin.register(DocumentoCartera)
 class DocumentoCarteraAdmin(admin.ModelAdmin):
@@ -76,3 +77,25 @@ class DocumentoCarteraAdmin(admin.ModelAdmin):
         
         # Para un superusuario, el valor de 'empresa' se toma del formulario.
         super().save_model(request, obj, form, change)
+        
+@admin.register(PerfilImportacionCartera)
+class PerfilImportacionCarteraAdmin(admin.ModelAdmin):
+    list_display = ('nombre_perfil', 'empresa', 'fila_inicio_header')
+    list_filter = ('empresa',)
+    fieldsets = (
+        ('Información General', {
+            'fields': ('empresa', 'nombre_perfil', 'fila_inicio_header')
+        }),
+        ('Mapeo de Columnas del Archivo Excel', {
+            'description': "Escribe el nombre exacto de la columna como aparece en el archivo Excel.",
+            'fields': (
+                'columna_id_cliente', 
+                'columna_numero_documento', 
+                'columna_fecha_documento', 
+                'columna_fecha_vencimiento', 
+                'columna_saldo', 
+                'columna_nombre_vendedor', 
+                'columna_codigo_vendedor'
+            )
+        }),
+    )

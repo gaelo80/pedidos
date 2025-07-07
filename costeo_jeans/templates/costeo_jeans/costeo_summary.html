@@ -1,0 +1,68 @@
+{% extends "core/base.html" %}
+{% load static humanize %}
+
+{% block title %}Resumen del Costeo: {{ costeo.referencia }}{% endblock %}
+
+{% block content %}
+<div class="container bg-light text-dark p-4 rounded shadow-sm">
+    <h2 class="border-bottom pb-2 mb-3" style="color: black;">Resumen del Costeo: {{ costeo.referencia }}</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-6"><strong>Cantidad Producida:</strong> {{ costeo.cantidad_producida }} unidades</div>
+        <div class="col-md-6"><strong>Fecha de Creación:</strong> {{ costeo.fecha|date:"d \d\e F \d\e Y" }}</div>
+    </div>
+
+    <div class="mb-4">
+        <h4>Detalle de Insumos</h4>
+        <ul class="list-group">
+        {% for item in costeo.detalle_insumos.all %}
+            <li class="list-group-item d-flex justify-content-between align-items-center fs-6">
+                <span>{{ item.insumo.nombre }}: {{ item.cantidad }} x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}</span>
+                <span class="badge bg-primary rounded-pill fs-6">${{ item.costo_total|floatformat:0|intcomma }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="mb-4">
+        <h4>Detalle de Procesos</h4>
+        <ul class="list-group">
+        {% for detalle in costeo.detalle_procesos.all %}
+            <li class="list-group-item fs-6">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ detalle.tarifa.proceso.nombre }}</h5>
+                    <strong class="text-success fs-5">${{ detalle.costo_total|floatformat:0|intcomma }}</strong>
+                </div>
+                <p class="mb-1">Realizado por: {{ detalle.tarifa.confeccionista.nombre }}</p>
+                <span class="text-muted">{{ detalle.cantidad }} x ${{ detalle.costo_unitario_registrado|floatformat:0|intcomma }}{% if detalle.valor_iva > 0 %} + IVA{% endif %}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="mb-4">
+        <h4>Costos Fijos y Generales</h4>
+        <ul class="list-group">
+        {% for item in costeo.detalle_costos_fijos.all %}
+            <li class="list-group-item d-flex justify-content-between align-items-center fs-6">
+                {{ item.costo_fijo.nombre }}
+                <span class="badge bg-secondary rounded-pill fs-6">${{ item.costo_total|floatformat:0|intcomma }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <hr>
+
+    <div class="text-end mt-4">
+        <h3 class="fw-bold">Costo Total: <span class="text-success">${{ costeo.costo_total|floatformat:0|intcomma }}</span></h3>
+        <h4 class="fw-bold">Costo Unitario: <span class="text-info">${{ costeo.costo_unitario|floatformat:0|intcomma }}</span></h4>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+        <a href="{% url 'costeo_jeans:costeo_update_step1' costeo.id %}" class="btn btn-warning"><i class="fas fa-pencil-alt"></i> Editar Costeo</a>
+        <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.id %}" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Exportar a PDF</a>
+        <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-primary">Finalizar y Volver al Panel</a>
+    </div>
+</div>
+{% endblock %}

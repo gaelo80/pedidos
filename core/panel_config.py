@@ -9,7 +9,7 @@ PANEL_OPTIONS_CONFIG = [
         #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
         'rol_requerido': 'es_vendedor', # No se necesita si se usa permiso_requerido
         'order': 1,
-        'roles_info': ['vendedor', 'admin'], # Mantener para info si se usa en plantilla
+        'roles_info': ['vendedor'], # Mantener para info si se usa en plantilla
         #ok
     },
     
@@ -30,12 +30,25 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Lista de clientes Prospectos pendientes por aprobar',
         'descripcion': 'Estudiar solicitudes de clientes nuevos.',
         'url_nombre': 'prospectos:lista_solicitudes',
+        'icono': 'fas fa-list',
+        'icono_color_class': 'icon-success',
+        #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
+        'rol_requerido': ['es_cartera', 'es_vendedor', 'es_admin_sistema'], # No se necesita si se usa permiso_requerido
+        'order': 4,
+        'roles_info': ['Cartera', 'admin'], # Mantener para info si se usa en plantilla
+        #ok
+    },
+    
+    {
+        'titulo': 'Costeo de productos',
+        'descripcion': 'Realizar un costeo de productos para clientes.',
+        'url_nombre': 'costeo_jeans:panel_costeo',
         'icono': 'fas fa-plus-circle',
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
-        'rol_requerido': ['es_cartera', 'es_vendedor'], # No se necesita si se usa permiso_requerido
-        'order': 4,
-        'roles_info': ['Cartera', 'admin'], # Mantener para info si se usa en plantilla
+        'rol_requerido': ['Cartera', 'es_admin_sistema'], # No se necesita si se usa permiso_requerido
+        'order': 9,
+        'roles_info': 'Cartera' # Mantener para info si se usa en plantilla
         #ok
     },
     
@@ -43,22 +56,63 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Borradores Guardados',
         'descripcion': 'Aquí encontrarás tus Borradores.',
         'url_nombre': 'pedidos:lista_pedidos_borrador',
-        'icono': 'fas fa-edit',
+        'icono': 'fas fa-file-alt',
         'icono_color_class': 'icon-warning',
         #'permiso_requerido': 'pedidos.view_pedido', # O un permiso más específico si lo tienes
-        'rol_requerido': 'es_vendedor',
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema'],
         'order': 2,
         'roles_info': ['vendedor']
         #ok
     },
+    
+    
+        {
+        'titulo': 'Recaudos de Dinero',
+        'descripcion': 'Registrar un recaudo de dinero recibido de un cliente.',
+        'url_nombre': 'recaudos:crear_recaudo',
+        'icono': 'fas fa-money-bill-wave',
+        'icono_color_class': 'icon-warning',
+        #'permiso_requerido': 'pedidos.view_pedido', # O un permiso más específico si lo tienes
+        'rol_requerido': ['es_vendedor'],
+        'order': 2,
+        'roles_info': ['vendedor']
+        #ok
+    },
+    
+    {
+        'titulo': 'Gestionar Recaudos',
+        'descripcion': 'Aquí puedes gestionar los recaudos de dinero.',
+        'url_nombre': 'recaudos:panel_administracion',
+        'icono': 'fas fa-money-bill-wave',
+        'icono_color_class': 'icon-warning',
+        #'permiso_requerido': 'pedidos.view_pedido', # O un permiso más específico si lo tienes
+        'rol_requerido': ['es_admin_sistema','es_cartera'],
+        'order': 2,
+        'roles_info': ['admin', 'cartera']
+        #ok
+    },
+        {
+        'titulo': 'informe de Recaudos',
+        'descripcion': 'Ver el informe general de recaudos.',
+        'url_nombre': 'recaudos:reporte_general_recaudos',
+        'icono': 'fas fa-money-bill-wave',
+        'icono_color_class': 'icon-warning',
+        #'permiso_requerido': 'pedidos.view_pedido', # O un permiso más específico si lo tienes
+        'rol_requerido': ['es_admin_sistema','es_cartera'],
+        'order': 2,
+        'roles_info': ['admin', 'cartera']
+        #ok
+    },
+    
+    
     {
         'titulo': 'Registrar Devolución', 
         'descripcion': 'Crear una devolución de cliente.',
         'url_nombre': 'devoluciones:crear_devolucion', 
-        'icono': 'fas fa-undo',
+        'icono': 'fa-solid fa-undo',
         'icono_color_class': 'icon-danger',
         #'permiso_requerido': 'devoluciones.add_devolucioncliente',
-        'rol_requerido': ['es_bodega', 'es_vendedor'],
+        'rol_requerido': ['es_bodega', 'es_vendedor', 'es_admin_sistema', 'es_cartera'],
         'order': 3,
         'order_por_rol': {
             'es_bodega': 3, 
@@ -71,22 +125,22 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe de Ventas por vendedor',
         'descripcion': 'Cantidad de unidades Vendidas por vendedor.',
         'url_nombre': 'informes:reporte_ventas_vendedor',
-        'icono': 'fas fa-chart-line',
+        'icono': 'fas fa-chart-bar',
         'icono_color_class': 'icon-primary',
         #'permiso_requerido': 'informes.view_reporte_ventas_vendedor', 
-        'rol_requerido': 'es_vendedor',
+        'rol_requerido': ['es_vendedor'],
         'order': 4,
         'roles_info': ['Vendedor']
         #ok
     },
     {
         'titulo': 'Listado de clientes',
-        'descripcion': 'Ver lista de clientes LOUIS FERRY.',
+        'descripcion': 'Ver lista de clientes registrados.',
         'url_nombre': 'clientes:cliente_listado_v2',
-        'icono': 'fa-solid fa-list',
+        'icono': 'fas fa-users',
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'clientes.view_cliente', 
-        'rol_requerido': ['es_vendedor'],
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema', 'es_cartera', 'es_factura'],
         'roles_info': ['vendedor', 'admin', 'cartera', 'factura']
         #ok
     },
@@ -94,10 +148,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe de Despachos',
         'descripcion': 'Informe de los despachos de pedidos.',
         'url_nombre': 'bodega:informe_despachos',
-        'icono': 'fa-solid fa-info',
+        'icono': 'fas fa-truck',
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'informes.view_comprobantes_despacho',
-        'rol_requerido': ['es_vendedor', 'es_admin_sistema_app', 'es_cartera', 'es_factura', 'es_bodega'],
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema', 'es_cartera', 'es_factura', 'es_bodega'],
         'roles_info': ['vendedor', 'admin', 'factura', 'cartera']
         #ok
     },
@@ -107,10 +161,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe de Ventas General',
         'descripcion': 'Cantidad de unidades Vendidas en general.',
         'url_nombre': 'informes:reporte_ventas_general',
-        'icono': 'fas fa-chart-pie', 
+        'icono': 'fas fa-chart-line', 
         'icono_color_class': 'icon-primary',
         #'permiso_requerido': 'informes.view_reporte_ventas_general',
-        'rol_requerido': ['es_admin_sistema'],
+        'rol_requerido': ['es_admin_sistema', 'es_cartera'],
         'roles_info': ['administracion']
         #ok
     },
@@ -140,7 +194,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Clientes (Gestión)',
         'descripcion': 'Crear, editar o eliminar clientes.',
         'url_nombre': 'clientes:cliente_listado', # O la URL principal de gestión de clientes
-        'icono': 'fas fa-users-cog', # Icono diferente
+        'icono': ' fas fa-users-cog',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'clientes.change_cliente',
         'rol_requerido': ['es_factura', 'es_cartera'],
@@ -151,7 +205,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe de pedidos APROBADOS por admin',
         'descripcion': 'Ver los pedidos APROBADOS.',
         'url_nombre': 'informes:informe_pedidos_aprobados_bodega',
-        'icono': 'fa-solid fa-check-double', # Icono diferente
+        'icono': ' fa-solid fa-check',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'informes.view_pedidos_aprobados', # Permiso custom
         'rol_requerido': ['es_cartera', 'es_admin_sistema'],
@@ -172,10 +226,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Pedidos Pendientes por Aprobar',
         'descripcion': 'Pedidos pendientes para aprobar por Cartera.',
         'url_nombre': 'pedidos:lista_aprobacion_cartera',
-        'icono': 'fa-solid fa-file-circle-question',
+        'icono': 'fa-solid fa-user-check',
         'icono_color_class': 'icon-warning',
         #'permiso_requerido': 'pedidos.can_approve_cartera',
-        'rol_requerido': ['es_cartera',],
+        'rol_requerido': ['es_cartera', 'es_admin_sistema'],
         'order': 1,
         'roles_info': ['cartera', 'admin']
         #ok
@@ -184,7 +238,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe Devoluciones Clientes',
         'descripcion': 'Devoluciones realizadas por los clientes.',
         'url_nombre': 'informes:informe_lista_devoluciones',
-        'icono': 'fas fa-people-carry',
+        'icono': 'fa-solid fa-undo-alt',
         'icono_color_class': 'icon-info',
         'permiso_requerido': 'informes.view_informe_devoluciones',
         'roles_info': ['cartera', 'administracion']
@@ -193,13 +247,13 @@ PANEL_OPTIONS_CONFIG = [
 
     # --- Opciones relacionadas con Bodega ---
     {
-        'titulo': 'DESPACHAR MERCANCÍA',
+        'titulo': 'Pedidos Pendientes para Despacho',
         'descripcion': 'Ver y gestionar pedidos pendientes para despacho.',
         'url_nombre': 'bodega:lista_pedidos_bodega',
-        'icono': 'fas fa-tasks',
+        'icono': 'fa-solid fa-boxes-stacked',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'bodega.view_pedidos_bodega', # Permiso custom
-        'rol_requerido': ['es_bodega', 'es_admin_sistema_app'],
+        'rol_requerido': ['es_bodega', 'es_admin_sistema'],
         'order': 1,
         'roles_info': ['bodega', 'admin', 'cartera']
         #OK
@@ -208,10 +262,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Informe de Ingresos a Bodega',
         'descripcion': 'Ingresos de mercancía a bodega.',
         'url_nombre': 'informes:informe_ingresos_bodega',
-        'icono': 'fa-solid fa-dolly-flatbed', 
+        'icono': 'fa-solid fa-warehouse', 
         'icono_color_class': 'icon-primary', 
         #'permiso_requerido': 'informes.view_informe_ingresos_bodega', 
-        'rol_requerido': ['es_bodega', 'es_admin_sistema_app', 'es_diseno'],
+        'rol_requerido': ['es_bodega', 'es_admin_sistema', 'es_diseno'],
         'roles_info': ['admin', 'administracion', 'diseno', 'bodega', 'factura']
         #ok
     },
@@ -219,9 +273,9 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Registrar Salida Interna',
         'descripcion': 'Registrar las salidas internas de Bodega.',
         'url_nombre': 'bodega:lista_salidas_internas',
-        'icono': 'fas fa-truck-loading',
+        'icono': 'fa-solid fa-box-open',
         'icono_color_class': 'icon-info',
-        'permiso_requerido': 'bodega.add_salidainternacabecera',
+        'rol_requerido': ['bodega.add_salidainternacabecera','es_bodega', 'es_admin_sistema'],
         'roles_info': ['admin', 'administracion', 'diseno', 'bodega', 'factura']
         #ok
     },
@@ -229,9 +283,9 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Realizar Conteo de Inventario',
         'descripcion': 'Interfaz para el conteo físico de inventario.',
         'url_nombre': 'bodega:vista_conteo_inventario',
-        'icono': 'fas fa-clipboard-check',
+        'icono': 'fa-solid fa-clipboard-list',
         'icono_color_class': 'icon-warning',
-        'permiso_requerido': 'bodega.view_cabeceraconteo', # Permiso para ver/iniciar la interfaz
+        'rol_requerido': ['bodega.view_cabeceraconteo','es_admin_sistema'], # Permiso para ver/iniciar la interfaz
         'roles_info': ['bodega', 'admin']
         #ok
     },
@@ -242,7 +296,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Despachos listos para Facturar',
         'descripcion': 'Ver despachos listos para generar factura.',
         'url_nombre': 'factura:lista_despachos_a_facturar',
-        'icono': 'fa-solid fa-file-invoice-dollar',
+        'icono': 'fa-solid fa-file-invoice',
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'factura.view_despachos_a_facturar', # Permiso custom
         'rol_requerido': ['es_factura', 'es_admin_sistema'],
@@ -259,7 +313,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Consultar Despachos por Cliente',
         'descripcion': 'Buscar despachos facturados por cliente.',
         'url_nombre': 'factura:informe_despachos_cliente',
-        'icono': 'fa-solid fa-user-tag',
+        'icono': 'fa-solid fa-users',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'factura.view_informe_despachos_cliente', # Permiso custom
         'rol_requerido': ['es_factura', 'es_admin_sistema'],
@@ -270,7 +324,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Consultar Despachos por Estado',
         'descripcion': 'Ver despachos según su estado de facturación.',
         'url_nombre': 'factura:informe_despachos_estado',
-        'icono': 'fa-solid fa-file-circle-check',
+        'icono': 'fa-solid fa-info-circle',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'factura.view_informe_despachos_estado', # Permiso custom
         'rol_requerido': ['es_factura', 'es_admin_sistema'],
@@ -281,7 +335,7 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Consultar Despacho por número de Pedido',
         'descripcion': 'Buscar un despacho por su número de pedido original.',
         'url_nombre': 'factura:informe_despachos_pedido',
-        'icono': 'fa-solid fa-magnifying-glass-dollar',
+        'icono': 'fa-solid fa-search',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'factura.view_informe_despachos_pedido', # Permiso custom
         'rol_requerido': ['es_factura', 'es_admin_sistema'],
@@ -305,10 +359,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Gestión de Productos',
         'descripcion': 'Crear, modificar, eliminar productos y variantes.',
         'url_nombre': 'productos:producto_listado',
-        'icono': 'fa-solid fa-tags',
+        'icono': 'fa-solid fa-box',
         'icono_color_class': 'icon-primary',
         #'permiso_requerido': 'productos.view_producto',
-        'rol_requerido': 'es_diseno', 
+        'rol_requerido': ['es_diseno', 'es_admin_sistema'], 
         'roles_info': ['diseno', 'admin']
         #ok
     },
@@ -319,7 +373,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-images',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'productos.upload_fotos_producto', # Permiso custom
-        'rol_requerido': ['es_diseno', 'es_online'],
+        'rol_requerido': ['es_diseno', 'es_admin_sistema'],
         'roles_info': ['diseno', 'admin']
         #ok
     },
@@ -327,10 +381,10 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Registrar Ingreso', 
         'descripcion': 'Registrar ingresos de mercancía a bodega.',
         'url_nombre': 'bodega:vista_registrar_ingreso',
-        'icono': 'fa-solid fa-truck-ramp-box',
+        'icono': 'fa-solid fa-warehouse',
         'icono_color_class': 'icon-info',
         #'permiso_requerido': 'bodega.add_ingresobodega',
-        'rol_requerido': ['es_diseno', 'es_bodega'],
+        'rol_requerido': ['es_diseno', 'es_bodega', 'es_admin_sistema'],
         'roles_info': ['diseno', 'admin', 'bodega']
         #ok
     },
@@ -339,9 +393,9 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'Compartir Catálogo',
         'descripcion': 'Generar un enlace temporal para compartir el catálogo con clientes.',
         'url_nombre': 'catalogo:catalogo_generar_enlace_usuario', # La URL que creamos para la vista de generación
-        'icono': 'fas fa-share-alt', # Ejemplo de icono, puedes cambiarlo
+        'icono': 'fas fa-share-alt',
         'icono_color_class': 'icon-primary', # O la clase de color que prefieras
-        'rol_requerido': 'es_vendedor', # Define qué roles pueden ver esta tarjeta (ajusta según necesites)
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema', 'es_cartera'], # Define qué roles pueden ver esta tarjeta (ajusta según necesites)
         'order': 5, # Ajusta el orden en el que quieres que aparezca esta tarjeta para los vendedores
         'roles_info': ['vendedor'], # Roles que tendrían esta opción
     },
@@ -355,9 +409,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-dark',
         #'permiso_requerido': 'pedidos.can_approve_admin', # Permiso custom
         'rol_requerido': ['es_admin_sistema', 'es_factura'],
-        'order': 1,
-        
-        
+        'order': 1,    
         
         'roles_info': ['administracion']
         #ok
@@ -366,9 +418,9 @@ PANEL_OPTIONS_CONFIG = [
         'titulo': 'COMPROBANTES DE DESPACHO',
         'descripcion': 'Consultar comprobantes de despacho generados.',
         'url_nombre': 'informes:informe_comprobantes_despacho',
-        'icono': 'fa-solid fa-receipt',
+        'icono': 'fa-solid fa-file-alt',
         'icono_color_class': 'icon-dark',
-        'permiso_requerido': 'informes.view_comprobantes_despacho',
+        'rol_requerido': ['informes.view_comprobantes_despacho', 'es_admin_sistema', 'es_cartera', 'es_factura'], # Permiso custom
         'roles_info': ['administracion', 'admin', 'bodega', 'cartera', 'factura']
         #ok
     },
@@ -395,12 +447,12 @@ PANEL_OPTIONS_CONFIG = [
     # --- Opciones de Catálogo ---
     {
         'titulo': 'VER CATÁLOGO',
-        'descripcion': 'Visualizar el catálogo de productos LOUIS FERRY.',
+        'descripcion': 'Visualizar el catálogo de productos.',
         'url_nombre': 'catalogo:lista_referencias',
         'icono': 'fas fa-book-open', # Icono diferente
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'catalogo.view_catalogo',
-        'rol_requerido': ['es_vendedor', 'es_diseno', 'es_online', 'es_cartera', 'es_factura', 'es_bodega'],
+        'rol_requerido': ['es_vendedor', 'es_diseno', 'es_online', 'es_cartera', 'es_factura', 'es_bodega', 'es_admin_sistema'], # Permite a varios roles ver el catálogo
         'roles_info': ['catalogo', 'admin', 'vendedor'] # Vendedores también deberían ver el catálogo
     },
      {

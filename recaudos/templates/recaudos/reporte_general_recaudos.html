@@ -1,0 +1,106 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row mb-3 align-items-center">
+    <div class="col-md-12">
+        <h2 style="color: white;">{{ titulo }}</h2>
+    </div>
+</div>
+
+<!-- Formulario de Filtros -->
+<div class="card shadow-sm mb-4" style="background-color: var(--color-fondo-tarjeta);">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="id_vendedor" class="form-label text-white">Filtrar por Vendedor</label>
+                <select name="vendedor" id="id_vendedor" class="form-select">
+                    <option value="">Todos los Vendedores</option>
+                    {% for vendedor in vendedores %}
+                    <option value="{{ vendedor.id }}" {% if vendedor.id|stringformat:"s" == vendedor_actual_id %}selected{% endif %}>
+                        {{ vendedor.user.get_full_name|default:vendedor.user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="id_estado" class="form-label text-white">Filtrar por Estado</label>
+                <select name="estado" id="id_estado" class="form-select">
+                    <option value="">Todos los Estados</option>
+                    {% for value, name in estados_posibles %}
+                    <option value="{{ value }}" {% if value == estado_actual %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <a href="{% url 'recaudos:reporte_general_recaudos' %}" class="btn btn-secondary">Limpiar Filtros</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resumen de Totales -->
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+    <h5 class="mb-0" style="color: #000;">Monto Total (según filtros):</h5>
+    <h5 class="mb-0 fw-bold" style="color: #000;">${{ total_filtrado|intcomma }}</h5>
+</div>
+
+<!-- Tabla de Resultados -->
+<div class="card shadow-sm" style="background-color: var(--color-fondo-tarjeta);">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Recibo #</th>
+                        <th>Fecha</th>
+                        <th>Vendedor</th>
+                        <th>Cliente</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estado</th>
+                        <th>Consignación #</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recaudo in recaudos %}
+                    <tr>
+                        <td>{{ recaudo.id }}</td>
+                        <td>{{ recaudo.fecha_recaudo|date:"Y-m-d h:i A" }}</td>
+                        <td>{{ recaudo.vendedor.user.get_full_name|default:recaudo.vendedor.user.username }}</td>
+                        <td>{{ recaudo.cliente.nombre_completo }}</td>
+                        <td class="text-end">${{ recaudo.monto_recibido|intcomma }}</td>
+                        <td>
+                            {% if recaudo.estado == 'EN_MANOS' %}
+                                <span class="badge bg-warning text-dark">{{ recaudo.get_estado_display }}</span>
+                            {% elif recaudo.estado == 'DEPOSITADO' %}
+                                <span class="badge bg-info">{{ recaudo.get_estado_display }}</span>
+                            {% elif recaudo.estado == 'VERIFICADO' %}
+                                <span class="badge bg-success">{{ recaudo.get_estado_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if recaudo.consignacion %}
+                                <a href="{% url 'recaudos:verificar_consignacion' recaudo.consignacion.pk %}">{{ recaudo.consignacion.id }}</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-light">No hay recaudos que coincidan con los filtros aplicados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}Mis Notificaciones{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos personalizados para la lista de notificaciones */
+    .notificacion-link {
+        background-color: var(--color-fondo-tarjeta);
+        border: 1px solid #4a5a6a; /* Un borde sutil que combine */
+        color: var(--color-texto-secundario);
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .notificacion-link:hover {
+        background-color: #40566b; /* Un poco más claro al pasar el mouse */
+        color: white;
+    }
+
+    /* Estilo especial para las notificaciones no leídas */
+    .notificacion-no-leida {
+        background-color: #3a5066; /* Un color que destaca pero sigue siendo oscuro */
+        border-left: 4px solid var(--color-acento-primario); /* Borde izquierdo para resaltar */
+        color: white; /* Texto más brillante para no leídas */
+    }
+
+    .notificacion-mensaje {
+        color: inherit; /* Hereda el color del enlace padre (<a>) */
+    }
+    
+    .notificacion-fecha {
+        color: var(--color-texto-secundario);
+        white-space: nowrap; /* Evita que la fecha se parta en dos líneas */
+        padding-left: 1rem;
+    }
+</style>
+{% endblock extra_head %}
+
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <h2 style="color: white;" class="mb-4">Mis Notificaciones</h2>
+        <div class="list-group">
+            {% for notificacion in notificaciones %}
+                <a href="{{ notificacion.url|default:'#' }}" class="list-group-item list-group-item-action flex-column align-items-start notificacion-link {% if not notificacion.leido %}notificacion-no-leida{% endif %} mb-2 rounded">
+                    <div class="d-flex w-100 justify-content-between">
+                        <p class="mb-1 notificacion-mensaje">{{ notificacion.mensaje }}</p>
+                        <small class="notificacion-fecha" title="{{ notificacion.fecha_creacion|date:'Y-m-d H:i' }}">{{ notificacion.fecha_creacion|naturaltime }}</small>
+                    </div>
+                </a>
+            {% empty %}
+                <div class="list-group-item text-center" style="background-color: var(--color-fondo-tarjeta); border-color: #4a5a6a;">
+                    <p class="mb-1 text-light">No tienes notificaciones.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

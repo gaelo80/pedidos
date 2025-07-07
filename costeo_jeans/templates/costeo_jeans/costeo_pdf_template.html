@@ -1,0 +1,67 @@
+{# costeo_jeans/templates/costeo_jeans/costeo_pdf_template.html #}
+{% load static humanize %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-g">
+    <style>
+        /* Estilos básicos para el PDF, puedes moverlos a un css si prefieres */
+        body{font-family:sans-serif;font-size:11pt;color:#333}
+        .report-header{text-align:center;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:30px}
+        .report-header h1{margin:0}
+        .info-grid{display:flex;justify-content:space-between;margin-bottom:25px;padding:10px;background-color:#f8f9fa}
+        table{width:100%;border-collapse:collapse;margin-bottom:20px}
+        th,td{border:1px solid #ccc;padding:6px;text-align:left}
+        th{background-color:#eee}
+        .text-right{text-align:right}
+        .totals-block{float:right;width:45%;margin-top:20px}
+        .totals-block h3, .totals-block h4{display:flex;justify-content:space-between}
+    </style>
+</head>
+<body>
+    <header class="report-header">
+        <h1>Reporte de Costeo de Producto</h1>
+        <p>Referencia: {{ costeo.referencia }}</p>
+    </header>
+
+    <div class="info-grid">
+        <div><strong>Cantidad Producida:</strong> {{ costeo.cantidad_producida }} unidades</div>
+        <div><strong>Fecha:</strong> {{ costeo.fecha|date:"d/m/Y" }}</div>
+    </div>
+
+    <h4>Detalle de Insumos</h4>
+    <table>
+        <thead><tr><th>Descripción</th><th class="text-right">Cantidad</th><th class="text-right">Costo Unitario</th><th class="text-right">Costo Total</th></tr></thead>
+        <tbody>
+        {% for item in costeo.detalle_insumos.all %}
+            <tr><td>{{ item.insumo.nombre }}</td><td class="text-right">{{ item.cantidad }}</td><td class="text-right">${{ item.insumo.costo_unitario|floatformat:0|intcomma }}</td><td class="text-right">${{ item.costo_total|floatformat:0|intcomma }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h4>Detalle de Procesos</h4>
+    <table>
+        <thead><tr><th>Descripción</th><th class="text-right">Cantidad</th><th class="text-right">Costo Unitario</th><th class="text-right">Subtotal</th><th class="text-right">IVA</th><th class="text-right">Costo Total</th></tr></thead>
+        <tbody>
+        {% for detalle in costeo.detalle_procesos.all %}
+            <tr><td>{{ detalle.tarifa.proceso.nombre }} - ({{ detalle.tarifa.confeccionista.nombre }})</td><td class="text-right">{{ detalle.cantidad }}</td><td class="text-right">${{ detalle.costo_unitario_registrado|floatformat:0|intcomma }}</td><td class="text-right">${{ detalle.costo_subtotal|floatformat:0|intcomma }}</td><td class="text-right">${{ detalle.valor_iva|floatformat:0|intcomma }}</td><td class="text-right">${{ detalle.costo_total|floatformat:0|intcomma }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h4>Costos Fijos y Generales</h4>
+    <table>
+        <thead><tr><th>Descripción</th><th class="text-right">Costo Total</th></tr></thead>
+        <tbody>
+        {% for item in costeo.detalle_costos_fijos.all %}
+            <tr><td>{{ item.costo_fijo.nombre }}</td><td class="text-right">${{ item.costo_total|floatformat:0|intcomma }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals-block">
+        <h3>Costo Total: <span>${{ costeo.costo_total|floatformat:0|intcomma }}</span></h3>
+        <h4>Costo Unitario: <span>${{ costeo.costo_unitario|floatformat:0|intcomma }}</span></h4>
+    </div>
+</body>
+</html>

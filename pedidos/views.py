@@ -299,6 +299,8 @@ def vista_crear_pedido_web(request, pk=None):
              messages.error(request, "Por favor corrige los errores en la sección del cliente/notas.")
         
         context = _prepare_crear_pedido_context(
+            request=request,                      # <-- Argumento añadido
+            empresa_actual=empresa_actual,
             pedido_instance=pedido_instance,
             detalles_existentes=detalles_existentes,
             pedido_form=pedido_form

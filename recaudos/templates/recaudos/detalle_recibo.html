@@ -1,0 +1,82 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow-sm" id="recibo-imprimible" style="background-color: #fff; color: #333;">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">Recibo de Caja No. {{ recaudo.id }}</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Empresa:</strong> {{ recaudo.empresa.nombre }}<br>
+                            <strong>NIT:</strong> {{ recaudo.empresa.nit }}
+                        </div>
+                        <div class="col-6 text-end">
+                            <strong>Fecha y Hora:</strong> {{ recaudo.fecha_recaudo|date:"Y-m-d h:i A" }}
+                        </div>
+                    </div>
+                    <hr>
+                    <h5>Recibido de:</h5>
+                    <p>
+                        <strong>Cliente:</strong> {{ recaudo.cliente.nombre_completo }}<br>
+                        <strong>Identificación:</strong> {{ recaudo.cliente.identificacion }}
+                    </p>
+                    <hr>
+                    <h5>Detalle del Pago:</h5>
+                    <p>
+                        <strong>Concepto:</strong><br>
+                        {{ recaudo.concepto|linebreaksbr|default:"N/A" }}
+                    </p>
+                    <div class="text-end bg-light p-3 rounded mt-3">
+                        <h4 class="mb-0">Total Recibido: ${{ recaudo.monto_recibido|intcomma }}</h4>
+                    </div>
+                    <hr>
+                    <p class="text-muted small">
+                        <strong>Recibido por:</strong> {{ recaudo.vendedor.user.get_full_name }} <br>
+                        <strong>Estado del Recaudo:</strong> {{ recaudo.get_estado_display }}
+                    </p>
+                </div>
+                <div class="card-footer text-center bg-light" id="botones-accion">
+                    <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver a Mis Recaudos
+                    </a>
+                    <button class="btn btn-danger" onclick="window.print();">
+                        <i class="fas fa-print"></i> Imprimir / Guardar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #recibo-imprimible, #recibo-imprimible * {
+        visibility: visible;
+    }
+    #recibo-imprimible {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    #botones-accion {
+        display: none;
+    }
+}
+</style>
+{% endblock %}

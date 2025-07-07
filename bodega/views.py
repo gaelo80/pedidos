@@ -1007,29 +1007,6 @@ def registrar_salida_interna(request):
         formset_detalles = DetalleSalidaInternaFormSet(request.POST, prefix='detalles_salida', form_kwargs={'empresa': empresa_actual})
 
         if form_cabecera.is_valid() and formset_detalles.is_valid():
-            stock_suficiente = True
-            errores_stock = []
-            for form_detalle in formset_detalles:
-                if form_detalle.cleaned_data and not form_detalle.cleaned_data.get('DELETE', False):
-                    producto = form_detalle.cleaned_data.get('producto')
-                    cantidad = form_detalle.cleaned_data.get('cantidad_despachada')
-                    if producto and cantidad is not None:
-                        if cantidad <= 0: # Validar que la cantidad sea positiva
-                            stock_suficiente = False # Considerar esto un error de validación más que de stock
-                            errores_stock.append(f"La cantidad para '{producto}' debe ser mayor que cero.")
-                        elif cantidad > producto.stock_actual:
-                            stock_suficiente = False
-                            errores_stock.append(f"Stock insuficiente para '{producto}'. Solicitado: {cantidad}, Disponible: {producto.stock_actual}")
-            
-            if not stock_suficiente:
-                for error in errores_stock:
-                    messages.error(request, error)
-                context = {
-                    'form_cabecera': form_cabecera, 'formset_detalles': formset_detalles,
-                    'titulo': f'Registrar Salida Interna ({empresa_actual.nombre})'
-                }
-                return render(request, 'bodega/registrar_salida_interna.html', context)
-
             try:
                 with transaction.atomic():
                     cabecera = form_cabecera.save(commit=False)

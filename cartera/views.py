@@ -118,23 +118,21 @@ def api_cartera_cliente(request, cliente_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff or es_admin_sistema_app(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado') # Ajusta el permiso según necesites
+@user_passes_test(lambda u: u.is_staff or es_admin_sistema_app(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado')
 def vista_importar_cartera(request):
     
-        # --- INICIO DE LA LÓGICA MULTI-INQUILINO ---
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:index') # O a la página principal de tu app
-    # --- FIN DE LA LÓGICA MULTI-INQUILINO ---
-    
+        return redirect('core:index')
+
     if request.method == 'POST':
-        form = UploadCarteraFileForm(request.POST, request.FILES)
+        form = UploadCarteraFileForm(request.POST, request.FILES, empresa=empresa_actual)
         if form.is_valid():
             archivo_excel = request.FILES['archivo_excel']
-            tipo_archivo_form = form.cleaned_data['tipo_archivo'] # 'LF' o 'FYN' (valor del choice)
-
-            tipo_documento_bd = tipo_archivo_form # En este caso, el valor del choice coincide con el del modelo
+            perfil_seleccionado = form.cleaned_data['perfil_importacion']
+            # --- CAMBIO CLAVE: OBTENEMOS EL TIPO DE DOCUMENTO DEL FORMULARIO ---
+            tipo_documento_seleccionado = form.cleaned_data['tipo_documento']
 
             filas_leidas = 0
             filas_procesadas_ok = 0
@@ -144,31 +142,28 @@ def vista_importar_cartera(request):
             errores_fila_detalle = []
 
             try:
-                # Asegúrate que el header es correcto para tus archivos.
-                # Pandas lee la fila 0 por defecto, si tu header está en la fila 3 (índice 2), usa header=2
-                df = pd.read_excel(archivo_excel, header=2, dtype=str) # Leer todas las columnas como string inicialmente
+                df = pd.read_excel(archivo_excel, header=perfil_seleccionado.fila_inicio_header - 1, dtype=str)
                 filas_leidas = len(df)
                 
                 with transaction.atomic():
-                    registros_borrados, _ = DocumentoCartera.objects.filter(
+                    # --- CAMBIO CRÍTICO: BORRAMOS SOLO LOS DOCUMENTOS DEL TIPO SELECCIONADO ---
+                    DocumentoCartera.objects.filter(
                         empresa=empresa_actual,
-                        tipo_documento=tipo_documento_bd
+                        tipo_documento=tipo_documento_seleccionado # <-- El filtro clave
                     ).delete()
-                    messages.info(request, f"Se eliminaron {registros_borrados} registros anteriores de tipo '{tipo_documento_bd}' para la empresa '{empresa_actual.nombre}'.")
 
                     for index, row in df.iterrows():
-                        num_fila_excel = index + 3 + 1 # +1 por 0-indexed, +3 por header=2. Si header es 0, sería index + 1.
+                        num_fila_excel = index + perfil_seleccionado.fila_inicio_header + 1 # Cálculo más robusto
 
                         try:
-                            # --- VALIDACIONES Y EXTRACCIÓN DE DATOS DE LA FILA ---
-                            # Asegúrate que los nombres de columna ('CONCEPTO', 'CODIGO', etc.) coincidan EXACTAMENTE con tu Excel.
+                            # (La lógica de extracción de datos de la fila no cambia...)
                             concepto = str(row.get('CONCEPTO', '')).strip()
-                            if concepto not in ['52', '89']: # Ajusta estos códigos si es necesario
+                            if concepto not in ['52', '89']: 
                                 filas_saltadas_concepto += 1
                                 continue
-
-                            codigo_cliente_excel = str(row.get('CODIGO', '')).strip()
-                            numero_doc_excel = str(row.get('DOCUMENTO', '')).strip()
+                            
+                            codigo_cliente_excel = str(row.get(perfil_seleccionado.columna_id_cliente, '')).strip()
+                            numero_doc_excel = str(row.get(perfil_seleccionado.columna_numero_documento, '')).strip()
 
                             if not codigo_cliente_excel or not numero_doc_excel:
                                 msg_error = f"Fila {num_fila_excel}: Falta Código de Cliente o Número de Documento."
@@ -184,20 +179,19 @@ def vista_importar_cartera(request):
                                 clientes_no_encontrados.add(codigo_cliente_excel)
                                 continue
 
-                            fecha_doc_excel = convertir_fecha_excel(row.get('FECHADOC'), num_fila_excel, 'FECHADOC')
-                            fecha_ven_excel = convertir_fecha_excel(row.get('FECHAVEN'), num_fila_excel, 'FECHAVEN')
-                            saldo_excel = convertir_saldo_excel(row.get('SALDOACT'), num_fila_excel)
-                            nombre_vend_excel = str(row.get('NOMVENDEDOR', '')).strip() or None
-                            codigo_vend_excel = str(row.get('VENDEDOR', '')).strip() or None
-                            if codigo_vend_excel and '.' in codigo_vend_excel: # Si el código de vendedor viene como "123.0"
+                            fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
+                            fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
+                            saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
+                            nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
+                            codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
+                            if codigo_vend_excel and '.' in codigo_vend_excel:
                                 codigo_vend_excel = codigo_vend_excel.split('.')[0]
 
-
-                            # --- CREACIÓN DEL DOCUMENTO DE CARTERA ---
+                            # --- CAMBIO CLAVE: USAMOS EL TIPO DE DOCUMENTO SELECCIONADO AL CREAR ---
                             DocumentoCartera.objects.create(
                                 empresa=empresa_actual,
                                 cliente=cliente_obj,
-                                tipo_documento=tipo_documento_bd,
+                                tipo_documento=tipo_documento_seleccionado, # <-- Asignación clave
                                 numero_documento=numero_doc_excel,
                                 fecha_documento=fecha_doc_excel,
                                 fecha_vencimiento=fecha_ven_excel,
@@ -215,7 +209,9 @@ def vista_importar_cartera(request):
                             import traceback
                             traceback.print_exc(limit=1)
 
-                messages.success(request, f"Importación del archivo '{archivo_excel.name}' (Tipo: {tipo_documento_bd}) finalizada.")
+                # Obtenemos el nombre legible para el mensaje de éxito
+                nombre_tipo_doc = dict(DocumentoCartera.TIPO_DOCUMENTO_CHOICES).get(tipo_documento_seleccionado)
+                messages.success(request, f"Importación para '{nombre_tipo_doc}' finalizada desde el archivo '{archivo_excel.name}'.")
                 messages.info(request, f"Resumen: {filas_procesadas_ok} de {filas_leidas} filas del Excel procesadas y creadas exitosamente.")
                 
                 if filas_saltadas_concepto > 0:
@@ -224,35 +220,33 @@ def vista_importar_cartera(request):
                     messages.warning(request, f"{len(clientes_no_encontrados)} códigos de cliente no encontrados: {', '.join(sorted(list(clientes_no_encontrados)))}")
                 if errores_fila_detalle:
                     messages.error(request, f"Se encontraron errores en {len(errores_fila_detalle)} filas. Revise la consola del servidor para más detalles.")
-                    for err_msg in errores_fila_detalle[:3]: # Muestra los primeros 3 errores
+                    for err_msg in errores_fila_detalle[:3]:
                         messages.error(request, err_msg)
 
             except pd.errors.EmptyDataError:
                  messages.error(request, f"El archivo Excel '{archivo_excel.name}' está vacío o no tiene datos en la hoja esperada después de la cabecera.")
             except KeyError as e:
-                messages.error(request, f"Error al leer el archivo: Columna esperada '{e}' no encontrada. Verifica que el archivo Excel tenga las columnas correctas y que el parámetro 'header' en `pd.read_excel` sea el adecuado.")
+                messages.error(request, f"Error al leer el archivo: Columna esperada '{e}' no encontrada. Verifica que el archivo Excel tenga las columnas correctas y que el perfil de importación seleccionado sea el correcto.")
             except Exception as e:
                 print(f"Error general durante la importación: {e}")
                 import traceback
                 traceback.print_exc()
                 messages.error(request, f"Error crítico al procesar el archivo Excel: {e}")
 
-            return redirect('cartera:importar_cartera') # Redirigir a la URL de la app cartera
+            return redirect('cartera:importar_cartera')
 
-        else: # form not valid
-            messages.error(request, "Error en el formulario. Por favor, selecciona tipo y archivo.")
+        else:
+            messages.error(request, "Error en el formulario. Por favor, completa todos los campos requeridos.")
     
-    else: # request.method == 'GET'
-        form = UploadCarteraFileForm()
+    else:
+        form = UploadCarteraFileForm(empresa=empresa_actual)
 
     context = {
         'form': form,
-        'titulo': f'Importar Cartera desde Excel LF Y FYN ({empresa_actual.nombre})',
-        'app_name': 'Cartera' # Para diferenciar en la plantilla base si es necesario
+        'titulo': f'Importar Cartera ({empresa_actual.nombre})',
+        'app_name': 'Cartera'
     }
-    # Asegúrate que la plantilla exista en cartera/templates/cartera/upload_cartera.html
     return render(request, 'cartera/importacion/upload_cartera.html', context)
-
 
 @login_required
 @user_passes_test(lambda u: es_vendedor(u) or es_admin_sistema(u) or es_cartera(u) or u.is_superuser, login_url='core:acceso_denegado')

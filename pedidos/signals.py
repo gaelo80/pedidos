@@ -1,9 +1,16 @@
 # pedidos/signals.py
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.urls import reverse, NoReverseMatch
 from django.utils import timezone
 from bodega.models import MovimientoInventario
+from django.contrib.auth.models import Group
+from django.contrib.auth import get_user_model
 import logging
+from notificaciones.models import Notificacion
+from pedidos.models import Pedido
+
+User = get_user_model()
 
 # Configura un logger para este módulo
 logger = logging.getLogger(__name__)
@@ -54,3 +61,57 @@ def registrar_salida_venta_pedido(sender, instance, created, **kwargs):
                 logger.error(f"ERROR al crear movimientos para Pedido #{instance.pk}: {e}")
         else:
             logger.warning(f"Ya existen movimientos de SALIDA_VENTA para Pedido #{instance.pk}. No se crean nuevos.")
+            
+
+@receiver(post_save, sender=Pedido)
+def crear_notificacion_cambio_estado_pedido(sender, instance, **kwargs):
+    mensaje = None
+    grupo_destino = None
+    url_destino = None
+
+    # Lógica para determinar a quién notificar, usando los nombres de TUS estados.
+    if instance.estado == 'PENDIENTE_APROBACION_CARTERA':
+        grupo_destino = 'Cartera'
+        mensaje = f"El pedido #{instance.id} de {instance.destinatario.nombre_completo} requiere tu aprobación."
+        try:
+            url_destino = reverse('pedidos:lista_aprobacion_cartera')
+        except NoReverseMatch:
+            logger.warning("No se encontró la URL 'pedidos:lista_aprobacion_cartera'.")
+
+    elif instance.estado == 'PENDIENTE_APROBACION_ADMIN':
+        grupo_destino = 'Administracion'
+        mensaje = f"El pedido #{instance.id} fue aprobado por Cartera y requiere tu aprobación."
+        try:
+            url_destino = reverse('pedidos:lista_aprobacion_admin')
+        except NoReverseMatch:
+            logger.warning("No se encontró la URL 'pedidos:lista_aprobacion_admin'.")
+        
+    elif instance.estado == 'APROBADO_ADMIN':
+        grupo_destino = 'Bodega'
+        mensaje = f"El pedido #{instance.id} fue aprobado y está listo para despacho en bodega."
+        try:
+            url_destino = reverse('bodega:lista_pedidos_bodega')
+        except NoReverseMatch:
+            logger.warning("No se encontró la URL 'bodega:lista_pedidos_bodega'.")
+
+    if mensaje and grupo_destino:
+        try:
+            # La consulta ahora usa el modelo de usuario correcto (User = get_user_model())
+            usuarios_a_notificar = User.objects.filter(
+                groups__name=grupo_destino,
+                empresa=instance.empresa,
+                is_active=True
+            )
+            
+            for usuario in usuarios_a_notificar:
+                # Evitar duplicados: solo crear si no existe una notificación igual y no leída
+                if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
+                    Notificacion.objects.create(
+                        destinatario=usuario,
+                        mensaje=mensaje,
+                        url=url_destino
+                    )
+        except Group.DoesNotExist:
+            logger.warning(f"El grupo '{grupo_destino}' no existe. No se pudo notificar.")
+        except Exception as e:
+            logger.error(f"Error creando notificación para pedido #{instance.id}: {e}")

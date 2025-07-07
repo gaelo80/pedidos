@@ -1,0 +1,28 @@
+{% extends "core/base.html" %}
+
+{% block title %}Nuevo Costeo - Paso 1{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card bg-light text-dark">
+                <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+                <div class="card-header">
+                    <h3 class="card-title">Nuevo Costeo: Información del Producto</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <div class="d-flex justify-content-end mt-4">
+                            <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary me-2">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">Siguiente: Añadir Detalles <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

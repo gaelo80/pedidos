@@ -1,19 +1,39 @@
-# cartera/forms.py
+# En cartera/forms.py
 from django import forms
+from .models import PerfilImportacionCartera, DocumentoCartera # <--- AÑADE DocumentoCartera
 
 class UploadCarteraFileForm(forms.Form):
-    TIPO_ARCHIVO_CHOICES = [
-        ('LF', 'Archivo LF (Facturas Oficiales)'),
-        ('FYN', 'Archivo FYN (Remisiones)'),
-    ]
-    # Campo para seleccionar qué tipo de archivo se está subiendo
-    tipo_archivo = forms.ChoiceField(
-        choices=TIPO_ARCHIVO_CHOICES, 
-        label="Tipo de Archivo",
-        widget=forms.Select(attrs={'class': 'form-select mb-3'}) # Añadida clase para Bootstrap
+    # El campo ahora será una lista de perfiles disponibles para la empresa
+    perfil_importacion = forms.ModelChoiceField(
+        queryset=PerfilImportacionCartera.objects.none(), # Se llenará dinámicamente
+        label="Seleccionar Perfil de Importación",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label="-- Elige un formato de archivo --",
+        required=True
     )
-    # Campo para subir el archivo (solo acepta Excel)
+    
+    # --- CAMBIO CLAVE: AÑADIMOS EL SELECTOR DE TIPO DE DOCUMENTO ---
+    tipo_documento = forms.ChoiceField(
+        choices=DocumentoCartera.TIPO_DOCUMENTO_CHOICES,
+        label="Tipo de Documento a Importar",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=True
+    )
+
     archivo_excel = forms.FileField(
         label="Seleccionar Archivo Excel (.xlsx)", 
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx'})
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx'}),
+        required=True
     )
+
+    def __init__(self, *args, **kwargs):
+        # Necesitamos la empresa para saber qué perfiles mostrar
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        if empresa:
+            self.fields['perfil_importacion'].queryset = PerfilImportacionCartera.objects.filter(empresa=empresa)
+            # Aseguramos que el campo tenga una opción por defecto si no hay perfiles
+            if not self.fields['perfil_importacion'].queryset.exists():
+                self.fields['perfil_importacion'].empty_label = "-- No hay perfiles configurados para esta empresa --"
+                self.fields['perfil_importacion'].widget.attrs['disabled'] = True

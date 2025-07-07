@@ -1,0 +1,198 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+    <h1 class="mb-4" style="color: white;">{{ titulo }}</h1>
+
+    {% if no_data %}
+    <div class="alert alert-warning text-center">
+        <h4>No hay datos suficientes</h4>
+        <p>Aún no se han creado costeos. Por favor, <a href="{% url 'costeo_jeans:costeo_create_step1' %}" class="alert-link">crea un nuevo costeo</a> para empezar a ver las estadísticas.</p>
+    </div>
+    {% else %}
+    <div class="row g-4 mb-4">
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #34495e;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-dollar-sign"></i> Costo Total General</h5>
+                    <p class="card-text fs-3 fw-bold">${{ kpis.costo_total_general|floatformat:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #34495e;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-tshirt"></i> Unidades Producidas</h5>
+                    <p class="card-text fs-3 fw-bold">{{ kpis.unidades_totales|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #34495e;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-balance-scale"></i> Costo Unitario Promedio</h5>
+                    <p class="card-text fs-3 fw-bold">${{ kpis.costo_unitario_promedio|floatformat:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #27ae60;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-tags"></i> Referencias Únicas</h5>
+                    <p class="card-text fs-3 fw-bold">{{ conteo_referencias }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #2980b9;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-star"></i> Ref. Más Producida</h5>
+                    {% if ref_mas_producida %}
+                        <p class="card-text fs-5 fw-bold mb-0">{{ ref_mas_producida.referencia }}</p>
+                        <p class="card-text"><small>({{ ref_mas_producida.total|intcomma }} unidades)</small></p>
+                    {% else %}
+                        <p class="card-text fs-5 fw-bold">N/A</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-pie-chart"></i> Distribución de Costos</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="distribucionCostosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-chart-line"></i> Evolución del Costo Unitario</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="evolucionCostosChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-sort-amount-up"></i> Top 5 Referencias Más Costosas (por unidad)</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Referencia</th>
+                                <th>Fecha</th>
+                                <th class="text-end">Costo Unitario</th>
+                                <th class="text-end">Costo Total</th>
+                                <th class="text-center">Ver Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for costeo in top_costosos %}
+                            <tr>
+                                <td>{{ costeo.referencia }}</td>
+                                <td>{{ costeo.fecha }}</td>
+                                <td class="text-end fw-bold">${{ costeo.costo_unitario|floatformat:2|intcomma }}</td>
+                                <td class="text-end">${{ costeo.costo_total|floatformat:2|intcomma }}</td>
+                                <td class="text-center">
+                                    <a href="{% url 'costeo_jeans:costeo_summary' costeo.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    {% if not no_data %}
+    // --- Gráfico de Distribución de Costos ---
+    const distribucionCtx = document.getElementById('distribucionCostosChart').getContext('2d');
+    const distribucionData = JSON.parse('{{ distribucion_costos_data|safe }}');
+    new Chart(distribucionCtx, {
+        type: 'doughnut',
+        data: {
+            labels: distribucionData.labels,
+            datasets: [{
+                label: 'Distribución de Costos',
+                data: distribucionData.data,
+                backgroundColor: [
+                    'rgba(26, 188, 156, 0.7)',
+                    'rgba(52, 152, 219, 0.7)',
+                    'rgba(241, 196, 15, 0.7)'
+                ],
+                borderColor: [
+                    '#1abc9c',
+                    '#3498db',
+                    '#f1c40f'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: false,
+                    text: 'Distribución de Costos'
+                }
+            }
+        }
+    });
+
+    // --- Gráfico de Evolución de Costos ---
+    const evolucionCtx = document.getElementById('evolucionCostosChart').getContext('2d');
+    const evolucionData = JSON.parse('{{ evolucion_costos_data|safe }}');
+    new Chart(evolucionCtx, {
+        type: 'line',
+        data: {
+            labels: evolucionData.labels,
+            datasets: [{
+                label: 'Costo Unitario Promedio ($)',
+                data: evolucionData.data,
+                fill: false,
+                borderColor: '#e74c3c',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

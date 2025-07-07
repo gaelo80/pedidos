@@ -27,6 +27,9 @@ def vista_crear_devolucion(request):
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:index')
     
+    
+    
+    
     if request.method == 'POST':
         form = DevolucionClienteForm(request.POST, empresa=empresa_actual)
         formset = DetalleDevolucionFormSet(request.POST, prefix='detalles', form_kwargs={'empresa': empresa_actual})
@@ -34,6 +37,8 @@ def vista_crear_devolucion(request):
 
         if form.is_valid() and formset.is_valid():
             try:
+                
+                
                 with transaction.atomic():
 
                     devolucion_header = form.save(commit=False)
@@ -41,28 +46,8 @@ def vista_crear_devolucion(request):
                     devolucion_header.fecha_hora = timezone.now()
                     devolucion_header.empresa = empresa_actual
                     devolucion_header.save()
-
-
                     formset.instance = devolucion_header
                     formset.save() 
-
-
-                    print(f"Procesando stock para Devolución #{devolucion_header.pk}...")
-                    detalles_guardados = devolucion_header.detalles.all() 
-                    for detalle in detalles_guardados:
-                       
-                        if detalle.estado_producto == 'BUENO' and detalle.cantidad > 0:
-                            MovimientoInventario.objects.create(
-                                empresa=empresa_actual,
-                                producto=detalle.producto,
-                                cantidad=detalle.cantidad, 
-                                tipo_movimiento='ENTRADA_DEVOLUCION', 
-                                documento_referencia=f'Devolución #{devolucion_header.pk}',
-                                usuario=request.user,
-                                notas=f'Entrada por devolución cliente {devolucion_header.cliente} (Estado: Bueno)'
-                            )
-                            print(f" + Stock actualizado para {detalle.producto}: +{detalle.cantidad}")
-
                     return redirect('devoluciones:detalle_devolucion', pk=devolucion_header.pk) # Redirige a la misma vista para limpiar
 
             except Exception as e:
@@ -184,3 +169,67 @@ def vista_detalle_devolucion(request, pk):
 def vista_mi_template(request):
     empresa = request.user.empresa  # la empresa del usuario autenticado
     return render(request, 'mi_template.html', {'empresa': empresa})
+
+
+@login_required
+@permission_required('devoluciones.can_receive_devolucion', login_url='core:acceso_denegado')
+def recibir_devolucion_bodega(request, pk_devolucion):
+    """
+    Maneja la recepción y verificación de una devolución en la bodega.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    devolucion = get_object_or_404(DevolucionCliente, pk=pk_devolucion, empresa=empresa_actual)
+
+    # Solo se pueden procesar devoluciones que están 'Iniciadas'
+    if devolucion.estado != 'INICIADA':
+        messages.warning(request, f"La devolución #{devolucion.pk} ya fue procesada o está en un estado no válido.")
+        return redirect('devoluciones:detalle_devolucion', pk=devolucion.pk)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                hubo_diferencias = False
+
+                for detalle in devolucion.detalles.all():
+                    # --- INICIO DE CAMBIOS ---
+                    # 1. Obtenemos los nuevos valores del formulario
+                    cantidad_recibida_str = request.POST.get(f'cantidad_recibida_{detalle.pk}', '0')
+                    cantidad_recibida = int(cantidad_recibida_str)
+                    estado_final_bodega = request.POST.get(f'estado_final_{detalle.pk}') # El estado que bodega decidió
+
+                    # 2. Actualizamos el detalle con los datos finales de bodega
+                    detalle.cantidad_recibida_bodega = cantidad_recibida
+                    detalle.estado_producto = estado_final_bodega # Sobrescribimos el estado
+                    detalle.save(update_fields=['cantidad_recibida_bodega', 'estado_producto'])
+
+                    # 3. La condición para actualizar el stock ahora depende del estado final decidido en bodega
+                    if estado_final_bodega == 'BUENO' and cantidad_recibida > 0:
+                        MovimientoInventario.objects.create(
+                            empresa=empresa_actual,
+                            producto=detalle.producto,
+                            cantidad=cantidad_recibida,
+                            tipo_movimiento='ENTRADA_DEVOLUCION',
+                            documento_referencia=f"RecepDevol #{devolucion.pk}",
+                            usuario=request.user,
+                            notas=f"Recepción en bodega de devolución del cliente {devolucion.cliente.nombre_completo}"
+                        )
+                    # --- FIN DE CAMBIOS ---
+
+                    if detalle.cantidad != cantidad_recibida:
+                        hubo_diferencias = True
+
+                devolucion.estado = 'CON_DIFERENCIAS' if hubo_diferencias else 'VERIFICADA'
+                devolucion.save(update_fields=['estado'])
+
+                messages.success(request, f"Recepción de la Devolución #{devolucion.pk} registrada. El stock ha sido actualizado según el estado final.")
+                return redirect('devoluciones:detalle_devolucion', pk=devolucion.pk)
+
+        except Exception as e:
+            messages.error(request, f"Ocurrió un error inesperado al procesar la recepción: {e}")
+
+    context = {
+        'devolucion': devolucion,
+        'titulo': f'Recibir Devolución #{devolucion.pk}'
+    }
+    # La plantilla la crearemos en el siguiente paso
+    return render(request, 'devoluciones/recibir_devolucion.html', context)

@@ -1,5 +1,6 @@
 # clientes/admin.py
 from django.contrib import admin
+from django.utils.html import format_html
 from import_export.admin import ImportExportModelAdmin
 from .models import Cliente, Ciudad, Empresa, Dominio
 
@@ -9,6 +10,33 @@ class EmpresaAdmin(ImportExportModelAdmin):
     list_filter = ('activo',)
     search_fields = ('nombre', 'nit')
     list_per_page = 20
+    fieldsets = (
+        ('Información Principal', {
+            'fields': ('nombre', 'nit')
+        }),
+        ('Datos de Contacto', {
+            # Agregamos los nuevos campos aquí
+            'fields': ('direccion', 'ciudad', 'telefono', 'correo_electronico') 
+        }),
+        ('Personalización y Web', {
+            'fields': ('logo', 'titulo_web') # <-- Aquí nos aseguramos de que el campo 'logo' se muestre.
+        }),
+        ('Estado y Fiscal', { # Cambié el nombre del grupo para mayor claridad
+            # Y el de IVA aquí
+            'fields': ('activo', 'responsable_de_iva')
+        }),
+    )
+    
+    readonly_fields = ('fecha_creacion',)
+
+    def logo_thumbnail(self, obj):
+        """
+        Muestra una pequeña vista previa del logo en la lista de empresas.
+        """
+        if obj.logo:
+            return format_html('<img src="{}" style="width: 70px; height: auto;" />', obj.logo.url)
+        return "Sin logo"
+    logo_thumbnail.short_description = 'Logotipo'
 
 @admin.register(Dominio)
 class DominioAdmin(admin.ModelAdmin):

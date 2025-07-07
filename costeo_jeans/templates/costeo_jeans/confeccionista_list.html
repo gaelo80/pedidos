@@ -1,0 +1,61 @@
+{% extends "core/base.html" %}
+
+{% block title %}Gestión Terceros{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="color: white;">Directorio de Terceros</h1>
+        <a href="{% url 'costeo_jeans:confeccionista_create' %}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Añadir Nuevo Tercero
+        </a>
+    </div>
+
+    <div class="card bg-light text-dark">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Teléfono</th>
+                            <th>¿Aplica IVA?</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for confeccionista in confeccionistas %}
+                        <tr>
+                            <td>{{ confeccionista.nombre }}</td>
+                            <td>{{ confeccionista.documento_identidad|default:"N/A" }}</td>
+                            <td>{{ confeccionista.telefono|default:"N/A" }}</td>
+                            <td>
+                                {% if confeccionista.aplica_iva %}
+                                    <i class="fas fa-check-circle text-success"></i> Sí
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i> No
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'costeo_jeans:confeccionista_update' confeccionista.pk %}" class="btn btn-primary btn-sm" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'costeo_jeans:confeccionista_delete' confeccionista.pk %}" class="btn btn-danger btn-sm" title="Eliminar">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No hay confeccionistas registrados. ¡Añade el primero!</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

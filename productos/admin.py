@@ -185,6 +185,6 @@ class FotoProductoAdmin(admin.ModelAdmin):
 
     def previsualizacion_imagen_lista(self, obj):
         if obj.imagen and hasattr(obj.imagen, 'url'):
-            return admin.utils.html.format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.imagen.url)
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.imagen.url)
         return "(Sin imagen)"
     previsualizacion_imagen_lista.short_description = 'Imagen'

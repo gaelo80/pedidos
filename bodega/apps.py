@@ -6,4 +6,3 @@ class BodegaConfig(AppConfig):
 
     def ready(self):
         import bodega.signals # Importa las señales de tu app
-        print("DEBUG: Señales de la app 'bodega' cargándose...") # Mensaje de depuración

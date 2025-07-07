@@ -1,0 +1,108 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm" style="background-color: var(--color-fondo-tarjeta); color: var(--color-texto-principal);">
+            <div class="card-header">
+                <h4 class="mb-0" style="color: white;">{{ titulo }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.cliente.id_for_label }}" class="form-label" style="color: white;">{{ form.cliente.label }}</label>
+                        {{ form.cliente }}
+                        {% if form.cliente.help_text %}
+                            <small class="form-text text-muted">{{ form.cliente.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.cliente.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.monto_recibido.id_for_label }}" class="form-label" style="color: white;">{{ form.monto_recibido.label }}</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            {{ form.monto_recibido }}
+                        </div>
+                        {% for error in form.monto_recibido.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.concepto.id_for_label }}" class="form-label" style="color: white;">{{ form.concepto.label }}</label>
+                        {{ form.concepto }}
+                         {% if form.concepto.help_text %}
+                            <small class="form-text text-muted">{{ form.concepto.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.concepto.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <hr style="background-color: white;">
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Recaudo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+// Este script se añade al que ya tienes para el Select2
+$(document).ready(function() {
+    // El código del Select2 que ya tienes...
+    $('#{{ form.cliente.id_for_label }}').select2({
+        theme: "bootstrap-5",
+        placeholder: 'Busca y selecciona un cliente...',
+        dropdownCssClass: "select2-dropdown-dark"
+    });
+
+    // --- CÓDIGO NUEVO PARA FORMATEAR MILES ---
+    const montoInput = document.getElementById('id_monto_recibido');
+
+    if (montoInput) {
+        montoInput.addEventListener('input', function(e) {
+            // 1. Obtiene el valor actual y elimina todo lo que no sea un dígito
+            let rawValue = e.target.value.replace(/[^\d]/g, '');
+            
+            // 2. Si hay un valor, lo formatea
+            if (rawValue) {
+                const numberValue = parseInt(rawValue, 10);
+                // 3. Lo formatea usando la configuración regional de Colombia (que usa puntos para miles)
+                e.target.value = numberValue.toLocaleString('es-CO');
+            } else {
+                e.target.value = '';
+            }
+        });
+
+        // 4. IMPORTANTE: Antes de enviar el formulario, quitamos los puntos
+        const form = montoInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                if (montoInput.value) {
+                    montoInput.value = montoInput.value.replace(/\./g, '');
+                }
+            });
+        }
+    }
+});
+</script>
+{% endblock extra_scripts %}

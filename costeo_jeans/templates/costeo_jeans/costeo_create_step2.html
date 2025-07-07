@@ -1,0 +1,150 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}{% if costeo.pk %}Editar Costeo{% else %}Nuevo Costeo{% endif %} - Paso 2{% endblock %}
+
+{% block content %}
+<style>
+    .form-row-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+    }
+    .form-row-item .form-group {
+        margin-bottom: 0;
+    }
+    .errorlist {
+        color: #dc3545;
+        font-size: 0.875em;
+        list-style-type: none;
+        padding-left: 0;
+    }
+</style>
+
+<div class="container-fluid">
+    <h2 style="color: white;" class="mb-3">Añadir Detalles para: <span class="fw-bold">{{ costeo.referencia }}</span></h2>
+    <h4 style="color: #bdc3c7;" class="mb-4">Cantidad a Producir: {{ costeo.cantidad_producida }} unidades</h4>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="card text-dark mb-4">
+            <div class="card-header"><h4 class="card-title mb-0">1. Insumos</h4></div>
+            <div class="card-body">
+                {{ insumo_formset.management_form }}
+                {% if insumo_formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ insumo_formset.non_form_errors }}</div>
+                {% endif %}
+                
+                <div id="insumos-form-list">
+                    {% for form in insumo_formset %}
+                    <div class="form-row-item insumo-form-row">
+                        <div class="row w-100 align-items-center">
+                            <div class="col-md-5 form-group">
+                                <label>{{ form.insumo.label }}</label>
+                                {{ form.insumo }}
+                                {{ form.id }}
+                                {{ form.insumo.errors }}
+                            </div>
+                            <div class="col-md-3 form-group tela-fields" style="display: none;">
+                                <label>Consumo por Prenda (metros)</label>
+                                <input type="number" step="0.01" class="form-control consumo-tela" placeholder="Ej: 1.25">
+                            </div>
+                            <div class="col-md-3 form-group cantidad-field">
+                                <label>{{ form.cantidad.label }} (Total)</label>
+                                {{ form.cantidad }}
+                                {{ form.cantidad.errors }}
+                            </div>
+                            <div class="col-md-1 text-center">
+                                {% if form.instance.pk %}<label>Eliminar</label><div>{{ form.DELETE }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" id="add-insumos-form" class="btn btn-outline-primary mt-3"><i class="fas fa-plus"></i> Añadir Insumo</button>
+            </div>
+        </div>
+
+        <div class="card text-dark mb-4">
+            <div class="card-header"><h4 class="card-title mb-0">2. Procesos</h4></div>
+            <div class="card-body">
+                {{ proceso_formset.management_form }}
+                {% if proceso_formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ proceso_formset.non_form_errors }}</div>
+                {% endif %}
+
+                <div id="procesos-form-list">
+                    {% for form in proceso_formset %}
+                    <div class="form-row-item proceso-form-row">
+                        <div class="row w-100 align-items-center">
+                            <div class="col-md-8 form-group">
+                                <label>{{ form.tarifa.label }}</label>
+                                {{ form.tarifa }}
+                                {{ form.id }} {{ form.tarifa.errors }}
+                            </div>
+                            <div class="col-md-3 form-group">
+                                <label>{{ form.cantidad.label }}</label>
+                                {{ form.cantidad }}
+                                {{ form.cantidad.errors }}
+                            </div>
+                            <div class="col-md-1 text-center">
+                            {% if form.instance.pk %}<label>Eliminar</label><div>{{ form.DELETE }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" id="add-procesos-form" class="btn btn-outline-primary mt-3"><i class="fas fa-plus"></i> Añadir Proceso</button>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+            <a href="{% if costeo.pk %}{% url 'costeo_jeans:costeo_summary' costeo.id %}{% else %}{% url 'costeo_jeans:panel_costeo' %}{% endif %}" class="btn btn-secondary me-2">Cancelar</a>
+            <button type="submit" class="btn btn-success">Guardar y Ver Resumen <i class="fas fa-check"></i></button>
+        </div>
+    </form>
+
+    <template id="insumo-form-template">
+        {% with insumo_formset.empty_form as form %}
+        <div class="form-row-item insumo-form-row">
+            <div class="row w-100 align-items-center">
+                <div class="col-md-5 form-group">{{ form.insumo }}{{ form.id }}</div>
+                <div class="col-md-3 form-group tela-fields" style="display: none;"><input type="number" step="0.01" class="form-control consumo-tela" placeholder="Ej: 1.25"></div>
+                <div class="col-md-3 form-group cantidad-field">{{ form.cantidad }}</div>
+                <div class="col-md-1 text-center">{{ form.DELETE }}</div>
+            </div>
+        </div>
+        {% endwith %}
+    </template>
+    
+    <template id="proceso-form-template">
+        {% with proceso_formset.empty_form as form %}
+        <div class="form-row-item proceso-form-row">
+            <div class="row w-100 align-items-center">
+                <div class="col-md-8 form-group">{{ form.tarifa }}{{ form.id }}</div>
+                <div class="col-md-3 form-group">{{ form.cantidad }}</div>
+                <div class="col-md-1 text-center">{{ form.DELETE }}</div>
+            </div>
+        </div>
+        {% endwith %}
+    </template>
+</div>
+
+<script>
+// El script de JavaScript se mantiene igual. No es necesario cambiarlo.
+document.addEventListener('DOMContentLoaded', function() {
+    const insumoCategorias = {{ insumo_categorias_json|default:'{}'|safe }};
+    function toggleTelaFields(formRow){if(!formRow)return;const select=formRow.querySelector('select[name$="-insumo"]');if(!select)return;const telaFields=formRow.querySelector('.tela-fields');const cantidadInput=formRow.querySelector('input[name$="-cantidad"]');const categoria=insumoCategorias[select.value];if(categoria==='TELA'){telaFields.style.display='block';cantidadInput.readOnly=true;}else{telaFields.style.display='none';cantidadInput.readOnly=false;}}
+    function setupFormset(prefix,templateId){const addBtn=document.getElementById(`add-${prefix}-form`);const formList=document.getElementById(`${prefix}-form-list`);const templateNode=document.getElementById(templateId);if(!addBtn||!formList||!templateNode){return;}
+    const template=templateNode.innerHTML;const totalFormsInput=document.getElementById(`id_${prefix}-TOTAL_FORMS`);addBtn.addEventListener('click',function(){let formNum=parseInt(totalFormsInput.value);let newFormHtml=template.replace(/__prefix__/g,formNum);const newDiv=document.createElement('div');newDiv.innerHTML=newFormHtml;const newFormRow=newDiv.firstElementChild;formList.appendChild(newFormRow);totalFormsInput.value=formNum+1;if(prefix==='insumos'){toggleTelaFields(newFormRow);}});}
+    setupFormset('insumos','insumo-form-template');setupFormset('procesos','proceso-form-template');
+    document.body.addEventListener('change',function(e){if(e.target.matches('select[name$="-insumo"]')){const formRow=e.target.closest('.insumo-form-row');toggleTelaFields(formRow);}});
+    document.body.addEventListener('input',function(e){if(e.target.matches('.consumo-tela')){const consumoInput=e.target;const formRow=consumoInput.closest('.insumo-form-row');const cantidadInput=formRow.querySelector('input[name$="-cantidad"]');const cantidadProducida={{costeo.cantidad_producida|default:0}};const consumoPorPrenda=parseFloat(consumoInput.value)||0;cantidadInput.value=(consumoPorPrenda*cantidadProducida).toFixed(2);}});
+    document.querySelectorAll('.insumo-form-row').forEach(row=>{toggleTelaFields(row);});
+});
+</script>
+{% endblock %}

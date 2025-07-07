@@ -1,4 +1,4 @@
-# core/utils.py (o donde tengas definida get_logo_base64_despacho)
+# core/utils.py
 import os
 import base64
 from django.contrib.staticfiles import finders # Para encontrar archivos estáticos de forma robusta
@@ -28,7 +28,7 @@ def get_logo_base_64_despacho(empresa):
         elif filename_lower.endswith(".png"):
             image_type = "image/png"
         else:
-            image_type = "image/jpeg"  # Fallback
+            image_type = "image/jpeg" 
 
         print(f"DEBUG: Logo cargado dinámicamente para empresa '{empresa.nombre}'")
         return f"data:{image_type};base64,{encoded_string}"

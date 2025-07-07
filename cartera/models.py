@@ -59,3 +59,42 @@ class DocumentoCartera(models.Model):
     @property
     def esta_vencido(self):
         return self.dias_mora > 0
+    
+class PerfilImportacionCartera(models.Model):
+    """
+    Define el mapeo de columnas y configuraciones para un formato de archivo Excel específico.
+    """
+    empresa = models.ForeignKey(
+        Empresa, 
+        on_delete=models.CASCADE,
+        related_name='perfiles_importacion',
+        help_text="Empresa a la que pertenece este formato de archivo."
+    )
+    nombre_perfil = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Nombre único para identificar este perfil (ej: 'Formato Contable S.A.S.')"
+    )
+    fila_inicio_header = models.PositiveIntegerField(
+        default=3,
+        help_text="Número de la fila en Excel donde comienzan los datos (ej: si los datos empiezan en la fila 4, poner 3)."
+    )
+    
+    # --- Mapeo de Columnas ---
+    # Guarda aquí el nombre EXACTO de la columna en el archivo Excel
+    columna_id_cliente = models.CharField(max_length=50, default='CODIGO')
+    columna_numero_documento = models.CharField(max_length=50, default='DOCUMENTO')
+    columna_fecha_documento = models.CharField(max_length=50, default='FECHADOC')
+    columna_fecha_vencimiento = models.CharField(max_length=50, default='FECHAVEN')
+    columna_saldo = models.CharField(max_length=50, default='SALDOACT')
+    columna_nombre_vendedor = models.CharField(max_length=50, default='NOMVENDEDOR')
+    columna_codigo_vendedor = models.CharField(max_length=50, default='VENDEDOR')
+    # Añade más campos si necesitas mapear más columnas (ej. concepto)
+
+    def __str__(self):
+        return f"{self.nombre_perfil} ({self.empresa.nombre})"
+
+    class Meta:
+        verbose_name = "Perfil de Importación de Cartera"
+        verbose_name_plural = "Perfiles de Importación de Cartera"
+        unique_together = ('empresa', 'nombre_perfil')

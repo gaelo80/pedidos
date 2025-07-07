@@ -1,0 +1,10 @@
+{% extends "core/base.html" %}
+{% block title %}Costeo Finalizado{% endblock %}
+{% block content %}
+<div class="alert alert-success shadow-sm">
+    <h4 class="alert-heading">Costeo Finalizado</h4>
+    <p>El análisis de costos fue registrado exitosamente.</p>
+    <hr>
+    <a href="{% url 'costeo_nuevo' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Nuevo costeo</a>
+</div>
+{% endblock %}

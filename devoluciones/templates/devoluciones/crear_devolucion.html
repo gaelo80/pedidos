@@ -43,7 +43,10 @@
             <h1 class="mb-0">{{ titulo|default:"Registrar Devolución" }}</h1>
         </div>
         <div class="col-md-4 text-md-end">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+            <a href="{% url 'informes:informe_lista_devoluciones' %}" class="btn btn-info">
+                <i class="fas fa-list-ul me-1"></i> Ver Devoluciones
+            </a>
+            <a href="{% url 'core:index' %}" class="btn btn-secondary ms-2">
                 <i class="fas fa-arrow-left me-1"></i> Volver al Panel
             </a>
         </div>

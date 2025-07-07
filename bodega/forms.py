@@ -3,7 +3,7 @@ from productos.models import Producto
 from .models import IngresoBodega, DetalleIngresoBodega
 from .models import SalidaInternaCabecera, SalidaInternaDetalle
 from django.utils import timezone
-
+from django.forms import BaseInlineFormSet
 
 
 class IngresoBodegaForm(forms.ModelForm):
@@ -171,10 +171,43 @@ class SalidaInternaDetalleForm(forms.ModelForm):
             self.fields['producto'].queryset = Producto.objects.none()
 
 
+class BaseDetalleSalidaInternaFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        productos_a_despachar = {}
+        for form in self.forms:
+            if not form.is_valid() or not form.cleaned_data or form.cleaned_data.get('DELETE'):
+                continue
+
+            producto = form.cleaned_data.get('producto')
+            cantidad = form.cleaned_data.get('cantidad_despachada')
+
+            if not producto or not cantidad: continue
+
+            if cantidad <= 0:
+                form.add_error('cantidad_despachada', 'La cantidad debe ser mayor a cero.')
+                continue
+
+            if producto in productos_a_despachar:
+                productos_a_despachar[producto] += cantidad
+            else:
+                productos_a_despachar[producto] = cantidad
+
+        for producto, cantidad_total in productos_a_despachar.items():
+            if cantidad_total > producto.stock_actual:
+                raise forms.ValidationError(
+                    f"Stock insuficiente para '{producto}'. Solicitado: {cantidad_total}, Disponible: {producto.stock_actual}"
+                )
+
+# Reemplaza tu DetalleSalidaInternaFormSet existente con esto:
 DetalleSalidaInternaFormSet = forms.inlineformset_factory(
     SalidaInternaCabecera,
     SalidaInternaDetalle,
     form=SalidaInternaDetalleForm,
+    formset=BaseDetalleSalidaInternaFormSet, # Aquí se usa la nueva clase
     extra=1,
     can_delete=True,
     min_num=1,
