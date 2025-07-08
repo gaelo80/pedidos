@@ -73,7 +73,19 @@ SECRET_KEY = config('SECRET_KEY')
 #DEBUG = config('DEBUG', default=False, cast=bool)
 
 #ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost' 'empresa-prueba.localhost').split(',')
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost']
+ALLOWED_HOSTS = [
+                'pedidosluisferry.store', 
+                'www.pedidosluisferry.store',
+                'pedidoswhite.online',
+                'www.pedidoswhite.online',
+                'pedidosharmony.online',
+                'www.pedidosharmony.online',
+                'pedidosamerican.online',
+                'www.pedidosamerican.online',
+                'pedidosexclusive.online',
+                'www.pedidosexclusive.online',               
+                
+                ]
                  #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
