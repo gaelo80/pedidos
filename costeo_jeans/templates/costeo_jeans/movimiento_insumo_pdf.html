@@ -1,0 +1,124 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial de Inventario - {{ insumo.nombre }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 1.5cm;
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 10pt;
+                color: #888;
+            }
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10pt;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #0056b3;
+            font-size: 22pt;
+        }
+        .header p {
+            margin: 5px 0 0;
+            font-size: 14pt;
+            color: #555;
+        }
+        .details-section {
+            padding: 10px;
+            margin-bottom: 25px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            overflow: auto;
+        }
+        .details-section div {
+            float: left;
+            width: 48%;
+        }
+        .details-section div:last-child {
+            float: right;
+            text-align: right;
+        }
+        h3 {
+            color: #0056b3;
+            border-bottom: 1px solid #aaddff;
+            padding-bottom: 5px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: 14pt;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+        .text-right { text-align: right; }
+        .entrada { color: #198754; font-weight: bold; }
+        .salida { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Historial de Inventario</h1>
+        <p>{{ insumo.nombre }}</p>
+    </header>
+
+    <main>
+        <section class="details-section">
+            <div><strong>Stock Actual:</strong> {{ insumo.stock|floatformat:2|intcomma }} {{ insumo.get_unidad_medida_display }}</div>
+            <div><strong>Fecha de Emisión:</strong> {% now "d \d\e F \d\e Y" %}</div>
+        </section>
+
+        <h3>Movimientos Registrados</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Tipo</th>
+                    <th class="text-right">Cantidad</th>
+                    <th>Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movimiento in movimientos %}
+                <tr>
+                    <td>{{ movimiento.fecha|date:"d/m/Y h:i A" }}</td>
+                    <td>{{ movimiento.get_tipo_display }}</td>
+                    <td class="text-right {% if movimiento.tipo == 'ENTRADA' %}entrada{% else %}salida{% endif %}">
+                        {% if movimiento.tipo == 'ENTRADA' %}+{% else %}-{% endif %}
+                        {{ movimiento.cantidad|floatformat:2|intcomma }}
+                    </td>
+                    <td>{{ movimiento.descripcion }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center;">No hay movimientos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>

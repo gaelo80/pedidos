@@ -164,9 +164,7 @@ class Costeo(models.Model):
             return (self.utilidad_neta_unitaria / self.precio_final_unitario) * 100
         return 0
     
-    
-    
-    
+       
     
 class TarifaConfeccionista(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
@@ -299,26 +297,51 @@ def on_detalle_costo_fijo_change(sender, instance, **kwargs):
 @receiver(post_save, sender=Costeo)
 def on_costeo_finalize(sender, instance, created, **kwargs):
     """
-    Cuando un Costeo se guarda y su estado es 'FINALIZADO',
-    descuenta los insumos utilizados del stock.
+    Cuando un Costeo se finaliza, crea movimientos de SALIDA para los insumos.
+    El stock se actualizará automáticamente gracias a la señal de MovimientoInsumo.
     """
-    # Se ejecuta solo si el estado es FINALIZADO y el objeto ya existía
-    # (para evitar que se ejecute en la creación inicial en estado BORRADOR)
     if not created and instance.estado == Costeo.EstadoCosteo.FINALIZADO:
-        
-        # Usamos una transacción para asegurar que todas las actualizaciones de stock
-        # se realicen correctamente o ninguna lo haga.
         with transaction.atomic():
-            # Creamos una bandera para saber si ya se descontó el stock
-            if not hasattr(instance, '_stock_descontado'):
-                detalles_insumo = instance.detalle_insumos.all()
-                for detalle in detalles_insumo:
-                    insumo_obj = detalle.insumo
-                    cantidad_a_descontar = detalle.cantidad
-                    
-                    # Actualizamos el stock usando F() para seguridad
-                    insumo_obj.stock = F('stock') - cantidad_a_descontar
-                    insumo_obj.save(update_fields=['stock'])
+            # Evita que se ejecute múltiples veces
+            if not MovimientoInsumo.objects.filter(costeo_relacionado=instance).exists():
+                for detalle in instance.detalle_insumos.all():
+                    MovimientoInsumo.objects.create(
+                        insumo=detalle.insumo,
+                        tipo=MovimientoInsumo.Tipo.SALIDA,
+                        cantidad=detalle.cantidad,
+                        descripcion=f"Uso en producción para costeo: {instance.referencia}",
+                        costeo_relacionado=instance
+                    )
                 
-                # Marcamos la instancia para que no se vuelva a descontar en saves futuros
-                instance._stock_descontado = True
+class MovimientoInsumo(models.Model):
+    class Tipo(models.TextChoices):
+        ENTRADA = 'ENTRADA', 'Entrada (Compra/Ingreso)'
+        SALIDA = 'SALIDA', 'Salida (Uso en Producción)'
+        AJUSTE = 'AJUSTE', 'Ajuste Manual'
+
+    insumo = models.ForeignKey(Insumo, on_delete=models.CASCADE, related_name='movimientos')
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+    descripcion = models.CharField(max_length=255, blank=True)
+    costeo_relacionado = models.ForeignKey(Costeo, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.tipo} de {self.cantidad} para {self.insumo.nombre}"
+
+    class Meta:
+        ordering = ['-fecha']
+        
+@receiver(post_save, sender=MovimientoInsumo)
+def actualizar_stock_insumo(sender, instance, created, **kwargs):
+    """
+    Actualiza el stock de un Insumo cada vez que se crea un Movimiento.
+    """
+    if created:
+        if instance.tipo == MovimientoInsumo.Tipo.ENTRADA:
+            instance.insumo.stock = F('stock') + instance.cantidad
+        elif instance.tipo == MovimientoInsumo.Tipo.SALIDA:
+            instance.insumo.stock = F('stock') - instance.cantidad
+        # Para 'AJUSTE', podrías añadir una lógica más compleja si lo necesitas.
+
+        instance.insumo.save()

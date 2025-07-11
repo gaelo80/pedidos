@@ -1,6 +1,7 @@
 from django import forms
 from .models import Insumo, Proceso, Confeccionista, Costeo, DetalleInsumo, DetalleProceso, CostoFijo,TarifaConfeccionista
 from django.forms import inlineformset_factory
+from .models import MovimientoInsumo
 
 # ... (InsumoForm, ProcesoForm, ConfeccionistaForm sin cambios)
 class InsumoForm(forms.ModelForm):
@@ -146,6 +147,23 @@ class DetalleProcesoForm(forms.ModelForm):
         # nos aseguramos de que no tenga un valor inicial que fuerce la validación.
         if not self.instance.pk:
             self.fields['cantidad'].initial = 1
+            
+class MovimientoInsumoForm(forms.ModelForm):
+    class Meta:
+        model = MovimientoInsumo
+        fields = ['insumo', 'cantidad', 'descripcion']
+        widgets = {
+            'insumo': forms.Select(attrs={'class': 'form-select'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Cantidad que ingresa'}),
+            'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Factura de compra #123'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        # Filtra los insumos para que solo muestre los de la empresa actual
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        if empresa:
+            self.fields['insumo'].queryset = Insumo.objects.filter(empresa=empresa)
 
 DetalleInsumoFormSet = inlineformset_factory(Costeo, DetalleInsumo, form=DetalleInsumoForm, extra=1, can_delete=True)
 DetalleProcesoFormSet = inlineformset_factory(Costeo, DetalleProceso, form=DetalleProcesoForm, extra=1, can_delete=True)

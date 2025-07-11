@@ -45,8 +45,12 @@ urlpatterns = [
     path('informes/', views.InformesView.as_view(), name='informes'),
     
     # ---TARIFAS ---
-path('tarifas/', views.TarifaListView.as_view(), name='tarifa_list'),
-path('tarifas/nueva/', views.TarifaCreateView.as_view(), name='tarifa_create'),
-path('tarifas/<int:pk>/editar/', views.TarifaUpdateView.as_view(), name='tarifa_update'),
-path('tarifas/<int:pk>/eliminar/', views.TarifaDeleteView.as_view(), name='tarifa_delete'),
+    path('tarifas/', views.TarifaListView.as_view(), name='tarifa_list'),
+    path('tarifas/nueva/', views.TarifaCreateView.as_view(), name='tarifa_create'),
+    path('tarifas/<int:pk>/editar/', views.TarifaUpdateView.as_view(), name='tarifa_update'),
+    path('tarifas/<int:pk>/eliminar/', views.TarifaDeleteView.as_view(), name='tarifa_delete'),
+    # --- URLs PARA INVENTARIO ---
+    path('insumos/<int:pk>/', views.InsumoDetailView.as_view(), name='insumo_detail'),
+    path('insumos/registrar-entrada/', views.RegistrarEntradaInsumoView.as_view(), name='registrar_entrada'),
+    path('insumos/<int:pk>/pdf/', views.export_movimientos_pdf, name='export_movimientos_pdf'),
 ]

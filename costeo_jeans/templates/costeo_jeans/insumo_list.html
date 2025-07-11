@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load humanize %}
 
 {% block title %}Gestión de Insumos{% endblock %}
 
@@ -7,10 +8,13 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 style="color: white;">Inventario de Insumos</h1>
         <div>
-            <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
-            <a href="{% url 'costeo_jeans:insumo_create' %}" class="btn btn-success ms-2">
-                <i class="fas fa-plus"></i> Añadir Nuevo Insumo
+            <a href="{% url 'costeo_jeans:registrar_entrada' %}" class="btn btn-success">
+                <i class="fas fa-truck-loading"></i> Registrar Entrada
             </a>
+            <a href="{% url 'costeo_jeans:insumo_create' %}" class="btn btn-primary ms-2">
+                <i class="fas fa-plus"></i> Crear Nuevo Insumo
+            </a>
+            <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary ms-2"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
         </div>
     </div>
 
@@ -22,8 +26,8 @@
                         <tr>
                             <th>Nombre</th>
                             <th>Unidad de Medida</th>
-                            <th>Costo Unitario</th>
-                            <th>Stock Actual</th>
+                            <th class="text-end">Costo Unitario</th>
+                            <th class="text-end">Stock Actual</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -32,11 +36,18 @@
                         <tr>
                             <td>{{ insumo.nombre }}</td>
                             <td>{{ insumo.get_unidad_medida_display }}</td>
-                            <td>${{ insumo.costo_unitario|floatformat:2 }}</td>
-                            <td>{{ insumo.stock|floatformat:2 }}</td>
+                            <td class="text-end">${{ insumo.costo_unitario|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">{{ insumo.stock|floatformat:2|intcomma }}</td>
                             <td class="text-center">
-                                <a href="{% url 'costeo_jeans:insumo_update' insumo.pk %}" class="btn btn-primary btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
-                                <a href="{% url 'costeo_jeans:insumo_delete' insumo.pk %}" class="btn btn-danger btn-sm" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
+                                <a href="{% url 'costeo_jeans:insumo_detail' insumo.pk %}" class="btn btn-info btn-sm" title="Ver Historial">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                                <a href="{% url 'costeo_jeans:insumo_update' insumo.pk %}" class="btn btn-warning btn-sm" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'costeo_jeans:insumo_delete' insumo.pk %}" class="btn btn-danger btn-sm" title="Eliminar">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
                             </td>
                         </tr>
                         {% empty %}

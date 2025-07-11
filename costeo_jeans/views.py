@@ -597,3 +597,49 @@ class TarifaDeleteView(LoginRequiredMixin, DeleteView):
         if empresa_actual:
             return TarifaConfeccionista.objects.filter(empresa=empresa_actual)
         return TarifaConfeccionista.objects.none()
+    
+class InsumoDetailView(LoginRequiredMixin, DetailView):
+    model = Insumo
+    template_name = 'costeo_jeans/insumo_detail.html'
+    context_object_name = 'insumo'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['movimientos'] = MovimientoInsumo.objects.filter(insumo=self.object)
+        context['titulo'] = f"Historial de Inventario: {self.object.nombre}"
+        return context
+
+# --- NUEVA VISTA: Para registrar entradas (compras) ---
+class RegistrarEntradaInsumoView(LoginRequiredMixin, CreateView):
+    model = MovimientoInsumo
+    form_class = MovimientoInsumoForm
+    template_name = 'costeo_jeans/movimiento_insumo_form.html'
+
+    def get_success_url(self):
+        return reverse_lazy('costeo_jeans:insumo_detail', kwargs={'pk': self.object.insumo.pk})
+
+    def form_valid(self, form):
+        form.instance.tipo = MovimientoInsumo.Tipo.ENTRADA
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Registrar Entrada de Insumo"
+        return context
+
+# --- NUEVA VISTA: Para generar el PDF de movimientos ---
+@login_required
+def export_movimientos_pdf(request, pk):
+    insumo = get_object_or_404(Insumo, pk=pk, empresa=getattr(request, 'tenant', None))
+    movimientos = MovimientoInsumo.objects.filter(insumo=insumo)
+
+    html_string = render_to_string('costeo_jeans/movimiento_insumo_pdf.html', {
+        'insumo': insumo,
+        'movimientos': movimientos
+    })
+
+    pdf_file = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="historial-{insumo.nombre}.pdf"'
+    return response
