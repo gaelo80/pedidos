@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from import_export.admin import ImportExportModelAdmin
 from .models import Cliente, Ciudad, Empresa, Dominio
+from .resources import ClienteResource
 
 @admin.register(Empresa)
 class EmpresaAdmin(ImportExportModelAdmin):
@@ -46,12 +47,13 @@ class DominioAdmin(admin.ModelAdmin):
     list_per_page = 20
     autocomplete_fields = ['empresa']
 
-@admin.register(Cliente) # RECOMENDACIÓN: Usar decorador para consistencia.
+@admin.register(Cliente)
 class ClienteAdmin(ImportExportModelAdmin):
-    # RECOMENDACIÓN: Añadir 'get_empresa_nombre' para que los superusuarios vean a qué empresa pertenece cada cliente.
+    resource_classes = [ClienteResource]
+    
     list_display = ('nombre_completo', 'identificacion', 'ciudad', 'get_empresa_nombre', 'telefono', 'email')
     search_fields = ('nombre_completo', 'identificacion', 'email', 'empresa__nombre')
-    # RECOMENDACIÓN: Añadir 'empresa' a los filtros para superusuarios.
+    
     list_filter = ('empresa', 'ciudad',)
     list_per_page = 25     
     

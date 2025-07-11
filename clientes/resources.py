@@ -1,6 +1,6 @@
 # clientes/resources.py
 from import_export import resources
-from .models import Ciudad
+from .models import Ciudad, Cliente
 
 class CiudadResource(resources.ModelResource):
     class Meta:
@@ -11,3 +11,11 @@ class CiudadResource(resources.ModelResource):
         # use_transactions = True # Opcional: usar transacciones de BD para importaciones
         # import_id_fields = ['nombre'] # Si quieres usar 'nombre' como ID para actualizar en lugar de 'id'
                                       # Cuidado: 'nombre' debe ser único si lo usas como ID.
+
+
+class ClienteResource(resources.ModelResource):
+    class Meta:
+        model = Cliente
+        # Exporta el nombre de la empresa en lugar del ID
+        fields = ('id', 'empresa__nombre', 'nombre_completo', 'identificacion', 'ciudad__nombre', 'direccion', 'telefono', 'email', 'activo', 'fecha_creacion')
+        export_order = fields
