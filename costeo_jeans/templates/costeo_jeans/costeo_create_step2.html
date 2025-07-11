@@ -5,6 +5,7 @@
 
 {% block content %}
 <style>
+    /* --- Estilos sin cambios --- */
     .form-row-item {
         display: flex;
         align-items: center;
@@ -43,20 +44,16 @@
                     {% for form in insumo_formset %}
                     <div class="form-row-item insumo-form-row">
                         <div class="row w-100 align-items-center">
-                            <div class="col-md-5 form-group">
-                                <label>{{ form.insumo.label }}</label>
+                            <div class="col-md-6 form-group">
+                                <label for="{{ form.insumo.id_for_label }}">{{ form.insumo.label }}</label>
                                 {{ form.insumo }}
-                                {{ form.id }}
+                                {{ form.id }} {# Campo oculto con el ID del detalle #}
                                 {{ form.insumo.errors }}
                             </div>
-                            <div class="col-md-3 form-group tela-fields" style="display: none;">
-                                <label>Consumo por Prenda (metros)</label>
-                                <input type="number" step="0.01" class="form-control consumo-tela" placeholder="Ej: 1.25">
-                            </div>
-                            <div class="col-md-3 form-group cantidad-field">
-                                <label>{{ form.cantidad.label }} (Total)</label>
-                                {{ form.cantidad }}
-                                {{ form.cantidad.errors }}
+                            <div class="col-md-5 form-group">
+                                <label for="{{ form.consumo_unitario.id_for_label }}">{{ form.consumo_unitario.label }}</label>
+                                {{ form.consumo_unitario }}
+                                {{ form.consumo_unitario.errors }}
                             </div>
                             <div class="col-md-1 text-center">
                                 {% if form.instance.pk %}<label>Eliminar</label><div>{{ form.DELETE }}</div>{% endif %}
@@ -112,10 +109,16 @@
         {% with insumo_formset.empty_form as form %}
         <div class="form-row-item insumo-form-row">
             <div class="row w-100 align-items-center">
-                <div class="col-md-5 form-group">{{ form.insumo }}{{ form.id }}</div>
-                <div class="col-md-3 form-group tela-fields" style="display: none;"><input type="number" step="0.01" class="form-control consumo-tela" placeholder="Ej: 1.25"></div>
-                <div class="col-md-3 form-group cantidad-field">{{ form.cantidad }}</div>
-                <div class="col-md-1 text-center">{{ form.DELETE }}</div>
+                <div class="col-md-6 form-group">
+                    {{ form.insumo }}
+                    {{ form.id }}
+                </div>
+                <div class="col-md-5 form-group">
+                    {{ form.consumo_unitario }}
+                </div>
+                <div class="col-md-1 text-center">
+                    <button type="button" class="btn btn-danger remove-form-row">X</button>
+                </div>
             </div>
         </div>
         {% endwith %}
@@ -127,7 +130,7 @@
             <div class="row w-100 align-items-center">
                 <div class="col-md-8 form-group">{{ form.tarifa }}{{ form.id }}</div>
                 <div class="col-md-3 form-group">{{ form.cantidad }}</div>
-                <div class="col-md-1 text-center">{{ form.DELETE }}</div>
+                <div class="col-md-1 text-center"><button type="button" class="btn btn-danger remove-form-row">X</button></div>
             </div>
         </div>
         {% endwith %}
@@ -135,16 +138,42 @@
 </div>
 
 <script>
-// El script de JavaScript se mantiene igual. No es necesario cambiarlo.
 document.addEventListener('DOMContentLoaded', function() {
-    const insumoCategorias = {{ insumo_categorias_json|default:'{}'|safe }};
-    function toggleTelaFields(formRow){if(!formRow)return;const select=formRow.querySelector('select[name$="-insumo"]');if(!select)return;const telaFields=formRow.querySelector('.tela-fields');const cantidadInput=formRow.querySelector('input[name$="-cantidad"]');const categoria=insumoCategorias[select.value];if(categoria==='TELA'){telaFields.style.display='block';cantidadInput.readOnly=true;}else{telaFields.style.display='none';cantidadInput.readOnly=false;}}
-    function setupFormset(prefix,templateId){const addBtn=document.getElementById(`add-${prefix}-form`);const formList=document.getElementById(`${prefix}-form-list`);const templateNode=document.getElementById(templateId);if(!addBtn||!formList||!templateNode){return;}
-    const template=templateNode.innerHTML;const totalFormsInput=document.getElementById(`id_${prefix}-TOTAL_FORMS`);addBtn.addEventListener('click',function(){let formNum=parseInt(totalFormsInput.value);let newFormHtml=template.replace(/__prefix__/g,formNum);const newDiv=document.createElement('div');newDiv.innerHTML=newFormHtml;const newFormRow=newDiv.firstElementChild;formList.appendChild(newFormRow);totalFormsInput.value=formNum+1;if(prefix==='insumos'){toggleTelaFields(newFormRow);}});}
-    setupFormset('insumos','insumo-form-template');setupFormset('procesos','proceso-form-template');
-    document.body.addEventListener('change',function(e){if(e.target.matches('select[name$="-insumo"]')){const formRow=e.target.closest('.insumo-form-row');toggleTelaFields(formRow);}});
-    document.body.addEventListener('input',function(e){if(e.target.matches('.consumo-tela')){const consumoInput=e.target;const formRow=consumoInput.closest('.insumo-form-row');const cantidadInput=formRow.querySelector('input[name$="-cantidad"]');const cantidadProducida={{costeo.cantidad_producida|default:0}};const consumoPorPrenda=parseFloat(consumoInput.value)||0;cantidadInput.value=(consumoPorPrenda*cantidadProducida).toFixed(2);}});
-    document.querySelectorAll('.insumo-form-row').forEach(row=>{toggleTelaFields(row);});
+    function setupFormset(prefix, templateId) {
+        const addBtn = document.getElementById(`add-${prefix}-form`);
+        const formList = document.getElementById(`${prefix}-form-list`);
+        const templateNode = document.getElementById(templateId);
+
+        if (!addBtn || !formList || !templateNode) return;
+
+        const template = templateNode.innerHTML;
+        const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+
+        addBtn.addEventListener('click', function() {
+            let formNum = parseInt(totalFormsInput.value);
+            // Reemplaza el prefijo en el HTML de la plantilla por el nuevo número de formulario
+            let newFormHtml = template.replace(/__prefix__/g, formNum);
+            
+            // Crea un div temporal para añadir el nuevo formulario
+            const newDiv = document.createElement('div');
+            newDiv.innerHTML = newFormHtml;
+            const newFormRow = newDiv.firstElementChild;
+
+            formList.appendChild(newFormRow);
+            totalFormsInput.value = formNum + 1; // Incrementa el contador de formularios
+        });
+    }
+
+    // Configura los dos formsets
+    setupFormset('insumos', 'insumo-form-template');
+    setupFormset('procesos', 'proceso-form-template');
+
+    // Añade un listener para eliminar las filas añadidas dinámicamente
+    document.body.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('remove-form-row')) {
+            e.target.closest('.form-row-item').remove();
+        }
+    });
 });
 </script>
 {% endblock %}

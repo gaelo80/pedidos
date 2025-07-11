@@ -86,29 +86,37 @@ class CostoFijoForm(forms.ModelForm):
 class CosteoModelForm(forms.ModelForm):
     class Meta:
         model = Costeo
-        fields = ['referencia', 'cantidad_producida']
+        fields = ['referencia', 'cantidad_producida', 'precio_venta_unitario']
         widgets = {
             'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jean Clásico 101'}),
             'cantidad_producida': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1000'}),
+            'precio_venta_unitario': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 85000.00'}),
         }
         labels = {
             'referencia': 'Referencia del Producto',
             'cantidad_producida': 'Cantidad a Producir (Unidades)',
+            'precio_venta_unitario': 'Precio de Venta por Unidad ($)',
         }
+        
+        
+        
 class DetalleInsumoForm(forms.ModelForm):
     class Meta:
-        model = DetalleInsumo
-        fields = ['insumo', 'cantidad']
+        model = DetalleInsumo       
+        fields = ['insumo', 'consumo_unitario']
         widgets = {
-            'insumo': forms.Select(attrs={'class': 'form-select'}),
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'insumo': forms.Select(attrs={'class': 'form-select insumo-select'}), # Añadimos una clase para JS
+            'consumo_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+
     def __init__(self, *args, **kwargs):
         empresa = kwargs.pop('empresa', None)
         super().__init__(*args, **kwargs)
         if empresa:
             self.fields['insumo'].queryset = Insumo.objects.filter(empresa=empresa)
             
+         
+         
             
             
 class DetalleProcesoForm(forms.ModelForm):

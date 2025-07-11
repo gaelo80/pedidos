@@ -3,6 +3,8 @@ from core.models import Empresa
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import F
+from django.db import transaction
 
 # --- NUEVO MODELO: COSTO FIJO ---
 class CostoFijo(models.Model):
@@ -67,6 +69,9 @@ class Proceso(models.Model):
     
     def __str__(self):
         return self.nombre
+    
+    
+    
 
 class Costeo(models.Model):
     class EstadoCosteo(models.TextChoices):
@@ -77,6 +82,16 @@ class Costeo(models.Model):
     cantidad_producida = models.PositiveIntegerField()
     fecha = models.DateField(auto_now_add=True)
     costo_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    precio_venta_unitario = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Precio de venta final de cada unidad."
+    )
+    
+    estado = models.CharField(max_length=20, choices=EstadoCosteo.choices, default=EstadoCosteo.BORRADOR) 
+      
     @property
     def costo_unitario(self):
         if self.cantidad_producida and self.cantidad_producida > 0:
@@ -84,8 +99,30 @@ class Costeo(models.Model):
         return 0
     def __str__(self):
         return f"Costeo {self.referencia} - {self.fecha}"
+
+    # --- NUEVAS PROPIEDADES PARA UTILIDAD ---
+    @property
+    def utilidad_unitaria(self):
+        if self.precio_venta_unitario and self.costo_unitario:
+            return self.precio_venta_unitario - self.costo_unitario
+        return 0
+
+    @property
+    def utilidad_total(self):
+        return self.utilidad_unitaria * self.cantidad_producida
+
+    @property
+    def margen_utilidad(self):
+        if self.precio_venta_unitario > 0:
+            return (self.utilidad_unitaria / self.precio_venta_unitario) * 100
+        return 0
+
+    def __str__(self):
+        return f"Costeo {self.referencia} - {self.fecha}"
     
-    estado = models.CharField(max_length=20, choices=EstadoCosteo.choices, default=EstadoCosteo.BORRADOR)
+    
+    
+    
     
 class TarifaConfeccionista(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
@@ -100,14 +137,51 @@ class TarifaConfeccionista(models.Model):
     def __str__(self):
         # Esto hará que el dropdown en el formulario sea muy claro
         return f"{self.proceso.nombre} - ({self.confeccionista.nombre}) - ${self.costo:,.2f}"
+    
+    
+    
 
 class DetalleInsumo(models.Model):
     costeo = models.ForeignKey(Costeo, on_delete=models.CASCADE, related_name='detalle_insumos')
     insumo = models.ForeignKey(Insumo, on_delete=models.CASCADE)
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # NUEVO CAMPO: Este es el que el usuario llenará.
+    # Ej: 0.8 para 0.8 metros de tela por jean, o 6 para 6 botones por jean.
+    consumo_unitario = models.DecimalField(
+        max_digits=10, 
+        decimal_places=4, 
+        help_text="Cantidad o metros necesarios para UNA SOLA UNIDAD del producto.",
+        default=0
+    )
+    
+    # CAMPO EXISTENTE: Ahora será calculado automáticamente.
+    cantidad = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        editable=False, 
+        help_text="Cantidad total calculada para toda la producción."
+    )
+
     @property
     def costo_total(self):
+        # Esta propiedad ya es correcta, usa la cantidad total.
         return self.cantidad * self.insumo.costo_unitario
+
+    def save(self, *args, **kwargs):
+        # Lógica de cálculo automático antes de guardar
+        if self.insumo.categoria == Insumo.CategoriaInsumo.TELA:
+            # Para tela, es consumo * cantidad total de prendas
+            self.cantidad = self.consumo_unitario * self.costeo.cantidad_producida
+        else:
+            # Para avíos (botones, hilos), asumimos que el consumo es por unidad también.
+            self.cantidad = self.consumo_unitario * self.costeo.cantidad_producida
+
+        super().save(*args, **kwargs)
+    
+    
+    
+    
+    
 
 class DetalleProceso(models.Model):
     costeo = models.ForeignKey(Costeo, on_delete=models.CASCADE, related_name='detalle_procesos')
@@ -178,3 +252,29 @@ def on_detalle_proceso_change(sender, instance, **kwargs):
 def on_detalle_costo_fijo_change(sender, instance, **kwargs):
     update_costeo_total(instance)
     
+@receiver(post_save, sender=Costeo)
+def on_costeo_finalize(sender, instance, created, **kwargs):
+    """
+    Cuando un Costeo se guarda y su estado es 'FINALIZADO',
+    descuenta los insumos utilizados del stock.
+    """
+    # Se ejecuta solo si el estado es FINALIZADO y el objeto ya existía
+    # (para evitar que se ejecute en la creación inicial en estado BORRADOR)
+    if not created and instance.estado == Costeo.EstadoCosteo.FINALIZADO:
+        
+        # Usamos una transacción para asegurar que todas las actualizaciones de stock
+        # se realicen correctamente o ninguna lo haga.
+        with transaction.atomic():
+            # Creamos una bandera para saber si ya se descontó el stock
+            if not hasattr(instance, '_stock_descontado'):
+                detalles_insumo = instance.detalle_insumos.all()
+                for detalle in detalles_insumo:
+                    insumo_obj = detalle.insumo
+                    cantidad_a_descontar = detalle.cantidad
+                    
+                    # Actualizamos el stock usando F() para seguridad
+                    insumo_obj.stock = F('stock') - cantidad_a_descontar
+                    insumo_obj.save(update_fields=['stock'])
+                
+                # Marcamos la instancia para que no se vuelva a descontar en saves futuros
+                instance._stock_descontado = True

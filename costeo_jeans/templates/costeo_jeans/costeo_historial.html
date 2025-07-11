@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load humanize %}
 
 {% block title %}Historial de Costeos{% endblock %}
 
@@ -38,25 +39,30 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Referencia</th>
-                            <th>Cantidad Producida</th>
-                            <th>Costo Unitario</th>
-                            <th>Costo Total</th>
-                            <th class="text-center">Acciones</th>
+                            <th>Cantidad</th>
+                            <th>Costo Unit.</th>
+                            <th class="text-success">Utilidad Unit.</th> <th class="text-success">Margen</th> <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for costeo in costeos %}
                         <tr>
-                            <td>{{ costeo.fecha }}</td>
+                            <td>{{ costeo.fecha|date:"Y-m-d" }}</td>
                             <td>{{ costeo.referencia }}</td>
                             <td>{{ costeo.cantidad_producida }}</td>
-                            <td>${{ costeo.costo_unitario|floatformat:2 }}</td>
-                            <td>${{ costeo.costo_total|floatformat:2 }}</td>
-                            <td class="text-center">
+                            <td>${{ costeo.costo_unitario|floatformat:0|intcomma }}</td>
+                            <td class="text-success">${{ costeo.utilidad_unitaria|floatformat:0|intcomma }}</td> <td class="text-success">{{ costeo.margen_utilidad|floatformat:2 }}%</td> <td class="text-center">
                                 <a href="{% url 'costeo_jeans:costeo_summary' costeo.pk %}" class="btn btn-info btn-sm" title="Ver Resumen">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <!-- Futuro botón de PDF -->
+                                <td class="text-center">
+                                    <a href="{% url 'costeo_jeans:costeo_summary' costeo.pk %}" class="btn btn-info btn-sm" title="Ver Resumen">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.pk %}" class="btn btn-danger btn-sm" title="Exportar a PDF">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </a>
+                                </td>
                             </td>
                         </tr>
                         {% empty %}
@@ -67,6 +73,43 @@
                     </tbody>
                 </table>
             </div>
+
+            </div> {% if is_paginated %}
+                <nav aria-label="Paginación">
+                    <ul class="pagination justify-content-center mt-4">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">&laquo; Primera</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">
+                                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última &raquo;</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                </div>
+            </div>
+
+
+
+
+
         </div>
     </div>
 </div>

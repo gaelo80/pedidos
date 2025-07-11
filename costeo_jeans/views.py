@@ -41,20 +41,30 @@ class InsumoListView(LoginRequiredMixin, ListView):
             return Insumo.objects.filter(empresa=empresa_actual).order_by('nombre')
         return Insumo.objects.none()
 
-# ... (Resto de las vistas sin cambios) ...
+
+
+
 class InsumoCreateView(LoginRequiredMixin, CreateView):
     model = Insumo
     form_class = InsumoForm
     template_name = 'costeo_jeans/insumo_form.html'
     success_url = reverse_lazy('costeo_jeans:insumo_list')
+    
     def form_valid(self, form):
         form.instance.empresa = getattr(self.request, 'tenant', None)
         return super().form_valid(form)
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo'] = 'Añadir Nuevo Insumo'
         context['boton'] = 'Guardar Insumo'
         return context
+    
+    
+    
+    
+    
+    
 class InsumoUpdateView(LoginRequiredMixin, UpdateView):
     model = Insumo
     form_class = InsumoForm
