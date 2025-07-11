@@ -9,12 +9,13 @@ from django.db.models import Sum, Avg, F, DecimalField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+from django.views.generic import DetailView
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
-from .models import Insumo, Proceso, Confeccionista, Costeo, CostoFijo, DetalleCostoFijo
+from .models import Insumo, MovimientoInsumo, Proceso, Confeccionista, Costeo, CostoFijo, DetalleCostoFijo
 from .forms import (
-    InsumoForm, ProcesoForm, ConfeccionistaForm, CostoFijoForm,
+    InsumoForm, MovimientoInsumoForm, ProcesoForm, ConfeccionistaForm, CostoFijoForm,
     CosteoModelForm, DetalleInsumoFormSet, DetalleProcesoFormSet,
     DetalleInsumo, DetalleProceso, TarifaConfeccionista, TarifaConfeccionistaForm,
 )
