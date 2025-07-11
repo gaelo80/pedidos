@@ -56,40 +56,47 @@
 
 
 
-    <div class="row mt-4">
-        <div class="col-md-6">
-            </div>
         <div class="col-md-6 text-end bg-white p-3 rounded">
             <h5 class="text-muted">RESUMEN FINANCIERO</h5>
             <table class="table table-sm table-borderless text-end">
                 <tbody>
                     <tr>
-                        <td>Costo Total de Producción:</td>
-                        <td class="fw-bold fs-5">${{ costeo.costo_total|floatformat:0|intcomma }}</td>
+                        <td>Precio de Venta Base:</td>
+                        <td class="fw-bold">${{ costeo.precio_venta_unitario|floatformat:0|intcomma }}</td>
                     </tr>
                     <tr>
-                        <td>Costo por Prenda:</td>
-                        <td class="fw-bold fs-5">${{ costeo.costo_unitario|floatformat:0|intcomma }}</td>
+                        <td>(-) Descuento Cliente ({{ costeo.porcentaje_descuento_cliente }}%):</td>
+                        <td class="text-danger">-${{ costeo.valor_descuento_unitario|floatformat:0|intcomma }}</td>
                     </tr>
                     <tr class="table-primary">
-                        <td>Precio de Venta por Prenda:</td>
-                        <td class="fw-bold fs-5">${{ costeo.precio_venta_unitario|floatformat:0|intcomma }}</td>
+                        <td>Precio de Venta Final:</td>
+                        <td class="fw-bold fs-5">${{ costeo.precio_final_unitario|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><hr class="my-1"></td>
+                    </tr>
+                    <tr>
+                        <td>(-) Costo por Prenda:</td>
+                        <td class="text-danger">-${{ costeo.costo_unitario|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td>(-) Comisión Vendedor ({{ costeo.porcentaje_comision_vendedor }}%):</td>
+                        <td class="text-danger">-${{ costeo.valor_comision_unitaria|floatformat:0|intcomma }}</td>
                     </tr>
                     <tr class="table-success">
-                        <td>Utilidad por Prenda:</td>
-                        <td class="fw-bold fs-4">${{ costeo.utilidad_unitaria|floatformat:0|intcomma }}</td>
+                        <td>Utilidad NETA por Prenda:</td>
+                        <td class="fw-bold fs-4">${{ costeo.utilidad_neta_unitaria|floatformat:0|intcomma }}</td>
                     </tr>
                 </tbody>
             </table>
             <div class="mt-2">
-                <span class="text-muted">Utilidad Total de la Producción:</span>
-                <strong class="fs-5"> ${{ costeo.utilidad_total|floatformat:0|intcomma }}</strong>
+                <span class="text-muted">Utilidad NETA Total (Producción):</span>
+                <strong class="fs-5"> ${{ costeo.utilidad_neta_total|floatformat:0|intcomma }}</strong>
                 <br>
-                <span class="text-muted">Margen de Utilidad:</span>
-                <strong class="fs-5"> {{ costeo.margen_utilidad|floatformat:2 }}%</strong>
+                <span class="text-muted">Margen de Utilidad NETA:</span>
+                <strong class="fs-5"> {{ costeo.margen_neto|floatformat:2 }}%</strong>
             </div>
         </div>
-    </div>
 
 
 

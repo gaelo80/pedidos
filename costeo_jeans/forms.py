@@ -86,17 +86,24 @@ class CostoFijoForm(forms.ModelForm):
 class CosteoModelForm(forms.ModelForm):
     class Meta:
         model = Costeo
-        fields = ['referencia', 'cantidad_producida', 'precio_venta_unitario']
+        fields = ['referencia', 'cantidad_producida', 'precio_venta_unitario', 'porcentaje_descuento_cliente', 'porcentaje_comision_vendedor']
         widgets = {
             'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jean Clásico 101'}),
             'cantidad_producida': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1000'}),
             'precio_venta_unitario': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 85000.00'}),
+            'porcentaje_descuento_cliente': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 10.00'}),
+            'porcentaje_comision_vendedor': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 6.00'}),
         }
         labels = {
             'referencia': 'Referencia del Producto',
             'cantidad_producida': 'Cantidad a Producir (Unidades)',
             'precio_venta_unitario': 'Precio de Venta por Unidad ($)',
+            'porcentaje_descuento_cliente': '% Descuento Cliente',
+            'porcentaje_comision_vendedor': '% Comisión Vendedor',
         }
+        
+        
+        
         
         
         

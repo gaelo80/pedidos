@@ -90,6 +90,16 @@ class Costeo(models.Model):
         help_text="Precio de venta final de cada unidad."
     )
     
+    porcentaje_descuento_cliente = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Porcentaje de descuento para el cliente (ej: 10 para 10%)."
+    )
+    porcentaje_comision_vendedor = models.DecimalField(
+        max_digits=5, decimal_places=2, default=6.00, # Default del 6%
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Porcentaje de comisión para el vendedor (ej: 6 para 6%)."
+    )
     estado = models.CharField(max_length=20, choices=EstadoCosteo.choices, default=EstadoCosteo.BORRADOR) 
       
     @property
@@ -119,6 +129,40 @@ class Costeo(models.Model):
 
     def __str__(self):
         return f"Costeo {self.referencia} - {self.fecha}"
+    
+    
+    @property
+    def valor_descuento_unitario(self):
+        """Calcula el monto del descuento al cliente por unidad."""
+        return self.precio_venta_unitario * (self.porcentaje_descuento_cliente / 100)
+
+    @property
+    def precio_final_unitario(self):
+        """Calcula el precio de venta final después del descuento al cliente."""
+        return self.precio_venta_unitario - self.valor_descuento_unitario
+
+    @property
+    def valor_comision_unitaria(self):
+        """Calcula el monto de la comisión del vendedor por unidad (sobre el precio final)."""
+        return self.precio_final_unitario * (self.porcentaje_comision_vendedor / 100)
+    
+    @property
+    def utilidad_neta_unitaria(self):
+        """Utilidad final por prenda después de TODOS los costos y deducciones."""
+        deducciones_totales = self.costo_unitario + self.valor_comision_unitaria
+        return self.precio_final_unitario - deducciones_totales
+
+    @property
+    def utilidad_neta_total(self):
+        """Utilidad neta total de toda la producción."""
+        return self.utilidad_neta_unitaria * self.cantidad_producida
+
+    @property
+    def margen_neto(self):
+        """Margen de utilidad final sobre el precio de venta final."""
+        if self.precio_final_unitario > 0:
+            return (self.utilidad_neta_unitaria / self.precio_final_unitario) * 100
+        return 0
     
     
     
