@@ -90,4 +90,9 @@ class CiudadImportForm(forms.Form):
     )
     
     
+class ClienteImportForm(forms.Form):
+    """
+    Un formulario simple para manejar la subida del archivo de clientes.
+    """
+    archivo_clientes = forms.FileField(label="Seleccionar archivo (.csv, .xls, .xlsx)")
 
