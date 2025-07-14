@@ -471,4 +471,4 @@ def cliente_import_view(request):
         'titulo_pagina': "Importar Clientes"
     }
     # Puedes crear una plantilla 'cliente_import.html' o reutilizar la de ciudades
-    return render(request, 'clientes/ciudad_import.html', context)
+    return render(request, 'clientes/cliente_import.html', context)

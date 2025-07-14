@@ -1,0 +1,50 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}
+    Importar Clientes
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>Importar Clientes desde Archivo
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <p class="card-text">
+                        Sube un archivo en formato <strong>CSV, XLS o XLSX</strong> para importar nuevos clientes.
+                        El archivo debe contener las columnas requeridas como <strong>empresa</strong> y <strong>ciudad</strong> con sus respectivos IDs.
+                    </p>
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {{ form.as_p }}
+
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-end">
+                            <a href="{% url 'clientes:cliente_listado' %}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-times me-2"></i>Volver al Listado
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check me-2"></i>Procesar Importación
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-light">
+                    <h6 class="mb-2">Ejemplo de formato CSV:</h6>
+                    <pre class="mb-0 bg-white p-2 border rounded" style="font-size: 0.8rem;">id,empresa,nombre_completo,identificacion,direccion,ciudad,telefono,email,activo
+,1,Cliente de Prueba,987654321,Calle Falsa 123,5,3005554433,prueba@email.com,TRUE</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
