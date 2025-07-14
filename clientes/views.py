@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponse
 from .serializers import CiudadSerializer, ClienteSerializer
 from .forms import ClienteForm, CiudadForm, CiudadImportForm
-from .resources import CiudadResource
+from .resources import CiudadResource, ClienteResource
 from tablib import Dataset
 from django.db.models import Q
 from core.auth_utils import es_admin_sistema, es_cartera, es_factura, es_vendedor
@@ -403,4 +403,32 @@ class ClienteDetailV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMi
     
     
     
-   
+@login_required
+@user_passes_test(es_admin_sistema)
+def cliente_export_view(request, file_format='xlsx'):
+    """
+    Gestiona la exportación de clientes a diferentes formatos de archivo.
+    """
+    cliente_resource = ClienteResource()
+    dataset = cliente_resource.export()
+
+    # Asigna el formato de archivo y el tipo de contenido correcto
+    if file_format == 'csv':
+        response_content = dataset.csv
+        content_type = 'text/csv'
+        filename = 'clientes_export.csv'
+    elif file_format == 'xls':
+        response_content = dataset.xls
+        content_type = 'application/vnd.ms-excel'
+        filename = 'clientes_export.xls'
+    else: # Por defecto, usa xlsx
+        file_format = 'xlsx'
+        response_content = dataset.xlsx
+        content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        filename = 'clientes_export.xlsx'
+
+    # Crea la respuesta HTTP para la descarga del archivo
+    response = HttpResponse(response_content, content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
