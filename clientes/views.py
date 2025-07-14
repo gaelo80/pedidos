@@ -10,7 +10,7 @@ from .models import Ciudad, Cliente
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponse
 from .serializers import CiudadSerializer, ClienteSerializer
-from .forms import ClienteForm, CiudadForm, CiudadImportForm
+from .forms import ClienteForm, CiudadForm, CiudadImportForm, ClienteImportForm
 from .resources import CiudadResource, ClienteResource
 from tablib import Dataset
 from django.db.models import Q
@@ -421,7 +421,7 @@ def cliente_export_view(request, file_format='xlsx'):
         response_content = dataset.xls
         content_type = 'application/vnd.ms-excel'
         filename = 'clientes_export.xls'
-    else: # Por defecto, usa xlsx
+    else: 
         file_format = 'xlsx'
         response_content = dataset.xlsx
         content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -432,3 +432,43 @@ def cliente_export_view(request, file_format='xlsx'):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+@login_required
+@user_passes_test(es_admin_sistema)
+def cliente_import_view(request):
+    if request.method == 'POST':
+        form = ClienteImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            cliente_resource = ClienteResource()
+            dataset = Dataset()
+            archivo_importado = request.FILES['archivo_clientes']
+
+            # Lógica para leer el archivo
+            if archivo_importado.name.endswith('.csv'):
+                dataset.load(archivo_importado.read().decode('utf-8'), format='csv')
+            elif archivo_importado.name.endswith(('.xls', '.xlsx')):
+                dataset.load(archivo_importado.read())
+            else:
+                messages.error(request, "Formato de archivo no soportado. Use .csv, .xls o .xlsx.")
+                return redirect('clientes:cliente_importar')
+
+            try:
+                # Importar los datos. Usamos raise_errors=True para capturar excepciones
+                result = cliente_resource.import_data(dataset, dry_run=False, raise_errors=True, use_transactions=True)
+                messages.success(request, "Importación de clientes finalizada con éxito.")
+
+            except Exception as e:
+                # Capturar y mostrar errores específicos durante la importación
+                # Esto te dirá si un ID de ciudad o empresa no existe, por ejemplo.
+                messages.error(request, f"Error durante la importación: {e}")
+            
+            return redirect('clientes:cliente_listado')
+    else:
+        form = ClienteImportForm()
+    
+    context = {
+        'form': form,
+        'titulo_pagina': "Importar Clientes"
+    }
+    # Puedes crear una plantilla 'cliente_import.html' o reutilizar la de ciudades
+    return render(request, 'clientes/ciudad_import.html', context)
