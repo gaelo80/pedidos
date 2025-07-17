@@ -290,7 +290,7 @@ def catalogo_publico_temporal_view(request, token):
     return render(request, 'catalogo/catalogo_publico_disponible.html', context)
 
 @login_required
-@user_passes_test(es_vendedor, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_factura(u), login_url='core:acceso_denegado')
 def generar_enlace_usuario_view(request):
     if request.method == 'POST':
         # CORRECCIÓN: Se obtiene la empresa del usuario actual.
@@ -327,7 +327,7 @@ def generar_enlace_usuario_view(request):
     return redirect('catalogo:catalogo_mostrar_formulario_enlace')
 
 @login_required
-@user_passes_test(es_vendedor, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_factura(u), login_url='core:acceso_denegado')
 def mostrar_formulario_generar_enlace_view(request):
     """Esta vista no necesita cambios."""
     context = {'titulo_pagina': 'Generar Enlace de Catálogo para Compartir'}
