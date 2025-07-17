@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import timedelta, datetime as dt
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from core.auth_utils import es_admin_sistema_app, es_bodega, es_vendedor, es_diseno, es_cartera, es_admin_sistema, es_factura
+from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_diseno, es_cartera, es_admin_sistema, es_factura
 from bodega.models import IngresoBodega
 from pedidos.models import Pedido, DetallePedido
 from vendedores.models import Vendedor
@@ -126,7 +126,7 @@ def reporte_ventas_vendedor(request):
         return redirect('core:index')
     
     usuario_actual = request.user
-    es_admin_sistema_rol_actual = es_admin_sistema_app(usuario_actual)
+    es_admin_sistema_rol_actual = es_admin_sistema(usuario_actual)
     es_vendedor_rol_actual = es_vendedor(usuario_actual)
 
     # Lógica de Fechas (como la tenías)

@@ -11,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
 from clientes.models import Cliente # De la app clientes
-from core.auth_utils import es_admin_sistema_app, es_vendedor, es_cartera, es_admin_sistema
+from core.auth_utils import es_admin_sistema, es_vendedor, es_cartera, es_admin_sistema
 from vendedores.models import Vendedor # De la app vendedores
 from .models import DocumentoCartera
 from .forms import UploadCarteraFileForm
@@ -118,7 +118,7 @@ def api_cartera_cliente(request, cliente_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff or es_admin_sistema_app(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: u.is_staff or es_admin_sistema(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado')
 def vista_importar_cartera(request):
     
     empresa_actual = getattr(request, 'tenant', None)
@@ -267,7 +267,7 @@ def reporte_cartera_general(request):
     ).select_related('cliente')
 
     # Determinar si el usuario es un tipo de administrador general o de cartera que puede filtrar
-    # es_admin_sistema_general = user.is_staff or user.is_superuser or es_admin_sistema_app(user)
+    # es_admin_sistema_general = user.is_staff or user.is_superuser or es_admin_sistema(user)
     # O usa la condición del decorador (excluyendo es_vendedor para el dropdown)
     puede_filtrar_por_vendedor_dropdown = es_admin_sistema(user) or es_cartera(user) or user.is_superuser
 

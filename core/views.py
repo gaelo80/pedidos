@@ -16,7 +16,7 @@ from core.mixins import TenantAwareMixin
 # Importa tus funciones de rol desde auth_utils.py
 from .auth_utils import (
     es_vendedor, es_bodega,
-    es_admin_sistema_app, es_cartera,
+    es_admin_sistema, es_cartera,
     es_admin_sistema, es_factura,
     es_diseno, es_online, 
     # Asegúrate de tener todas las funciones que usarás en rol_checkers
@@ -30,7 +30,7 @@ from .panel_config import PANEL_OPTIONS_CONFIG
 ROL_CHECKERS_MAP = {
     'es_vendedor': es_vendedor,
     'es_bodega': es_bodega,
-    'es_admin_sistema_app': es_admin_sistema_app,
+    'es_admin_sistema': es_admin_sistema,
     'es_cartera': es_cartera,
     'es_admin_sistema': es_admin_sistema,
     'es_factura': es_factura,
@@ -66,7 +66,7 @@ class CustomLoginView(TenantAwareMixin, LoginView):
         user = self.request.user
         if user.is_staff or user.is_superuser:
             return reverse_lazy('core:index')
-        if es_admin_sistema_app(user):
+        if es_admin_sistema(user):
             return reverse_lazy('core:index')
         
         return settings.LOGIN_REDIRECT_URL
@@ -124,7 +124,7 @@ def vista_index(request):
 
     # Determinar el título de la página basado en el rol principal
     titulo_base = "Panel Principal"
-    if user.is_superuser or es_admin_sistema_app(user):
+    if user.is_superuser or es_admin_sistema(user):
         titulo_base = "Panel de Administración General"
     elif es_admin_sistema(user):
         titulo_base = "Panel Área Administrativa"
@@ -211,8 +211,8 @@ def vista_index(request):
                             orden_final_calculado = order_especifico_por_rol['es_factura']
                         elif es_diseno(user) and 'es_diseno' in order_especifico_por_rol:
                             orden_final_calculado = order_especifico_por_rol['es_diseno']
-                        elif es_admin_sistema_app(user) and 'es_admin_sistema_app' in order_especifico_por_rol:
-                            orden_final_calculado = order_especifico_por_rol['es_admin_sistema_app']
+                        elif es_admin_sistema(user) and 'es_admin_sistema' in order_especifico_por_rol:
+                            orden_final_calculado = order_especifico_por_rol['es_admin_sistema']
                         # Puedes añadir más 'elif es_otro_rol(user)...' si esta tarjeta tiene más órdenes específicos
 
                     opcion_render['final_order_key'] = orden_final_calculado # Guardamos el orden calculado

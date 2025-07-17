@@ -1,4 +1,4 @@
-def es_admin_sistema_app(user):
+def es_admin_sistema(user):
     """Devuelve True si el usuario pertenece al grupo 'Administrador Aplicacion'."""
     if not user.is_authenticated:
         return False

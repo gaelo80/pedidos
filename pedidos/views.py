@@ -24,7 +24,7 @@ from .forms import PedidoForm
 from productos.models import Producto
 from vendedores.models import Vendedor
 from bodega.models import MovimientoInventario
-from core.auth_utils import es_admin_sistema_app, es_bodega, es_vendedor, es_cartera, es_admin_sistema, es_factura
+from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_cartera, es_admin_sistema, es_factura
 from core.utils import get_logo_base_64_despacho
 from .utils import preparar_datos_seccion
 from core.mixins import TenantAwareMixin
@@ -95,7 +95,7 @@ def vista_crear_pedido_web(request, pk=None):
     try:
         if hasattr(request.user, 'perfil_vendedor'):
              vendedor = request.user.perfil_vendedor
-        elif request.user.is_staff or es_admin_sistema_app(request.user):
+        elif request.user.is_staff or es_admin_sistema(request.user):
             pass
         
         else:
@@ -105,11 +105,11 @@ def vista_crear_pedido_web(request, pk=None):
         vendedor = Vendedor.objects.filter(user=request.user, user__empresa=empresa_actual).first()
         
     except Vendedor.DoesNotExist:
-        if not (request.user.is_staff or es_admin_sistema_app(request.user)) and not vendedor:
+        if not (request.user.is_staff or es_admin_sistema(request.user)) and not vendedor:
             messages.error(request, "Perfil de vendedor no encontrado para esta empresa.")
             return redirect('core:acceso_denegado')
     except AttributeError:
-        if not (request.user.is_staff or es_admin_sistema_app(request.user)):
+        if not (request.user.is_staff or es_admin_sistema(request.user)):
             messages.error(request, "Atributo de perfil de vendedor no encontrado.")
             return redirect('core:acceso_denegado')
         
@@ -117,7 +117,7 @@ def vista_crear_pedido_web(request, pk=None):
     detalles_existentes = None
     if pk is not None:
         query_params = {'pk': pk, 'estado': 'BORRADOR', 'empresa': empresa_actual}
-        if vendedor and not (request.user.is_staff or es_admin_sistema_app(request.user)):
+        if vendedor and not (request.user.is_staff or es_admin_sistema(request.user)):
             query_params['vendedor'] = vendedor
         pedido_instance = get_object_or_404(Pedido, **query_params)
         
@@ -188,7 +188,7 @@ def vista_crear_pedido_web(request, pk=None):
                             pedido.empresa = empresa_actual
                             if vendedor:
                                 pedido.vendedor = vendedor
-                            elif request.user.is_staff or es_admin_sistema_app(request.user):
+                            elif request.user.is_staff or es_admin_sistema(request.user):
  
                                 pass
 
@@ -257,7 +257,7 @@ def vista_crear_pedido_web(request, pk=None):
                         pedido.empresa = empresa_actual
                         if vendedor:
                             pedido.vendedor = vendedor
-                        elif not pedido.vendedor and (request.user.is_staff or es_admin_sistema_app(request.user)):
+                        elif not pedido.vendedor and (request.user.is_staff or es_admin_sistema(request.user)):
                              pass # Lógica de asignación de vendedor para admin en borradores
                         
                         if not pedido.vendedor:
@@ -316,7 +316,7 @@ def vista_crear_pedido_web(request, pk=None):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 def lista_pedidos_para_aprobacion_cartera(request):
     
     """
@@ -345,7 +345,7 @@ def lista_pedidos_para_aprobacion_cartera(request):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 @require_POST
 def aprobar_pedido_cartera(request, pk):
     
@@ -389,7 +389,7 @@ def aprobar_pedido_cartera(request, pk):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema_app(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
 @require_POST
 def rechazar_pedido_cartera(request, pk):
     
@@ -762,7 +762,7 @@ def vista_lista_pedidos_borrador(request):
     
     user, search_query = request.user, request.GET.get('q', None)
     queryset, titulo = Pedido.objects.none(), 'Mis Pedidos Borrador'
-    es_admin = es_admin_sistema_app(user) or user.is_superuser
+    es_admin = es_admin_sistema(user) or user.is_superuser
     
     base_queryset = Pedido.objects.filter(empresa=empresa_actual, estado='BORRADOR')
     
@@ -782,7 +782,7 @@ def vista_lista_pedidos_borrador(request):
 
 @login_required
 @require_POST
-@user_passes_test(lambda u: not es_bodega(u) or es_admin_sistema_app(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: not es_bodega(u) or es_admin_sistema(u), login_url='core:acceso_denegado')
 def vista_eliminar_pedido_borrador(request, pk):
     
     """
@@ -825,7 +825,7 @@ def vista_detalle_pedido(request, pk):
 
     # --- Reglas de acceso ---
     es_superuser = request.user.is_superuser
-    es_admin = es_admin_sistema_app(request.user)
+    es_admin = es_admin_sistema(request.user)
     es_vendedor_y_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
     estado_borrador = pedido.estado == 'BORRADOR'
 
