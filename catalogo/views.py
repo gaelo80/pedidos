@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_online, es_diseno, es_cartera, es_factura
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_admin_sistema(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def lista_referencias_view(request):
     """
     Muestra las referencias únicas del catálogo para la empresa del usuario actual.
@@ -66,7 +66,7 @@ def lista_referencias_view(request):
 
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_admin_sistema(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def detalle_referencia_view(request, referencia_str):
     """
     Muestra todas las variantes para una referencia, asegurando que pertenezcan
@@ -107,7 +107,7 @@ def detalle_referencia_view(request, referencia_str):
 
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_admin_sistema(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def ver_todas_fotos_referencia_view(request, referencia_str):
     """
     Muestra todas las fotos asociadas a una referencia, filtrando por inquilino.
@@ -290,7 +290,7 @@ def catalogo_publico_temporal_view(request, token):
     return render(request, 'catalogo/catalogo_publico_disponible.html', context)
 
 @login_required
-@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_factura(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_admin_sistema(u), login_url='core:acceso_denegado')
 def generar_enlace_usuario_view(request):
     if request.method == 'POST':
         # CORRECCIÓN: Se obtiene la empresa del usuario actual.
@@ -327,7 +327,7 @@ def generar_enlace_usuario_view(request):
     return redirect('catalogo:catalogo_mostrar_formulario_enlace')
 
 @login_required
-@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_factura(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_vendedor(u) or es_cartera(u) or es_online(u) or es_factura(u) or es_admin_sistema(u), login_url='core:acceso_denegado')
 def mostrar_formulario_generar_enlace_view(request):
     """Esta vista no necesita cambios."""
     context = {'titulo_pagina': 'Generar Enlace de Catálogo para Compartir'}
