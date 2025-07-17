@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_online, es_diseno, es_cartera, es_factura
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_cartera(u) or es_factura(u) or es_diseno(u) or es_vendedor(u) or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def lista_referencias_view(request):
     """
     Muestra las referencias únicas del catálogo para la empresa del usuario actual.
