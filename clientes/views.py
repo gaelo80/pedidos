@@ -44,7 +44,7 @@ class ClienteListView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixin,
     paginate_by = 15
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user)
+        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
     
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para acceder al listado de clientes.")
@@ -80,7 +80,7 @@ class ClienteDetailView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     context_object_name = 'cliente' 
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user)
+        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
     
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver los detalles de este cliente.")
@@ -102,7 +102,7 @@ class ClienteCreateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     success_message = "¡Cliente '%(nombre_completo)s' creado exitosamente!"
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user)
+        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para crear clientes.")

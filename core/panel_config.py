@@ -408,7 +408,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-user-check',
         'icono_color_class': 'icon-dark',
         #'permiso_requerido': 'pedidos.can_approve_admin', # Permiso custom
-        'rol_requerido': ['es_admin_sistema', 'es_factura'],
+        'rol_requerido': ['es_admin_sistema'],
         'order': 1,    
         
         'roles_info': ['administracion']
@@ -420,7 +420,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'informes:informe_comprobantes_despacho',
         'icono': 'fa-solid fa-file-alt',
         'icono_color_class': 'icon-dark',
-        'rol_requerido': ['informes.view_comprobantes_despacho', 'es_admin_sistema', 'es_cartera', 'es_factura'], # Permiso custom
+        'rol_requerido': ['informes.view_comprobantes_despacho', 'es_admin_sistema', 'es_cartera', 'es_factura'], 
         'roles_info': ['administracion', 'admin', 'bodega', 'cartera', 'factura']
         #ok
     },
@@ -430,7 +430,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'informes:informe_total_pedidos',
         'icono': 'fa-solid fa-list-ol',
         'icono_color_class': 'icon-dark',
-        'permiso_requerido': 'informes.view_total_pedidos', # Permiso custom (o 'pedidos.view_pedido' si es general)
+        'permiso_requerido': ['administracion', 'admin', 'cartera', 'factura'], 
         'roles_info': ['administracion', 'admin', 'cartera', 'factura']
         #ok
     },
@@ -440,8 +440,8 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'admin:index',
         'icono': 'fas fa-cog',
         'icono_color_class': 'icon-dark',
-        'permiso_requerido': None, # Se maneja con user.is_staff
-        'roles_info': ['admin'] # Solo para staff/superusers
+        'permiso_requerido': None, 
+        'roles_info': ['admin'] 
     },
 
     # --- Opciones de Catálogo ---
