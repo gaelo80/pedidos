@@ -8,7 +8,7 @@ from datetime import timedelta
 from .models import EnlaceCatalogoTemporal
 from productos.models import Producto, ReferenciaColor, FotoProducto
 from django.contrib.auth.decorators import login_required, user_passes_test
-from core.auth_utils import es_admin_sistema, es_vendedor, es_online, es_diseno, es_cartera, es_factura
+from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_online, es_diseno, es_cartera, es_factura
 
 @login_required
 @user_passes_test(lambda u: es_online(u) or es_cartera(u) or es_factura(u) or es_diseno(u) or es_vendedor(u) or u.is_superuser, login_url='core:acceso_denegado')
@@ -66,7 +66,7 @@ def lista_referencias_view(request):
 
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def detalle_referencia_view(request, referencia_str):
     """
     Muestra todas las variantes para una referencia, asegurando que pertenezcan
@@ -107,7 +107,7 @@ def detalle_referencia_view(request, referencia_str):
 
 
 @login_required
-@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or u.is_superuser, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_online(u) or es_vendedor(u) or es_diseno(u) or es_bodega(u) or es_cartera(u) or es_online(u) or es_factura or u.is_superuser, login_url='core:acceso_denegado')
 def ver_todas_fotos_referencia_view(request, referencia_str):
     """
     Muestra todas las fotos asociadas a una referencia, filtrando por inquilino.
