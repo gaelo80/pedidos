@@ -109,8 +109,8 @@ DetalleIngresoFormSet = forms.inlineformset_factory(
 class InfoGeneralConteoForm(forms.Form):
     fecha_actualizacion_stock = forms.DateField(
         label="Fecha Efectiva del Ajuste",
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
-        initial=timezone.now().date(), # Por defecto hoy
+        widget=forms.DateInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'DD/MM/AAAA'}),
+        initial=timezone.now().date(),
         input_formats=['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']
     )
     motivo_conteo = forms.CharField(
