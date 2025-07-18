@@ -1,0 +1,60 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}{{ titulo|default:"Historial de Conteos" }}{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <h1 class="mb-3">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'bodega:vista_conteo_inventario' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Realizar Nuevo Conteo
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Conteo</th>
+                            <th>Fecha Efectiva</th>
+                            <th>Motivo</th>
+                            <th>Registrado Por</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conteo in conteos_list %}
+                        <tr>
+                            <td>{{ conteo.pk }}</td>
+                            <td>{{ conteo.fecha_conteo|date:"d M Y" }}</td>
+                            <td>{{ conteo.motivo|default:"N/A" }}</td>
+                            <td>{{ conteo.usuario_registro.username|default:"Sistema" }}</td>
+                            <td>{{ conteo.fecha_hora_registro|date:"d M Y, h:i a" }}</td>
+                            <td>
+                                <a href="{% url 'bodega:descargar_informe_conteo' cabecera_id=conteo.pk %}" class="btn btn-sm btn-info" title="Descargar Informe PDF" target="_blank">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center fst-italic py-4">
+                                No se han registrado conteos de inventario todavía.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

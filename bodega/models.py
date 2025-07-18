@@ -169,7 +169,14 @@ class CabeceraConteo(models.Model):
     fecha_hora_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Conteo ID {self.pk} - {self.fecha_conteo.strftime('%Y-%m-%d')} - Motivo: {self.motivo or 'N/A'}"
+        try:
+            # Intenta construir la cadena de texto normal
+            fecha_str = self.fecha_conteo.strftime('%Y-%m-%d') if self.fecha_conteo else "Sin Fecha"
+            motivo_str = self.motivo or 'N/A'
+            return f"Conteo ID {self.pk} - {fecha_str} - Motivo: {motivo_str}"
+        except Exception as e:
+            # Si algo falla, devuelve una cadena segura para evitar el error 500
+            return f"Conteo ID {self.pk} (Error al mostrar: {e})"
 
     class Meta:
         verbose_name = "Cabecera de Conteo de Inventario"

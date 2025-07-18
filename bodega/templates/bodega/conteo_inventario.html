@@ -6,18 +6,25 @@
 
 {% block content %}
 <div class="container mt-4">
-        <div class="row">
-        <div class="col-md-8">
-            <h1 class="mb-3">{{ titulo }}</h1>
+    <form method="post" id="form-conteo-inventario">
+        {% csrf_token %}
+
+        {# --- CABECERA Y BOTONES DE ACCIÓN PRINCIPALES --- #}
+        <div class="row mb-3 align-items-center">
+            <div class="col-md-6">
+                <h1 class="mb-0">{{ titulo }}</h1>
+            </div>
+            <div class="col-md-6 text-md-end">
+                {# --- BOTÓN NUEVO: Ir al Historial de Conteos --- #}
+                <a href="{% url 'bodega:lista_informes_conteo' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-history"></i> Ver Historial de Conteos
+                </a>
+                <a href="{% url 'core:index' %}" class="btn btn-secondary ms-2">
+                    <i class="fas fa-arrow-left"></i> Volver al Panel
+                </a>
+            </div>
         </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
-            </a>
-        </div>
-    </div>
-    {#<h1>{{ titulo|default:"Conteo de Inventario Físico" }}</h1>#}
-    <hr>
+        <hr>
 
     {# --- INICIO: Mostrar Resultados del Conteo Anterior (si existen) --- #}
     {% if inconsistencias is not None %} {# Verifica si hay datos de inconsistencias #}

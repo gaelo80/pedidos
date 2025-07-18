@@ -1404,3 +1404,25 @@ def validar_item_despacho_ajax(request):
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'Error interno del servidor: {str(e)}'}, status=500)
+    
+@login_required
+@permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado')
+def lista_informes_conteo(request):
+    """
+    Muestra una lista paginada de todos los conteos de inventario realizados.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+
+    conteos_list = CabeceraConteo.objects.filter(
+        empresa=empresa_actual
+    ).order_by('-fecha_hora_registro')
+
+    context = {
+        'conteos_list': conteos_list,
+        'titulo': f'Historial de Conteos de Inventario ({empresa_actual.nombre})',
+    }
+    return render(request, 'bodega/lista_informes_conteo.html', context)    
+    
