@@ -110,7 +110,8 @@ class InfoGeneralConteoForm(forms.Form):
     fecha_actualizacion_stock = forms.DateField(
         label="Fecha Efectiva del Ajuste",
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
-        initial=timezone.now().date() # Por defecto hoy
+        initial=timezone.now().date(), # Por defecto hoy
+        input_formats=['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']
     )
     motivo_conteo = forms.CharField(
         label="Motivo del Conteo/Ajuste",
