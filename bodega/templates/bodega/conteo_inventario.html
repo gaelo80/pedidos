@@ -64,11 +64,9 @@
                                 <td>{{ item.producto.talla|default_if_none:"" }}</td>
                                 <td class="text-end">{{ item.cantidad_sistema_antes }}</td>
                                 <td class="text-end">{{ item.cantidad_fisica_contada }}</td>
-                                {% with diferencia=item.cantidad_fisica_contada|add:item.cantidad_sistema_antes|multiply:-1 %}
-                                <td class="text-end fw-bold {% if diferencia < 0 %}text-danger{% elif diferencia > 0 %}text-success{% endif %}">
-                                    {{ diferencia }}
+                                <td class="text-end fw-bold {% if item.diferencia < 0 %}text-danger{% elif item.diferencia > 0 %}text-success{% endif %}">
+                                    {{ item.diferencia }}
                                 </td>
-                                {% endwith %}
                             </tr>
                             {% endfor %}
                         </tbody>
