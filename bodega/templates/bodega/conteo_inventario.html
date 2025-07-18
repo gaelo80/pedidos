@@ -58,13 +58,17 @@
                         </thead>
                         <tbody>
                             {% for item in inconsistencias %}
-                            <tr class="{% if item.diferencia < 0 %}table-danger{% elif item.diferencia > 0 %}table-warning{% endif %}">
-                                <td>{{ item.referencia }}</td>
-                                <td>{{ item.color|default_if_none:"" }}</td>
-                                <td>{{ item.talla|default_if_none:"" }}</td>
-                                <td class="text-end">{{ item.sistema }}</td>
-                                <td class="text-end">{{ item.fisico }}</td>
-                                <td class="text-end fw-bold">{{ item.diferencia }}</td>
+                            <tr>
+                                <td>{{ item.producto.referencia }}</td>
+                                <td>{{ item.producto.color|default_if_none:"" }}</td>
+                                <td>{{ item.producto.talla|default_if_none:"" }}</td>
+                                <td class="text-end">{{ item.cantidad_sistema_antes }}</td>
+                                <td class="text-end">{{ item.cantidad_fisica_contada }}</td>
+                                {% with diferencia=item.cantidad_fisica_contada|add:item.cantidad_sistema_antes|multiply:-1 %}
+                                <td class="text-end fw-bold {% if diferencia < 0 %}text-danger{% elif diferencia > 0 %}text-success{% endif %}">
+                                    {{ diferencia }}
+                                </td>
+                                {% endwith %}
                             </tr>
                             {% endfor %}
                         </tbody>
