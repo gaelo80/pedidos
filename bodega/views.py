@@ -873,7 +873,7 @@ def descargar_informe_conteo(request, cabecera_id):
         html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
         pdf_file = html.write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
-        filename = f'Comprobante_Despacho_Empresa{empresa_actual.pk}_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf'
+        filename = f'Informe_conteo_Empresa{empresa_actual.pk}_{cabecera.pk}_{cabecera.fecha_conteo.strftime("%Y%m%d")}.pdf'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
