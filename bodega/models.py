@@ -179,76 +179,17 @@ class CabeceraConteo(models.Model):
 
 class ConteoInventario(models.Model):
     
-    empresa = models.ForeignKey(
-        Empresa,
-        on_delete=models.CASCADE,
-        related_name='detalles_conteo_inventario',
-        verbose_name="Empresa",
-        #null=True
-    )
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='detalles_conteo_inventario', verbose_name="Empresa")
+    cabecera_conteo = models.ForeignKey(CabeceraConteo, on_delete=models.CASCADE, related_name='detalles_conteo', verbose_name="Cabecera del Conteo")
+    producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='conteos_inventario', verbose_name="Producto Contado")
     
+    # Dejamos solo los campos que pertenecen al detalle
+    cantidad_sistema_antes = models.IntegerField(verbose_name="Cantidad en Sistema (Antes del Conteo)")
+    cantidad_fisica_contada = models.IntegerField(verbose_name="Cantidad Física Contada")
     
-    
-    
-    
-    cabecera_conteo = models.ForeignKey(
-        CabeceraConteo, 
-        on_delete=models.CASCADE, 
-        related_name='detalles_conteo', 
-        verbose_name="Cabecera del Conteo",
-        #null=True
-
-        )
-    
-    producto = models.ForeignKey(
-        'productos.Producto', # Se enlaza directamente a tu modelo Producto (que funciona como variante)
-        on_delete=models.PROTECT, # Evita borrar un producto si tiene conteos asociados
-        related_name='conteos_inventario',
-        verbose_name="Producto Contado"
-    )
-    fecha_conteo = models.DateTimeField(
-                 #default=timezone.now, # Usar default=timezone.now para que se pueda editar si es necesario
-        auto_now_add=True,
-        verbose_name="Fecha y Hora del Conteo"
-    )
-    cantidad_sistema_antes = models.IntegerField(
-        verbose_name="Cantidad en Sistema (Antes del Conteo)"
-    )
-    cantidad_fisica_contada = models.IntegerField(
-        verbose_name="Cantidad Física Contada"
-    )
-    usuario_conteo = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True, # Permitir conteos no asignados o de sistema si es necesario
-        verbose_name="Usuario que Contó"
-    )
-    fecha_actualizacion_stock = models.DateField(
-        default=timezone.now, 
-        verbose_name="Fecha Efectiva del Ajuste"
-        )
-    motivo_conteo = models.CharField(
-        max_length=150, 
-        blank=True, 
-        null=True, 
-        verbose_name="Motivo del Conteo/Ajuste"
-        )
-    revisado_con = models.CharField(
-        max_length=150, 
-        blank=True, 
-        null=True, verbose_name="Revisado/Contado Con"
-        )
-    notas_generales = models.TextField(
-        blank=True, 
-        null=True, 
-        verbose_name="Notas Generales del Conteo"
-        ) # Cambiado de 'notas'
-    notas = models.TextField(
-        blank=True, 
-        null=True, 
-        verbose_name="Notas Adicionales"
-        )
+    usuario_conteo = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario que Contó")
+    fecha_conteo = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora del Conteo")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas del Ítem Específico") # Solo dejamos las notas del ítem
 
     @property
     def diferencia(self):
