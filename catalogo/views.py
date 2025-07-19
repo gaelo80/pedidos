@@ -254,6 +254,8 @@ def catalogo_publico_temporal_view(request, token):
 
     query = request.GET.get('q', '')
     
+    categoria_query = request.GET.get('categoria', '')
+    
     referencias_colores_qs = ReferenciaColor.objects.filter(
         empresa=empresa_catalogo
     ).prefetch_related(
@@ -265,6 +267,9 @@ def catalogo_publico_temporal_view(request, token):
         referencias_colores_qs = referencias_colores_qs.filter(
             Q(referencia_base__icontains=query) | Q(color__icontains=query) | Q(nombre_display__icontains=query)
         ).distinct()
+       
+    if categoria_query:
+        referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query)  
 
     items_catalogo_final = []
     for rc_item in referencias_colores_qs:
@@ -292,6 +297,7 @@ def catalogo_publico_temporal_view(request, token):
         'pagina_items': pagina_items,
         'titulo': f"Catálogo Disponible {enlace.empresa.nombre}",
         'query': query,
+        'categoria_seleccionada': categoria_query,
         'es_enlace_temporal': True,
         'valido_hasta': enlace.expira_el.strftime('%d/%m/%Y %H:%M %Z')
     }
