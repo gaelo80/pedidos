@@ -156,6 +156,8 @@ def catalogo_publico_disponible(request):
     (Producto) activa y con stock. Detalla la disponibilidad por talla.
     """
     query = request.GET.get('q', '')
+    
+    categoria_query = request.GET.get('categoria', '')
 
     # 1. Obtener todas las ReferenciaColor.
     #    Prefetch sus fotos y sus variantes (Productos activos).
@@ -177,6 +179,11 @@ def catalogo_publico_disponible(request):
             Q(color__icontains=query) |
             Q(nombre_display__icontains=query)
         ).distinct()
+        
+    if categoria_query:
+        referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query).distinct()
+        
+    
 
     # 3. Procesar en Python para verificar stock (ya que stock_actual es una property)
     #    y construir la lista final de ítems para el catálogo.
@@ -220,6 +227,7 @@ def catalogo_publico_disponible(request):
         'pagina_items': pagina_items,
         'titulo': 'Catálogo Disponible',
         'query': query,
+        'categoria_seleccionada': categoria_query,
     }
     return render(request, 'catalogo/catalogo_publico_disponible.html', context)
 

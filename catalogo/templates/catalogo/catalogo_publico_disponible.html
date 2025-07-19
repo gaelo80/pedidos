@@ -13,8 +13,15 @@
     <h1 class="mb-4 text-white">{{ titulo|default:"Catálogo Disponible" }}</h1>
 
     <form method="get" class="mb-4">
-        <div class="input-group">
+        <div class="d-flex gap-2">
             <input type="text" name="q" class="form-control" placeholder="Buscar por referencia, color o nombre..." value="{{ query|default:'' }}">
+            
+            <select name="categoria" class="form-select" style="max-width: 150px;">
+                <option value="">Todas</option>
+                <option value="DAMA" {% if categoria_seleccionada == 'DAMA' %}selected{% endif %}>Dama</option>
+                <option value="CABALLERO" {% if categoria_seleccionada == 'CABALLERO' %}selected{% endif %}>Caballero</option>
+                <option value="UNISEX" {% if categoria_seleccionada == 'UNISEX' %}selected{% endif %}>Unisex</option>
+            </select>
             <button class="btn btn-outline-primary" type="submit">Buscar</button>
         </div>
     </form>
@@ -85,27 +92,36 @@
             {% endfor %}
         </div>
 
+
+
+
+
+
+
+
+
+
         {# Paginación #}
         {% if pagina_items.has_other_pages %}
-            <nav aria-label="Paginación del catálogo" class="mt-5">
-                <ul class="pagination justify-content-center">
-                    {% if pagina_items.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}" aria-label="Primero">&laquo;&laquo;</a></li>
-                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" aria-label="Anterior">&laquo;</a></li>
-                    {% else %}
-                        <li class="page-item disabled"><span class="page-link">&laquo;&laquo;</span></li>
-                        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                    {% endif %}
-                    <li class="page-item active" aria-current="page"><span class="page-link">Página {{ pagina_items.number }} de {{ pagina_items.paginator.num_pages }}</span></li>
-                    {% if pagina_items.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.next_page_number }}{% if query %}&q={{ query }}{% endif %}" aria-label="Siguiente">&raquo;</a></li>
-                        <li class="page-item"><a class="page-link" href="?page={{ pagina_items.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}" aria-label="Último">&raquo;&raquo;</a></li>
-                    {% else %}
-                        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                        <li class="page-item disabled"><span class="page-link">&raquo;&raquo;</span></li>
-                    {% endif %}
-                </ul>
-            </nav>
+        <nav aria-label="Paginación del catálogo" class="mt-5">
+            <ul class="pagination justify-content-center">
+                {% if pagina_items.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Primero">&laquo;&laquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Anterior">&laquo;</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">&laquo;&laquo;</span></li>
+                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                {% endif %}
+                <li class="page-item active" aria-current="page"><span class="page-link">Página {{ pagina_items.number }} de {{ pagina_items.paginator.num_pages }}</span></li>
+                {% if pagina_items.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Siguiente">&raquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Último">&raquo;&raquo;</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                    <li class="page-item disabled"><span class="page-link">&raquo;&raquo;</span></li>
+                {% endif %}
+            </ul>
+        </nav>
         {% endif %}
     {% else %}
         <div class="alert alert-info mt-4" role="alert">
