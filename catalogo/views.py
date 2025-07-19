@@ -188,6 +188,7 @@ def catalogo_publico_disponible(request):
     # 3. Procesar en Python para verificar stock (ya que stock_actual es una property)
     #    y construir la lista final de ítems para el catálogo.
     items_catalogo_final = []
+    processed_rc_ids = set()
     for rc_item in referencias_colores_qs:
         variantes_con_info_stock = []
         tiene_algun_stock_esta_rc = False
@@ -272,7 +273,7 @@ def catalogo_publico_temporal_view(request, token):
         referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query)  
 
     items_catalogo_final = []
-    for rc_item in referencias_colores_qs:
+    for rc_item in referencias_colores_qs.distinct():
         variantes_con_info_stock = []
         tiene_algun_stock_esta_rc = False
         for producto_variante in rc_item.variantes.all():
