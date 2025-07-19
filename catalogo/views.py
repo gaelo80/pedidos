@@ -53,7 +53,7 @@ def lista_referencias_view(request):
                 'foto_url': foto_url
             })
     
-    paginator = Paginator(referencias_unicas_con_datos, 12)
+    paginator = Paginator(referencias_unicas_con_datos, 18)
     page_number = request.GET.get('page')
     referencias_pagina = paginator.get_page(page_number)
 
@@ -215,7 +215,7 @@ def catalogo_publico_disponible(request):
             })
 
     # Paginación
-    paginator = Paginator(items_catalogo_final, 9) # Ajusta el número de ítems por página
+    paginator = Paginator(items_catalogo_final, 18) # Ajusta el número de ítems por página
     page_number = request.GET.get('page')
     try:
         pagina_items = paginator.page(page_number)
@@ -290,7 +290,7 @@ def catalogo_publico_temporal_view(request, token):
                 'variantes_info': variantes_con_info_stock,
             })
 
-    paginator = Paginator(items_catalogo_final, 9)
+    paginator = Paginator(items_catalogo_final, 18)
     page_number = request.GET.get('page')
     pagina_items = paginator.get_page(page_number)
 
