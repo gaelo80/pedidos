@@ -101,7 +101,37 @@
     <form method="post" id="form-conteo-inventario">
         {% csrf_token %}
 
-        {# --- Información General del Conteo (Solo si puede guardar) --- #}
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-file-excel me-1"></i> Opción Rápida: Usar Archivo
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6 border-end">
+                        <h5>Paso 1: Exportar Plantilla</h5>
+                        <p class="small">Descarga la lista de productos. Diligencia la columna <code>CANTIDAD_FISICA_CONTADA</code>.</p>
+                        
+                        <a href="{% url 'bodega:exportar_plantilla_conteo' 'xlsx' %}" class="btn btn-success me-1" title="Exportar a XLSX">
+                            <i class="fas fa-file-excel"></i> XLSX
+                        </a>
+                        <a href="{% url 'bodega:exportar_plantilla_conteo' 'csv' %}" class="btn btn-outline-secondary" title="Exportar a CSV">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <form method="post" enctype="multipart/form-data" id="form-importar-excel">
+                            {% csrf_token %}
+                            <h5>Paso 2: Importar Archivo Lleno</h5>
+                            <p class="small">Una vez llenado, súbelo aquí. <strong>Recuerda también llenar la "Información General del Conteo" más abajo.</strong></p>
+                            <div class="mb-3">
+                                {{ import_form.archivo_conteo.label_tag }}
+                                {{ import_form.archivo_conteo }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% if puede_guardar %}
         <div class="card mb-3 border-secondary">
             <div class="card-header">Información General del Conteo</div>

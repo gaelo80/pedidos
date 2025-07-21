@@ -28,5 +28,6 @@ urlpatterns = [
      path('salidas-internas/<int:pk_cabecera>/pdf-devolucion/', views.generar_pdf_devolucion_salida_interna, name='generar_pdf_devolucion_salida_interna'),
      path('despacho/validar_item/', views.validar_item_despacho_ajax, name='validar_item_despacho_ajax'),
      path('informes-conteo/', views.lista_informes_conteo, name='lista_informes_conteo'),
+     path('conteo-inventario/exportar-plantilla/<str:file_format>/', views.exportar_plantilla_conteo, name='exportar_plantilla_conteo'),
           
 ]

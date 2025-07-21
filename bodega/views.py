@@ -27,6 +27,7 @@ from .models import IngresoBodega
 from .models import ComprobanteDespacho, DetalleComprobanteDespacho
 from django.db.models import Max, F
 from core.mixins import TenantAwareMixin
+from .resources import PlantillaConteoResource
 from factura.models import EstadoFacturaDespacho
 
 
@@ -675,6 +676,39 @@ def vista_registrar_ingreso(request):
 
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+@login_required
+@permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado')
+def exportar_plantilla_conteo(request, file_format='xlsx'): # Añadimos file_format
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido.")
+        return redirect('core:index')
+
+    # Obtenemos solo los productos de la empresa actual
+    queryset = Producto.objects.filter(empresa=empresa_actual, activo=True)
+    
+    # Usamos el Resource, tal como lo haces en la app de clientes
+    plantilla_resource = PlantillaConteoResource()
+    dataset = plantilla_resource.export(queryset)
+    
+    # Lógica de respuesta idéntica a la tuya
+    if file_format == 'csv':
+        response_content = dataset.csv
+        content_type = 'text/csv'
+        filename = f'plantilla_conteo_{timezone.now().strftime("%Y%m%d")}.csv'
+    elif file_format == 'xls':
+        response_content = dataset.xls
+        content_type = 'application/vnd.ms-excel'
+        filename = f'plantilla_conteo_{timezone.now().strftime("%Y%m%d")}.xls'
+    else: # xlsx por defecto
+        response_content = dataset.xlsx
+        content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        filename = f'plantilla_conteo_{timezone.now().strftime("%Y%m%d")}.xlsx'
+
+    response = HttpResponse(response_content, content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required
