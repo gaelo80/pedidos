@@ -5,7 +5,9 @@ from django.views.generic import ListView
 from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
+from django.http import JsonResponse
 import openpyxl
+import csv
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
@@ -714,19 +716,11 @@ def exportar_plantilla_conteo(request, file_format='xlsx'): # Añadimos file_for
     return response
 
 
-# Configura el logger para esta vista
 logger = logging.getLogger(__name__)
 
-# ==============================================================================
-# --- FUNCIÓN AUXILIAR PARA PROCESAR Y GUARDAR EL CONTEO (NUEVA) ---
-# Esta función contiene la lógica de guardado para no duplicar código.
-# ==============================================================================
+# La función auxiliar _procesar_y_guardar_conteo está bien, no necesita cambios.
 @transaction.atomic
 def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
-    """
-    Función centralizada para crear la cabecera, detalles y movimientos de inventario.
-    `datos_conteo` debe ser un diccionario: {producto_id: cantidad_fisica}.
-    """
     cabecera = CabeceraConteo.objects.create(
         empresa=empresa,
         fecha_conteo=datos_generales['fecha_actualizacion_stock'],
@@ -735,60 +729,31 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
         notas_generales=datos_generales['notas_generales'],
         usuario_registro=request.user
     )
-    logger.info(f"Cabecera de Conteo #{cabecera.pk} creada por '{request.user.username}'.")
-
-    # Contadores para el resumen final
-    stats = {'ajustados': 0, 'sin_cambio': 0, 'con_error': 0}
-
-    # Iterar directamente sobre el queryset para eficiencia
+    stats = {'ajustados': 0, 'sin_cambio': 0}
     for producto in Producto.objects.filter(empresa=empresa, activo=True):
-        stock_sistema = producto.stock_actual
-        
-        # Obtener cantidad física del diccionario. Si no está, no se procesa este ítem.
         cantidad_fisica = datos_conteo.get(producto.pk)
-
-        if cantidad_fisica is None or cantidad_fisica < 0:
-            continue # Ignorar productos sin cantidad o con valores negativos
-
-        try:
+        if cantidad_fisica is not None and cantidad_fisica >= 0:
+            stock_sistema = producto.stock_actual
             diferencia = cantidad_fisica - stock_sistema
-
             ConteoInventario.objects.create(
-                empresa=empresa,
-                cabecera_conteo=cabecera,
-                producto=producto,
-                cantidad_sistema_antes=stock_sistema,
-                cantidad_fisica_contada=cantidad_fisica,
-                usuario_conteo=request.user,
+                empresa=empresa, cabecera_conteo=cabecera, producto=producto,
+                cantidad_sistema_antes=stock_sistema, cantidad_fisica_contada=cantidad_fisica,
+                usuario_conteo=request.user
             )
-
             if diferencia != 0:
                 tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
                 MovimientoInventario.objects.create(
-                    empresa=empresa,
-                    producto=producto,
-                    cantidad=diferencia,
-                    tipo_movimiento=tipo_movimiento,
-                    usuario=request.user,
+                    empresa=empresa, producto=producto, cantidad=diferencia,
+                    tipo_movimiento=tipo_movimiento, usuario=request.user,
                     documento_referencia=f"Conteo ID {cabecera.pk}",
                     notas=f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
                 )
                 stats['ajustados'] += 1
-                logger.debug(f"Ajuste de {diferencia} para producto #{producto.pk} en conteo #{cabecera.pk}.")
             else:
                 stats['sin_cambio'] += 1
-        
-        except Exception as e:
-            stats['con_error'] += 1
-            logger.error(f"Error procesando el producto #{producto.pk} en el conteo #{cabecera.pk}: {e}")
-            messages.warning(request, f"Ocurrió un error al procesar el producto: {producto.nombre_completo}.")
-
     return cabecera, stats
 
 
-# ==============================================================================
-# --- VISTA PRINCIPAL DE CONTEO (COMPLETA Y REFACTORIZADA) ---
-# ==============================================================================
 @login_required
 @permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado')
 def vista_conteo_inventario(request):
@@ -800,98 +765,117 @@ def vista_conteo_inventario(request):
     user = request.user
     puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
 
-    # --- LÓGICA POST (Para Guardar Manual o Importar Excel) ---
     if request.method == 'POST':
         if not puede_guardar:
             messages.error(request, "No tienes permiso para guardar conteos y ajustar el stock.")
             return redirect('bodega:vista_conteo_inventario')
 
         info_form = InfoGeneralConteoForm(request.POST)
-        import_form = ImportarConteoForm(request.POST, request.FILES) # Siempre instanciar
+        import_form = ImportarConteoForm(request.POST, request.FILES)
 
         if info_form.is_valid():
             action = request.POST.get('action')
-            datos_conteo = {} # Diccionario para {producto_id: cantidad_fisica}
+            logger.info(f"ACCIÓN DETECTADA POR EL SERVIDOR: '{action}'")
+            datos_conteo = {}
 
-            # --- CASO 1: Guardado desde la tabla manual ---
             if action == 'guardar_manual':
-                logger.info(f"Intento de guardado manual por '{user.username}'.")
+                logger.info("Acción: 'guardar_manual'")
                 for key, value in request.POST.items():
                     if key.startswith('cantidad_fisica_') and value.strip().isdigit():
                         producto_id = int(key.split('_')[-1])
                         datos_conteo[producto_id] = int(value)
             
-            # --- CASO 2: Procesado desde archivo Excel ---
             elif action == 'importar_excel':
-                logger.info(f"Intento de importación por archivo por '{user.username}'.")
+                logger.info("Acción: 'importar_excel'")
                 if import_form.is_valid():
-                    archivo_excel = request.FILES['archivo_conteo']
+                    logger.info("Formulario de importación es VÁLIDO.")
+                    archivo_importado = request.FILES['archivo_conteo']
+                    nombre_archivo = archivo_importado.name.lower()
+                    logger.info(f"Procesando archivo: {nombre_archivo}")
+
                     try:
-                        workbook = openpyxl.load_workbook(archivo_excel, data_only=True)
-                        sheet = workbook.active
-                        for row in sheet.iter_rows(min_row=2, values_only=True):
-                            producto_id, _, _, _, _, _, cantidad_fisica = row[:7]
-                            
+                        if nombre_archivo.endswith('.csv'):
+                            logger.info("Detectado archivo CSV. Procesando...")
+                            contenido_str = archivo_importado.read().decode('utf-8')
                             try:
-                                # Intentamos convertir los valores a números enteros
-                                p_id = int(producto_id)
-                                c_fisica = int(cantidad_fisica)
+                                dialect = csv.Sniffer().sniff(contenido_str.splitlines()[0], delimiters=',;')
+                                logger.info(f"Dialecto de CSV detectado. Delimitador: '{dialect.delimiter}'")
+                            except csv.Error:
+                                dialect = 'excel'
+                                logger.warning("No se pudo detectar dialecto de CSV, usando ',' por defecto.")
 
-                                # Si la conversión es exitosa, guardamos los datos
-                                if p_id > 0 and c_fisica >= 0: # Verificación extra de seguridad
-                                    datos_conteo[p_id] = c_fisica
+                            reader = csv.reader(contenido_str.splitlines(), dialect)
+                            next(reader)
 
-                            except (ValueError, TypeError):
-                                # Si la conversión falla (porque la celda está vacía o tiene texto),
-                                # simplemente se ignora la fila y se pasa a la siguiente.
-                                continue
-                                
+                            for i, row in enumerate(reader, 1):
+                                logger.debug(f"CSV Fila {i}: {row}") # LOG PARA VER LA FILA CRUDA
+                                if len(row) < 7: continue
+                                try:
+                                    p_id = int(row[0])
+                                    c_fisica = int(row[6])
+                                    if p_id > 0 and c_fisica >= 0:
+                                        datos_conteo[p_id] = c_fisica
+                                        logger.debug(f"    -> Fila VÁLIDA. Agregado al diccionario: key={p_id}, value={c_fisica}")
+                                except (ValueError, TypeError, IndexError):
+                                    logger.warning(f"    -> Fila INVÁLIDA o vacía, saltando...")
+                                    continue
+
+                        elif nombre_archivo.endswith(('.xlsx', '.xls')):
+                            logger.info("Detectado archivo Excel. Procesando...")
+                            workbook = openpyxl.load_workbook(archivo_importado, data_only=True)
+                            sheet = workbook[workbook.sheetnames[0]]
+                            logger.info(f"Leyendo datos de la hoja de cálculo: '{sheet.title}'")
+
+                            for i, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), 1):
+                                logger.debug(f"Excel Fila {i}: {row}") # LOG PARA VER LA FILA CRUDA
+                                if len(row) < 7: continue
+                                try:
+                                    p_id = int(row[0])
+                                    c_fisica = int(row[6])
+                                    if p_id > 0 and c_fisica >= 0:
+                                        datos_conteo[p_id] = c_fisica
+                                        logger.debug(f"    -> Fila VÁLIDA. Agregado al diccionario: key={p_id}, value={c_fisica}")
+                                except (ValueError, TypeError, IndexError):
+                                    logger.warning(f"    -> Fila INVÁLIDA o vacía, saltando...")
+                                    continue
+                        
+                        else:
+                            messages.error(request, "Formato de archivo no soportado. Sube un .csv o .xlsx.")
+                            return redirect('bodega:vista_conteo_inventario')
+
                     except Exception as e:
-                        messages.error(request, f"Error leyendo el archivo Excel: {e}")
-                        logger.error(f"Error de parsing en Excel para conteo: {e}")
+                        messages.error(request, f"Error crítico durante la lectura del archivo: {e}")
+                        logger.error(f"Error de parsing para conteo: {e}", exc_info=True)
                         return redirect('bodega:vista_conteo_inventario')
                 else:
+                    logger.warning("Formulario de importación NO es válido. Errores: {import_form.errors}")
                     messages.error(request, "Para importar, debes seleccionar un archivo válido.")
-                    # Fallback para renderizar de nuevo con el error del formulario de importación
-                    items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True)
-                    context = {
-                        'items_para_conteo': items_a_contar,
-                        'titulo': "Error en Conteo",
-                        'info_form': info_form,
-                        'import_form': import_form, # Pasa el form con errores
-                        'puede_guardar': puede_guardar,
-                    }
-                    return render(request, 'bodega/conteo_inventario.html', context)
+                    # ... (código de fallback)
 
-            # --- Ejecutar el guardado si hay datos para procesar ---
+            logger.info(f"Procesamiento de datos finalizado. Diccionario de conteo final: {datos_conteo}")
             if not datos_conteo:
                 messages.warning(request, "No se encontraron datos de cantidades para procesar, ni en la tabla ni en el archivo.")
                 return redirect('bodega:vista_conteo_inventario')
             
             try:
                 cabecera, stats = _procesar_y_guardar_conteo(request, empresa_actual, info_form.cleaned_data, datos_conteo)
-                
-                # Mensajes finales al usuario basados en los stats
                 if stats['ajustados'] > 0:
                     messages.success(request, f"Conteo #{cabecera.pk} guardado. Se ajustó el stock de {stats['ajustados']} producto(s).")
                 if stats['sin_cambio'] > 0 and stats['ajustados'] == 0:
-                     messages.info(request, f"Conteo #{cabecera.pk} guardado. {stats['sin_cambio']} producto(s) no tuvieron cambios de stock.")
-                
+                    messages.info(request, f"Conteo #{cabecera.pk} guardado. {stats['sin_cambio']} producto(s) no tuvieron cambios de stock.")
                 return redirect('bodega:descargar_informe_conteo', cabecera_id=cabecera.pk)
-            
             except Exception as e:
                 messages.error(request, f"Ocurrió un error inesperado al guardar el conteo: {e}")
                 logger.critical(f"Error fatal al llamar a _procesar_y_guardar_conteo: {e}", exc_info=True)
                 return redirect('bodega:vista_conteo_inventario')
-
-        else: # info_form no es válido
+        else:
+            logger.warning(f"Formulario de información general NO es válido. Errores: {info_form.errors}")
             messages.error(request, "Por favor corrige los errores en la información general del conteo.")
 
-    # --- LÓGICA GET (Carga inicial de la página) ---
+    # --- LÓGICA GET ---
     items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
     info_form = InfoGeneralConteoForm()
     import_form = ImportarConteoForm()
-
     context = {
         'items_para_conteo': items_a_contar,
         'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",

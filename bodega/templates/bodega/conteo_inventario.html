@@ -6,36 +6,25 @@
 {% block content %}
 <div class="container mt-4 mb-5">
 
-    {# ================================================================== #}
-    {# === 1. UN ÚNICO FORMULARIO QUE ENVUELVE TODO ===================== #}
-    {# ================================================================== #}
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-6">
+            <h1 class="mb-0">{{ titulo }}</h1>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <a href="{% url 'bodega:lista_informes_conteo' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-history"></i> Ver Historial de Conteos
+            </a>
+            <a href="{% url 'core:index' %}" class="btn btn-secondary ms-2">
+                <i class="fas fa-arrow-left"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+    <hr>
+
     <form method="post" enctype="multipart/form-data" id="form-conteo-inventario">
         {% csrf_token %}
+        <input type="hidden" name="action" id="form-action" value="">
 
-        {# --- CABECERA Y BOTONES DE ACCIÓN PRINCIPALES --- #}
-        <div class="row mb-3 align-items-center">
-            <div class="col-md-6">
-                <h1 class="mb-0">{{ titulo }}</h1>
-            </div>
-            <div class="col-md-6 text-md-end">
-                <a href="{% url 'bodega:lista_informes_conteo' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-history"></i> Ver Historial de Conteos
-                </a>
-                <a href="{% url 'core:index' %}" class="btn btn-secondary ms-2">
-                    <i class="fas fa-arrow-left"></i> Volver al Panel
-                </a>
-            </div>
-        </div>
-        <hr>
-
-        {# --- INFORME DE INCONSISTENCIAS (No se modifica, ya estaba bien) --- #}
-        {% if inconsistencias is not None %}
-        <div class="card mb-4 border-info">
-            {# ... Tu código del informe de inconsistencias se mantiene aquí ... #}
-        </div>
-        {% endif %}
-
-        {# --- MENSAJES DE DJANGO --- #}
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -45,9 +34,6 @@
             {% endfor %}
         {% endif %}
 
-        {# ================================================================== #}
-        {# === 2. SECCIÓN DE IMPORTAR/EXPORTAR (SIN FORMULARIO ANIDADO) ====== #}
-        {# ================================================================== #}
         <div class="card mb-4 border-primary">
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-file-excel me-1"></i> Opción Rápida: Usar Archivo
@@ -76,56 +62,47 @@
             </div>
         </div>
 
-        {# --- INFORMACIÓN GENERAL DEL CONTEO --- #}
         <div class="card mb-3 border-secondary">
             <div class="card-header">Información General del Conteo</div>
             <div class="card-body">
-                 {% if info_form.non_field_errors %}<div class="alert alert-danger p-2 small">{{ info_form.non_field_errors }}</div>{% endif %}
                  <div class="row g-2">
                     <div class="col-md-3">
                         <label for="{{ info_form.fecha_actualizacion_stock.id_for_label }}" class="form-label small fw-bold">{{ info_form.fecha_actualizacion_stock.label }}</label>
                         {{ info_form.fecha_actualizacion_stock }}
-                        {% if info_form.fecha_actualizacion_stock.errors %}<div class="text-danger small mt-1">{{ info_form.fecha_actualizacion_stock.errors }}</div>{% endif %}
                     </div>
                      <div class="col-md-3">
                         <label for="{{ info_form.motivo_conteo.id_for_label }}" class="form-label small fw-bold">{{ info_form.motivo_conteo.label }}</label>
                         {{ info_form.motivo_conteo }}
-                        {% if info_form.motivo_conteo.errors %}<div class="text-danger small mt-1">{{ info_form.motivo_conteo.errors }}</div>{% endif %}
                     </div>
                      <div class="col-md-3">
                         <label for="{{ info_form.revisado_con.id_for_label }}" class="form-label small fw-bold">{{ info_form.revisado_con.label }}</label>
                         {{ info_form.revisado_con }}
-                        {% if info_form.revisado_con.errors %}<div class="text-danger small mt-1">{{ info_form.revisado_con.errors }}</div>{% endif %}
                     </div>
                     <div class="col-md-3">
                          <label for="{{ info_form.notas_generales.id_for_label }}" class="form-label small fw-bold">{{ info_form.notas_generales.label }}</label>
                         {{ info_form.notas_generales }}
-                        {% if info_form.notas_generales.errors %}<div class="text-danger small mt-1">{{ info_form.notas_generales.errors }}</div>{% endif %}
                     </div>
                  </div>
             </div>
         </div>
 
-        {# ================================================================== #}
-        {# === 3. BOTONES DE GUARDADO (LÓGICA CORREGIDA Y UNIFICADA) ======== #}
-        {# ================================================================== #}
         {% if puede_guardar %}
             {% if items_para_conteo %}
                 <div class="mt-4 p-3 border rounded bg-light text-center">
                     <h5 class="mb-3">Finalizar y Guardar Conteo</h5>
                     <p class="text-muted">Elige el método de guardado. Los datos de "Información General" se usarán para ambos.</p>
                     <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                        <button type="submit" name="action" value="guardar_manual" class="btn btn-primary btn-lg">
-                            <i class="fas fa-table me-1"></i> Guardar desde Tabla Manual
-                        </button>
-                        <button type="submit" name="action" value="importar_excel" class="btn btn-info btn-lg">
-                            <i class="fas fa-file-upload me-1"></i> Procesar desde Archivo Excel
-                        </button>
+                    <button type="submit" value="guardar_manual" class="btn btn-primary btn-lg btn-submit-conteo">
+                        <i class="fas fa-table me-1"></i> Guardar desde Tabla Manual
+                    </button>
+                    <button type="submit" value="importar_excel" class="btn btn-info btn-lg btn-submit-conteo">
+                        <i class="fas fa-file-upload me-1"></i> Procesar desde Archivo Excel
+                    </button>
                     </div>
                 </div>
             {% else %}
                 <div class="alert alert-warning text-center mt-4" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>No hay productos activos para contar en esta empresa. No se puede guardar un conteo vacío.
+                    <i class="fas fa-exclamation-triangle me-2"></i>No hay productos activos para contar en esta empresa.
                 </div>
             {% endif %}
         {% else %}
@@ -135,7 +112,6 @@
         {% endif %}
         <hr class="my-4">
 
-        {# --- FILTROS Y TABLA DE CONTEO (No se modifica, ya estaba bien) --- #}
         <div class="row mb-3 g-3 align-items-end">
             <div class="col-md-4">
                 <label for="filtro_referencia" class="form-label fw-bold">Buscar por Referencia:</label>
@@ -189,14 +165,11 @@
             </table>
         </div>
 
-    </form> {# --- FIN DEL ÚNICO FORMULARIO --- #}
-
-</div>
+    </form> </div>
 {% endblock content %}
 
 
 {% block extra_scripts %}
-{# El bloque de <style> y <script> no necesita cambios, ya estaba correcto #}
 {{ block.super }}
 <style>
     tr.fila-verificada td {
@@ -205,7 +178,6 @@
 </style>
 
 <script>
-// Función helper para Debounce (pégala antes de $(document).ready)
 function debounce(func, wait, immediate) {
     var timeout;
     return function() {
@@ -222,8 +194,6 @@ function debounce(func, wait, immediate) {
 };
 
 $(document).ready(function() {
-    console.log("Inicializando scripts para conteo de inventario...");
-
     function actualizarDiferencia($inputFisica) {
         var pk = $inputFisica.attr('id').split('_').pop();
         if (!pk) return;
@@ -240,7 +210,6 @@ $(document).ready(function() {
         var cantidadSistema = parseInt($stockSistemaEl.text(), 10);
          if (isNaN(cantidadSistema)) {
             cantidadSistema = 0;
-            console.warn("No se pudo leer el stock del sistema para item " + pk);
         }
         var diferencia = cantidadFisica - cantidadSistema;
         var $diferenciaEl = $('#diferencia_' + pk);
@@ -254,6 +223,8 @@ $(document).ready(function() {
             $diferenciaEl.addClass('text-muted');
         }
     }
+
+    var debouncedFiltrarTabla = debounce(filtrarTabla, 300);
 
     function filtrarTabla() {
         var filtroRef = $('#filtro_referencia').val().toLowerCase().trim();
@@ -284,7 +255,6 @@ $(document).ready(function() {
         }
     }
 
-    var debouncedFiltrarTabla = debounce(filtrarTabla, 300);
     $('#filtro_referencia, #filtro_color').on('input keyup', debouncedFiltrarTabla);
     $('#btn_limpiar_filtros').on('click', function() {
         $('#filtro_referencia').val('');
@@ -306,28 +276,41 @@ $(document).ready(function() {
             }
         }
     });
+    $('.input-cantidad-fisica').each(function() {
+        actualizarDiferencia($(this));
+    });
 
+    // ======================================================
+    // === LÓGICA DE ENVÍO CORREGIDA Y A PRUEBA DE FALLOS ===
+    // ======================================================
+
+    // 1. Cuando se hace clic en un botón de envío...
+    $('.btn-submit-conteo').on('click', function() {
+        // ...se toma su valor y se pone en el campo oculto.
+        var action = $(this).val();
+        $('#form-action').val(action);
+    });
+
+    // 2. Cuando el formulario se envía...
     $('#form-conteo-inventario').on('submit', function(e) {
-        let action = $(document.activeElement).val();
-        let mensajeConfirmacion = "¿Estás seguro de que quieres guardar este conteo?";
-        if(action === 'guardar_manual') {
+        // ...leemos la acción desde el campo oculto.
+        var action = $('#form-action').val();
+        var mensajeConfirmacion = "¿Estás seguro de que quieres guardar este conteo?";
+
+        if (action === 'guardar_manual') {
             mensajeConfirmacion += " Se ajustará el stock usando los datos de la tabla."
         } else if (action === 'importar_excel') {
             mensajeConfirmacion += " Se ajustará el stock usando los datos del archivo Excel."
         }
         
         if (!confirm(mensajeConfirmacion)) {
-            e.preventDefault();
+            e.preventDefault(); // Detener el envío si el usuario cancela
         } else {
-             $(this).find('button[type="submit"]:focus').prop('disabled', true).text('Guardando...');
+            // Deshabilitar botones para evitar doble envío
+            $('.btn-submit-conteo').prop('disabled', true).text('Guardando...');
         }
     });
 
-    $('.input-cantidad-fisica').each(function() {
-        actualizarDiferencia($(this));
-    });
-
-    console.log("Scripts de conteo de inventario listos.");
 });
 </script>
 {% endblock extra_scripts %}
