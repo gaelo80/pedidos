@@ -831,8 +831,21 @@ def vista_conteo_inventario(request):
                         sheet = workbook.active
                         for row in sheet.iter_rows(min_row=2, values_only=True):
                             producto_id, _, _, _, _, _, cantidad_fisica = row[:7]
-                            if isinstance(producto_id, int) and isinstance(cantidad_fisica, int):
-                                datos_conteo[producto_id] = cantidad_fisica
+                            
+                            try:
+                                # Intentamos convertir los valores a números enteros
+                                p_id = int(producto_id)
+                                c_fisica = int(cantidad_fisica)
+
+                                # Si la conversión es exitosa, guardamos los datos
+                                if p_id > 0 and c_fisica >= 0: # Verificación extra de seguridad
+                                    datos_conteo[p_id] = c_fisica
+
+                            except (ValueError, TypeError):
+                                # Si la conversión falla (porque la celda está vacía o tiene texto),
+                                # simplemente se ignora la fila y se pasa a la siguiente.
+                                continue
+                                
                     except Exception as e:
                         messages.error(request, f"Error leyendo el archivo Excel: {e}")
                         logger.error(f"Error de parsing en Excel para conteo: {e}")
