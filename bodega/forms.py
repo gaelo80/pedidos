@@ -214,3 +214,9 @@ DetalleSalidaInternaFormSet = forms.inlineformset_factory(
     min_num=1,
     validate_min=True
 )
+
+class ImportarConteoForm(forms.Form):
+    archivo_conteo = forms.FileField(
+        label="Seleccionar Archivo (.xlsx, .csv)",
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.csv'})
+    )

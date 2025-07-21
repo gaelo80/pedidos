@@ -5,6 +5,7 @@ from django.views.generic import ListView
 from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
+import openpyxl
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
@@ -13,6 +14,7 @@ from django.db import transaction
 from .models import SalidaInternaCabecera
 from .forms import SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
+import logging
 from django.conf import settings
 from django.db.models import Prefetch
 from pedidos.models import DetallePedido
@@ -21,6 +23,7 @@ from django.utils import timezone
 from core.utils import render_pdf_weasyprint, get_logo_base_64_despacho
 from weasyprint import HTML
 from bodega.forms import DetalleIngresoFormSet, InfoGeneralConteoForm, IngresoBodegaForm
+from .forms import InfoGeneralConteoForm, ImportarConteoForm
 from productos.models import Producto
 from django.template.loader import render_to_string
 from .models import IngresoBodega
@@ -711,174 +714,179 @@ def exportar_plantilla_conteo(request, file_format='xlsx'): # Añadimos file_for
     return response
 
 
+# Configura el logger para esta vista
+logger = logging.getLogger(__name__)
+
+# ==============================================================================
+# --- FUNCIÓN AUXILIAR PARA PROCESAR Y GUARDAR EL CONTEO (NUEVA) ---
+# Esta función contiene la lógica de guardado para no duplicar código.
+# ==============================================================================
+@transaction.atomic
+def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
+    """
+    Función centralizada para crear la cabecera, detalles y movimientos de inventario.
+    `datos_conteo` debe ser un diccionario: {producto_id: cantidad_fisica}.
+    """
+    cabecera = CabeceraConteo.objects.create(
+        empresa=empresa,
+        fecha_conteo=datos_generales['fecha_actualizacion_stock'],
+        motivo=datos_generales['motivo_conteo'],
+        revisado_con=datos_generales['revisado_con'],
+        notas_generales=datos_generales['notas_generales'],
+        usuario_registro=request.user
+    )
+    logger.info(f"Cabecera de Conteo #{cabecera.pk} creada por '{request.user.username}'.")
+
+    # Contadores para el resumen final
+    stats = {'ajustados': 0, 'sin_cambio': 0, 'con_error': 0}
+
+    # Iterar directamente sobre el queryset para eficiencia
+    for producto in Producto.objects.filter(empresa=empresa, activo=True):
+        stock_sistema = producto.stock_actual
+        
+        # Obtener cantidad física del diccionario. Si no está, no se procesa este ítem.
+        cantidad_fisica = datos_conteo.get(producto.pk)
+
+        if cantidad_fisica is None or cantidad_fisica < 0:
+            continue # Ignorar productos sin cantidad o con valores negativos
+
+        try:
+            diferencia = cantidad_fisica - stock_sistema
+
+            ConteoInventario.objects.create(
+                empresa=empresa,
+                cabecera_conteo=cabecera,
+                producto=producto,
+                cantidad_sistema_antes=stock_sistema,
+                cantidad_fisica_contada=cantidad_fisica,
+                usuario_conteo=request.user,
+            )
+
+            if diferencia != 0:
+                tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
+                MovimientoInventario.objects.create(
+                    empresa=empresa,
+                    producto=producto,
+                    cantidad=diferencia,
+                    tipo_movimiento=tipo_movimiento,
+                    usuario=request.user,
+                    documento_referencia=f"Conteo ID {cabecera.pk}",
+                    notas=f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
+                )
+                stats['ajustados'] += 1
+                logger.debug(f"Ajuste de {diferencia} para producto #{producto.pk} en conteo #{cabecera.pk}.")
+            else:
+                stats['sin_cambio'] += 1
+        
+        except Exception as e:
+            stats['con_error'] += 1
+            logger.error(f"Error procesando el producto #{producto.pk} en el conteo #{cabecera.pk}: {e}")
+            messages.warning(request, f"Ocurrió un error al procesar el producto: {producto.nombre_completo}.")
+
+    return cabecera, stats
+
+
+# ==============================================================================
+# --- VISTA PRINCIPAL DE CONTEO (COMPLETA Y REFACTORIZADA) ---
+# ==============================================================================
 @login_required
-@permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado') # Permiso para VER la interfaz
+@permission_required('bodega.view_cabeceraconteo', login_url='core:acceso_denegado')
 def vista_conteo_inventario(request):
-    
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:index')
-    
-    print(f"****** VISTA CONTEO: Método Recibido = {request.method} ******")
-    user = request.user # Definir user para usarlo consistentemente
 
+    user = request.user
+    puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
+
+    # --- LÓGICA POST (Para Guardar Manual o Importar Excel) ---
     if request.method == 'POST':
-        print("****** VISTA CONTEO: PROCESANDO POST ******")
-
-        # ---- VERIFICACIÓN DE PERMISO PARA FINALIZAR/GUARDAR ----
-        if not user.has_perm('bodega.add_cabeceraconteo'):
-            messages.error(request, "No tienes permiso para finalizar este conteo y ajustar el stock. Solo puedes ingresar datos.")
-
-            items_a_contar_get = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
-            info_form_get = InfoGeneralConteoForm(request.POST)
-            context_get = {
-                'items_para_conteo': items_a_contar_get,
-                'titulo': f"Conteo Inventario ({empresa_actual.nombre}) - No Autorizado",
-                'info_form': info_form_get,
-                'puede_guardar': False
-            }
-            return render(request, 'bodega/conteo_inventario.html', context_get)
+        if not puede_guardar:
+            messages.error(request, "No tienes permiso para guardar conteos y ajustar el stock.")
+            return redirect('bodega:vista_conteo_inventario')
 
         info_form = InfoGeneralConteoForm(request.POST)
+        import_form = ImportarConteoForm(request.POST, request.FILES) # Siempre instanciar
+
         if info_form.is_valid():
-            print("  -> Formulario InfoGeneralConteoForm es VÁLIDO.")
-            fecha_ajuste = info_form.cleaned_data['fecha_actualizacion_stock']
-            motivo = info_form.cleaned_data['motivo_conteo']
-            revisado = info_form.cleaned_data['revisado_con']
-            notas_gral = info_form.cleaned_data['notas_generales']
+            action = request.POST.get('action')
+            datos_conteo = {} # Diccionario para {producto_id: cantidad_fisica}
 
-            items_procesados_correctamente = 0
-            items_con_error_o_sin_cambio = 0
-            cabecera_conteo_guardada = None
+            # --- CASO 1: Guardado desde la tabla manual ---
+            if action == 'guardar_manual':
+                logger.info(f"Intento de guardado manual por '{user.username}'.")
+                for key, value in request.POST.items():
+                    if key.startswith('cantidad_fisica_') and value.strip().isdigit():
+                        producto_id = int(key.split('_')[-1])
+                        datos_conteo[producto_id] = int(value)
+            
+            # --- CASO 2: Procesado desde archivo Excel ---
+            elif action == 'importar_excel':
+                logger.info(f"Intento de importación por archivo por '{user.username}'.")
+                if import_form.is_valid():
+                    archivo_excel = request.FILES['archivo_conteo']
+                    try:
+                        workbook = openpyxl.load_workbook(archivo_excel, data_only=True)
+                        sheet = workbook.active
+                        for row in sheet.iter_rows(min_row=2, values_only=True):
+                            producto_id, _, _, _, _, _, cantidad_fisica = row[:7]
+                            if isinstance(producto_id, int) and isinstance(cantidad_fisica, int):
+                                datos_conteo[producto_id] = cantidad_fisica
+                    except Exception as e:
+                        messages.error(request, f"Error leyendo el archivo Excel: {e}")
+                        logger.error(f"Error de parsing en Excel para conteo: {e}")
+                        return redirect('bodega:vista_conteo_inventario')
+                else:
+                    messages.error(request, "Para importar, debes seleccionar un archivo válido.")
+                    # Fallback para renderizar de nuevo con el error del formulario de importación
+                    items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True)
+                    context = {
+                        'items_para_conteo': items_a_contar,
+                        'titulo': "Error en Conteo",
+                        'info_form': info_form,
+                        'import_form': import_form, # Pasa el form con errores
+                        'puede_guardar': puede_guardar,
+                    }
+                    return render(request, 'bodega/conteo_inventario.html', context)
 
+            # --- Ejecutar el guardado si hay datos para procesar ---
+            if not datos_conteo:
+                messages.warning(request, "No se encontraron datos de cantidades para procesar, ni en la tabla ni en el archivo.")
+                return redirect('bodega:vista_conteo_inventario')
+            
             try:
-                with transaction.atomic():
-                    cabecera = CabeceraConteo.objects.create(
-                        empresa=empresa_actual,
-                        fecha_conteo=fecha_ajuste,
-                        motivo=motivo,
-                        revisado_con=revisado,
-                        notas_generales=notas_gral,
-                        usuario_registro=request.user
-                    )
-                    cabecera_conteo_guardada = cabecera.pk
-                    print(f"  -> Cabecera de Conteo creada con ID: {cabecera.pk}")
-
-                    items_a_procesar = list(Producto.objects.filter(empresa=empresa_actual, activo=True))
-                    print(f"  -> Encontrados {len(items_a_procesar)} productos activos para procesar en POST.")
-
-                    for producto_item in items_a_procesar:
-                        input_name = f'cantidad_fisica_{producto_item.pk}'
-                        cantidad_fisica_str = request.POST.get(input_name)
-
-                        if cantidad_fisica_str is not None and cantidad_fisica_str.strip() != '':
-                            try:
-                                cantidad_fisica = int(cantidad_fisica_str)
-                                if cantidad_fisica < 0: continue # Ignorar valores negativos
-
-                                stock_sistema_actual = producto_item.stock_actual
-                                diferencia_stock = cantidad_fisica - stock_sistema_actual
-                                
-                                
-
-                                ConteoInventario.objects.create(
-                                    empresa=empresa_actual,
-                                    cabecera_conteo=cabecera,
-                                    producto=producto_item,
-                                    cantidad_sistema_antes=stock_sistema_actual,
-                                    cantidad_fisica_contada=cantidad_fisica,
-                                    usuario_conteo=request.user,
-                                )
-                                
-                                
-                                
-                                print(f"  -> Detalle Conteo registrado para {producto_item.pk}. Sistema: {stock_sistema_actual}, Físico: {cantidad_fisica}")
-
-                                if diferencia_stock != 0:
-                                    tipo_movimiento_ajuste = 'ENTRADA_AJUSTE' if diferencia_stock > 0 else 'SALIDA_AJUSTE'
-                                    MovimientoInventario.objects.create(
-                                        empresa=empresa_actual,
-                                        producto=producto_item,
-                                        cantidad=diferencia_stock, # La cantidad ya tiene el signo correcto de la diferencia
-                                        tipo_movimiento=tipo_movimiento_ajuste,
-                                        usuario=request.user,
-                                        documento_referencia=f"Conteo ID {cabecera.pk}",
-                                        notas=f"Ajuste por conteo. Sistema: {stock_sistema_actual}, Físico: {cantidad_fisica}, Dif: {diferencia_stock}. Motivo: {motivo or 'N/A'}"
-                                    )
-                                    print(f"  -> Movimiento de ajuste creado para {producto_item.pk}. Diferencia: {diferencia_stock}")
-                                items_procesados_correctamente += 1 # Contar como procesado si se guardó el detalle del conteo
-                            except (ValueError, Exception) as e_item:
-                                 messages.error(request, f"Error procesando {producto_item}: {e_item}")
-                                 items_con_error_o_sin_cambio += 1
-                        else: 
-                            items_con_error_o_sin_cambio +=1 
-
-            except Exception as e_global:
-                messages.error(request, f"Error general al guardar el conteo: {e_global}")
-                print(f"****** VISTA CONTEO: ERROR FATAL EN POST: {e_global} ******")
-                # Re-renderizar el formulario como en el GET
-                items_a_contar_err = Producto.objects.filter(
-                    empresa=empresa_actual, 
-                    activo=True
-                ).order_by('referencia', 'nombre', 'color', 'talla')
-                # puede_guardar_err = user.has_perm('bodega.add_cabeceraconteo') # Pasamos el permiso real
-                context_err = {
-                    'items_para_conteo': items_a_contar_err, 
-                    'titulo': "Error en Conteo", 
-                    'info_form': info_form, # El formulario con los errores
-                    'puede_guardar': user.has_perm('bodega.add_cabeceraconteo')
-                }
-                return render(request, 'bodega/conteo_inventario.html', context_err)
-
-            # Lógica de mensajes y redirección si todo fue bien (o con errores menores)
-            if items_procesados_correctamente > 0 or items_con_error_o_sin_cambio > 0 :
-                 if items_procesados_correctamente > 0:
-                      messages.success(request, f"Conteo ID {cabecera_conteo_guardada} guardado. Stock ajustado para {items_procesados_correctamente - (items_con_error_o_sin_cambio if items_procesados_correctamente > items_con_error_o_sin_cambio else 0)} ítem(s) con diferencias.") # Ajustar mensaje
-                 if items_con_error_o_sin_cambio > 0 and items_procesados_correctamente == 0:
-                      messages.info(request, f"Conteo ID {cabecera_conteo_guardada} registrado. No se ingresaron cantidades o no hubo diferencias para ajustar el stock.")
-                 elif items_con_error_o_sin_cambio > 0 and items_procesados_correctamente > 0:
-                      messages.info(request, f"Adicionalmente, {items_con_error_o_sin_cambio} ítems no tuvieron cambios de stock, no se ingresó cantidad o presentaron errores durante el proceso de detalle.")
-            else:
-                 messages.warning(request, "No se ingresaron cantidades para procesar en el conteo.")
-
-            if cabecera_conteo_guardada:
-                print(f"****** VISTA CONTEO POST: Redirigiendo a 'descargar_informe_conteo' con ID {cabecera_conteo_guardada} ******")
-                return redirect('bodega:descargar_informe_conteo', cabecera_id=cabecera_conteo_guardada)
-            else: # Si no se creó cabecera por algún motivo (ej. error antes de creación)
-                 return redirect('bodega:vista_conteo_inventario')
+                cabecera, stats = _procesar_y_guardar_conteo(request, empresa_actual, info_form.cleaned_data, datos_conteo)
+                
+                # Mensajes finales al usuario basados en los stats
+                if stats['ajustados'] > 0:
+                    messages.success(request, f"Conteo #{cabecera.pk} guardado. Se ajustó el stock de {stats['ajustados']} producto(s).")
+                if stats['sin_cambio'] > 0 and stats['ajustados'] == 0:
+                     messages.info(request, f"Conteo #{cabecera.pk} guardado. {stats['sin_cambio']} producto(s) no tuvieron cambios de stock.")
+                
+                return redirect('bodega:descargar_informe_conteo', cabecera_id=cabecera.pk)
+            
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error inesperado al guardar el conteo: {e}")
+                logger.critical(f"Error fatal al llamar a _procesar_y_guardar_conteo: {e}", exc_info=True)
+                return redirect('bodega:vista_conteo_inventario')
 
         else: # info_form no es válido
-            # ... (tu lógica actual para info_form inválido) ...
-            print("  -> Formulario InfoGeneralConteoForm NO es VÁLIDO.")
-            print("  -> Errores:", info_form.errors.as_json())
             messages.error(request, "Por favor corrige los errores en la información general del conteo.")
-            items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
-            # puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
-            context = {
-                'items_para_conteo': items_a_contar, 
-                'titulo': f"Conteo de Inventario ({empresa_actual.nombre})", 
-                'info_form': info_form, 
-                'puede_guardar': user.has_perm('bodega.add_cabeceraconteo') # Enviar el permiso real
-            }
-            return render(request, 'bodega/conteo_inventario.html', context)
-    else: # GET
-        # ... (tu lógica GET actual) ...
-        print("****** VISTA CONTEO: PROCESANDO GET ******")
-        items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
-        info_form = InfoGeneralConteoForm() 
-        puede_guardar_finalizar = user.has_perm('bodega.add_cabeceraconteo')
 
-        print(f"  -> Obtenidos {items_a_contar.count()} productos activos para mostrar.")
-        print(f"  -> Usuario '{request.user.username}' puede guardar/finalizar? {puede_guardar_finalizar}")
+    # --- LÓGICA GET (Carga inicial de la página) ---
+    items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+    info_form = InfoGeneralConteoForm()
+    import_form = ImportarConteoForm()
 
-        context = {
-            'items_para_conteo': items_a_contar,
-            'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",
-            'info_form': info_form,
-            'puede_guardar': puede_guardar_finalizar,
-        }
-        return render(request, 'bodega/conteo_inventario.html', context)
+    context = {
+        'items_para_conteo': items_a_contar,
+        'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",
+        'info_form': info_form,
+        'import_form': import_form,
+        'puede_guardar': puede_guardar,
+    }
+    return render(request, 'bodega/conteo_inventario.html', context)
     
     
 @login_required
