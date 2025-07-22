@@ -1299,13 +1299,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const rowRef = row.data('ref');
                 const rowColorSlug = row.data('color-slug');
 
-                console.log("--- Verificando Duplicado ---");
-                console.log(`Fila Existente: Ref='${rowRef}' (Tipo: ${typeof rowRef}), Color='${rowColorSlug}' (Tipo: ${typeof rowColorSlug})`);
-                console.log(`Item Nuevo:     Ref='${refToAdd}' (Tipo: ${typeof refToAdd}), Color='${colorSlugToAdd}' (Tipo: ${typeof colorSlugToAdd})`);
-                console.log(`¿Referencias Iguales? ${rowRef === refToAdd}`);
-                console.log(`¿Colores Iguales? ${rowColorSlug === colorSlugToAdd}`);
-                console.log("----------------------------");
-
                 if (rowRef == refToAdd && rowColorSlug === colorSlugToAdd) {
                     alreadyExists = true;
                     existingRowId = row.attr('id');
