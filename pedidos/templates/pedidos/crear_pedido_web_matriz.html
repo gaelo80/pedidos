@@ -1355,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                  // 2. Actualizar data-* en la fila <tr>
                  rowToUpdate.data('ref', currentRef); // Actualizar por si acaso (no debería cambiar en edit)
-                 rowToUpdate.data('color-slug', currentColor); // Actualizar por si acaso
+                 rowToUpdate.data('color-slug', currentColor || '-');
                  rowToUpdate.data('linea-qty', datosCalculados.totalQty);
                  rowToUpdate.data('linea-value', datosCalculados.lineaTotalFinal);
                  rowToUpdate.data('precio-unitario-original', datosCalculados.precioUnitarioConIvaOriginal);
