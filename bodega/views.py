@@ -20,6 +20,8 @@ import logging
 from django.conf import settings
 from django.db.models import Prefetch
 from pedidos.models import DetallePedido
+from django.db.models import Sum
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.utils import timezone
 from core.utils import render_pdf_weasyprint, get_logo_base_64_despacho
@@ -80,8 +82,8 @@ def vista_despacho_pedido(request, pk):
                         hubo_cambios = True
 
                     if detalle.cantidad_verificada < detalle.cantidad:
-                        detalles_completos = False
-
+                        detalles_completos = False                                      
+                        
                 # --- Lógica para Finalizar y Crear Comprobante ---
                 if action == 'finalizar_despacho':
                     if not detalles_completos:
@@ -111,6 +113,8 @@ def vista_despacho_pedido(request, pk):
                             messages.success(request, f"Comprobante #{comprobante.pk} creado. Pedido #{pedido.pk} marcado como 'Enviado'.")
                         else:
                             messages.info(request, f"El Pedido #{pedido.pk} ya tiene un comprobante (#{comprobante.pk}) asociado.")
+                            
+                
                 
                 elif hubo_cambios: # Guardado parcial
                     if pedido.estado != 'PROCESANDO':
@@ -1443,4 +1447,192 @@ def lista_informes_conteo(request):
         'titulo': f'Historial de Conteos de Inventario ({empresa_actual.nombre})',
     }
     return render(request, 'bodega/lista_informes_conteo.html', context)    
+
+@require_POST
+@login_required
+@permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
+def finalizar_pedido_incompleto(request, pk):
+    """
+    Finaliza un pedido que ha sido despachado parcialmente.
+    Devuelve al stock las unidades pendientes no despachadas.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+
+    if pedido.estado != 'PROCESANDO':
+        messages.error(request, f"Solo se pueden finalizar pedidos que están en estado 'Procesando'.")
+        return redirect('bodega:lista_pedidos_bodega')
+
+    try:
+        with transaction.atomic():
+            unidades_devueltas = 0
+            # 1. Iterar sobre cada línea del pedido para devolver lo pendiente
+            for detalle in pedido.detalles.all():
+                cantidad_pendiente = detalle.cantidad - (detalle.cantidad_verificada or 0)
+                
+                if cantidad_pendiente > 0:
+                    MovimientoInventario.objects.create(
+                        empresa=empresa_actual,
+                        producto=detalle.producto,
+                        cantidad=cantidad_pendiente, # POSITIVO, es una entrada al stock
+                        tipo_movimiento='ENTRADA_CANCELACION', # Asegúrate que este tipo exista
+                        documento_referencia=f"Cierre Pedido Inc. #{pedido.pk}",
+                        usuario=request.user,
+                        notas=f"Devolución a stock por cierre de pedido incompleto."
+                    )
+                    unidades_devueltas += cantidad_pendiente
+            
+            # 2. Actualizar el estado del pedido
+            pedido.estado = 'ENVIADO_INCOMPLETO'
+            pedido.save(update_fields=['estado'])
+
+            messages.success(request, f"Pedido #{pedido.pk} finalizado. Se devolvieron {unidades_devueltas} unidades pendientes al stock.")
+
+    except Exception as e:
+        messages.error(request, f"Ocurrió un error al finalizar el pedido: {e}")
+
+    return redirect('bodega:lista_pedidos_bodega')
+
+@require_POST
+@login_required
+@permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
+def cancelar_pedido_bodega(request, pk):
+    """
+    Cancela un pedido completo desde bodega, cambiando su estado y
+    devolviendo todos sus productos al stock.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+
+    ESTADOS_CANCELABLES = ['APROBADO_ADMIN', 'PROCESANDO']
+
+    if pedido.estado not in ESTADOS_CANCELABLES:
+        messages.error(request, f"El pedido #{pedido.pk} no se puede cancelar porque su estado es '{pedido.get_estado_display()}'.")
+        return redirect('bodega:lista_pedidos_bodega')
+
+    try:
+        with transaction.atomic():
+            for detalle in pedido.detalles.all():
+                if detalle.cantidad > 0:
+                    MovimientoInventario.objects.create(
+                        empresa=empresa_actual,
+                        producto=detalle.producto,
+                        cantidad=detalle.cantidad,
+                        tipo_movimiento='ENTRADA_CANCELACION',
+                        documento_referencia=f"Cancelado Pedido #{pedido.pk}",
+                        usuario=request.user,
+                        notas=f"Devolución a stock por cancelación desde bodega."
+                    )
+            
+            pedido.estado = 'CANCELADO_BODEGA'
+            pedido.save(update_fields=['estado'])
+
+            messages.success(request, f"El Pedido #{pedido.pk} ha sido cancelado. El stock ha sido reintegrado.")
+
+    except Exception as e:
+        messages.error(request, f"Ocurrió un error inesperado al cancelar el pedido: {e}")
+
+    return redirect('bodega:lista_pedidos_bodega')
+
+
+@login_required
+# Asegúrate que el permiso sea el adecuado para tu app, ej: 'productos.view_producto'
+@permission_required('productos.view_producto', login_url='core:acceso_denegado')
+def vista_informe_inventario(request):
+    """
+    Muestra un informe completo y paginado del inventario físico en bodega,
+    con opciones de filtrado.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
     
+    # Query base: solo productos activos de la empresa actual
+    productos_queryset = Producto.objects.filter(
+        empresa=empresa_actual, 
+        activo=True
+    ).order_by('referencia', 'color', 'talla')
+
+    # Lógica de filtrado
+    referencia_q = request.GET.get('referencia', '').strip()
+    nombre_q = request.GET.get('nombre', '').strip()
+    ubicacion_q = request.GET.get('ubicacion', '').strip()
+
+    if referencia_q:
+        productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
+    if nombre_q:
+        productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
+    if ubicacion_q:
+        productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
+
+    # Calcular totales (después de filtrar)
+    total_productos = productos_queryset.count()
+    total_unidades = sum(p.stock_actual for p in productos_queryset)
+    
+    # Paginación
+    paginator = Paginator(productos_queryset, 25) # Muestra 25 productos por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'productos': page_obj, # El objeto de página, no el queryset completo
+        'titulo': f'Informe de Inventario Físico ({empresa_actual.nombre})',
+        'total_productos': total_productos,
+        'total_unidades': total_unidades,
+        'filtros_activos': request.GET # Para mantener los filtros en la paginación y exportación
+    }
+    return render(request, 'bodega/informe_inventario.html', context)
+
+
+@login_required
+@permission_required('productos.view_producto', login_url='core:acceso_denegado')
+def exportar_inventario_excel(request):
+    """
+    Genera y descarga un archivo Excel con el inventario actual,
+    aplicando los mismos filtros que la vista del informe.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    productos_queryset = Producto.objects.filter(
+        empresa=empresa_actual, 
+        activo=True
+    ).order_by('referencia', 'color', 'talla')
+
+    # Re-aplicar los mismos filtros que en la vista principal
+    referencia_q = request.GET.get('referencia', '').strip()
+    nombre_q = request.GET.get('nombre', '').strip()
+    ubicacion_q = request.GET.get('ubicacion', '').strip()
+
+    if referencia_q:
+        productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
+    if nombre_q:
+        productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
+    if ubicacion_q:
+        productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
+    
+    # Crear el archivo Excel en memoria
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = 'Inventario'
+
+    # Escribir la cabecera
+    headers = ['Referencia', 'Descripción', 'Detalle', 'Color', 'Talla', 'Ubicación', 'Cantidad en Stock']
+    sheet.append(headers)
+
+    # Escribir los datos de los productos
+    for producto in productos_queryset:
+        sheet.append([
+            producto.referencia,
+            producto.nombre,
+            producto.descripcion or '',
+            producto.color or '',
+            producto.talla or '',
+            producto.ubicacion or '',
+            producto.stock_actual
+        ])
+
+    # Preparar la respuesta HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="informe_inventario.xlsx"'
+    workbook.save(response)
+
+    return response

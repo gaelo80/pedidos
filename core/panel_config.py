@@ -269,6 +269,17 @@ PANEL_OPTIONS_CONFIG = [
         'roles_info': ['admin', 'administracion', 'diseno', 'bodega', 'factura']
         #ok
     },
+    
+    {
+        'titulo': 'Inventario Físico',
+        'descripcion': 'vista de inventario físico de productos en bodega.',
+        'url_nombre': 'bodega:informe_inventario',
+        'icono': 'fa-solid fa-clipboard-list',
+        'icono_color_class': 'icon-warning',
+        'rol_requerido': ['es_bodega','es_admin_sistema'], # Permiso para ver/iniciar la interfaz
+        'roles_info': ['bodega', 'admin']
+        #ok
+    },
     {
         'titulo': 'Registrar Salida Interna',
         'descripcion': 'Registrar las salidas internas de Bodega.',

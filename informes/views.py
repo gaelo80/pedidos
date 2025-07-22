@@ -475,7 +475,7 @@ def informe_pedidos_aprobados_bodega(request):
     return render(request, 'informes/informe_pedidos_aprobados_bodega.html', context)
 
 @login_required
-@user_passes_test(lambda u: es_admin_sistema(u) or es_factura(u) or es_cartera(u) or es_diseno(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_bodega(u) or es_admin_sistema(u) or es_factura(u) or es_cartera(u) or es_diseno(u), login_url='core:acceso_denegado')
 def informe_ingresos_bodega(request):
     
     empresa_actual = getattr(request, 'tenant', None)

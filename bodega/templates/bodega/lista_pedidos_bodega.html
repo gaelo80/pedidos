@@ -107,28 +107,42 @@
                     {% endif %}
                 {% endwith %} {# Fin del with detalles #}
             </td>
-              {# <<< Fin Celda Referencias >>> #}
 
-              {# 7. Celda Acciones (CON BOTONES CORREGIDOS DENTRO DEL TD) #}
-              <td>
-                  {# Botón Ver PDF (URL='generar_pedido_pdf') #}
-                  <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-warning" target="_blank">
-                      <i class="fas fa-file-pdf"></i> PDF {# Icono opcional #}
-                  </a>
+            <td>
 
-                  {# Botón Verificar (URL='verificar_pedido') #}
-                  <a id="verificarPedidoBtn" href="{% url 'bodega:verificar_pedido' pedido.pk %}" class="btn btn-sm btn-success ms-1">
-                      <i class="fas fa-check-circle"></i> Verificar {# Icono opcional #}
-                  </a>
-                  {# Botón para despacho con scanner#}
-                  <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary ms-1">
-                      <i class="fas fa-barcode"></i> Despachar
-                  </a>
-              </td>
-              {# <<< Fin Celda Acciones >>> #}
+
+                <a href="{% url 'bodega:verificar_pedido' pedido.pk %}" class="btn btn-sm btn-success ms-1" title="Verificar o despachar manualmente">
+                    <i class="fas fa-check-circle"></i> Verificar
+                </a>
+
+                <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary ms-1" title="Despachar con Scanner">
+                    <i class="fas fa-barcode"></i> Despachar
+                </a>
+                <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info" target="_blank" title="Ver PDF del Pedido">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </a>
+
+                {% if pedido.estado == 'PROCESANDO' %}
+                    <form method="POST" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Seguro que quieres finalizar este pedido como INCOMPLETO? Se devolverá TODO el stock pendiente y el pedido se cerrará.');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning ms-1" title="Finalizar Pedido Incompleto">
+                            <i class="fas fa-exclamation-triangle"></i> Finalizar
+                        </button>
+                    </form>
+                {% endif %}
+
+                {% if pedido.estado in 'APROBADO_ADMIN,PROCESANDO' %}
+                    <form method="POST" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres CANCELAR TODO el pedido #{{ pedido.pk }}? Esta acción devolverá todos los productos al inventario y no se puede deshacer.');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger ms-1" title="Cancelar Pedido Completo">
+                            <i class="fas fa-times-circle"></i> Cancelar
+                        </button>
+                    </form>
+                {% endif %}
+            </td>
 
             </tr>
-            {% empty %} {# Mensaje si la búsqueda no arroja resultados #}
+            {% empty %} 
             <tr>
                 <td colspan="7" class="text-center">No se encontraron pedidos que coincidan con los criterios de búsqueda.</td>
             </tr>

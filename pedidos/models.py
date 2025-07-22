@@ -25,9 +25,11 @@ class Pedido(models.Model):
         ('APROBADO_ADMIN', 'Aprobado por Administración (Listo Bodega)'),
         ('PROCESANDO', 'Procesando en Bodega'),
         ('COMPLETADO', 'Completado en Bodega'),
+        ('ENVIADO_INCOMPLETO', 'Enviado Incompleto'),
         ('ENVIADO', 'Enviado'),
         ('ENTREGADO', 'Entregado'),
         ('CANCELADO', 'Cancelado'),
+        
     ]
     
     cliente = models.ForeignKey(
