@@ -775,84 +775,63 @@ def vista_conteo_inventario(request):
 
         if info_form.is_valid():
             action = request.POST.get('action')
-            logger.info(f"ACCIÓN DETECTADA POR EL SERVIDOR: '{action}'")
             datos_conteo = {}
 
             if action == 'guardar_manual':
-                logger.info("Acción: 'guardar_manual'")
+                logger.info(f"Intento de guardado manual por '{user.username}'.")
                 for key, value in request.POST.items():
                     if key.startswith('cantidad_fisica_') and value.strip().isdigit():
                         producto_id = int(key.split('_')[-1])
                         datos_conteo[producto_id] = int(value)
             
             elif action == 'importar_excel':
-                logger.info("Acción: 'importar_excel'")
-                if import_form.is_valid():
-                    logger.info("Formulario de importación es VÁLIDO.")
-                    archivo_importado = request.FILES['archivo_conteo']
-                    nombre_archivo = archivo_importado.name.lower()
-                    logger.info(f"Procesando archivo: {nombre_archivo}")
+                logger.info(f"Intento de importación por archivo por '{user.username}'.")
+                
+                # --- LÓGICA DE VALIDACIÓN SIMPLIFICADA Y CORREGIDA ---
+                if not import_form.is_valid():
+                    messages.error(request, "El formulario de importación tiene errores.")
+                    return redirect('bodega:vista_conteo_inventario')
+                
+                if 'archivo_conteo' not in request.FILES:
+                    messages.error(request, "Para importar, primero debes seleccionar un archivo.")
+                    return redirect('bodega:vista_conteo_inventario')
+                
+                # Si pasamos las validaciones, ahora sí definimos las variables
+                archivo_importado = request.FILES['archivo_conteo']
+                nombre_archivo = archivo_importado.name.lower()
 
-                    try:
-                        if nombre_archivo.endswith('.csv'):
-                            logger.info("Detectado archivo CSV. Procesando...")
-                            contenido_str = archivo_importado.read().decode('utf-8')
+                try:
+                    if nombre_archivo.endswith('.csv'):
+                        contenido_str = archivo_importado.read().decode('utf-8')
+                        dialect = csv.Sniffer().sniff(contenido_str.splitlines()[0], delimiters=',;')
+                        reader = csv.reader(contenido_str.splitlines(), dialect)
+                        next(reader)
+                        for row in reader:
+                            if len(row) < 7: continue
                             try:
-                                dialect = csv.Sniffer().sniff(contenido_str.splitlines()[0], delimiters=',;')
-                                logger.info(f"Dialecto de CSV detectado. Delimitador: '{dialect.delimiter}'")
-                            except csv.Error:
-                                dialect = 'excel'
-                                logger.warning("No se pudo detectar dialecto de CSV, usando ',' por defecto.")
+                                p_id, c_fisica = int(row[0]), int(row[6])
+                                if p_id > 0 and c_fisica >= 0: datos_conteo[p_id] = c_fisica
+                            except (ValueError, TypeError, IndexError): continue
 
-                            reader = csv.reader(contenido_str.splitlines(), dialect)
-                            next(reader)
-
-                            for i, row in enumerate(reader, 1):
-                                logger.debug(f"CSV Fila {i}: {row}") # LOG PARA VER LA FILA CRUDA
-                                if len(row) < 7: continue
-                                try:
-                                    p_id = int(row[0])
-                                    c_fisica = int(row[6])
-                                    if p_id > 0 and c_fisica >= 0:
-                                        datos_conteo[p_id] = c_fisica
-                                        logger.debug(f"    -> Fila VÁLIDA. Agregado al diccionario: key={p_id}, value={c_fisica}")
-                                except (ValueError, TypeError, IndexError):
-                                    logger.warning(f"    -> Fila INVÁLIDA o vacía, saltando...")
-                                    continue
-
-                        elif nombre_archivo.endswith(('.xlsx', '.xls')):
-                            logger.info("Detectado archivo Excel. Procesando...")
-                            workbook = openpyxl.load_workbook(archivo_importado, data_only=True)
-                            sheet = workbook[workbook.sheetnames[0]]
-                            logger.info(f"Leyendo datos de la hoja de cálculo: '{sheet.title}'")
-
-                            for i, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), 1):
-                                logger.debug(f"Excel Fila {i}: {row}") # LOG PARA VER LA FILA CRUDA
-                                if len(row) < 7: continue
-                                try:
-                                    p_id = int(row[0])
-                                    c_fisica = int(row[6])
-                                    if p_id > 0 and c_fisica >= 0:
-                                        datos_conteo[p_id] = c_fisica
-                                        logger.debug(f"    -> Fila VÁLIDA. Agregado al diccionario: key={p_id}, value={c_fisica}")
-                                except (ValueError, TypeError, IndexError):
-                                    logger.warning(f"    -> Fila INVÁLIDA o vacía, saltando...")
-                                    continue
-                        
-                        else:
-                            messages.error(request, "Formato de archivo no soportado. Sube un .csv o .xlsx.")
-                            return redirect('bodega:vista_conteo_inventario')
-
-                    except Exception as e:
-                        messages.error(request, f"Error crítico durante la lectura del archivo: {e}")
-                        logger.error(f"Error de parsing para conteo: {e}", exc_info=True)
+                    elif nombre_archivo.endswith(('.xlsx', '.xls')):
+                        workbook = openpyxl.load_workbook(archivo_importado, data_only=True)
+                        sheet = workbook[workbook.sheetnames[0]]
+                        for row in sheet.iter_rows(min_row=2, values_only=True):
+                            if len(row) < 7: continue
+                            try:
+                                p_id, c_fisica = int(row[0]), int(row[6])
+                                if p_id > 0 and c_fisica >= 0: datos_conteo[p_id] = c_fisica
+                            except (ValueError, TypeError, IndexError): continue
+                    else:
+                        messages.error(request, "Formato de archivo no soportado. Sube un .csv o .xlsx.")
                         return redirect('bodega:vista_conteo_inventario')
-                else:
-                    logger.warning("Formulario de importación NO es válido. Errores: {import_form.errors}")
-                    messages.error(request, "Para importar, debes seleccionar un archivo válido.")
-                    # ... (código de fallback)
 
-            logger.info(f"Procesamiento de datos finalizado. Diccionario de conteo final: {datos_conteo}")
+                except Exception as e:
+                    messages.error(request, f"Error crítico durante la lectura del archivo: {e}")
+                    logger.error(f"Error de parsing para conteo: {e}", exc_info=True)
+                    return redirect('bodega:vista_conteo_inventario')
+            
+            # --- El resto del código se mantiene igual ---
             if not datos_conteo:
                 messages.warning(request, "No se encontraron datos de cantidades para procesar, ni en la tabla ni en el archivo.")
                 return redirect('bodega:vista_conteo_inventario')
@@ -869,13 +848,13 @@ def vista_conteo_inventario(request):
                 logger.critical(f"Error fatal al llamar a _procesar_y_guardar_conteo: {e}", exc_info=True)
                 return redirect('bodega:vista_conteo_inventario')
         else:
-            logger.warning(f"Formulario de información general NO es válido. Errores: {info_form.errors}")
             messages.error(request, "Por favor corrige los errores en la información general del conteo.")
 
     # --- LÓGICA GET ---
     items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
     info_form = InfoGeneralConteoForm()
     import_form = ImportarConteoForm()
+
     context = {
         'items_para_conteo': items_a_contar,
         'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",

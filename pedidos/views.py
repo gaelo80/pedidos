@@ -609,22 +609,11 @@ def generar_pedido_pdf(request, pk):
         elif genero_producto == 'CABALLERO':
             items_caballero.append(detalle)
         else:
-            items_unisex.append(detalle)
-        
-        
-        
-        
-        
-        
+            items_unisex.append(detalle)       
 
-    tallas_col_dama = ['3', '5', '7', '9', '11', '16', '18', '20', '22']
-    tallas_col_caballero = [str(t) for t in range(28, 45, 2)]
-    tallas_col_unisex = sorted(list(set(d.producto.talla for d in items_unisex if d.producto.talla))) # Tallas reales de unisex
-    if not tallas_col_unisex: tallas_col_unisex = ['ÚNICA'] # Fallback
-
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, tallas_col_dama)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, tallas_col_caballero)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, tallas_col_unisex)
+    grupos_dama, cols_dama = preparar_datos_seccion(items_dama)
+    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero)
+    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex)
 
     logo_para_pdf = None
     try:
