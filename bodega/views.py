@@ -1537,7 +1537,7 @@ def cancelar_pedido_bodega(request, pk):
 
 @login_required
 # Asegúrate que el permiso sea el adecuado para tu app, ej: 'productos.view_producto'
-@permission_required('productos.view_producto', login_url='core:acceso_denegado')
+@permission_required('productos.view_inventory_report', login_url='core:acceso_denegado')
 def vista_informe_inventario(request):
     """
     Muestra un informe completo y paginado del inventario físico en bodega,
