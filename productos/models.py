@@ -191,4 +191,7 @@ class Producto(models.Model):
             models.UniqueConstraint(fields=['empresa', 'referencia', 'talla', 'color'], name='variante_unica_por_empresa'),
             models.UniqueConstraint(fields=['empresa', 'codigo_barras'], condition=models.Q(codigo_barras__isnull=False), name='codigo_barras_unico_por_empresa')
         ]
-        permissions = [("upload_fotos_producto", "Puede subir fotos para productos"),]
+        permissions = [
+            ("upload_fotos_producto", "Puede subir fotos para productos"),
+            ("view_inventory_report", "Puede ver el informe de inventario físico"),
+            ]
