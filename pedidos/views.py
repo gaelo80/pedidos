@@ -601,6 +601,13 @@ def generar_pedido_pdf(request, pk):
 
     detalles_originales = pedido.detalles.select_related('producto').all()
     items_dama, items_caballero, items_unisex = [], [], []
+    
+    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13'] # Ajusta si son diferentes
+    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38'] # Ajusta si son diferentes
+    TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
+    
+    
+    
     for detalle in detalles_originales:
         # Asumiendo que el modelo Producto tiene un campo 'genero'
         genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
@@ -611,9 +618,10 @@ def generar_pedido_pdf(request, pk):
         else:
             items_unisex.append(detalle)       
 
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex)
+    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
+    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
+    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+
 
     logo_para_pdf = None
     try:

@@ -139,7 +139,7 @@
                     <td>{{ grupo.ref }}</td>
                     {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
                     {% for talla_col in tallas_cols_dama %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
                     {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
@@ -176,7 +176,7 @@
                     <td>{{ grupo.ref }}</td>
                     {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
                     {% for talla_col in tallas_cols_caballero %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
                     {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
@@ -214,7 +214,7 @@
                     <td>{{ grupo.ref }}</td>
                     {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
                     {% for talla_col in tallas_cols_unisex %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"" }}</td>
+                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
                     {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
