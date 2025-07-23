@@ -170,13 +170,29 @@ def vista_importar_cartera(request):
                                 errores_fila_detalle.append(msg_error)
                                 continue
                             
+                            # 1. Limpiamos el formato del número (elimina el ".0" si existe)
+                            if codigo_cliente_excel.endswith('.0'):
+                                codigo_cliente_excel = codigo_cliente_excel[:-2]
+                            
+                            # Validamos que el código no esté vacío después de limpiar
+                            if not codigo_cliente_excel:
+                                msg_error = f"Fila {num_fila_excel}: Falta Código de Cliente."
+                                errores_fila_detalle.append(msg_error)
+                                continue
+
+                            # 2. Buscamos al cliente usando 'startswith' para ignorar el dígito de verificación
                             try:
                                 cliente_obj = Cliente.objects.get(
-                                    identificacion=codigo_cliente_excel, 
+                                    identificacion__startswith=codigo_cliente_excel,
                                     empresa=empresa_actual
                                 )
                             except Cliente.DoesNotExist:
                                 clientes_no_encontrados.add(codigo_cliente_excel)
+                                continue
+                            except Cliente.MultipleObjectsReturned:
+                                # Esto previene un error si hay IDs duplicados (ej: 800123 y 800123-4)
+                                print(f"ADVERTENCIA: Se encontraron múltiples clientes que comienzan con el ID '{codigo_cliente_excel}'. Se omite la fila {num_fila_excel}.")
+                                clientes_no_encontrados.add(f"{codigo_cliente_excel} (Duplicado)")
                                 continue
 
                             fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
