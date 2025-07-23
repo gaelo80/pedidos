@@ -41,11 +41,7 @@ class PedidoForm(forms.ModelForm):
         self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
         self.fields['prospecto'].queryset = Prospecto.objects.filter(empresa=empresa, estado__in=['PENDIENTE', 'EN_ESTUDIO'])
 
-        referencias_unicas = Producto.objects.filter(empresa=empresa).values_list('referencia', flat=True).distinct()
-        self.fields['referencia'].queryset = Producto.objects.filter(
-            empresa=empresa,
-            referencia__in=referencias_unicas
-        ).order_by('referencia')
+
         
     def clean(self):
         """
