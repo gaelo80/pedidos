@@ -54,3 +54,8 @@ class RechazoForm(forms.Form):
         required=True,
         label="Motivo del Rechazo"
     )
+    documento_adjunto_rechazo = forms.FileField(
+        required=False, # No es obligatorio
+        label="Adjuntar Documento (Opcional)",
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )

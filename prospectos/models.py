@@ -3,6 +3,12 @@ from django.db import models
 from django.conf import settings
 from clientes.models import Empresa, Ciudad # Reutilizamos modelos existentes de tu app clientes
 
+
+def ruta_guardado_documento_rechazo(instance, filename):
+    # Organiza los archivos por empresa y por ID de prospecto
+    return f'documentos_rechazo_prospectos/{instance.empresa.id}/{instance.pk}/{filename}'
+
+
 class Prospecto(models.Model):
     """
     Representa a un cliente potencial que ha iniciado una solicitud de crédito
@@ -35,7 +41,15 @@ class Prospecto(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='prospectos_asignados'
+        related_name='prospectos_asignados',
+        verbose_name="Vendedor Asignado"
+    )
+
+    documento_rechazo = models.FileField(
+        upload_to=ruta_guardado_documento_rechazo, # Usar la función de ruta
+        null=True,
+        blank=True,
+        verbose_name="Documento de Rechazo (Opcional)"
     )
 
     def __str__(self):
@@ -44,8 +58,11 @@ class Prospecto(models.Model):
     class Meta:
         verbose_name = "Prospecto"
         verbose_name_plural = "Prospectos"
-        # Asegura que no haya un prospecto duplicado (misma identificación) dentro de una misma empresa.
-        unique_together = [['empresa', 'identificacion']]
+        unique_together = [['empresa', 'identificacion']]        
+        permissions = [
+            ("aprobar_prospecto_cartera", "Puede aprobar solicitudes de prospectos (Cartera)"),
+            ("rechazar_prospecto_cartera", "Puede rechazar solicitudes de prospectos (Cartera)"),
+        ]
 
 
 class DocumentoAdjunto(models.Model):

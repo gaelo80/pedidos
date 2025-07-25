@@ -60,8 +60,27 @@ class SolicitudListView(LoginRequiredMixin, PermissionRequiredMixin, TenantAware
     context_object_name = 'solicitudes'
     permission_required = 'prospectos.view_prospecto'
     paginate_by = 25
+    
+    
     def get_queryset(self):
         queryset = super().get_queryset()
+        empresa_actual = getattr(self.request, 'tenant', None)
+
+        if self.request.user.is_superuser:
+            # Superusuarios ven todos los prospectos de todas las empresas
+            return queryset.order_by('-fecha_solicitud')
+        
+        # Si no es superusuario, filtrar por empresa y por vendedor asignado
+        if empresa_actual:
+            queryset = queryset.filter(empresa=empresa_actual)
+            # Solo si el usuario NO tiene permiso de 'aprobar_prospecto_cartera'
+            # asumimos que es un vendedor y solo ve sus prospectos.
+            # Si tiene el permiso de cartera, verá todos los de su empresa.
+            if not self.request.user.has_perm('prospectos.aprobar_prospecto_cartera'):
+                queryset = queryset.filter(vendedor_asignado=self.request.user)
+        else:
+            queryset = queryset.none() # Si no hay empresa, no mostrar nada
+
         return queryset.order_by('-fecha_solicitud')
 
     def get_context_data(self, **kwargs):
@@ -74,16 +93,33 @@ class SolicitudDetailView(LoginRequiredMixin, PermissionRequiredMixin, TenantAwa
     template_name = 'prospectos/solicitud_detalle.html'
     context_object_name = 'solicitud'
     permission_required = 'prospectos.view_prospecto'
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        empresa_actual = getattr(self.request, 'tenant', None)
+
+        if self.request.user.is_superuser:
+            return queryset
+        
+        if empresa_actual:
+            queryset = queryset.filter(empresa=empresa_actual)
+            if not self.request.user.has_perm('prospectos.aprobar_prospecto_cartera'):
+                queryset = queryset.filter(vendedor_asignado=self.request.user)
+        else:
+            queryset = queryset.none()
+        return queryset
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo_pagina'] = f"Detalle Solicitud #{self.object.pk}"
-        context['rechazo_form'] = RechazoForm()
+        context['titulo_pagina'] = f"Detalle Solicitud #{self.object.pk}"        
+        context['rechazo_form'] = RechazoForm() # Se inicializa vacío para el GET
         return context
+
 
 
 @require_POST
 @login_required
-@permission_required('prospectos.change_prospecto', raise_exception=True)
+@permission_required('prospectos.aprobar_prospecto_cartera', raise_exception=True)
 def aprobar_solicitud(request, pk):
     """
     Aprueba una solicitud, crea el cliente y activa los pedidos pendientes.
@@ -144,19 +180,24 @@ def aprobar_solicitud(request, pk):
 
 @require_POST
 @login_required
-@permission_required('prospectos.change_prospecto', raise_exception=True)
+@permission_required('prospectos.rechazar_prospecto_cartera', raise_exception=True)
 def rechazar_solicitud(request, pk):
     # (Esta función se mantiene sin cambios)
     solicitud = get_object_or_404(Prospecto, pk=pk, empresa=request.tenant)
     if solicitud.estado not in ['PENDIENTE', 'EN_ESTUDIO']:
         messages.warning(request, f"La solicitud de '{solicitud.nombre_completo}' ya ha sido procesada.")
         return redirect('prospectos:detalle_solicitud', pk=solicitud.pk)
-    form = RechazoForm(request.POST)
+    
+    form = RechazoForm(request.POST, request.FILES)
     if form.is_valid():
         solicitud.estado = 'RECHAZADO'
         solicitud.notas_evaluacion = form.cleaned_data['notas_evaluacion']
+
+        if form.cleaned_data['documento_adjunto_rechazo']:
+            solicitud.documento_rechazo = form.cleaned_data['documento_adjunto_rechazo']
         solicitud.save()
         messages.info(request, f"La solicitud de '{solicitud.nombre_completo}' ha sido rechazada.")
     else:
-        messages.error(request, "Error al procesar el rechazo. El motivo es obligatorio.")
+        messages.error(request, "Error al procesar el rechazo. Por favor, corrija los errores.")
+
     return redirect('prospectos:detalle_solicitud', pk=solicitud.pk)

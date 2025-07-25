@@ -121,7 +121,7 @@ def crear_pedido_online(request, pk=None):
                             for error in errores_stock: messages.error(request, error)
                             # If there are stock errors, we don't save and re-render the form
                             context = {
-                                'titulo': f'Edit Online Draft #{pk}' if pk else 'Create Online Order',
+                                'titulo': f'Edit Online Draft #{pk}' if pk else 'Crear Pedido Online',
                                 'form': form,
                                 'cliente_form': ClienteOnlineForm(),
                                 'pedido_instance': pedido_instance,
@@ -215,7 +215,7 @@ def crear_pedido_online(request, pk=None):
         detalles_existentes_json = json.dumps(detalles_data)
 
     context = {
-        'titulo': f'Edit Online Draft #{pk}' if pk else 'Create Online Order',
+        'titulo': f'Edit Online Draft #{pk}' if pk else 'Crear Pedido Online',
         'form': form,
         'cliente_form': ClienteOnlineForm(),
         'pedido_instance': pedido_instance,

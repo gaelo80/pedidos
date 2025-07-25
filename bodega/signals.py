@@ -113,3 +113,64 @@ def crear_notificacion_despacho_listo(sender, instance, created, **kwargs):
         logger.warning(f"El grupo '{grupo_destino}' no existe. No se pudo notificar.")
     except Exception as e:
         logger.error(f"Error creando notificación para despacho #{instance.id}: {e}")
+        
+@receiver(post_save, sender=MovimientoInventario)
+def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
+
+    if created and instance.cantidad > 0:
+
+        tipos_entrada_relevantes_para_vendedores = [
+            'ENTRADA_COMPRA', 'ENTRADA_AJUSTE', 'ENTRADA_DEVOLUCION_CLIENTE',
+            'ENTRADA_OTRO', 'ENTRADA_RECHAZO_CARTERA', 'ENTRADA_RECHAZO_ADMIN',
+            'ENTRADA_DEV_MUESTRARIO', 'ENTRADA_DEV_EXHIBIDOR', 'ENTRADA_DEV_TRASLADO',
+            'ENTRADA_DEV_PRESTAMO', 'ENTRADA_DEV_INTERNA_OTRA', 'ENTRADA_CAMBIO',
+        ]
+
+        if instance.tipo_movimiento in tipos_entrada_relevantes_para_vendedores:
+            producto = instance.producto
+            empresa = instance.empresa
+
+            try:
+                producto.refresh_from_db() 
+            except Producto.DoesNotExist:
+                logger.error(f"Error en señal notificar_entrada_stock_a_vendedores: Producto ID {instance.producto.pk} no encontrado.")
+                return # No continuar si el producto no existe
+
+
+
+            if producto.stock_actual > 0: # Solo si el stock está realmente disponible ahora
+                mensaje_notificacion = (
+                    f"¡Stock Disponible! La referencia '{producto.referencia} "
+                    f"({producto.color} - Talla {producto.talla})' "
+                    f"ha ingresado a bodega por '{instance.get_tipo_movimiento_display()}'. "
+                    f"Stock actual: {producto.stock_actual} unidades."
+                )
+                
+                url_producto = None
+                try:
+ 
+                    url_producto = reverse('productos:detalle_producto', args=[producto.pk]) 
+                except NoReverseMatch:
+                    logger.warning(f"No se encontró la URL 'productos:detalle_producto' para producto ID {producto.pk}.")
+                    
+                    
+                vendedores_a_notificar = User.objects.filter(
+                    perfil_vendedor__empresa=empresa,
+                    is_active=True
+                )
+                with transaction.atomic(): # Asegurar que las notificaciones se creen juntas
+                    for usuario_vendedor in vendedores_a_notificar:
+
+                        if not Notificacion.objects.filter(destinatario=usuario_vendedor, mensaje=mensaje_notificacion, leido=False).exists():
+                            Notificacion.objects.create(
+                                destinatario=usuario_vendedor,
+                                mensaje=mensaje_notificacion,
+                                url=url_producto, # Opcional: URL para ir al detalle del producto
+                                leido=False
+                            )
+                        else:
+                            logger.debug(f"Notificación de stock para {producto.referencia} para {usuario_vendedor.username} ya existía o no se duplicó.")
+            else:
+                logger.debug(f"DEBUG: Stock de '{producto.referencia}' es 0 o negativo ({producto.stock_actual}). No se notifica a vendedores.")
+    else:
+        logger.debug(f"DEBUG: Movimiento Inventario #{instance.pk} ignorado (no es creación o no es entrada).")
