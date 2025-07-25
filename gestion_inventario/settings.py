@@ -74,8 +74,8 @@ SECRET_KEY = config('SECRET_KEY')
 
 #ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'pedidoslouisferry.localhost']
 ALLOWED_HOSTS = [
-                'pedidosluisferry.online', 
-                'www.pedidosluisferry.online',
+                'pedidoslouisferry.online', 
+                'www.pedidoslouisferry.online',
                 'pedidoswhite.online',
                 'www.pedidoswhite.online',
                 'pedidosharmony.online',
