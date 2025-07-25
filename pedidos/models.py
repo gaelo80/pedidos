@@ -6,6 +6,7 @@ from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
+from pedidos_online.models import ClienteOnline
 
 class Pedido(models.Model):
     empresa = models.ForeignKey(
@@ -26,16 +27,40 @@ class Pedido(models.Model):
         ('PROCESANDO', 'Procesando en Bodega'),
         ('COMPLETADO', 'Completado en Bodega'),
         ('ENVIADO_INCOMPLETO', 'Enviado Incompleto'),
+        ('LISTO_BODEGA_DIRECTO', 'Listo para Bodega (Directo)'),
         ('ENVIADO', 'Enviado'),
         ('ENTREGADO', 'Entregado'),
         ('CANCELADO', 'Cancelado'),
+        ('CAMBIO_REGISTRADO', 'Cambio de Producto Registrado'),
         
     ]
+    
+    cliente_online = models.ForeignKey(
+        ClienteOnline,
+        on_delete=models.PROTECT,
+        related_name='pedidos_online_rel',
+        verbose_name="Cliente Online",
+        null=True, # <<< PERMITIR NULO
+        blank=True
+    )
+    
+    TIPO_PEDIDO_CHOICES = [
+        ('ESTANDAR', 'Estándar'),
+        ('ONLINE', 'Online'),
+    ]
+    
+    tipo_pedido = models.CharField(
+        max_length=10,
+        choices=TIPO_PEDIDO_CHOICES,
+        default='ESTANDAR',
+        verbose_name="Tipo de Pedido"
+    )
+
     
     cliente = models.ForeignKey(
         'clientes.Cliente',
         on_delete=models.PROTECT, 
-        related_name='pedidos', 
+        related_name='pedidos_estandar',
         verbose_name="Cliente", 
         null=True, 
         blank=True
@@ -44,10 +69,34 @@ class Pedido(models.Model):
     prospecto = models.ForeignKey(
         'prospectos.Prospecto',
         on_delete=models.SET_NULL,
-        related_name='pedidos',
+        related_name='pedidos_prospecto', 
         verbose_name="Prospecto (Cliente Nuevo)",
         null=True,
         blank=True
+    )
+    
+    FORMA_PAGO_CHOICES = [
+        ('CREDITO', 'Crédito'),
+        ('CONTADO', 'Contado'),
+        ('ADDI', 'Addi'),
+        ('TARJETA_CREDITO', 'Tarjeta de Crédito'),
+        ('TARJETA_DEBITO', 'Tarjeta Débito'),
+        ('TRANSFERENCIA', 'Transferencia Bancaria'),
+        ('OTRO_ONLINE', 'Otro Pago Online'),
+    ]
+    
+    forma_pago = models.CharField(
+        max_length=20,
+        choices=FORMA_PAGO_CHOICES,
+        default='CREDITO',
+        verbose_name="Forma de Pago"
+    )
+    
+    comprobante_pago = models.FileField(
+        upload_to='comprobantes_pago/', # Directory where files will be saved
+        null=True,
+        blank=True,
+        verbose_name="Comprobante de Pago"
     )
     
     
@@ -74,6 +123,8 @@ class Pedido(models.Model):
         Devuelve el objeto del cliente o del prospecto asociado al pedido.
         Esto simplifica el acceso a los datos del destinatario en las plantillas.
         """
+        if self.tipo_pedido == 'ONLINE' and self.cliente_online:
+            return self.cliente_online
         if self.cliente:
             return self.cliente
         if self.prospecto:
@@ -94,14 +145,30 @@ class Pedido(models.Model):
     
     def clean(self):
         super().clean()
-        if self.cliente and self.prospecto:
-            raise ValidationError("Un pedido no puede estar asociado a un cliente existente y a un prospecto al mismo tiempo.")
-        if not self.cliente and not self.prospecto:
-            raise ValidationError("El pedido debe estar asociado a un cliente o a un prospecto.")
+
+        # Validaciones para pedidos ESTANDAR
+        if self.tipo_pedido == 'ESTANDAR':
+            if self.cliente_online:
+                raise ValidationError("Un pedido Estándar no puede tener un Cliente Online.")
+            if self.cliente and self.prospecto:
+                raise ValidationError("Un pedido Estándar no puede estar asociado a un cliente existente y a un prospecto al mismo tiempo.")
+            if not self.cliente and not self.prospecto:
+                raise ValidationError("Un pedido Estándar debe estar asociado a un cliente existente o a un prospecto.")
+
+        # Validaciones para pedidos ONLINE
+        elif self.tipo_pedido == 'ONLINE':
+            if self.cliente or self.prospecto:
+                raise ValidationError("Un pedido Online no puede tener un Cliente Estándar o un Prospecto.")
+            if not self.cliente_online:
+                raise ValidationError("Un pedido Online debe tener un Cliente Online asignado.")
+
+        # Mantener las validaciones de empresa existentes y añadir para cliente_online
         empresa = getattr(self, 'empresa', None)
         if empresa:
             if self.cliente and self.cliente.empresa_id != self.empresa_id:
                 raise ValidationError(f"El cliente '{self.cliente}' no pertenece a la empresa '{empresa}'.")
+            if self.cliente_online and self.cliente_online.empresa_id != self.empresa_id:
+                raise ValidationError(f"El cliente online '{self.cliente_online}' no pertenece a la empresa '{empresa}'.")
             if self.vendedor and hasattr(self.vendedor.user, 'empresa') and self.vendedor.user.empresa_id != self.empresa_id:
                 raise ValidationError(f"El vendedor '{self.vendedor}' no pertenece a la empresa '{empresa}'.")
             if self.prospecto and self.prospecto.empresa_id != self.empresa_id:
@@ -115,6 +182,8 @@ class Pedido(models.Model):
                 self.empresa_id = self.vendedor.empresa_id
             elif self.prospecto and self.prospecto.empresa_id:
                 self.empresa_id = self.prospecto.empresa_id
+            elif self.cliente_online and self.cliente_online.empresa_id: # Añadir esta condición
+                self.empresa_id = self.cliente_online.empresa_id
         super().save(*args, **kwargs)
 
     @property
@@ -171,9 +240,12 @@ class Pedido(models.Model):
         
 
     def __str__(self):
+        # Asegúrate de que destinatario siempre devuelva un objeto con nombre_completo
         nombre_referencia = self.destinatario.nombre_completo
         if self.prospecto:
             nombre_referencia = f"[Prospecto] {nombre_referencia}"
+        elif self.tipo_pedido == 'ONLINE' and self.cliente_online:
+            nombre_referencia = f"[Online] {nombre_referencia}"
         return f"Pedido #{self.pk} - {nombre_referencia} ({self.get_estado_display()})"
     
     
@@ -185,7 +257,20 @@ class Pedido(models.Model):
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE, verbose_name="Pedido Asociado") 
     producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='detalles_pedido', verbose_name="Producto") 
-    cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad") 
+    
+    cantidad = models.IntegerField(default=1, verbose_name="Cantidad") 
+    
+    TIPO_DETALLE_CHOICES = [
+        ('ENVIO', 'Producto Enviado'),
+        ('DEVOLUCION', 'Producto Devuelto'),
+    ]
+    tipo_detalle = models.CharField(
+        max_length=10,
+        choices=TIPO_DETALLE_CHOICES,
+        default='ENVIO', # Por defecto, la mayoría de los detalles son envíos
+        verbose_name="Tipo de Detalle"
+    )
+    
     precio_unitario = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -219,9 +304,12 @@ class DetallePedido(models.Model):
             return max(0, pendiente)
 
     def __str__(self):
-        return f"{self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido.pk})"
+
+            if self.tipo_detalle == 'DEVOLUCION':
+                return f"DEVOLUCIÓN: {self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido.pk})"
+            return f"{self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido.pk})"
 
     class Meta:
         verbose_name = "Detalle de Pedido"
         verbose_name_plural = "Detalles de Pedido"
-        unique_together = ('pedido', 'producto')
+        unique_together = ('pedido', 'producto', 'tipo_detalle')

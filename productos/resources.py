@@ -13,9 +13,11 @@ class CustomProductInstanceLoader(ModelInstanceLoader):
         Define cómo buscar un producto existente.
         Usa la columna 'referencia' del archivo para la búsqueda.
         """
-        # Puedes cambiar 'referencia' por el nombre de la columna
-        # que uses como identificador único en tu archivo (ej. 'codigo_barras').
-        return {'referencia': row.get('referencia')}
+        return {
+            'referencia': row.get('referencia'),
+            'talla': row.get('talla'),
+            'color': row.get('color')
+        }
 
 class ProductoResource(resources.ModelResource):
     """

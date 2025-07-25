@@ -14,13 +14,26 @@ PANEL_OPTIONS_CONFIG = [
     },
     
     {
+        'titulo': 'Crear Pedido Online',
+        'descripcion': 'Registrar un nuevo pedido para un cliente.',
+        'url_nombre': 'pedidos_online:crear_pedido_online',
+        'icono': 'fas fa-plus-circle',
+        'icono_color_class': 'icon-success',
+        #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
+        'rol_requerido': ['es_online', 'es_admin_sistema'], # No se necesita si se usa permiso_requerido
+        'order': 1,
+        'roles_info': ['vendedor'], # Mantener para info si se usa en plantilla
+        #ok
+    },
+    
+    {
         'titulo': 'Formulario de Solicitud de Cliente Nuevo',
         'descripcion': 'Ingresa requisitos de estudio para nuevo cliente',
         'url_nombre': 'prospectos:crear_solicitud',
         'icono': 'fas fa-plus-circle',
         'icono_color_class': 'icon-success',
         #'permiso_requerido': 'pedidos.add_pedido', # Opción 1: Usar permiso Django
-        'rol_requerido': 'es_vendedor', # No se necesita si se usa permiso_requerido
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema'], # No se necesita si se usa permiso_requerido
         'order': 5,
         'roles_info': ['Vendedor', 'admin'], # Mantener para info si se usa en plantilla
         #ok
@@ -65,8 +78,20 @@ PANEL_OPTIONS_CONFIG = [
         #ok
     },
     
-    
         {
+        'titulo': 'Borradores Guardados (Online)',
+        'descripcion': 'Aquí encontrarás tus Borradores.',
+        'url_nombre': 'pedidos_online:lista_pedidos_borrador_online',
+        'icono': 'fas fa-file-alt',
+        'icono_color_class': 'icon-warning',
+        #'permiso_requerido': 'pedidos.view_pedido', # O un permiso más específico si lo tienes
+        'rol_requerido': ['es_online', 'es_admin_sistema'],
+        'order': 2,
+        'roles_info': ['vendedor']
+        #ok
+    },
+    
+    {
         'titulo': 'Recaudos de Dinero',
         'descripcion': 'Registrar un recaudo de dinero recibido de un cliente.',
         'url_nombre': 'recaudos:crear_recaudo',
@@ -133,6 +158,33 @@ PANEL_OPTIONS_CONFIG = [
         'roles_info': ['Vendedor']
         #ok
     },
+    
+    {
+        'titulo': 'Informe de Ventas por vendedor online',
+        'descripcion': 'Cantidad de unidades Vendidas por vendedor online.',
+        'url_nombre': 'pedidos_online:reporte_ventas_vendedor_online',
+        'icono': 'fas fa-chart-bar',
+        'icono_color_class': 'icon-primary',
+        #'permiso_requerido': 'informes.view_reporte_ventas_vendedor', 
+        'rol_requerido': ['es_online'],
+        'order': 4,
+        'roles_info': ['Vendedor']
+        #ok
+    },
+    
+    {
+        'titulo': 'Informe de Ventas General online',
+        'descripcion': 'Cantidad de unidades Vendidas por vendedor online.',
+        'url_nombre': 'pedidos_online:reporte_ventas_general_online',
+        'icono': 'fas fa-chart-bar',
+        'icono_color_class': 'icon-primary',
+        #'permiso_requerido': 'informes.view_reporte_ventas_vendedor', 
+        'rol_requerido': ['es_online', 'es_admin_sistema'],
+        'order': 4,
+        'roles_info': ['Vendedor']
+        #ok
+    },
+    
     {
         'titulo': 'Listado de clientes',
         'descripcion': 'Ver lista de clientes registrados.',
@@ -240,8 +292,19 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'informes:informe_lista_devoluciones',
         'icono': 'fa-solid fa-undo-alt',
         'icono_color_class': 'icon-info',
-        'permiso_requerido': 'informes.view_informe_devoluciones',
+        'rol_requerido': ['es_bodega', 'es_admin_sistema' 'es_vendedor', 'es_cartera', 'es_factura'], # Permiso para ver el informe
         'roles_info': ['cartera', 'administracion']
+        #ok
+    },
+    
+    {
+        'titulo': 'Cambios de producto',
+        'descripcion': 'Registrar cambios de producto.',
+        'url_nombre': 'pedidos_online:registrar_cambio_online',
+        'icono': 'fa-solid fa-undo-alt',
+        'icono_color_class': 'icon-info',
+        'rol_requerido': ['es_online', 'es_admin_sistema'], # Permiso para ver el informe
+        'roles_info': ['online']
         #ok
     },
 
@@ -406,7 +469,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'catalogo:catalogo_generar_enlace_usuario', # La URL que creamos para la vista de generación
         'icono': 'fas fa-share-alt',
         'icono_color_class': 'icon-primary', # O la clase de color que prefieras
-        'rol_requerido': ['es_vendedor', 'es_admin_sistema', 'es_cartera'], # Define qué roles pueden ver esta tarjeta (ajusta según necesites)
+        'rol_requerido': ['es_vendedor', 'es_admin_sistema', 'es_cartera', 'es_online'], # Define qué roles pueden ver esta tarjeta (ajusta según necesites)
         'order': 5, # Ajusta el orden en el que quieres que aparezca esta tarjeta para los vendedores
         'roles_info': ['vendedor'], # Roles que tendrían esta opción
     },
@@ -441,7 +504,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'informes:informe_total_pedidos',
         'icono': 'fa-solid fa-list-ol',
         'icono_color_class': 'icon-dark',
-        'permiso_requerido': ['administracion', 'admin', 'cartera', 'factura'], 
+        'rol_requerido': ['administracion', 'admin', 'cartera', 'factura'], 
         'roles_info': ['administracion', 'admin', 'cartera', 'factura']
         #ok
     },
@@ -472,7 +535,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'user_management:user_list', # La app que estamos creando
         'icono': 'fas fa-users-cog',
         'icono_color_class': 'icon-primary',
-        'permiso_requerido': 'auth.view_user', # O un permiso más general de "gestionar usuarios"
+        'rol_requerido': 'auth.view_user', # O un permiso más general de "gestionar usuarios"
         'roles_info': ['admin_app', 'administracion']
     },
 ]

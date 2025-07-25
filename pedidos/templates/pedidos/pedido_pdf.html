@@ -104,6 +104,7 @@
                 <p><strong>Fecha:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
                 <p><strong>Vendedor:</strong> {{ pedido.vendedor|default:"N/A" }}</p>
                 <p><strong>Estado:</strong> {{ pedido.get_estado_display|default:pedido.estado }}</p>
+                <p><strong>Forma de Pago:</strong> {{ pedido.get_forma_pago_display|default:"N/A" }}</p>
             </td>
         </tr>
     </table>

@@ -17,7 +17,7 @@
     </div>
     <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">¡Pedido #{{ pedido.pk }} Creado Exitosamente!</h4>
-        <p>Tu pedido para el cliente <strong>{{ pedido.cliente.nombre_completo|default:"N/A" }}</strong> ha sido procesado correctamente.</p>
+        <p>Tu pedido para el cliente <strong>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</strong> ha sido procesado correctamente.</p>
         <hr>
         <p class="mb-0">Puedes realizar las siguientes acciones:</p>
     </div>
@@ -41,8 +41,8 @@
             <small class="d-block w-100 text-muted mt-1">El cliente no tiene un número de teléfono configurado para WhatsApp.</small>
         {% endif %}
 
-        {# Botón para Crear Nuevo Pedido #}
-        <a href="{% url 'pedidos:crear_pedido_web' %}" class="btn btn-secondary">
+        {# Botón para Crear Nuevo Pedido - URL dinámica #}
+        <a href="{% url crear_nuevo_pedido_url %}" class="btn btn-secondary">
             <i class="fas fa-plus me-1" ></i> Crear Nuevo Pedido
         </a>
 

@@ -1,0 +1,1002 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block extra_head %}
+    <!-- Incluye Tailwind CSS CDN (si no está ya configurado en tu proyecto) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Fuentes personalizadas (ej. Inter) */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Color de fondo muy claro */
+        }
+        /* Estilos para Select2 con Tailwind */
+        .select2-container--bootstrap-5 .select2-selection--single {
+            border-radius: 0.5rem !important; /* rounded-lg */
+            border-color: #d1d5db !important; /* gray-300 */
+            height: 2.5rem !important; /* h-10 */
+            padding-left: 0.75rem !important; /* pl-3 */
+            padding-right: 0.75rem !important; /* pr-3 */
+            display: flex !important;
+            align-items: center !important;
+        }
+        .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+            color: #1f2937 !important; /* gray-900 */
+            line-height: 1.5 !important; /* leading-tight */
+        }
+        .select2-container--bootstrap-5 .select2-dropdown {
+            border-color: #d1d5db !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; /* shadow-md */
+        }
+        .select2-container--bootstrap-5 .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: #e0f2fe !important; /* blue-100 */
+            color: #1e40af !important; /* blue-800 */
+        }
+        .select2-container--bootstrap-5 .select2-results__option--selected {
+            background-color: #bfdbfe !important; /* blue-200 */
+            color: #1e40af !important;
+        }
+        .form-control, .form-select, .btn {
+            border-radius: 0.5rem !important; /* rounded-lg */
+        }
+        .card {
+            border-radius: 0.75rem !important; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; /* shadow-lg */
+            border: none !important;
+        }
+        .card-header {
+            background-color: #eff6ff !important; /* blue-50 */
+            color: #1e40af !important; /* blue-800 */
+            border-bottom: 1px solid #dbeafe !important; /* blue-100 */
+            padding: 1rem 1.5rem !important;
+            font-size: 1.125rem !important; /* text-lg */
+            font-weight: 600 !important; /* font-semibold */
+            border-top-left-radius: 0.75rem !important;
+            border-top-right-radius: 0.75rem !important;
+        }
+        .btn-primary {
+            background-color: #3b82f6 !important; /* blue-500 */
+            border-color: #3b82f6 !important;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb !important; /* blue-600 */
+            border-color: #2563eb !important;
+        }
+        .btn-secondary {
+            background-color: #6b7280 !important; /* gray-500 */
+            border-color: #6b7280 !important;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563 !important; /* gray-600 */
+            border-color: #4b5563 !important;
+        }
+        .btn-success {
+            background-color: #10b981 !important; /* emerald-500 */
+            border-color: #10b981 !important;
+        }
+        .btn-success:hover {
+            background-color: #059669 !important; /* emerald-600 */
+            border-color: #059669 !important;
+        }
+        .btn-warning {
+            background-color: #f59e0b !important; /* amber-500 */
+            border-color: #f59e0b !important;
+            color: #fff !important;
+        }
+        .btn-warning:hover {
+            background-color: #d97706 !important; /* amber-600 */
+            border-color: #d97706 !important;
+        }
+        .btn-danger {
+            background-color: #ef4444 !important; /* red-500 */
+            border-color: #ef4444 !important;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626 !important; /* red-600 */
+            border-color: #dc2626 !important;
+        }
+        .table th, .table td {
+            padding: 0.75rem;
+            vertical-align: middle;
+        }
+        .table-sm th, .table-sm td {
+            padding: 0.5rem;
+        }
+        .table-bordered th, .table-bordered td {
+            border: 1px solid #e5e7eb; /* gray-200 */
+        }
+        .table-light thead th {
+            background-color: #f9fafb; /* gray-50 */
+            color: #374151; /* gray-700 */
+        }
+        .alert-danger {
+            background-color: #fee2e2; /* red-100 */
+            color: #991b1b; /* red-800 */
+            border-color: #fca5a5; /* red-300 */
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.25rem;
+        }
+        .invalid-feedback {
+            display: block; /* Para que se muestre debajo del input */
+            color: #ef4444; /* red-500 */
+            font-size: 0.875rem; /* text-sm */
+            margin-top: 0.25rem;
+        }
+        .input-group-text {
+            background-color: #e5e7eb; /* gray-200 */
+            border-color: #d1d5db; /* gray-300 */
+            border-radius: 0.5rem;
+        }
+        /* Estilos para los badges de stock */
+        .badge {
+            padding: 0.35em 0.65em;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.75rem; /* text-xs */
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            display: inline-block;
+        }
+        .bg-success { background-color: #10b981; color: #fff; } /* emerald-500 */
+        .bg-danger { background-color: #ef4444; color: #fff; } /* red-500 */
+        .bg-warning { background-color: #f59e0b; color: #fff; } /* amber-500 */
+        .text-dark { color: #1f2937; } /* gray-900 */
+        /* Estilos específicos para el modal de resumen */
+        .summary-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .summary-card {
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .summary-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        .summary-card p, .summary-card li {
+            font-size: 0.875rem;
+            color: #4a5568;
+            margin-bottom: 0.25rem;
+        }
+        .summary-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .summary-card ul li:last-child {
+            margin-bottom: 0;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+        }
+        .summary-table th, .summary-table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+        .summary-table th {
+            background-color: #edf2f7;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .summary-table tbody tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">{{ titulo }}</h1>
+        <div class="flex space-x-3"> {# Contenedor para los botones de navegación #}
+            <a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">
+                <i class="fas fa-list-alt mr-2"></i> Ver Borradores
+            </a>
+            <a href="{% url 'core:index' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-300 ease-in-out shadow-md">
+                <i class="fas fa-arrow-left mr-2"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="pedido-online-form" novalidate class="space-y-6" enctype="multipart/form-data"> {# AÑADIDO: enctype #}
+        {% csrf_token %}
+
+        <!-- Sección 1: Datos del Pedido -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="card-header">1. Datos del Pedido</div>
+            <div class="p-6">
+                {% if form.non_field_errors %}
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+                        {% for error in form.non_field_errors %}<p class="mb-0">{{ error }}</p>{% endfor %}
+                    </div>
+                {% endif %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2">
+                        <label for="id_cliente_selector" class="block text-sm font-semibold text-gray-700 mb-1">Cliente</label>
+                        <div class="flex items-center space-x-2">
+                            <select id="id_cliente_selector" class="form-control flex-grow"></select>
+                            <button class="flex-shrink-0 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition duration-300 ease-in-out shadow-md" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearCliente" title="Crear Nuevo Cliente Online">
+                                <i class="fas fa-user-plus"></i>
+                            </button>
+                            {# NUEVO BOTÓN: Ver Resumen Cliente #}
+                            <button type="button" id="btn-ver-resumen-cliente" class="flex-shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300 ease-in-out shadow-md" title="Ver Resumen del Cliente" style="display: none;">
+                                <i class="fas fa-info-circle"></i> Resumen
+                            </button>
+                            {# FIN NUEVO BOTÓN #}
+                        </div>
+                        {# El input oculto para cliente_online ahora se renderiza directamente desde el formulario #}
+                        {{ form.cliente_online }} 
+                        <div class="text-red-500 text-sm mt-1">{{ form.cliente_online.errors }}</div>
+                    </div>
+                    <div>
+                        <label for="{{ form.porcentaje_descuento.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.porcentaje_descuento.label }}</label>
+                        {{ form.porcentaje_descuento }}
+                        <div class="text-red-500 text-sm mt-1">{{ form.porcentaje_descuento.errors }}</div>
+                    </div>
+                    {# --- CAMPO: FORMA DE PAGO --- #}
+                    <div>
+                        <label for="{{ form.forma_pago.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.forma_pago.label }}</label>
+                        {{ form.forma_pago }} 
+                        <div class="text-red-500 text-sm mt-1">{{ form.forma_pago.errors }}</div>
+                    </div>
+                    {# --- FIN CAMPO FORMA DE PAGO --- #}
+                    <div class="md:col-span-3">
+                         <label for="{{ form.notas.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.notas.label }}</label>
+                        {{ form.notas }}
+                        <div class="text-red-500 text-sm mt-1">{{ form.notas.errors }}</div>
+                    </div>
+                    {# --- NUEVO CAMPO: COMPROBANTE DE PAGO --- #}
+                    <div class="md:col-span-3"> {# Ocupa el ancho completo de la fila #}
+                        <label for="{{ form.comprobante_pago.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.comprobante_pago.label }}</label>
+                        {{ form.comprobante_pago }}
+                        {% if form.comprobante_pago.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.comprobante_pago.errors }}</div>
+                        {% endif %}
+                        {% if form.instance.comprobante_pago %} {# Si ya hay un archivo adjunto #}
+                            <p class="text-sm text-gray-500 mt-2">
+                                Archivo actual: <a href="{{ form.instance.comprobante_pago.url }}" target="_blank" class="text-blue-600 hover:underline">Ver Comprobante</a>
+                                ({{ form.instance.comprobante_pago.name|truncatechars:30 }})
+                            </p>
+                        {% endif %}
+                    </div>
+                    {# --- FIN NUEVO CAMPO COMPROBANTE DE PAGO --- #}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 2: Agregar Productos -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="card-header">2. Agregar Productos al Pedido</div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="mb-4">
+                            <label for="id_ref_selector" class="block text-sm font-semibold text-gray-700 mb-1">Referencia</label>
+                            <select id="id_ref_selector" class="form-control"></select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="id_color_selector" class="block text-sm font-semibold text-gray-700 mb-1">Color</label>
+                            <select id="id_color_selector" class="form-control" disabled></select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Cantidades por Talla</label>
+                        <div id="tallas-grid-container" class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[100px] flex items-center justify-center text-gray-500">
+                            Selecciona una referencia y color para ver las tallas disponibles.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 3: Detalle del Pedido y Resumen -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="card-header">3. Detalle del Pedido</div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-auto border-collapse" id="tabla-detalles">
+                                <thead class="bg-blue-50">
+                                    <tr>
+                                        <th>Ref.</th>
+                                        <th>Color</th>
+                                        <th>Detalle Tallas/Cant.</th>
+                                        <th class="text-right">Vr. Unitario</th>
+                                        <th class="text-center">Cant. Total</th>
+                                        <th class="text-right">Subtotal</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-detalles" class="bg-white divide-y divide-gray-200">
+                                    <tr id="fila-vacia"><td colspan="7" class="text-center text-gray-500 py-6">Aún no has agregado productos.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-1 bg-blue-50 p-6 rounded-lg shadow-inner">
+                        <h5 class="mb-3">Resumen de Totales</h5>
+                        <table class="w-full text-gray-700">
+                            <tbody>
+                                <tr>
+                                    <td>Subtotal Bruto (Sin IVA):</td>
+                                    <td id="subtotal-bruto" class="text-end font-bold">$0</td>
+                                </tr>
+                                <tr>
+                                    <td>Descuento (<span id="descuento-pct">0</span>%):</td>
+                                    <td id="valor-descuento" class="text-end font-bold text-red-500">-$0</td>
+                                </tr>
+                                <tr>
+                                    <td>Subtotal Neto (Sin IVA):</td>
+                                    <td id="subtotal-neto" class="text-end font-bold">$0</td>
+                                </tr>
+                                <tr>
+                                    <td>IVA (<span id="iva-pct">0</span>%):</td>
+                                    <td id="valor-iva" class="text-end font-bold">$0</td>
+                                </tr>
+                                <tr class="bg-blue-100 font-bold text-blue-900">
+                                    <td class="py-3 text-lg">TOTAL A PAGAR:</td>
+                                    <td id="total-general" class="text-end text-2xl">$0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="hidden-inputs-container" class="hidden"></div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end space-x-4">
+            <button type="submit" name="accion" value="guardar_borrador" class="inline-flex items-center px-6 py-3 bg-gray-500 text-white text-lg font-semibold rounded-lg hover:bg-gray-600 transition duration-300 ease-in-out shadow-lg">
+                <i class="fas fa-save mr-2"></i> Guardar Borrador
+            </button>
+            <button type="submit" name="accion" value="crear_definitivo" class="inline-flex items-center px-6 py-3 bg-emerald-500 text-white text-lg font-semibold rounded-lg hover:bg-emerald-600 transition duration-300 ease-in-out shadow-lg">
+                <i class="fas fa-check-circle mr-2"></i> Crear Pedido Definitivo
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Modal para Crear Cliente Online -->
+<div class="modal fade" id="modalCrearCliente" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content rounded-xl shadow-xl">
+            <div class="modal-header bg-blue-600 text-white p-4 rounded-t-xl">
+                <h5 class="modal-title text-xl font-semibold" id="modalLabel">Crear Nuevo Cliente Online</h5>
+                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-6">
+                <form id="form-crear-cliente" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% csrf_token %}
+                    <div>
+                        <label for="{{ cliente_form.nombre_completo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.nombre_completo.label_tag }}</label>
+                        {{ cliente_form.nombre_completo }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div>
+                        <label for="{{ cliente_form.identificacion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.identificacion.label_tag }}</label>
+                        {{ cliente_form.identificacion }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div>
+                        <label for="{{ cliente_form.telefono.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.telefono.label_tag }}</label>
+                        {{ cliente_form.telefono }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div>
+                        <label for="{{ cliente_form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.email.label_tag }}</label>
+                        {{ cliente_form.email }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="{{ cliente_form.direccion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.direccion.label_tag }}</label>
+                        {{ cliente_form.direccion }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div>
+                        <label for="{{ cliente_form.tipo_cliente.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.tipo_cliente.label_tag }}</label>
+                        {{ cliente_form.tipo_cliente }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div>
+                        <label for="{{ cliente_form.forma_pago_preferida.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.forma_pago_preferida.label_tag }}</label>
+                        {{ cliente_form.forma_pago_preferida }}
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
+                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300" id="btn-guardar-cliente">Guardar Cliente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalClienteSummary" tabindex="-1" aria-labelledby="modalClienteSummaryLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl"> {# Modal más grande para el resumen #}
+        <div class="modal-content rounded-xl shadow-xl">
+            <div class="modal-header bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 rounded-t-xl">
+                <h5 class="modal-title text-xl font-semibold" id="modalClienteSummaryLabel">Resumen del Cliente: <span id="summary-client-name"></span></h5>
+                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-6">
+                <div id="summary-loading-indicator" class="text-center py-8">
+                    <div class="spinner-border text-blue-500" role="status">
+                        <span class="visually-hidden">Cargando resumen...</span>
+                    </div>
+                    <p class="text-gray-600 mt-2">Cargando resumen del cliente...</p>
+                </div>
+                <div id="summary-content" class="hidden">
+                    <div class="summary-info-grid mb-6">
+                        <div class="summary-card">
+                            <h4><i class="fas fa-user-circle mr-2 text-blue-500"></i>Información General</h4>
+                            <p><strong>Nombre Completo:</strong> <span id="sum-client-full-name"></span></p> {# Added full name field #}
+                            <p><strong>Tipo:</strong> <span id="sum-client-type"></span></p>
+                            <p><strong>ID:</strong> <span id="sum-client-id"></span></p>
+                            <p><strong>Teléfono:</strong> <span id="sum-client-phone"></span></p>
+                            <p><strong>Email:</strong> <span id="sum-client-email"></span></p>
+                            <p><strong>Dirección:</strong> <span id="sum-client-address"></span></p>
+                            <p><strong>Tipo Cliente:</strong> <span id="sum-client-type-display"></span></p>
+                            <p><strong>F. Creación:</strong> <span id="sum-client-creation-date"></span></p>
+                        </div>
+                        <div class="summary-card">
+                            <h4><i class="fas fa-money-check-alt mr-2 text-green-500"></i>Preferencias y Descuentos</h4>
+                            <p><strong>Forma Pago Pref.:</strong> <span id="sum-client-preferred-payment"></span></p>
+                            <p><strong>Descuento Total Histórico:</strong> <span id="sum-total-discounts-given" class="font-bold text-green-700"></span></p>
+                            {# Aquí podrías añadir un campo de descuento fijo si tu modelo Cliente/ClienteOnline lo tiene #}
+                            {# <p><strong>Descuento Fijo:</strong> <span id="sum-client-fixed-discount"></span></p> #}
+                        </div>
+                        <div class="summary-card">
+                            <h4><i class="fas fa-history mr-2 text-purple-500"></i>Último Pedido</h4>
+                            <p><strong>ID Pedido:</strong> <span id="sum-last-order-id">N/A</span></p>
+                            <p><strong>Fecha:</strong> <span id="sum-last-order-date">N/A</span></p>
+                            <p><strong>Estado:</strong> <span id="sum-last-order-status">N/A</span></p>
+                            <p><strong>Total:</strong> <span id="sum-last-order-total">N/A</span></p>
+                            <p><strong>Vendedor:</strong> <span id="sum-last-order-seller">N/A</span></p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3"><i class="fas fa-clipboard-list mr-2 text-indigo-500"></i>Historial de Pedidos Recientes</h3>
+                    <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+                        <table class="summary-table">
+                            <thead>
+                                <tr>
+                                    <th># Pedido</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th class="text-right">Total</th>
+                                    <th class="text-right">Descuento (%)</th>
+                                    <th class="text-right">Valor Dcto.</th>
+                                    <th>Vendedor</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-order-history-tbody">
+                                <tr><td colspan="7" class="text-center text-gray-500 py-4">No hay pedidos recientes.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3"><i class="fas fa-wallet mr-2 text-red-500"></i>Información de Cartera</h3>
+                    <div id="summary-cartera-info" class="summary-card">
+                        <p class="text-gray-600">Cargando información de cartera...</p>
+                        {# Aquí se cargará dinámicamente la información de cartera #}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
+                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Mover getCookie fuera de DOMContentLoaded para que sea globalmente accesible
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken'); // Obtener el token CSRF una vez
+
+document.addEventListener('DOMContentLoaded', function() {
+    // --- ESTADO Y SELECTORES ---
+    let state = { cliente: null, detalles: new Map(), seleccionActual: { ref: null, color: null, variantes: [] } };
+    const IVA_RATE = parseFloat('{{ IVA_RATE|stringformat:".2f" }}'.replace(',', '.')) || 0.19;
+    const IVA_FACTOR = 1 + IVA_RATE;
+    const clienteSelector = $('#id_cliente_selector'), refSelector = $('#id_ref_selector'), colorSelector = $('#id_color_selector'),
+          tallasGridContainer = $('#tallas-grid-container'), tbodyDetalles = $('#tbody-detalles'), filaVacia = $('#fila-vacia'),
+          hiddenInputsContainer = $('#hidden-inputs-container'), 
+          clienteFormHiddenInput = $('#id_cliente_online'), 
+          descuentoInput = $('#id_porcentaje_descuento'), modalCrearCliente = new bootstrap.Modal(document.getElementById('modalCrearCliente')),
+          formCrearCliente = $('#form-crear-cliente');
+
+    // --- NUEVOS SELECTORES PARA EL RESUMEN DEL CLIENTE ---
+    const btnVerResumenCliente = $('#btn-ver-resumen-cliente');
+    const modalClienteSummary = new bootstrap.Modal(document.getElementById('modalClienteSummary'));
+    const summaryClientName = $('#summary-client-name');
+    const summaryLoadingIndicator = $('#summary-loading-indicator');
+    const summaryContent = $('#summary-content');
+    const sumClientFullName = $('#sum-client-full-name'); 
+    const sumClientType = $('#sum-client-type');
+    const sumClientId = $('#sum-client-id');
+    const sumClientPhone = $('#sum-client-phone');
+    const sumClientEmail = $('#sum-client-email');
+    const sumClientAddress = $('#sum-client-address');
+    const sumClientTypeDisplay = $('#sum-client-type-display');
+    const sumClientPreferredPayment = $('#sum-client-preferred-payment');
+    const sumClientCreationDate = $('#sum-client-creation-date');
+    const sumTotalDiscountsGiven = $('#sum-total-discounts-given');
+    const sumLastOrderId = $('#sum-last-order-id');
+    const sumLastOrderDate = $('#sum-last-order-date');
+    const sumLastOrderStatus = $('#sum-last-order-status');
+    const sumLastOrderTotal = $('#sum-last-order-total');
+    const sumLastOrderSeller = $('#sum-last-order-seller');
+    const summaryOrderHistoryTbody = $('#summary-order-history-tbody');
+    const summaryCarteraInfo = $('#summary-cartera-info');
+    // --- FIN NUEVOS SELECTORES ---
+
+    // --- INICIALIZACIÓN ---
+    console.log("Inicializando script crear_pedido_online.html...");
+    console.log("Objeto window.bootstrap:", window.bootstrap); 
+    console.log("Objeto jQuery ($):", $); 
+
+    clienteSelector.select2({ placeholder: "Buscar por nombre o ID...", theme: "bootstrap-5", ajax: { url: "{% url 'pedidos_online:api_buscar_clientes_unificado' %}", dataType: 'json', delay: 250, data: p => ({ term: p.term }), processResults: d => ({ results: d.results }) } });
+    refSelector.select2({ placeholder: "Buscar referencia...", theme: "bootstrap-5", ajax: { url: "{% url 'productos:api_buscar_referencias' %}", dataType: 'json', delay: 250, data: p => ({ term: p.term }), processResults: d => ({ results: d.results }) } });
+
+    // --- MANEJO DE EVENTOS ---
+    clienteSelector.on('select2:select', function(e) {
+        const data = e.params.data;
+        console.log("Cliente seleccionado en Select2:", data); 
+        if (data.type === 'estandar') {
+            const userConfirmed = confirm("Este es un cliente estándar. ¿Desea crear un nuevo cliente 'Online' con estos datos?");
+            if (userConfirmed) {
+                const clienteId = data.id.replace('std_', '');
+                fetch(`{% url 'pedidos_online:api_get_cliente_estandar_data' 0 %}`.replace('0', clienteId))
+                    .then(r => r.json()).then(d => {
+                        formCrearCliente.find('[name="nombre_completo"]').val(d.nombre_completo);
+                        formCrearCliente.find('[name="identificacion"]').val(d.identificacion);
+                        formCrearCliente.find('[name="telefono"]').val(d.telefono);
+                        formCrearCliente.find('[name="email"]').val(d.email);
+                        formCrearCliente.find('[name="direccion"]').val(d.direccion);
+                        modalCrearCliente.show();
+                    });
+            }
+            clienteSelector.val(null).trigger('change');
+            state.cliente = null;
+            clienteFormHiddenInput.val('');
+            btnVerResumenCliente.hide(); 
+        } else {
+            state.cliente = data;
+            clienteFormHiddenInput.val(data.id.replace('online_', ''));
+            btnVerResumenCliente.show(); 
+        }
+        if (state.detalles.size > 0) renderizarTablaYTotales();
+    });
+
+    // Ocultar el botón de resumen si el selector de cliente está vacío
+    clienteSelector.on('select2:clear', function() {
+        console.log("Selector de cliente limpiado."); 
+        state.cliente = null;
+        clienteFormHiddenInput.val('');
+        btnVerResumenCliente.hide();
+    });
+
+    // Lógica para mostrar/ocultar el botón "Ver Resumen" al cargar la página
+    if (clienteSelector.val()) {
+        const selectedData = clienteSelector.select2('data')[0];
+        if (selectedData && selectedData.type === 'online') {
+            btnVerResumenCliente.show();
+        } else {
+            btnVerResumenCliente.hide();
+        }
+    } else {
+        btnVerResumenCliente.hide();
+    }
+
+
+    refSelector.on('select2:select', e => { state.seleccionActual.ref = e.params.data.id; resetColorYTallas(); fetchColores(state.seleccionActual.ref); });
+    colorSelector.on('change', function() {
+        if (!state.cliente) { alert("Por favor, seleccione un cliente primero."); $(this).val(''); return; }
+        state.seleccionActual.color = $(this).val();
+        fetchTallas(state.seleccionActual.ref, state.seleccionActual.color, state.cliente.data.tipo_cliente);
+    });
+    tallasGridContainer.on('click', '#btn-add-linea', agregarLineaAlPedido);
+    tbodyDetalles.on('click', '.btn-eliminar-linea', function() { state.detalles.delete($(this).closest('tr').data('key')); renderizarTablaYTotales(); });
+    tbodyDetalles.on('change', '.input-precio-linea', function() {
+        const key = $(this).closest('tr').data('key');
+        const detalle = state.detalles.get(key);
+        if (detalle) { 
+            detalle.precioUnitario = parseFloat($(this).val()) || 0; 
+            $(`input[name="precio_${detalle.productos[0].id}"]`).val(detalle.precioUnitario);
+            renderizarTablaYTotales(); 
+        }
+    });
+    descuentoInput.on('change', renderizarTablaYTotales);
+
+    // --- LÓGICA PRINCIPAL ---
+    function fetchColores(ref) {
+        const url = `{% url 'pedidos_online:api_get_colores_for_referencia' '0' %}`.replace('0', ref);
+        fetch(url).then(r => r.json()).then(data => {
+            colorSelector.empty().append('<option selected disabled value="">-- Seleccione Color --</option>');
+            data.forEach(c => colorSelector.append(new Option(c.display, c.valor)));
+            colorSelector.prop('disabled', false);
+            if (data.length === 1) { colorSelector.val(data[0].valor).trigger('change'); }
+        });
+    }
+
+    function fetchTallas(ref, color, tipoCliente) {
+        const url = `{% url 'pedidos_online:api_get_tallas_for_color' 'REF' 'COLOR' %}`.replace('REF', ref).replace('COLOR', color) + `?tipo_cliente=${tipoCliente}`;
+        fetch(url).then(r => r.json()).then(data => { state.seleccionActual.variantes = data.variantes; renderizarGridTallas(data.variantes); });
+    }
+    
+    function renderizarGridTallas(variantes) {
+        let gridHtml = '<div class="flex flex-wrap gap-4 p-4 bg-gray-100 rounded-lg shadow-inner">';
+        if (variantes.length === 0) {
+            gridHtml = '<p class="text-center text-gray-500 py-4 w-full">No hay variantes disponibles para esta referencia y color.</p>';
+        } else {
+            variantes.forEach(v => {
+                let stockClass = 'bg-emerald-500';
+                if (v.stock_actual <= 0) stockClass = 'bg-red-500';
+                else if (v.stock_actual <= 5) stockClass = 'bg-amber-500 text-gray-900';
+                gridHtml += `
+                    <div class="flex flex-col items-center p-2 border border-gray-200 rounded-md bg-white shadow-sm">
+                        <label class="text-xs font-semibold text-gray-700 mb-1">Talla: ${v.talla}</label>
+                        <span class="px-2 py-1 ${stockClass} text-white rounded-full text-xs mb-1">Stock: ${v.stock_actual}</span>
+                        <input type="number" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-center text-sm focus:ring-blue-500 focus:border-blue-500 input-cantidad-talla" min="0" max="${v.stock_actual}" placeholder="Cant." data-product-id="${v.id}" data-precio-base="${v.precio_venta}">
+                    </div>`;
+            });
+            gridHtml += `</div><button type="button" id="btn-add-linea" class="mt-4 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">Agregar al Pedido</button>`;
+        }
+        tallasGridContainer.html(gridHtml).show();
+    }
+
+    function agregarLineaAlPedido() {
+        const { ref, color } = state.seleccionActual;
+        const lineaKey = `${ref}-${color}`;
+        let productosEnEstaLinea = [], precioInicialLinea = 0;
+        $('.input-cantidad-talla').each(function() {
+            const cantidad = parseInt($(this).val()) || 0;
+            if (cantidad > 0) {
+                const id = $(this).data('productId');
+                const precioBase = parseFloat($(this).data('precioBase')) || 0;
+                if (precioInicialLinea === 0) precioInicialLinea = precioBase;
+                const variante = state.seleccionActual.variantes.find(v => v.id === id);
+                productosEnEstaLinea.push({ id, talla: variante.talla, cantidad });
+            }
+        });
+        if (productosEnEstaLinea.length === 0) { alert("Debe ingresar una cantidad para al menos una talla."); return; }
+        const detalleLinea = { ref, color: colorSelector.find('option:selected').text(), productos: productosEnEstaLinea, precioUnitario: precioInicialLinea };
+        state.detalles.set(lineaKey, detalleLinea);
+        renderizarTablaYTotales();
+        resetSeleccionActual();
+    }
+
+    function renderizarTablaYTotales() {
+        tbodyDetalles.empty();
+        hiddenInputsContainer.empty();
+        let subtotalConIva = 0; // Este será el total de todos los subtotales de línea (con IVA)
+        if (state.detalles.size === 0) {
+            tbodyDetalles.append(filaVacia);
+        } else {
+            state.detalles.forEach((detalle, key) => {
+                let cantTotal = 0, subtotalLinea = 0, tallasStr = [];
+                detalle.productos.forEach(p => {
+                    cantTotal += p.cantidad;
+                    subtotalLinea += p.cantidad * detalle.precioUnitario;
+                    tallasStr.push(`${p.talla}: ${p.cantidad}`);
+                    // Asegúrate de que los inputs ocultos para cantidad y precio se generen correctamente
+                    hiddenInputsContainer.append(`<input type="hidden" name="cantidad_${p.id}" value="${p.cantidad}">`);
+                    hiddenInputsContainer.append(`<input type="hidden" name="precio_${p.id}" value="${detalle.precioUnitario}">`);
+                });
+                subtotalConIva += subtotalLinea;
+                const row = `<tr data-key="${key}" class="hover:bg-gray-50">
+                        <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${detalle.ref}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${detalle.color}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">${tallasStr.join(', ')}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-gray-700">
+                            <input type="number" class="w-24 px-2 py-1 border border-gray-300 rounded-md text-right text-sm input-precio-linea" value="${Math.round(detalle.precioUnitario)}">
+                        </td>
+                        <td class="px-4 py-2 whitespace-nowrap text-center text-sm text-gray-700">${cantTotal}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-gray-900 font-semibold">${formatCurrency(subtotalLinea)}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-center text-sm">
+                            <button type="button" class="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 btn-eliminar-linea">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                tbodyDetalles.append(row);
+            });
+        }
+        
+        // CÁLCULO DE TOTALES
+        const subtotalBrutoSinIva = subtotalConIva / IVA_FACTOR;
+        const descuentoPct = parseFloat(descuentoInput.val()) || 0;
+        const valorDescuento = subtotalBrutoSinIva * (descuentoPct / 100);
+        const subtotalNetoSinIva = subtotalBrutoSinIva - valorDescuento;
+        const valorIva = subtotalNetoSinIva * IVA_RATE;
+        const totalFinal = subtotalNetoSinIva + valorIva;
+
+        $('#subtotal-bruto').text(formatCurrency(subtotalBrutoSinIva));
+        $('#descuento-pct').text(descuentoPct);
+        $('#valor-descuento').text(`-${formatCurrency(valorDescuento)}`);
+        $('#subtotal-neto').text(formatCurrency(subtotalNetoSinIva));
+        $('#iva-pct').text(Math.round(IVA_RATE * 100));
+        $('#valor-iva').text(formatCurrency(valorIva));
+        $('#total-general').text(formatCurrency(totalFinal));
+    }
+
+    $('#btn-guardar-cliente').on('click', function() {
+        $('.invalid-feedback').text(''); // Limpiar mensajes de error previos
+        $('.is-invalid').removeClass('is-invalid'); // Limpiar clases de error previas
+
+        $.ajax({
+            type: 'POST', url: "{% url 'pedidos_online:api_crear_cliente_online' %}", data: formCrearCliente.serialize(),
+            success: function(response) {
+                if (response.success) {
+                    const c = response.cliente;
+                    const newOption = new Option(c.text, c.id, true, true);
+                    clienteSelector.append(newOption).trigger('change');
+                    clienteSelector.trigger({ type: 'select2:select', params: { data: {id: c.id, text: c.text, type: 'online', data: c.data} } });
+                    modalCrearCliente.hide();
+                    formCrearCliente[0].reset();
+                } else {
+                    for (const field in response.errors) {
+                        formCrearCliente.find(`[name=${field}]`).addClass('is-invalid').next('.invalid-feedback').text(response.errors[field]);
+                    }
+                }
+            }, error: function(xhr) {
+                // Manejo de errores de conexión o del servidor
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    alert('Error: ' + xhr.responseJSON.error);
+                } else {
+                    alert('Error de conexión o del servidor. Por favor, inténtalo de nuevo.');
+                }
+            }
+        });
+    });
+
+    function resetColorYTallas() { colorSelector.empty().prop('disabled', true); tallasGridContainer.html('Selecciona una referencia y color para ver las tallas disponibles.').show(); }
+    function resetSeleccionActual() { refSelector.val(null).trigger('change'); resetColorYTallas(); }
+    function formatCurrency(value) { return '$' + (value || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }
+
+    function cargarDatosIniciales() {
+        const detallesExistentes = JSON.parse('{{ detalles_existentes_json|safe }}');
+        if (detallesExistentes.length === 0) return;
+        
+        // Cargar cliente inicial si existe
+        const clienteInicialPK = {{ form.instance.cliente_online.pk|default:'null' }};
+        if (clienteInicialPK) {
+            const clienteNombre = '{{ form.instance.cliente_online.nombre_completo|default:'' }}';
+            const clienteIdentificacion = '{{ form.instance.cliente_online.identificacion|default:'' }}';
+            const clienteTipo = '{{ form.instance.cliente_online.tipo_cliente|default:'' }}';
+
+            const clienteText = `[Online] ${clienteNombre} (${clienteIdentificacion})`;
+            const clienteData = { tipo_cliente: clienteTipo };
+            const clienteId = `online_${clienteInicialPK}`;
+
+            // Crear y seleccionar la opción para Select2
+            const newOption = new Option(clienteText, clienteId, true, true);
+            clienteSelector.append(newOption).trigger('change');
+
+            // Actualizar el estado y el input oculto
+            state.cliente = { id: clienteId, text: clienteText, data: clienteData };
+            clienteFormHiddenInput.val(clienteInicialPK); // Usar el nuevo selector
+        }
+
+        // Cargar detalles de productos existentes
+        const detallesAgrupados = detallesExistentes.reduce((acc, d) => {
+            const key = `${d.ref}-${d.color}`;
+            if (!acc[key]) { 
+                acc[key] = { 
+                    ref: d.ref, 
+                    color: d.color === '-' ? 'Sin Color' : d.color, 
+                    productos: [], 
+                    precioUnitario: d.precio_unitario 
+                }; 
+            }
+            acc[key].productos.push({ id: d.producto_id, talla: d.talla, cantidad: d.cantidad });
+            return acc;
+        }, {});
+
+        for (const key in detallesAgrupados) { 
+            state.detalles.set(key, detallesAgrupados[key]); 
+        }
+        renderizarTablaYTotales();
+    }
+    cargarDatosIniciales();
+
+    btnVerResumenCliente.on('click', function() {
+        console.log("Botón 'Ver Resumen' clickeado."); 
+        if (!state.cliente || !state.cliente.id) {
+            alert("Por favor, selecciona un cliente primero para ver su resumen.");
+            console.warn("No hay cliente seleccionado en state.cliente."); 
+            return;
+        }
+
+        summaryClientName.text(state.cliente.text); 
+        summaryLoadingIndicator.show(); 
+        summaryContent.hide(); 
+        
+        try {
+            modalClienteSummary.show(); 
+            console.log("Modal de resumen intentando mostrarse."); 
+        } catch (e) {
+            console.error("Error al intentar mostrar el modal de resumen:", e); 
+            alert("Error al mostrar el resumen. Asegúrate de que Bootstrap JS esté cargado correctamente.");
+            return;
+        }
+
+        const client_id_parts = state.cliente.id.split('_');
+        const client_type = client_id_parts[0]; 
+        const client_pk = client_id_parts[1];
+
+        const urlSummary = `{% url 'pedidos_online:api_get_cliente_summary' client_type='TYPE' client_pk=0 %}`
+            .replace('TYPE', client_type)
+            .replace('0', client_pk);
+        
+        console.log("URL de la API de resumen del cliente:", urlSummary); 
+
+        fetch(urlSummary, {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Respuesta de la API de resumen (raw):", response); 
+            if (!response.ok) {
+                return response.json().then(errData => {
+                    console.error("Error data from API:", errData); 
+                    throw new Error(`Error ${response.status}: ${errData.detail || errData.error || response.statusText}`);
+                }).catch(() => {
+                     throw new Error(`Error ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Resumen del cliente recibido (parsed):", data); 
+            summaryLoadingIndicator.hide(); 
+            summaryContent.show(); 
+
+            // Rellenar información general del cliente
+            sumClientFullName.text(data.client_info.nombre_completo || 'N/A'); 
+            sumClientType.text(data.client_info.type || 'N/A');
+            sumClientId.text(data.client_info.identificacion || 'N/A');
+            sumClientPhone.text(data.client_info.telefono || 'N/A');
+            sumClientEmail.text(data.client_info.email || 'N/A');
+            sumClientAddress.text(data.client_info.direccion || 'N/A');
+            sumClientTypeDisplay.text(data.client_info.tipo_cliente_display || 'N/A');
+            sumClientPreferredPayment.text(data.client_info.forma_pago_preferida_display || 'N/A');
+            sumClientCreationDate.text(data.client_info.fecha_creacion || 'N/A');
+            sumTotalDiscountsGiven.text(formatCurrency(data.total_discounts_given));
+
+            // Rellenar información del último pedido
+            if (data.last_order) {
+                sumLastOrderId.text(data.last_order.id);
+                sumLastOrderDate.text(data.last_order.fecha_hora);
+                sumLastOrderStatus.text(data.last_order.estado);
+                sumLastOrderTotal.text(formatCurrency(data.last_order.total_a_pagar));
+                sumLastOrderSeller.text(data.last_order.vendedor);
+            } else {
+                sumLastOrderId.text('N/A');
+                sumLastOrderDate.text('N/A');
+                sumLastOrderStatus.text('N/A');
+                sumLastOrderTotal.text('N/A');
+                sumLastOrderSeller.text('N/A');
+            }
+
+            // Rellenar historial de pedidos recientes
+            summaryOrderHistoryTbody.empty();
+            if (data.order_history && data.order_history.length > 0) {
+                data.order_history.forEach(order => {
+                    const row = `
+                        <tr>
+                            <td>${order.id}</td>
+                            <td>${order.fecha_hora}</td>
+                            <td>${order.estado}</td>
+                            <td class="text-right">${formatCurrency(order.total_a_pagar)}</td>
+                            <td class="text-right">${order.descuento_aplicado}%</td>
+                            <td class="text-right">${formatCurrency(order.valor_descuento_total)}</td>
+                            <td>${order.vendedor}</td>
+                        </tr>
+                    `;
+                    summaryOrderHistoryTbody.append(row);
+                });
+            } else {
+                summaryOrderHistoryTbody.append('<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay pedidos recientes.</td></tr>');
+            }
+
+            // Rellenar información de cartera (si está disponible)
+            if (data.cartera_info && data.cartera_info.documentos) {
+                let carteraHtml = `
+                    <p><strong>Saldo Total:</strong> <span class="font-bold">${formatCurrency(data.cartera_info.saldo_total)}</span></p>
+                    <p><strong>Saldo Vencido:</strong> <span class="font-bold ${data.cartera_info.saldo_vencido > 0 ? 'text-red-600' : 'text-green-600'}">${formatCurrency(data.cartera_info.saldo_vencido)}</span></p>
+                    <p><strong>Máx. Días Mora:</strong> ${data.cartera_info.max_dias_mora}</p>
+                `;
+                if (data.cartera_info.documentos.length > 0) {
+                    carteraHtml += `
+                        <h5 class="text-md font-semibold text-gray-700 mt-4 mb-2">Documentos Pendientes:</h5>
+                        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+                            <table class="summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Número</th>
+                                        <th>Fecha Doc.</th>
+                                        <th>Fecha Ven.</th>
+                                        <th class="text-right">Saldo</th>
+                                        <th class="text-center">Mora</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    data.cartera_info.documentos.forEach(doc => {
+                        carteraHtml += `
+                            <tr class="${doc.esta_vencido ? 'bg-red-50' : ''}">
+                                <td>${doc.tipo}</td>
+                                <td>${doc.numero}</td>
+                                <td>${doc.fecha_doc}</td>
+                                <td>${doc.fecha_ven}</td>
+                                <td class="text-right">${formatCurrency(doc.saldo)}</td>
+                                <td class="text-center">${doc.dias_mora}</td>
+                            </tr>
+                        `;
+                    });
+                    carteraHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    carteraHtml += '<p class="text-green-600 mt-4"><i class="fas fa-check-circle mr-1"></i>No hay documentos de cartera pendientes.</p>';
+                }
+                summaryCarteraInfo.html(carteraHtml);
+            } else {
+                summaryCarteraInfo.html('<p class="text-gray-500">No hay información de cartera disponible.</p>');
+            }
+
+        })
+        .catch(error => {
+            console.error("Error al obtener el resumen del cliente:", error);
+            summaryLoadingIndicator.hide();
+            summaryContent.show();
+            summaryContent.html(`<div class="text-center py-8 text-red-600">
+                                    <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                                    <p class="text-lg">Error al cargar el resumen del cliente.</p>
+                                    <p class="text-sm">${error.message}</p>
+                                    <p class="text-sm mt-2">Por favor, inténtalo de nuevo más tarde o contacta a soporte.</p>
+                                </div>`);
+        });
+    });
+});
+</script>
+{% endblock %}

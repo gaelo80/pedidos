@@ -1,0 +1,184 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block page_title %}
+    {{ titulo }}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow-sm print-area"> {# Añadir clase 'print-area' para impresión #}
+        <div class="card-header bg-info text-white text-center">
+            <h4 class="mb-0">
+                <i class="fas fa-exchange-alt me-2"></i> Comprobante de Cambio Online #{{ cambio_pedido.pk }}
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <strong>Fecha y Hora del Cambio:</strong> {{ cambio_pedido.fecha_hora|date:"d/m/Y H:i" }}<br>
+                    <strong>Registrado por:</strong> {{ cambio_pedido.vendedor.user.get_full_name }}<br>
+                    <strong>Estado del Cambio:</strong> <span class="badge bg-primary">{{ cambio_pedido.get_estado_display }}</span>
+                </div>
+                <div class="col-md-6 text-end">
+                    <strong>Cliente:</strong> {{ cambio_pedido.cliente_online.nombre_completo }}<br>
+                    <strong>Identificación:</strong> {{ cambio_pedido.cliente_online.identificacion }}<br>
+                    <strong>Teléfono:</strong> {{ cambio_pedido.cliente_online.telefono }}<br>
+                    <strong>Email:</strong> {{ cambio_pedido.cliente_online.email }}<br>
+                    <strong>Dirección:</strong> {{ cambio_pedido.cliente_online.direccion }}
+                </div>
+            </div>
+
+            <hr>
+
+            <h5 class="mb-3 text-danger"><i class="fas fa-arrow-down me-2"></i>Productos Devueltos (Entrada a Bodega)</h5>
+            {% if productos_devueltos %}
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-danger">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Producto</th>
+                            <th>Color</th>
+                            <th>Talla</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in productos_devueltos %}
+                        <tr>
+                            <td>{{ item.referencia }}</td>
+                            <td>{{ item.nombre }}</td>
+                            <td>{{ item.color }}</td>
+                            <td>{{ item.talla }}</td>
+                            <td class="text-center">{{ item.cantidad|intcomma }}</td>
+                            <td class="text-end">${{ item.precio_unitario|floatformat:2|intcomma }}</td>
+                            <td class="text-end">${{ item.subtotal|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="6" class="text-end">Total Valor Devuelto:</th>
+                            <th class="text-end">${{ total_valor_devuelto|floatformat:2|intcomma }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No se registraron productos devueltos en este cambio.</p>
+            {% endif %}
+
+            <h5 class="mb-3 text-success"><i class="fas fa-arrow-up me-2"></i>Productos Enviados (Salida de Bodega)</h5>
+            {% if productos_enviados %}
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-success">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Producto</th>
+                            <th>Color</th>
+                            <th>Talla</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in productos_enviados %}
+                        <tr>
+                            <td>{{ item.referencia }}</td>
+                            <td>{{ item.nombre }}</td>
+                            <td>{{ item.color }}</td>
+                            <td>{{ item.talla }}</td>
+                            <td class="text-center">{{ item.cantidad|intcomma }}</td>
+                            <td class="text-end">${{ item.precio_unitario|floatformat:2|intcomma }}</td>
+                            <td class="text-end">${{ item.subtotal|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="6" class="text-end">Total Valor Enviado:</th>
+                            <th class="text-end">${{ total_valor_enviado|floatformat:2|intcomma }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No se registraron productos a enviar en este cambio.</p>
+            {% endif %}
+
+            <div class="row mt-4">
+                <div class="col-md-12 text-end">
+                    {# CAMBIO: Usar un {% if %} para asignar la clase condicionalmente #}
+                    {% if diferencia_valor <= 0 %}
+                        <h5 class="text-success">Diferencia de Valor a Ajustar: ${{ diferencia_valor|floatformat:2|intcomma }}</h5>
+                    {% else %}
+                        <h5 class="text-danger">Diferencia de Valor a Ajustar: ${{ diferencia_valor|floatformat:2|intcomma }}</h5>
+                    {% endif %}
+
+                    {% if diferencia_valor > 0 %}
+                        <p class="text-danger">Este valor indica la cantidad que el cliente debe pagar adicionalmente.</p>
+                    {% elif diferencia_valor < 0 %}
+                        <p class="text-success">Este valor indica la cantidad que se le debe acreditar o devolver al cliente.</p>
+                    {% else %}
+                        <p class="text-muted">No hay diferencia de valor en este cambio.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if cambio_pedido.notas %}
+            <hr>
+            <div class="row">
+                <div class="col-md-12">
+                    <strong>Notas del Cambio:</strong>
+                    <p>{{ cambio_pedido.notas }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="text-center mt-5 no-print"> {# Clase 'no-print' para ocultar en impresión #}
+                <button class="btn btn-primary btn-lg me-3" onclick="window.print()">
+                    <i class="fas fa-print me-2"></i> Imprimir Comprobante
+                </button>
+                <a href="{% url 'pedidos_online:registrar_cambio_online' %}" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i> Registrar Otro Cambio
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos para impresión */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .print-area, .print-area * {
+            visibility: visible;
+        }
+        .print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            box-shadow: none;
+            border: none;
+        }
+        .no-print {
+            display: none;
+        }
+        /* Opcional: ajustar márgenes de página */
+        @page {
+            margin: 1cm;
+        }
+    }
+</style>
+{% endblock %}

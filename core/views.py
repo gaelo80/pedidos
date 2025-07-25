@@ -211,6 +211,10 @@ def vista_index(request):
                             orden_final_calculado = order_especifico_por_rol['es_factura']
                         elif es_diseno(user) and 'es_diseno' in order_especifico_por_rol:
                             orden_final_calculado = order_especifico_por_rol['es_diseno']
+                            
+                        elif es_diseno(user) and 'es_online' in order_especifico_por_rol:
+                            orden_final_calculado = order_especifico_por_rol['es_online']  
+                            
                         elif es_admin_sistema(user) and 'es_admin_sistema' in order_especifico_por_rol:
                             orden_final_calculado = order_especifico_por_rol['es_admin_sistema']
                         # Puedes añadir más 'elif es_otro_rol(user)...' si esta tarjeta tiene más órdenes específicos

@@ -343,25 +343,8 @@ def vista_verificar_pedido(request, pk):
                         fecha_hora_despacho=timezone.now(),
                         usuario_responsable=request.user,
                     )
-                    print(f"ComprobanteDespacho ID {comprobante_creado.pk} CREADO para empresa '{empresa_actual.nombre}'.")          
-                    
-                    
-                    
-                    
-                    comprobante_creado = ComprobanteDespacho.objects.create(
-                        pedido=pedido,
-                        fecha_hora_despacho=timezone.now(),
-                        usuario_responsable=request.user,
-                        
-                    )
-                    print(f"ComprobanteDespacho ID {comprobante_creado.pk} CREADO.")
-                    
-                    
-                    
-                    
-                    
-                    
-                    
+                    print(f"ComprobanteDespacho ID {comprobante_creado.pk} CREADO para empresa '{empresa_actual.nombre}'.")                                 
+                                                            
                     if comprobante_creado:
                         from factura.models import EstadoFacturaDespacho # Importar el modelo
                         EstadoFacturaDespacho.objects.create(

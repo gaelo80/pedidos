@@ -124,6 +124,11 @@ class MovimientoInventario(models.Model):
         ('ENTRADA_DEV_TRASLADO', 'Devolución de Traslado Interno'), 
         ('ENTRADA_DEV_PRESTAMO', 'Devolución de Préstamo'),
         ('ENTRADA_DEV_INTERNA_OTRA', 'Devolución Interna (Otra)'),
+        ('ENTRADA_CAMBIO', 'Entrada por Cambio de Cliente'),
+        ('SALIDA_CAMBIO', 'Salida por Cambio de Cliente'),
+        
+        
+        
         ]
         producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='movimientos', verbose_name="Producto")
         cantidad = models.IntegerField(verbose_name="Cantidad Movida")

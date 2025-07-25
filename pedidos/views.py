@@ -28,7 +28,9 @@ from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_cartera
 from core.utils import get_logo_base_64_despacho
 from .utils import preparar_datos_seccion
 from core.mixins import TenantAwareMixin
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PedidoViewSet(TenantAwareMixin, viewsets.ModelViewSet):
     """
@@ -588,11 +590,14 @@ def generar_pedido_pdf(request, pk):
         query_params['empresa'] = empresa_actual
     
     
-    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
+        **query_params
+    )
     
     es_su_pedido = (hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor)
     es_admin_o_staff = request.user.is_superuser or es_admin_sistema(request.user)
-    grupos_autorizados = ['Bodega', 'Cartera', 'Factura']
+    grupos_autorizados = ['Bodega', 'Cartera', 'Factura', 'Administracion']
     pertenece_a_grupo_autorizado = request.user.groups.filter(name__in=grupos_autorizados).exists()
     
     if not (es_su_pedido or es_admin_o_staff or pertenece_a_grupo_autorizado):
@@ -665,29 +670,50 @@ def vista_pedido_exito(request, pk):
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
+
+    try: # Inicia el bloque try
+        pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+        
+        whatsapp_url = None
+        # Se usa pedido.destinatario para obtener el teléfono, que puede ser Cliente o ClienteOnline
+        if pedido.destinatario and pedido.destinatario.telefono:
+            telefono_crudo = pedido.destinatario.telefono
+            telefono_limpio = re.sub(r'\D', '', telefono_crudo)
+            # Asumiendo que los números de teléfono en Colombia tienen 10 dígitos y se les añade el prefijo 57
+            if len(telefono_limpio) == 10: 
+                telefono_cliente_limpio = f"57{telefono_limpio}"
+            elif len(telefono_limpio) > 10 and telefono_limpio.startswith('57'): 
+                telefono_cliente_limpio = telefono_limpio
+            else: 
+                telefono_cliente_limpio = None # No se pudo normalizar
+
+            if telefono_cliente_limpio:
+                mensaje_texto = (
+                    f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''}, "
+                    f"te comparto el pedido #{pedido.pk}. " 
+                    f"Adjunta el PDF descargado para confirmar. Gracias."
+                )
+                mensaje_encoded = quote(mensaje_texto)
+                whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"
+
+        # Determinar la URL para el botón "Crear Nuevo Pedido"
+        if pedido.tipo_pedido == 'ONLINE':
+            crear_nuevo_pedido_url = 'pedidos_online:crear_pedido_online'
+        else: # 'ESTANDAR' o cualquier otro tipo
+            crear_nuevo_pedido_url = 'pedidos:crear_pedido_web'
+
+        context = {
+            'pedido': pedido, 
+            'whatsapp_url': whatsapp_url, 
+            'titulo': f'Pedido #{pedido.pk} Creado',
+            'crear_nuevo_pedido_url': crear_nuevo_pedido_url, # Pasa la URL al contexto
+        }
+        return render(request, 'pedidos/pedido_exito.html', context)
     
-    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
-    
-    whatsapp_url = None
-    if pedido.cliente and pedido.cliente.telefono:
-        telefono_crudo = pedido.cliente.telefono
-        telefono_limpio = re.sub(r'\D', '', telefono_crudo)
-        if len(telefono_limpio) == 10: telefono_cliente_limpio = f"57{telefono_limpio}"
-        elif len(telefono_limpio) > 10 and telefono_limpio.startswith('57'): telefono_cliente_limpio = telefono_limpio
-        else: telefono_cliente_limpio = None # No se pudo normalizar
-
-        if telefono_cliente_limpio:
-            mensaje_texto = (
-                f"Hola {pedido.cliente.nombre_completo if pedido.cliente else ''}, "
-                f"te comparto el pedido #{pedido.pk}. " # Mensaje ajustado
-                f"Adjunta el PDF descargado para confirmar. Gracias."
-            )
-            mensaje_encoded = quote(mensaje_texto)
-            whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"
-    context = {'pedido': pedido, 'whatsapp_url': whatsapp_url, 'titulo': f'Pedido #{pedido.pk} Creado'}
-    return render(request, 'pedidos/pedido_exito.html', context)
-
-
+    except Exception as e: # Captura cualquier excepción inesperada
+        messages.error(request, f"Ocurrió un error inesperado al cargar la página de éxito del pedido: {e}")
+        logger.exception("Error en vista_pedido_exito para pedido %s:", pk) # Registra la excepción completa
+        return redirect('core:index') # Redirige a una página segura si hay un error
 
 
 def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None, detalles_existentes=None, pedido_form=None):

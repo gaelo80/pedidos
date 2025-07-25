@@ -69,7 +69,7 @@ class ReferenciaColorAdmin(admin.ModelAdmin):
         return fieldsets
 
 @admin.register(Producto)
-class ProductoAdmin(admin.ModelAdmin):
+class ProductoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     list_display = ('referencia', 'nombre', 'talla', 'color', 'get_articulo_color_fotos_display', 'activo', 'stock_actual', 'empresa')
     search_fields = ('empresa__nombre', 'referencia', 'nombre', 'talla', 'color', 'codigo_barras', 'articulo_color_fotos__nombre_display')
     list_filter = ('activo', 'genero', 'empresa')

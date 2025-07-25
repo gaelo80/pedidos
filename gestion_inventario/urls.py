@@ -42,6 +42,7 @@ urlpatterns = [
     path('costeo/', include('costeo_jeans.urls')),
     path('recaudos/', include('recaudos.urls')),
     path('notificaciones/', include('notificaciones.urls', namespace='notificaciones')),
+    path('pedidos-online/', include('pedidos_online.urls')),
 
     
 

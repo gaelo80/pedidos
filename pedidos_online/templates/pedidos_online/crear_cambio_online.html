@@ -1,0 +1,600 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block page_title %}
+    {{ titulo|default:"Registrar Cambio de Producto Online" }}
+{% endblock page_title %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>{{ titulo }}</h4>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+                <div class="mb-3">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" id="formCambioOnline">
+                {% csrf_token %}
+                <input type="hidden" name="cliente_online_id" id="cliente_online_id" value="{{ cliente_online_id|default_if_none:'' }}">
+                <input type="hidden" name="returned_products_data" id="returned_products_data" value="{{ detalles_devueltos_json|default:'[]' }}">
+                <input type="hidden" name="new_products_data" id="new_products_data" value="{{ detalles_enviados_json|default:'[]' }}">
+
+                {# Sección de Información del Pedido Original / Cliente #}
+                <div class="row mb-4 p-3 border rounded bg-light">
+                    <div class="col-md-12">
+                        <h5 class="mb-3 text-primary">1. Información del Cliente y Pedido Original</h5>
+                        <div class="mb-3">
+                            <label for="searchPedido" class="form-label form-label-sm">Buscar Pedido Online (Opcional):</label>
+                            <select class="form-select form-select-sm" id="searchPedido" style="width: 100%;">
+                                {% if original_pedido %}
+                                    <option value="{{ original_pedido.pk }}" selected>Pedido #{{ original_pedido.pk }} - {{ original_pedido.cliente_online.nombre_completo }}</option>
+                                {% endif %}
+                            </select>
+                            <small class="form-text text-muted">Busca por ID de pedido, nombre o identificación del cliente.</small>
+                        </div>
+                        <div id="clienteInfoDisplay" class="border p-3 rounded bg-white">
+                            {% if cliente_online_data %}
+                                <p><strong>Cliente:</strong> <span id="display_nombre_completo">{{ cliente_online_data.nombre_completo }}</span></p>
+                                <p><strong>Identificación:</strong> <span id="display_identificacion">{{ cliente_online_data.identificacion }}</span></p>
+                                <p><strong>Teléfono:</strong> <span id="display_telefono">{{ cliente_online_data.telefono }}</span></p>
+                                <p><strong>Email:</strong> <span id="display_email">{{ cliente_online_data.email }}</span></p>
+                                <p><strong>Dirección:</strong> <span id="display_direccion">{{ cliente_online_data.direccion }}</span></p>
+                                {% if original_pedido %}
+                                    <p><strong>Pedido Original:</strong> #{{ original_pedido.pk }} ({{ original_pedido.fecha_hora|date:"Y-m-d H:i" }})</p>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-muted">Seleccione un pedido o cliente para ver la información aquí.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {# Sección de Productos Devueltos #}
+                <div class="row mb-4 p-3 border rounded bg-light">
+                    <div class="col-md-12">
+                        <h5 class="mb-3 text-danger">2. Productos Devueltos por el Cliente (Entrada a Bodega)</h5>
+                        <div class="row gx-2 gy-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label for="refProductoDevuelto" class="form-label form-label-sm">Referencia:</label>
+                                <select class="form-select form-select-sm select2-productos" id="refProductoDevuelto" data-target-color="colorProductoDevuelto" data-target-talla="tallaProductoDevuelto" data-target-precio="precioUnitarioDevuelto" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="colorProductoDevuelto" class="form-label form-label-sm">Color:</label>
+                                <select class="form-select form-select-sm select2-colores" id="colorProductoDevuelto" data-target-talla="tallaProductoDevuelto" data-target-precio="precioUnitarioDevuelto" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="tallaProductoDevuelto" class="form-label form-label-sm">Talla:</label>
+                                <select class="form-select form-select-sm select2-tallas" id="tallaProductoDevuelto" data-target-precio="precioUnitarioDevuelto" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="cantidadDevuelta" class="form-label form-label-sm">Cantidad:</label>
+                                <input type="number" id="cantidadDevuelta" class="form-control form-control-sm" min="1" value="1">
+                                <input type="hidden" id="precioUnitarioDevuelto"> {# Hidden field for price, if needed for display #}
+                            </div>
+                            <div class="col-md-12 text-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="addReturnedProduct">
+                                    <i class="fas fa-plus-circle me-1"></i>Añadir Producto Devuelto
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" id="returnedProductsTable">
+                                <thead class="table-danger">
+                                    <tr>
+                                        <th>Referencia</th>
+                                        <th>Color</th>
+                                        <th>Talla</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {# Products added via JS will go here #}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {# Sección de Productos a Enviar #}
+                <div class="row mb-4 p-3 border rounded bg-light">
+                    <div class="col-md-12">
+                        <h5 class="mb-3 text-success">3. Productos a Enviar al Cliente (Salida de Bodega)</h5>
+                        <div class="row gx-2 gy-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label for="refProductoEnviado" class="form-label form-label-sm">Referencia:</label>
+                                <select class="form-select form-select-sm select2-productos" id="refProductoEnviado" data-target-color="colorProductoEnviado" data-target-talla="tallaProductoEnviado" data-target-precio="precioUnitarioEnviado" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="colorProductoEnviado" class="form-label form-label-sm">Color:</label>
+                                <select class="form-select form-select-sm select2-colores" id="colorProductoEnviado" data-target-talla="tallaProductoEnviado" data-target-precio="precioUnitarioEnviado" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="tallaProductoEnviado" class="form-label form-label-sm">Talla:</label>
+                                <select class="form-select form-select-sm select2-tallas" id="tallaProductoEnviado" data-target-precio="precioUnitarioEnviado" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="cantidadEnviada" class="form-label form-label-sm">Cantidad:</label>
+                                <input type="number" id="cantidadEnviada" class="form-control form-control-sm" min="1" value="1">
+                                <input type="hidden" id="precioUnitarioEnviado"> {# Hidden field for price, if needed for display #}
+                            </div>
+                            <div class="col-md-12 text-end">
+                                <button type="button" class="btn btn-outline-success btn-sm" id="addNewProduct">
+                                    <i class="fas fa-plus-circle me-1"></i>Añadir Producto a Enviar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" id="newProductsTable">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>Referencia</th>
+                                        <th>Color</th>
+                                        <th>Talla</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {# Products added via JS will go here #}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {# Notas y Botones de Acción #}
+                <div class="row mb-4 p-3 border rounded bg-light">
+                    <div class="col-md-12">
+                        <h5 class="mb-3 text-secondary">4. Notas del Cambio</h5>
+                        <div class="mb-3">
+                            <label for="notas_cambio" class="form-label form-label-sm">Notas Adicionales:</label>
+                            <textarea class="form-control form-control-sm" id="notas_cambio" name="notas_cambio" rows="3">{{ notas_cambio|default_if_none:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-save me-2"></i>Registrar Cambio
+                    </button>
+                    <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-times-circle me-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Script para Select2 y lógica de adición de productos #}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: calc(2.25rem + 2px); /* Adjust height to match form-control-sm */
+        padding: 0.25rem 0.5rem; /* Adjust padding */
+        font-size: 0.875rem; /* Adjust font size */
+        line-height: 1.5; /* Adjust line height */
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 1.5; /* Match line height */
+        padding-left: 0; /* Remove default padding */
+        padding-right: 0; /* Remove default padding */
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: calc(2.25rem + 2px); /* Match height */
+    }
+    .select2-container .select2-selection--single {
+        border-color: #ced4da; /* Match Bootstrap border color */
+    }
+    .select2-container--default .select2-selection--single {
+        border-radius: 0.25rem; /* Match Bootstrap border-radius */
+    }
+</style>
+
+<script>
+$(document).ready(function() {
+
+    // CAMBIO: Definir la URL base de la API con un marcador de posición al inicio del script
+    const urlBaseApiGetPedidoDetalles = "{% url 'pedidos_online:api_get_pedido_detalles' 0 %}";
+
+    // Initialize Select2 for product reference search
+    $('.select2-productos').select2({
+        placeholder: "Buscar por referencia o nombre",
+        allowClear: true,
+        ajax: {
+            url: "{% url 'productos:api_buscar_referencias' %}", // Use the API for searching references
+            dataType: 'json',
+            delay: 250,
+            data: function(params) {
+                return {
+                    term: params.term // search term
+                };
+            },
+            processResults: function(data) {
+                // Assuming api_buscar_referencias returns a list of {id: 'REF', text: 'REF - Name'}
+                return {
+                    results: data.results // Assuming data.results contains the formatted list
+                };
+            },
+            cache: true
+        },
+        minimumInputLength: 2,
+        templateResult: function (data) {
+            if (data.loading) return data.text;
+            return data.text;
+        },
+        templateSelection: function (data) {
+            return data.text;
+        }
+    });
+
+    // Initialize Select2 for order search
+    $('#searchPedido').select2({
+        placeholder: "Buscar pedido por ID o cliente",
+        allowClear: true,
+        ajax: {
+            url: "{% url 'pedidos_online:api_buscar_pedidos' %}",
+            dataType: 'json',
+            delay: 250,
+            data: function(params) {
+                return {
+                    term: params.term
+                };
+            },
+            processResults: function(data) {
+                return {
+                    results: data.results
+                };
+            },
+            cache: true
+        },
+        minimumInputLength: 2
+    }).on('select2:select', function(e) {
+        var data = e.params.data;
+        // Update client info display
+        $('#cliente_online_id').val(data.cliente_online_id);
+        $('#clienteInfoDisplay').html(`
+            <p><strong>Cliente:</strong> <span id="display_nombre_completo">${data.cliente_online_nombre}</span></p>
+            <p><strong>Identificación:</strong> <span id="display_identificacion">${data.cliente_online_identificacion || 'N/A'}</span></p>
+            <p><strong>Teléfono:</strong> <span id="display_telefono">${data.cliente_online_telefono || 'N/A'}</span></p>
+            <p><strong>Email:</strong> <span id="display_email">${data.cliente_online_email || 'N/A'}</span></p>
+            <p><strong>Dirección:</strong> <span id="display_direccion">${data.cliente_online_direccion || 'N/A'}</span></p>
+            <p><strong>Pedido Original:</strong> #${data.id}</p>
+        `);
+
+        // --- NUEVA LÓGICA: Cargar detalles del pedido seleccionado en la tabla de devueltos ---
+        // Limpiar productos devueltos existentes
+        returnedProducts = [];
+        $('#returnedProductsTable tbody').empty();
+
+        if (data.id) { // Asegurarse de que hay un ID de pedido disponible
+            $.ajax({
+                // CAMBIO: Usar la variable pre-definida y reemplazar el marcador de posición
+                url: urlBaseApiGetPedidoDetalles.replace('0', data.id),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.detalles && response.detalles.length > 0) {
+                        response.detalles.forEach(function(item) {
+                            addReturnedProductToTable(item.producto_id, item.referencia, item.color, item.talla, item.cantidad, item.precio_unitario);
+                        });
+                    } else {
+                        // Opcionalmente, mostrar un mensaje si no se encuentran detalles para el pedido seleccionado
+                        // alert('No se encontraron productos en el pedido seleccionado.');
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error al cargar los detalles del pedido: ' + xhr.responseText);
+                }
+            });
+        }
+        // --- FIN NUEVA LÓGICA ---
+
+    }).on('select2:unselect', function(e) {
+        // Limpiar la información del cliente si se deselecciona
+        $('#cliente_online_id').val('');
+        $('#clienteInfoDisplay').html('<p class="text-muted">Seleccione un pedido o cliente para ver la información aquí.</p>');
+        // Limpiar la tabla de productos devueltos
+        returnedProducts = [];
+        $('#returnedProductsTable tbody').empty();
+    });
+
+
+    // Function to load colors based on selected reference
+    // This function now receives the reference string directly
+    function loadColors(referenceValue, colorSelectId, tallaSelectId, precioInputId) {
+        const ref = referenceValue; // Use the passed referenceValue
+        const colorSelect = $(`#${colorSelectId}`);
+        const tallaSelect = $(`#${tallaSelectId}`);
+        const precioInput = $(`#${precioInputId}`);
+
+        colorSelect.empty().append($('<option value="">-- Seleccione Color --</option>')).trigger('change');
+        tallaSelect.empty().append($('<option value="">-- Seleccione Talla --</option>')).trigger('change');
+        precioInput.val('');
+
+        if (ref) {
+            $.ajax({
+                url: `/pedidos-online/api/referencia/${ref}/colores/`,
+                dataType: 'json',
+                success: function(data) {
+                    $.each(data, function(i, item) {
+                        colorSelect.append($('<option>', {
+                            value: item.valor,
+                            text: item.display
+                        }));
+                    });
+                    colorSelect.select2({
+                        placeholder: "-- Seleccione Color --",
+                        allowClear: true
+                    });
+                }
+            });
+        }
+    }
+
+
+function loadSizesAndPrice(colorSelect, tallaSelectId, precioInputId) {
+    const refSelectId = colorSelect.attr('id').replace('colorProducto', 'refProducto');
+    const ref = $(`#${refSelectId}`).val();
+    const color = colorSelect.val();
+    const tallaSelect = $(`#${tallaSelectId}`);
+    const precioInput = $(`#${precioInputId}`);
+
+    // Asegurarse de destruir Select2 antes de manipular las opciones
+    if (tallaSelect.data('select2')) {
+        tallaSelect.select2('destroy');
+    }
+
+    tallaSelect.empty().append($('<option value="">-- Seleccione Talla --</option>')).trigger('change');
+    precioInput.val('');
+
+    if (ref && color) {
+        $.ajax({
+            url: `/pedidos-online/api/referencia/${ref}/color/${color}/tallas/`,
+            dataType: 'json',
+            data: {
+                tipo_cliente: '{{ original_pedido.cliente_online.tipo_cliente|default:"" }}' // Pass client type for special prices
+            },
+            success: function(data) {
+                if (data.variantes && data.variantes.length > 0) {
+                    $.each(data.variantes, function(i, item) {
+                        tallaSelect.append($('<option>', {
+                            value: item.id, // Use product ID as value for talla
+                            text: `${item.talla} (Stock: ${item.stock_actual})`,
+                            'data-stock': item.stock_actual,
+                            'data-price': item.precio_venta
+                        }));
+                    });
+
+                    // Re-inicializar Select2 después de cargar las opciones
+                    tallaSelect.select2({
+                        placeholder: "-- Seleccione Talla --",
+                        allowClear: true
+                    });
+
+                    // Pequeño retraso para asegurar que Select2 se inicialice completamente
+                    // y luego intentar abrirlo programáticamente si es necesario,
+                    // aunque esto podría no ser lo ideal para la UX si el usuario ya hizo clic.
+                    // Lo más común es que el usuario haga clic para abrirlo.
+                    // Si el problema persiste, considera si algo más está robando el foco.
+                    // NO VAMOS A FORZAR EL OPEN AQUÍ, la destrucción/re-inicialización debería ser suficiente.
+
+                } else {
+                    alert('No se encontraron tallas para la referencia y color seleccionados.');
+                }
+            },
+            error: function(xhr) {
+                alert('Error al cargar tallas: ' + xhr.responseText);
+            }
+        });
+    }
+}
+    // Event listeners for product selection
+    $('.select2-productos').on('select2:select', function(e) {
+        const selectedReference = e.params.data.id; // Get the ID (reference value) of the selected item
+        const targetColorSelectId = $(this).data('target-color');
+        const targetTallaSelectId = $(this).data('target-talla');
+        const targetPrecioInputId = $(this).data('target-precio');
+        
+        // Pass the selected reference value directly
+        loadColors(selectedReference, targetColorSelectId, targetTallaSelectId, targetPrecioInputId);
+    });
+
+    $('.select2-colores').on('select2:select', function(e) {
+        const targetTallaSelectId = $(this).data('target-talla');
+        const targetPrecioInputId = $(this).data('target-precio');
+        // No need to store ref-select here, loadSizesAndPrice will get it from the associated refProducto select
+        loadSizesAndPrice($(this), targetTallaSelectId, targetPrecioInputId);
+    });
+
+    $('.select2-tallas').off('select2:select').on('select2:select', function(e) {
+        const selectedOption = $(this).find(':selected');
+        const price = selectedOption.data('price');
+        const targetPrecioInputId = $(this).data('target-precio');
+        $(`#${targetPrecioInputId}`).val(price);
+    });
+
+    // Populate initial product search for existing data (if any)
+    function populateProductSelect(selectElement, initialValue, initialText) {
+        if (initialValue && initialText) {
+            var newOption = new Option(initialText, initialValue, true, true);
+            selectElement.append(newOption).trigger('change');
+            selectElement.trigger({
+                type: 'select2:select',
+                params: {
+                    data: {
+                        id: initialValue,
+                        text: initialText
+                    }
+                }
+            });
+        }
+    }
+
+    // Function to add a product to the returned products table
+    let returnedProducts = {{ detalles_devueltos_json|safe }};
+    function addReturnedProductToTable(productId, ref, color, talla, quantity, price) {
+        const tableBody = $('#returnedProductsTable tbody');
+        const rowId = `returned-row-${productId}-${Date.now()}`; // Unique ID for the row
+
+        const newRow = `
+            <tr id="${rowId}">
+                <td>${ref}</td>
+                <td>${color}</td>
+                <td>${talla}</td>
+                <td class="text-center">${quantity}</td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-product" data-product-id="${productId}" data-row-id="${rowId}" data-list="returned">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tableBody.append(newRow);
+
+        returnedProducts.push({
+            producto_id: productId,
+            referencia: ref,
+            color: color,
+            talla: talla,
+            cantidad: quantity,
+            precio_unitario: price
+        });
+        $('#returned_products_data').val(JSON.stringify(returnedProducts));
+    }
+
+    // Function to add a product to the new products table
+    let newProducts = {{ detalles_enviados_json|safe }};
+    function addNewProductToTable(productId, ref, color, talla, quantity, price) {
+        const tableBody = $('#newProductsTable tbody');
+        const rowId = `new-row-${productId}-${Date.now()}`; // Unique ID for the row
+
+        const newRow = `
+            <tr id="${rowId}">
+                <td>${ref}</td>
+                <td>${color}</td>
+                <td>${talla}</td>
+                <td class="text-center">${quantity}</td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-product" data-product-id="${productId}" data-row-id="${rowId}" data-list="new">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tableBody.append(newRow);
+
+        newProducts.push({
+            producto_id: productId,
+            referencia: ref,
+            color: color,
+            talla: talla,
+            cantidad: quantity,
+            precio_unitario: price
+        });
+        $('#new_products_data').val(JSON.stringify(newProducts));
+    }
+
+    // Event listener for adding returned product
+    $('#addReturnedProduct').on('click', function() {
+        const refSelect = $('#refProductoDevuelto');
+        const colorSelect = $('#colorProductoDevuelto');
+        const tallaSelect = $('#tallaProductoDevuelto');
+        const cantidadInput = $('#cantidadDevuelta');
+        const precioInput = $('#precioUnitarioDevuelto');
+
+        const productId = tallaSelect.val(); // Product ID is the value of the selected talla option
+        // CAMBIO: Obtener el texto de la opción seleccionada para ref y color
+        const ref = refSelect.find('option:selected').text();
+        const color = colorSelect.find('option:selected').text();
+        const tallaText = tallaSelect.find('option:selected').text().split(' ')[0]; // Get only the talla part
+        const quantity = parseInt(cantidadInput.val());
+        const price = parseFloat(precioInput.val());
+
+        if (!productId || !quantity || quantity <= 0) {
+            alert('Por favor, seleccione un producto completo y una cantidad válida.'); // Using alert for simplicity, replace with a modal
+            return;
+        }
+
+        addReturnedProductToTable(productId, ref, color, tallaText, quantity, price);
+
+        // Clear form fields after adding
+        refSelect.val(null).trigger('change');
+        colorSelect.empty().append($('<option value="">-- Seleccione Color --</option>')).trigger('change');
+        tallaSelect.empty().append($('<option value="">-- Seleccione Talla --</option>')).trigger('change');
+        cantidadInput.val(1);
+        precioInput.val('');
+    });
+
+    // Event listener for adding new product
+    $('#addNewProduct').on('click', function() {
+        const refSelect = $('#refProductoEnviado');
+        const colorSelect = $('#colorProductoEnviado');
+        const tallaSelect = $('#tallaProductoEnviado');
+        const cantidadInput = $('#cantidadEnviada');
+        const precioInput = $('#precioUnitarioEnviado');
+
+        const productId = tallaSelect.val();
+        // CAMBIO: Obtener el texto de la opción seleccionada para ref y color
+        const ref = refSelect.find('option:selected').text();
+        const color = colorSelect.find('option:selected').text();
+        const tallaText = tallaSelect.find('option:selected').text().split(' ')[0];
+        const quantity = parseInt(cantidadInput.val());
+        const price = parseFloat(precioInput.val());
+
+        if (!productId || !quantity || quantity <= 0) {
+            alert('Por favor, seleccione un producto completo y una cantidad válida.'); // Using alert for simplicity, replace with a modal
+            return;
+        }
+
+        addNewProductToTable(productId, ref, color, tallaText, quantity, price);
+
+        // Clear form fields after adding
+        refSelect.val(null).trigger('change');
+        colorSelect.empty().append($('<option value="">-- Seleccione Color --</option>')).trigger('change');
+        tallaSelect.empty().append($('<option value="">-- Seleccione Talla --</option>')).trigger('change');
+        cantidadInput.val(1);
+        precioInput.val('');
+    });
+
+    // Event listener for removing products from tables
+    $(document).on('click', '.remove-product', function() {
+        const productIdToRemove = $(this).data('product-id');
+        const rowIdToRemove = $(this).data('row-id');
+        const listType = $(this).data('list');
+
+        if (listType === 'returned') {
+            returnedProducts = returnedProducts.filter(item => item.producto_id != productIdToRemove);
+            $('#returned_products_data').val(JSON.stringify(returnedProducts));
+        } else if (listType === 'new') {
+            newProducts = newProducts.filter(item => item.producto_id != productIdToRemove);
+            $('#new_products_data').val(JSON.stringify(newProducts));
+        }
+        $(`#${rowIdToRemove}`).remove();
+    });
+
+    // Pre-populate tables if data exists (e.g., after form submission with errors)
+    returnedProducts.forEach(function(item) {
+        addReturnedProductToTable(item.producto_id, item.referencia, item.color, item.talla, item.cantidad, item.precio_unitario);
+    });
+
+    newProducts.forEach(function(item) {
+        addNewProductToTable(item.producto_id, item.referencia, item.color, item.talla, item.cantidad, item.precio_unitario);
+    });
+
+});
+</script>
+{% endblock content %}

@@ -1,0 +1,54 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">{{ titulo }}</h1>
+        <a href="{% url 'pedidos_online:crear_pedido_online' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Crear Nuevo Pedido Online
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th># Pedido</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pedido in pedidos_list %}
+                        <tr>
+                            <td>{{ pedido.pk }}</td>
+                            <td>{{ pedido.fecha_hora|date:"d/m/Y" }}</td>
+                            <td>{{ pedido.destinatario.nombre_completo }}</td>
+                            <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username }}</td>
+                            <td class="text-end">${{ pedido.total_a_pagar|intcomma:0 }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'pedidos_online:editar_pedido_online' pedido.pk %}" class="btn btn-warning btn-sm" title="Editar Borrador">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No hay pedidos en borrador.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

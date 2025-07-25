@@ -40,6 +40,13 @@ class PedidoForm(forms.ModelForm):
         self.fields['cliente'].required = False
         self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
         self.fields['prospecto'].queryset = Prospecto.objects.filter(empresa=empresa, estado__in=['PENDIENTE', 'EN_ESTUDIO'])
+        self.fields['forma_pago'].choices = [
+            ('CREDITO', 'Crédito'),
+            ('CONTADO', 'Contado'),
+        ]
+        # Asegurarse de que 'CREDITO' sea el valor inicial por defecto si no hay otro
+        if not self.initial.get('forma_pago'):
+            self.initial['forma_pago'] = 'CREDITO'
 
 
         
@@ -51,12 +58,16 @@ class PedidoForm(forms.ModelForm):
         cleaned_data = super().clean()
         cliente = cleaned_data.get('cliente')
         prospecto = cleaned_data.get('prospecto')
+        forma_pago = cleaned_data.get('forma_pago')
 
         if cliente and prospecto:
             raise forms.ValidationError("Por favor, seleccione un cliente existente O un prospecto, no ambos.", code='ambos_seleccionados')
         
         if not cliente and not prospecto:
             raise forms.ValidationError("Debe seleccionar un cliente existente o un prospecto para crear el pedido.", code='ninguno_seleccionado')
+        
+        if forma_pago not in [choice[0] for choice in self.fields['forma_pago'].choices]:
+            self.add_error('forma_pago', "Forma de pago no válida para este tipo de pedido.")
             
         return cleaned_data   
         
@@ -65,16 +76,18 @@ class PedidoForm(forms.ModelForm):
     class Meta:
         # Define el modelo y los campos que se usarán, siguiendo las buenas prácticas.
         model = Pedido
-        fields = ['cliente', 'prospecto', 'porcentaje_descuento', 'notas']
+        fields = ['cliente', 'prospecto', 'porcentaje_descuento', 'notas', 'forma_pago']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-control'}),
             'porcentaje_descuento': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm', 'step': '1', 'min': '0', 'max': '100'
             }),
             'notas': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'forma_pago': forms.Select(attrs={'class': 'form-select'}), # Widget para el nuevo campo
         }
         labels = {
-            'porcentaje_descuento': 'Descuento (%)'
+            'porcentaje_descuento': 'Descuento (%)',
+            'forma_pago': 'Forma de Pago', # Etiqueta para el nuevo campo
         }
 
 # ===================================================================
