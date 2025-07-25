@@ -478,7 +478,7 @@ def api_crear_cliente_online(request):
     if not empresa_actual:
         return Response({'success': False, 'error': 'Company not identified'}, status=403)
 
-    form = PedidoOnlineForm(request.POST)
+    form = ClienteOnlineForm(request.POST)
     if form.is_valid():
         try:
             cliente = form.save(commit=False)

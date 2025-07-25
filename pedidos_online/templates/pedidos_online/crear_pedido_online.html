@@ -753,12 +753,23 @@ document.addEventListener('DOMContentLoaded', function() {
         $('#total-general').text(formatCurrency(totalFinal));
     }
 
+    const modalCrearClienteElement = document.getElementById('modalCrearCliente');
+    modalCrearClienteElement.addEventListener('hidden.bs.modal', function () {
+        formCrearCliente[0].reset(); // Reinicia el formulario (vacía todos los inputs)
+        // Opcional: También limpia los mensajes de error y clases 'is-invalid' si no se limpian en otro lado
+        $('.invalid-feedback').text('');
+        formCrearCliente.find('.is-invalid').removeClass('is-invalid');
+    });
+
     $('#btn-guardar-cliente').on('click', function() {
-        $('.invalid-feedback').text(''); // Limpiar mensajes de error previos
-        $('.is-invalid').removeClass('is-invalid'); // Limpiar clases de error previas
+        // Limpiar mensajes de error previos al inicio de cada intento de guardado
+        $('.invalid-feedback').text(''); // Vacía el texto de todos los divs de feedback
+        formCrearCliente.find('.is-invalid').removeClass('is-invalid'); // Quita la clase 'is-invalid' de todos los inputs
 
         $.ajax({
-            type: 'POST', url: "{% url 'pedidos_online:api_crear_cliente_online' %}", data: formCrearCliente.serialize(),
+            type: 'POST', 
+            url: "{% url 'pedidos_online:api_crear_cliente_online' %}", 
+            data: formCrearCliente.serialize(),
             success: function(response) {
                 if (response.success) {
                     const c = response.cliente;
@@ -766,17 +777,61 @@ document.addEventListener('DOMContentLoaded', function() {
                     clienteSelector.append(newOption).trigger('change');
                     clienteSelector.trigger({ type: 'select2:select', params: { data: {id: c.id, text: c.text, type: 'online', data: c.data} } });
                     modalCrearCliente.hide();
-                    formCrearCliente[0].reset();
+                    formCrearCliente[0].reset(); // Limpia el formulario del modal después de un éxito
+                    messages.success("Cliente online creado y seleccionado exitosamente."); // Mensaje de éxito visible
                 } else {
-                    for (const field in response.errors) {
-                        formCrearCliente.find(`[name=${field}]`).addClass('is-invalid').next('.invalid-feedback').text(response.errors[field]);
+                    // CAMBIO CLAVE: Iterar sobre los errores y mostrarlos
+                    // response.errors contiene un objeto con errores por campo
+                    for (const fieldName in response.errors) {
+                        const errorMessages = response.errors[fieldName]; // Esto es un array de mensajes
+                        const inputElement = formCrearCliente.find(`[name="${fieldName}"]`); // Selecciona el input por su nombre
+                        
+                        // Añadir clase de Bootstrap para indicar error visualmente
+                        inputElement.addClass('is-invalid'); 
+                        
+                        // Mostrar los mensajes de error en el div invalid-feedback asociado
+                        const feedbackDiv = inputElement.next('.invalid-feedback');
+                        feedbackDiv.text(errorMessages.join(' ')); // Unir todos los mensajes si hay varios
+                    }
+
+                    // Manejar errores que no están asociados a un campo específico (non_field_errors)
+                    if (response.errors.non_field_errors) {
+                        alert("Error general al guardar el cliente: " + response.errors.non_field_errors.join(' '));
                     }
                 }
-            }, error: function(xhr) {
-                // Manejo de errores de conexión o del servidor
-                if (xhr.responseJSON && xhr.responseJSON.error) {
-                    alert('Error: ' + xhr.responseJSON.error);
+            }, 
+            error: function(xhr) {
+                // Este bloque se ejecuta para errores HTTP como 400 (Bad Request) o 500 (Internal Server Error)
+                console.error("Error AJAX en crear-cliente-online:", xhr);
+
+                // CAMBIO CLAVE: Mover la lógica de parsing de errores aquí
+                if (xhr.responseJSON) {
+                    // Si el servidor envió un JSON con errores (como en el caso del 400 Bad Request)
+                    const response = xhr.responseJSON; // Renombrar para claridad
+
+                    if (response.errors) {
+                        for (const fieldName in response.errors) {
+                            const errorMessages = response.errors[fieldName];
+                            const inputElement = formCrearCliente.find(`[name="${fieldName}"]`);
+                            
+                            inputElement.addClass('is-invalid'); 
+                            
+                            const feedbackDiv = inputElement.next('.invalid-feedback');
+                            feedbackDiv.text(errorMessages.join(' '));
+                        }
+
+                        if (response.errors.non_field_errors) {
+                            alert("Error general al guardar el cliente: " + response.errors.non_field_errors.join(' '));
+                        }
+                    } else if (response.error) {
+                        // Para errores generales que el backend pueda enviar como { "error": "Mensaje" }
+                        alert('Error del servidor: ' + response.error);
+                    } else {
+                        // Si hay un responseJSON pero no tiene la estructura de errores esperada
+                        alert('Error inesperado del servidor. Por favor, inténtalo de nuevo.');
+                    }
                 } else {
+                    // Si no hay responseJSON (ej. error de red, servidor no responde)
                     alert('Error de conexión o del servidor. Por favor, inténtalo de nuevo.');
                 }
             }
