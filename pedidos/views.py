@@ -902,3 +902,97 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
                             urls_fotos_ya_agregadas.add(foto.imagen.url)
         context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido #{pedido.pk}"}
         return render(request, self.template_name, context)
+    
+@login_required
+@permission_required('pedidos.view_pedido', login_url='core:acceso_denegado') # Se mantiene el permiso de ver pedido
+def generar_borrador_pdf(request, pk):
+    """
+    Genera un PDF para un pedido en estado BORRADOR específico,
+    asegurando que pertenezca al inquilino actual y que el usuario
+    tenga permisos para verlo.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    # Lógica de acceso: Superusuario puede ver todos los borradores,
+    # Vendedor solo los suyos, Administración puede ver todos los de su empresa.
+    query_params = {'pk': pk, 'estado': 'BORRADOR'}
+    
+    # Filtro por empresa para todos los usuarios NO superusuario
+    if not request.user.is_superuser:
+        if not empresa_actual:
+            messages.error(request, "Acceso no válido. Su usuario no está asociado a ninguna empresa.")
+            return redirect('core:acceso_denegado')
+        query_params['empresa'] = empresa_actual
+    
+    # Filtro adicional para vendedores (solo pueden ver sus borradores)
+    if es_vendedor(request.user) and not (request.user.is_superuser or es_admin_sistema(request.user)):
+        try:
+            vendedor_obj = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)
+            query_params['vendedor'] = vendedor_obj
+        except Vendedor.DoesNotExist:
+            messages.error(request, "Su perfil de vendedor no está asociado a esta empresa.")
+            return redirect('core:acceso_denegado')
+            
+    # Obtener el pedido borrador
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
+        **query_params
+    )
+
+    # --- Los datos que se pasan a la plantilla PDF son los mismos que en generar_pedido_pdf ---
+    detalles_originales = pedido.detalles.select_related('producto').all()
+    items_dama, items_caballero, items_unisex = [], [], []
+    
+    # Asegúrate de que TALLAS_DAMA, TALLAS_CABALLERO, TALLAS_UNISEX y preparar_datos_seccion
+    # estén definidos o importados en este archivo (asumo que ya lo están).
+    # Estas variables y la función están en generar_pedido_pdf.
+    # Puedes definirlas globalmente en views.py o copiarlas si solo las usas aquí.
+    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13'] # Ajusta si son diferentes
+    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38'] # Ajusta si son diferentes
+    TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
+    
+    for detalle in detalles_originales:
+        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        if genero_producto == 'DAMA':
+            items_dama.append(detalle)
+        elif genero_producto == 'CABALLERO':
+            items_caballero.append(detalle)
+        else:
+            items_unisex.append(detalle)       
+
+    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
+    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
+    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+
+    logo_para_pdf = None
+    try:
+        logo_para_pdf = get_logo_base_64_despacho(empresa_actual)
+    except Exception as e: 
+        logger.warning(f"Advertencia PDF Borrador: Excepción al llamar get_logo_base_64_despacho(): {e}")
+        
+    context = {
+        'pedido': pedido,
+        'empresa_actual': empresa_actual,
+        'logo_base64': logo_para_pdf, # Usar la variable logo_para_pdf
+        'tasa_iva_pct': int(pedido.IVA_RATE * 100), # Puedes tomarlo del pedido mismo
+        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
+        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
+        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'incluir_color': True,
+        'incluir_vr_unit': True,
+        'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request), # Obtener el enlace de descarga de fotos
+    }
+    
+    template = get_template('pedidos/pedido_pdf.html') # Reutilizamos la misma plantilla PDF
+    html = template.render(context)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="pedido_borrador_{pedido.pk}.pdf"'
+    
+    # Uso de xhtml2pdf (si no tienes WeasyPrint configurado)
+    from xhtml2pdf import pisa
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+       logger.error(f"Error al generar PDF de borrador para pedido #{pedido.pk}: {pisa_status.err}")
+       return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
+    return response

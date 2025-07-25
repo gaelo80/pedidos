@@ -38,6 +38,11 @@
                                 <a href="{% url 'pedidos_online:editar_pedido_online' pedido.pk %}" class="btn btn-warning btn-sm" title="Editar Borrador">
                                     <i class="fas fa-edit"></i>
                                 </a>
+
+                                <a href="{% url 'pedidos_online:generar_borrador_online_pdf' pk=pedido.pk %}" class="btn btn-info btn-sm ms-1" title="Imprimir Borrador PDF" target="_blank">
+                                    <i class="fas fa-print"></i> PDF
+                                </a>
+
                             </td>
                         </tr>
                         {% empty %}

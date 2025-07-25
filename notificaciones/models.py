@@ -1,4 +1,5 @@
 # notificaciones/models.py
+
 from django.db import models
 from django.conf import settings
 
@@ -25,3 +26,4 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"Notificación para {self.destinatario.username}: {self.mensaje[:30]}..."
+    

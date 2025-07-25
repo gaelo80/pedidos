@@ -28,5 +28,6 @@ urlpatterns = [
     path('api/cliente-resumen/<str:client_type>/<int:client_pk>/', views.api_get_cliente_summary, name='api_get_cliente_summary'),  
     path('api/buscar-pedidos/', views.api_buscar_pedidos, name='api_buscar_pedidos'),
     path('api/pedidos/<int:pedido_id>/detalles/', views.api_get_pedido_detalles, name='api_get_pedido_detalles'),
+    path('borrador/<int:pk>/pdf/', views.generar_borrador_online_pdf, name='generar_borrador_online_pdf'),
     
 ]

@@ -529,10 +529,20 @@ PANEL_OPTIONS_CONFIG = [
         'rol_requerido': ['es_vendedor', 'es_diseno', 'es_online', 'es_cartera', 'es_factura', 'es_bodega', 'es_admin_sistema'], # Permite a varios roles ver el catálogo
         'roles_info': ['catalogo', 'admin', 'vendedor'] # Vendedores también deberían ver el catálogo
     },
-     {
+    {
         'titulo': 'Gestion Usuarios',
         'descripcion': 'Crear, modificar y asignar permisos a usuarios.',
         'url_nombre': 'user_management:user_list', # La app que estamos creando
+        'icono': 'fas fa-users-cog',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': 'auth.view_user', # O un permiso más general de "gestionar usuarios"
+        'roles_info': ['admin_app', 'administracion']
+    },
+     
+    {
+        'titulo': 'Gestion Grupos de Usuarios',
+        'descripcion': 'Crea, modifica y asigna permisos a grupos de usuarios.',
+        'url_nombre': 'user_management:group_list', # La app que estamos creando
         'icono': 'fas fa-users-cog',
         'icono_color_class': 'icon-primary',
         'rol_requerido': 'auth.view_user', # O un permiso más general de "gestionar usuarios"

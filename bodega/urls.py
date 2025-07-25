@@ -33,5 +33,6 @@ urlpatterns = [
      path('despacho/<int:pk>/cancelar/', views.cancelar_pedido_bodega, name='cancelar_pedido_bodega'),
      path('informe/inventario/', views.vista_informe_inventario, name='informe_inventario'),
      path('informe/inventario/exportar/', views.exportar_inventario_excel, name='exportar_inventario_excel'),
+     path('informe-movimiento/<int:pk>/', views.InformeMovimientoInventarioView.as_view(), name='informe_movimiento_inventario'),
      
 ]

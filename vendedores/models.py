@@ -8,7 +8,7 @@ class Vendedor(models.Model):
     Representa a un vendedor o empleado.
     Este modelo está ligado a una Empresa específica (inquilino).
     """
-    
+     
     # El OneToOneField ya asegura que un usuario solo puede tener un perfil de vendedor
     # en todo el sistema. La restricción en Meta asegura que también sea único por empresa.
     

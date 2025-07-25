@@ -146,18 +146,22 @@ def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
                     f"Stock actual: {producto.stock_actual} unidades."
                 )
                 
-                url_producto = None
+                
+                
+                url_notificacion = None
                 try:
  
-                    url_producto = reverse('productos:detalle_producto', args=[producto.pk]) 
+                    url_notificacion = reverse('bodega:informe_movimiento_inventario', args=[instance.pk]) 
                 except NoReverseMatch:
-                    logger.warning(f"No se encontró la URL 'productos:detalle_producto' para producto ID {producto.pk}.")
+                    logger.warning(f"No se encontró la URL 'bodega:informe_movimiento_inventario' para MovimientoInventario ID {instance.pk}.")
                     
                     
                 vendedores_a_notificar = User.objects.filter(
-                    perfil_vendedor__empresa=empresa,
+                    perfil_vendedor__isnull=False, # Asegura que el usuario tiene un perfil de vendedor
+                    empresa=empresa,              # Filtra por el campo 'empresa' directamente en el modelo User
                     is_active=True
                 )
+                
                 with transaction.atomic(): # Asegurar que las notificaciones se creen juntas
                     for usuario_vendedor in vendedores_a_notificar:
 
@@ -165,7 +169,7 @@ def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
                             Notificacion.objects.create(
                                 destinatario=usuario_vendedor,
                                 mensaje=mensaje_notificacion,
-                                url=url_producto, # Opcional: URL para ir al detalle del producto
+                                url=url_notificacion, # Opcional: URL para ir al detalle del producto
                                 leido=False
                             )
                         else:

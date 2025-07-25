@@ -1,0 +1,80 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Informe de Movimiento de Inventario - {{ movimiento.tipo_movimiento }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center py-3">
+            <h1 class="h3 mb-0">Informe de Movimiento de Inventario</h1>
+            <p class="lead mb-0">Detalle del Movimiento #{{ movimiento.pk }}</p>
+        </div>
+        <div class="card-body">
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h2 class="h5 text-primary mb-3"><i class="fas fa-info-circle me-2"></i> Información General</h2>
+                    <p><strong>Tipo de Movimiento:</strong> <span class="badge bg-info">{{ movimiento.get_tipo_movimiento_display }}</span></p>
+                    <p><strong>Fecha y Hora:</strong> {{ movimiento.fecha_hora|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Usuario Responsable:</strong> {{ movimiento.usuario_responsable.username }}</p>
+                    <p><strong>Empresa:</strong> {{ movimiento.empresa.nombre }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h2 class="h5 text-primary mb-3"><i class="fas fa-warehouse me-2"></i> Ubicación</h2>
+                    <p><strong>Bodega:</strong> {{ movimiento.bodega.nombre }}</p>
+                    <p><strong>Ubicación:</strong> {{ movimiento.ubicacion.nombre }}</p>
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <h2 class="h5 text-primary mb-3"><i class="fas fa-boxes me-2"></i> Detalles del Producto</h2>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col">Producto</th>
+                            <th scope="col">Código</th>
+                            <th scope="col">Cantidad</th>
+                            <th scope="col">Stock Actual</th>
+                            <th scope="col">Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ movimiento.producto.nombre }}</td>
+                            <td>{{ movimiento.producto.codigo }}</td>
+                            <td>
+                                {% if movimiento.tipo_movimiento == 'salida' %}
+                                    <span class="text-danger">-{{ movimiento.cantidad }}</span>
+                                {% else %}
+                                    <span class="text-success">+{{ movimiento.cantidad }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ movimiento.stock_actual }}</td>
+                            <td>{{ movimiento.notas|default:"N/A" }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {% if movimiento.documento_referencia %}
+            <hr class="my-4">
+            <h2 class="h5 text-primary mb-3"><i class="fas fa-file-alt me-2"></i> Documento de Referencia</h2>
+            <p><strong>Tipo de Documento:</strong> {{ movimiento.tipo_documento_referencia|default:"N/A" }}</p>
+            <p><strong>Número de Documento:</strong> {{ movimiento.documento_referencia|default:"N/A" }}</p>
+            {% endif %}
+
+        </div>
+        <div class="card-footer text-end bg-light py-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Inicio
+            </a>
+            <button onclick="window.print()" class="btn btn-info">
+                <i class="fas fa-print me-1"></i> Imprimir Informe
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

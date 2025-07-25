@@ -5,9 +5,10 @@ from django.views.generic import ListView
 from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 import openpyxl
 import csv
+from django.views.generic import DetailView
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
@@ -16,6 +17,7 @@ from django.db import transaction
 from .models import SalidaInternaCabecera
 from .forms import SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
+from django.utils.decorators import method_decorator
 import logging
 from django.conf import settings
 from django.db.models import Prefetch
@@ -1619,3 +1621,76 @@ def exportar_inventario_excel(request):
     workbook.save(response)
 
     return response
+
+class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = MovimientoInventario
+    template_name = 'bodega/informe_movimiento_inventario.html'
+    context_object_name = 'movimiento'
+    
+    permission_required = 'bodega.view_movimientoinventario' 
+    login_url = 'core:acceso_denegado'
+
+    def dispatch(self, request, *args, **kwargs):
+        logger.debug(f"--- Iniciando dispatch para InformeMovimientoInventarioView ---")
+        logger.debug(f"Usuario autenticado: {request.user.is_authenticated}")
+        logger.debug(f"Usuario: {request.user.username}")
+        logger.debug(f"Inquilino (request.tenant): {getattr(request, 'tenant', 'NO DISPONIBLE')}")
+        
+        # Verificar el permiso antes de llamar a super().dispatch()
+        # PermissionRequiredMixin hace su chequeo aquí.
+        # Puedes añadir un try-except para capturar PermissionDenied si quieres un manejo más específico.
+        
+        # Verifica si el usuario tiene el permiso requerido
+        if not request.user.has_perm(self.permission_required):
+            logger.warning(f"Permiso '{self.permission_required}' denegado para el usuario {request.user.username}")
+            # Aquí se ejecutará handle_no_permission
+            return self.handle_no_permission()
+
+        logger.debug(f"Permiso '{self.permission_required}' CONCEDIDO para el usuario {request.user.username}")
+        return super().dispatch(request, *args, **kwargs)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para acceder a este informe de movimiento de inventario.")
+        logger.warning(f"Redirigiendo a 'core:index' por falta de permisos para {self.request.user.username}")
+        return redirect('core:index')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        current_tenant = getattr(self.request, 'tenant', None)
+        logger.debug(f"get_queryset: Inquilino actual: {current_tenant}")
+        if current_tenant:
+            queryset = queryset.filter(empresa=current_tenant)
+            logger.debug(f"get_queryset: Filtrando por empresa: {current_tenant.nombre}")
+        else:
+            logger.error("get_queryset: request.tenant no está disponible. Esto podría ser un problema de middleware.")
+        return queryset.select_related('producto', 'usuario')
+
+    def get_object(self, queryset=None):
+        logger.debug(f"--- Iniciando get_object ---")
+        if queryset is None:
+            queryset = self.get_queryset()
+        
+        pk = self.kwargs.get(self.pk_url_kwarg)
+        logger.debug(f"get_object: PK de la URL: {pk}")
+        
+        obj = get_object_or_404(queryset, pk=pk)
+        logger.debug(f"get_object: Objeto encontrado: {obj}")
+        
+        # Una verificación adicional a nivel de objeto (si tu sistema de inquilinos lo requiere)
+        current_tenant = getattr(self.request, 'tenant', None)
+        if current_tenant and obj.empresa != current_tenant:
+            logger.error(f"get_object: Acceso denegado a objeto de otro inquilino. Objeto ID: {obj.pk}, Inquilino del objeto: {obj.empresa.nombre}, Inquilino actual: {current_tenant.nombre}")
+            raise Http404("No se encontró el objeto o no tienes permiso para acceder a él.") # O PermissionDenied
+        
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        movimiento = context.get('movimiento')
+        if movimiento:
+            context['producto'] = movimiento.producto 
+            context['titulo'] = f'Detalles del Movimiento #{movimiento.pk} ({self.request.tenant.nombre})'
+            logger.debug(f"get_context_data: Contexto preparado para movimiento {movimiento.pk}")
+        else:
+            logger.error("get_context_data: No se encontró el objeto 'movimiento' en el contexto.")
+        return context

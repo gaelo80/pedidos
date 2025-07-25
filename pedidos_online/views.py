@@ -1,6 +1,6 @@
 # pedidos_online/views.py
 
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.db import transaction
@@ -10,14 +10,16 @@ from django.utils import timezone
 import json
 from decimal import Decimal, InvalidOperation
 import traceback
-
-# Django Rest Framework imports
+from django.template.loader import get_template
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 # Existing app imports
+from core.utils import get_logo_base_64_despacho
 from pedidos.models import Pedido, DetallePedido
+from pedidos.utils import preparar_datos_seccion
 from productos.models import Producto
 from vendedores.models import Vendedor
 from clientes.models import Cliente
@@ -28,12 +30,18 @@ from core.auth_utils import es_admin_sistema, es_vendedor
 from .models import ClienteOnline, PrecioEspecial
 from .forms import PedidoOnlineForm, ClienteOnlineForm
 
-# --- Existing views (keeping them for context, no changes needed here) ---
+logger = logging.getLogger(__name__)
+
+TALLAS_DAMA = ['3', '5', '7', '9', '11', '13']
+TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38']
+TALLAS_UNISEX = ['S', 'M', 'L', 'XL']
+
 
 @login_required
 @permission_required('pedidos.add_pedido', login_url='core:acceso_denegado')
 def crear_pedido_online(request, pk=None):
     empresa_actual = getattr(request, 'tenant', None)
+    print(f"DEBUG: Tipo de empresa_actual: {type(empresa_actual)}, Valor: {empresa_actual}")
     if not empresa_actual:
         messages.error(request, "Invalid access. Company could not be identified.")
         return redirect('core:acceso_denied')
@@ -798,6 +806,7 @@ def reporte_ventas_general_online(request):
 @permission_required('pedidos.add_pedido', login_url='core:acceso_denegado') # Assuming 'add_pedido' permission covers this
 def registrar_cambio_online(request, pedido_id=None):
     empresa_actual = getattr(request, 'tenant', None)
+    print(f"DEBUG: Tipo de empresa_actual: {type(empresa_actual)}, Valor: {empresa_actual}")
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
@@ -1130,3 +1139,95 @@ def comprobante_cambio_online(request, pk):
         'titulo': f'Comprobante de Cambio #{cambio_pedido.pk}',
     }
     return render(request, 'pedidos_online/comprobante_cambio_online.html', context)
+
+
+@login_required
+@permission_required('pedidos.view_pedido', login_url='core:acceso_denegado')
+def generar_borrador_online_pdf(request, pk):
+    """
+    Genera un PDF para un pedido en estado BORRADOR (ONLINE) específico,
+    asegurando que pertenezca al inquilino actual y que el usuario
+    tenga permisos para verlo.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+
+    # Lógica de acceso y filtrado del pedido borrador online
+    query_params = {'pk': pk, 'estado': 'BORRADOR', 'tipo_pedido': 'ONLINE'}
+
+    if not request.user.is_superuser:
+        if not empresa_actual:
+            messages.error(request, "Acceso no válido. Su usuario no está asociado a ninguna empresa.")
+            return redirect('core:acceso_denegado')
+        query_params['empresa'] = empresa_actual
+
+    # Filtro adicional para vendedores (solo pueden ver sus borradores)
+    if es_vendedor(request.user) and not (request.user.is_superuser or es_admin_sistema(request.user)):
+        try:
+            # CORRECCIÓN: Filtrar Vendedor por user__empresa
+            vendedor_obj = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)
+            query_params['vendedor'] = vendedor_obj
+        except Vendedor.DoesNotExist:
+            messages.error(request, "Su perfil de vendedor no está asociado a esta empresa.")
+            return redirect('core:acceso_denegado')
+
+    # Obtener el pedido borrador online
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
+        **query_params
+    )
+
+    # --- Reutilizamos la lógica de preparación de datos de secciones (dama, caballero, unisex) ---
+    # Si estas funciones no están globalmente disponibles, tendrás que copiarlas aquí
+    # o importarlas de pedidos.views si están allí.
+    detalles_originales = pedido.detalles.select_related('producto').all()
+    items_dama, items_caballero, items_unisex = [], [], []
+
+    for detalle in detalles_originales:
+        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        if genero_producto == 'DAMA':
+            items_dama.append(detalle)
+        elif genero_producto == 'CABALLERO':
+            items_caballero.append(detalle)
+        else:
+            items_unisex.append(detalle)       
+
+    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
+    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
+    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+
+    # --- Obtener logo de la empresa ---
+    logo_para_pdf = None
+    try:
+        logo_para_pdf = get_logo_base_64_despacho(empresa_actual)
+    except Exception as e: 
+        logger.warning(f"Advertencia PDF Borrador Online: Excepción al llamar get_logo_base_64_despacho(): {e}")
+
+    context = {
+        'pedido': pedido,
+        'empresa_actual': empresa_actual,
+        'logo_base64': logo_para_pdf,
+        'tasa_iva_pct': int(pedido.IVA_RATE * 100),
+        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
+        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
+        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'incluir_color': True,
+        'incluir_vr_unit': True,
+        'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
+    }
+
+    template = get_template('pedidos/pedido_pdf.html') # Reutilizamos la misma plantilla PDF
+    html = template.render(context)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="pedido_borrador_online_{pedido.pk}.pdf"'
+
+    # Uso de xhtml2pdf o WeasyPrint
+    # Si usas WeasyPrint:
+    # HTML(string=html).write_pdf(response)
+    # Si usas xhtml2pdf:
+    from xhtml2pdf import pisa
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+       logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.pk}: {pisa_status.err}")
+       return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
+    return response
