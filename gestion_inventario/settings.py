@@ -72,20 +72,20 @@ SECRET_KEY = config('SECRET_KEY')
     # SECURITY WARNING: don't run with debug turned on in production!
 #DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'pedidoslouisferry.localhost']
-#ALLOWED_HOSTS = [
-                #'pedidosluisferry.store', 
-                #'www.pedidosluisferry.store',
-                #'pedidoswhite.online',
-                #'www.pedidoswhite.online',
-                #'pedidosharmony.online',
-                #'www.pedidosharmony.online',
-                #'pedidosamerican.online',
-                #'www.pedidosamerican.online',
-                #'pedidosexclusive.online',
-                #'www.pedidosexclusive.online',               
+#ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost' 'empresa-prueba.localhost').split(',')
+ALLOWED_HOSTS = [       
+                'pedidoslouisferry.online',
+                'www.pedidoslouisferry.online',         
+                'pedidoswhite.online',
+                'www.pedidoswhite.online',
+                'pedidosharmony.online',
+                'www.pedidosharmony.online',
+                'pedidosamerican.online',
+                'www.pedidosamerican.online',
+                'pedidosexclusive.online',
+                'www.pedidosexclusive.online',               
                 
-                #]
+                ]
                  #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
@@ -94,8 +94,6 @@ CSRF_TRUSTED_ORIGINS = [
     # por ejemplo, el dominio de tu sitio en producción.
 ]
 
-
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5" 
 CRISPY_TEMPLATE_PACK = "bootstrap5"          
@@ -130,7 +128,6 @@ INSTALLED_APPS = [
         'recaudos',
         'notificaciones',
         'pedidos_online',
-        'bitacora',
         
         
         # APLICACIONES DE TERCERO
