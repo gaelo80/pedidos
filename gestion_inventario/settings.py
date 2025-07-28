@@ -69,8 +69,16 @@ SITE_ID = 1
     # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
 
-    # SECURITY WARNING: don't run with debug turned on in production!
-#DEBUG = config('DEBUG', default=False, cast=bool)
+# CONFIGURACIONES DE COOKIES SEGURAS PARA HTTPS EN PRODUCCIÓN
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY' # O 'SAMEORIGIN' si usas iframes en tu propio sitio
+SECURE_SSL_REDIRECT = True # Si quieres forzar todas las peticiones a HTTPS
+SECURE_HSTS_SECONDS = 31536000 # Opcional: HSTS para un año
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Opcional: HSTS para subdominios
+SECURE_HSTS_PRELOAD = True # Opcional: HSTS para precarga
 
 #ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'pedidoslouisferry.localhost']
 ALLOWED_HOSTS = [
@@ -89,10 +97,20 @@ ALLOWED_HOSTS = [
                  #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
 
 CSRF_TRUSTED_ORIGINS = [
-   # 'https://5fe8-148-222-225-228.ngrok-free.app'
-    # Puedes añadir otros orígenes de confianza aquí si los tienes,
-    # por ejemplo, el dominio de tu sitio en producción.
-]
+                'https://pedidoslouisferry.online',
+                'https://www.pedidoslouisferry.online',
+                'https://pedidoswhite.online',
+                'https://www.pedidoswhite.online',
+                'https://pedidosharmony.online',
+                'https://www.pedidosharmony.online',
+                'https://pedidosamerican.online',
+                'https://www.pedidosamerican.online',
+                'https://pedidosexclusive.online',
+                'https://www.pedidosexclusive.online',
+                # Si en algún momento necesitas HTTP para localhost en DEBUG=False, añádelo:
+                # 'http://localhost:8000',
+                # 'http://127.0.0.1:8000',
+            ]
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5" 
