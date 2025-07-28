@@ -291,6 +291,17 @@
             {% endif %}
              <div class="form-text">{{ pedido_form.notas.help_text }}</div>
         </div>
+
+        <div class="form-check mt-3">
+            {{ pedido_form.mostrar_precios_pdf }}
+            <label class="form-check-label" for="{{ pedido_form.mostrar_precios_pdf.id_for_label }}">
+                {{ pedido_form.mostrar_precios_pdf.label }}
+            </label>
+            {% if pedido_form.mostrar_precios_pdf.errors %}
+                <div class="text-danger small mt-1">{{ pedido_form.mostrar_precios_pdf.errors }}</div>
+            {% endif %}
+        </div>
+
     </div>
 
     <div class="mt-4 d-flex flex-wrap justify-content-center gap-2">

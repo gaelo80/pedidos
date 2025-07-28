@@ -644,7 +644,7 @@ def generar_pedido_pdf(request, pk):
         'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
         'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
         'incluir_color': True,
-        'incluir_vr_unit': True,
+        'incluir_vr_unit': pedido.mostrar_precios_pdf,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
     }
     
@@ -1036,7 +1036,7 @@ def generar_borrador_pdf(request, pk):
         'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
         'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
         'incluir_color': True,
-        'incluir_vr_unit': True,
+        'incluir_vr_unit': pedido.mostrar_precios_pdf,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request), # Obtener el enlace de descarga de fotos
     }
     

@@ -121,12 +121,12 @@
                 <tr>
                     <th rowspan="2">Ref.</th>
                     {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-                    
+
                     <th colspan="{{ tallas_cols_dama|length }}" class="text-center">Tallas</th>
-                    
+
                     <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %}
-                    <th rowspan="2" class="text-right">VALOR</th>
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
                 </tr>
                 <tr>
                     {% for talla in tallas_cols_dama %}
@@ -143,8 +143,8 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -158,12 +158,12 @@
                 <tr>
                     <th rowspan="2">Ref.</th>
                     {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-                    
+
                     <th colspan="{{ tallas_cols_caballero|length }}" class="text-center">Tallas</th>
-                    
+
                     <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %}
-                    <th rowspan="2" class="text-right">VALOR</th>
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
                 </tr>
                 <tr>
                     {% for talla in tallas_cols_caballero %}
@@ -180,14 +180,14 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     {% endif %}
-    
+
         {# --- SECCIÓN UNISEX --- #}
     {% if grupos_unisex %}
         <h2>PEDIDO UNISEX</h2>
@@ -196,12 +196,12 @@
                 <tr>
                     <th rowspan="2">Ref.</th>
                     {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-                    
+
                     <th colspan="{{ tallas_cols_unisex|length }}" class="text-center">Tallas</th>
-                    
+
                     <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %}
-                    <th rowspan="2" class="text-right">VALOR</th>
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
                 </tr>
                 <tr>
                     {% for talla in tallas_cols_unisex %}
@@ -218,8 +218,8 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %}
-                    <td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -241,6 +241,7 @@
                     <td class="label">Cantidad Total:</td>
                     <td class="value">{{ pedido.total_cantidad_productos|intcomma }}</td>
                 </tr>
+                {% if incluir_vr_unit %} {# AQUI: CONDICION PARA MOSTRAR TOTALES FINANCIEROS #}
                 <tr>
                     <td class="label">Subtotal Bruto (Sin IVA):</td>
                     <td class="value">${{ pedido.subtotal_base_bruto|intcomma }}</td>
@@ -256,7 +257,6 @@
                 </tr>
                 {% endif %}
                 <tr>
-                    {# Asegúrate de mostrar la tasa de IVA correcta #}
                     <td class="label">IVA ({{ tasa_iva_pct|default:"?" }}%):</td>
                     <td class="value">${{ pedido.valor_iva_final|intcomma }}</td>
                 </tr>
@@ -264,6 +264,15 @@
                     <td class="label">TOTAL A PAGAR:</td>
                     <td class="value">${{ pedido.total_a_pagar|intcomma }}</td>
                 </tr>
+                {% else %}
+                <tr class="grand-total">
+                    <td class="label">TOTAL EN UNIDADES:</td>
+                    <td class="value">{{ pedido.total_cantidad_productos|intcomma }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: center; font-style: italic; color: #888;">Precios no incluidos en este documento.</td>
+                </tr>
+                {% endif %} {# FIN DE LA CONDICION PARA MOSTRAR TOTALES FINANCIEROS #}
             </tbody>
         </table>
     </div>

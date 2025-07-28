@@ -114,6 +114,11 @@ class Pedido(models.Model):
     usuario_decision_admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos_decision_admin', verbose_name="Decisión Tomada por (Admin.)")
     fecha_decision_admin = models.DateTimeField(null=True, blank=True, verbose_name="Fecha Decisión Administración")
 
+    mostrar_precios_pdf = models.BooleanField(
+        default=True,  # Por defecto, mostrar precios
+        verbose_name="Mostrar Precios en PDF"
+    )
+    
     IVA_RATE = Decimal('0.19')
     IVA_FACTOR = Decimal('1.00') + IVA_RATE
     

@@ -76,18 +76,20 @@ class PedidoForm(forms.ModelForm):
     class Meta:
         # Define el modelo y los campos que se usarán, siguiendo las buenas prácticas.
         model = Pedido
-        fields = ['cliente', 'prospecto', 'porcentaje_descuento', 'notas', 'forma_pago']
+        fields = ['cliente', 'prospecto', 'porcentaje_descuento', 'notas', 'forma_pago', 'mostrar_precios_pdf']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-control'}),
             'porcentaje_descuento': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm', 'step': '1', 'min': '0', 'max': '100'
             }),
             'notas': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-            'forma_pago': forms.Select(attrs={'class': 'form-select'}), # Widget para el nuevo campo
+            'forma_pago': forms.Select(attrs={'class': 'form-select'}),
+            'mostrar_precios_pdf': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'porcentaje_descuento': 'Descuento (%)',
-            'forma_pago': 'Forma de Pago', # Etiqueta para el nuevo campo
+            'forma_pago': 'Forma de Pago',
+            'mostrar_precios_pdf': 'Incluir precios en el PDF',
         }
 
 # ===================================================================
