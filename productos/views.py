@@ -61,7 +61,7 @@ class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredM
         context['search_query'] = self.request.GET.get('q', '')        
         return context
 
-class ProductoCreateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class ProductoCreateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     model = Producto
     form_class = ProductoForm
     template_name = 'productos/producto_form.html' # Usa la plantilla que diseñamos
@@ -87,8 +87,7 @@ class ProductoCreateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMix
         context['nombre_boton'] = "Guardar Producto"        
         return context
 
-    def test_func(self):
-        return self.request.user.is_superuser or es_diseno(self.request.user)
+
 
 class ProductoUpdateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Producto
