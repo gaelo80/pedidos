@@ -1,6 +1,7 @@
 # productos/forms.py
 from django import forms
-from .models import Producto, ReferenciaColor
+from .models import FotoProducto, Producto, ReferenciaColor
+from django.forms import inlineformset_factory
 
 class ProductoForm(forms.ModelForm):
     
@@ -104,7 +105,7 @@ class SeleccionarAgrupacionParaFotosForm(forms.Form):
     
     imagenes = MultipleFileField(
         label="Seleccionar Imágenes",
-        required=True # Aseguramos que se suba al menos una imagen
+        required=False
     )
 
     articulo_color = forms.ModelChoiceField(
@@ -138,3 +139,31 @@ class SeleccionarAgrupacionParaFotosForm(forms.Form):
             # Si no hay empresa, el formulario no puede funcionar de forma segura.
             # Podrías lanzar un error o simplemente dejar el queryset vacío.
             self.fields['articulo_color'].queryset = ReferenciaColor.objects.none()
+            
+
+class FotoProductoForm(forms.ModelForm):
+    class Meta:
+        model = FotoProducto
+        fields = ['id', 'imagen', 'descripcion_foto', 'orden']
+        widgets = {
+            'imagen': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'descripcion_foto': forms.Textarea(attrs={'rows': 1, 'class': 'form-control'}),
+            'orden': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': 0}),
+        }
+        # 'id' se incluye implícitamente para ModelForms en update/delete
+
+    # Opcional: Para permitir eliminar una foto individual del formset
+    DELETE = forms.BooleanField(required=False, initial=False, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+
+# NUEVO: Formset para FotoProducto
+# Se relaciona con ReferenciaColor
+FotoProductoFormSet = inlineformset_factory(
+    ReferenciaColor,            # Modelo padre
+    FotoProducto,               # Modelo hijo
+    form=FotoProductoForm,      # Nuestro formulario personalizado para el hijo
+    extra=0,                    # No queremos formularios vacíos por defecto para edición
+    can_delete=True,            # Permite eliminar registros existentes
+    fields=['imagen', 'descripcion_foto', 'orden'], # Campos que se manejarán por el formset
+    # max_num=10,               # Límite máximo de fotos por agrupación (opcional)
+)

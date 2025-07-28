@@ -25,4 +25,5 @@ urlpatterns = [
     path('exportar/<str:file_format>/', views.producto_export_view, name='producto_exportar'),
     path('subir-fotos-agrupadas/', views.subir_fotos_agrupadas_view, name='producto_subir_fotos_agrupadas'),
     
+    
 ]

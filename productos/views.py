@@ -1,6 +1,6 @@
 # productos/views.py
 from django.shortcuts import render, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView # Añadir DetailView si la necesitas
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin # Asumiendo que quieres proteger estas vistas
 from django.contrib.auth.mixins import UserPassesTestMixin # Para permisos más específicos
@@ -9,16 +9,20 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.db.models import Q
 from django.http import HttpResponse
-from .models import Producto, FotoProducto 
+from .models import Producto, FotoProducto, ReferenciaColor 
 from .forms import ProductoForm 
 from django.contrib.auth.decorators import login_required, permission_required
 from core.auth_utils import es_administracion, es_diseno
 from .forms import ProductoForm, ProductoImportForm
 from .resources import ProductoResource
 from tablib import Dataset
-from .forms import SeleccionarAgrupacionParaFotosForm
+from .forms import SeleccionarAgrupacionParaFotosForm, FotoProductoFormSet
 from core.mixins import TenantAwareMixin
 from django.contrib.auth.mixins import UserPassesTestMixin
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -255,55 +259,141 @@ def producto_export_view(request, file_format='xlsx'):
 @login_required
 @permission_required('productos.upload_fotos_producto', login_url=reverse_lazy('core:acceso_denegado'))
 def subir_fotos_agrupadas_view(request):
-    """
-    Gestiona la subida masiva de fotos, filtrando los artículos
-    por la empresa identificada a través del dominio (request.tenant).
-    """
-    
-    # 1. OBTENEMOS LA EMPRESA GRACIAS A NUESTRO MIDDLEWARE
-    # getattr busca 'tenant' en request. Si no existe, devuelve None para evitar errores.
     empresa_actual = getattr(request, 'tenant', None)
 
-    # Si por alguna razón no se identifica una empresa (ej. dominio no registrado),
-    # no podemos continuar.
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa desde el dominio.")
-        return redirect('core:index') # O a una página de error
+        return redirect('core:index')
+
+    fotos_existentes = []
+    formset_instance = None
+    agrupacion_id_preseleccionada = request.GET.get('agrupacion_id', None)
+
+    url_to_redirect_base = reverse('productos:producto_subir_fotos_agrupadas')
 
     if request.method == 'POST':
-        # 2. AL PROCESAR EL FORMULARIO, LE PASAMOS LA EMPRESA
-        # para que pueda validar correctamente la selección del usuario.
+        logger.debug("Procesando petición POST.")
         form = SeleccionarAgrupacionParaFotosForm(request.POST, request.FILES, empresa=empresa_actual)
-        
+
+        referencia_color_seleccionada = None
+        # Primero, intenta validar el formulario principal para obtener la agrupación
         if form.is_valid():
             referencia_color_seleccionada = form.cleaned_data['articulo_color']
+            logger.debug(f"Formulario principal es válido. Agrupación seleccionada: {referencia_color_seleccionada}")
+        else:
+            logger.debug(f"Formulario principal NO es válido. Errores: {form.errors.as_json()}")
+            # Si el formulario principal no es válido, intentamos cargar la agrupación
+            # desde el POST para que el formset tenga una instancia válida si es posible.
+            agrupacion_id_from_post = request.POST.get('articulo_color')
+            if agrupacion_id_from_post:
+                try:
+                    referencia_color_seleccionada = ReferenciaColor.objects.get(
+                        pk=agrupacion_id_from_post, empresa=empresa_actual
+                    )
+                    logger.debug(f"Agrupación recuperada del POST para el formset: {referencia_color_seleccionada}")
+                except ReferenciaColor.DoesNotExist:
+                    logger.warning(f"Agrupación ID {agrupacion_id_from_post} del POST no encontrada.")
+                    pass
+
+        # Inicializar el formset con o sin instancia, dependiendo de si se encontró una agrupación
+        if referencia_color_seleccionada:
+            formset_instance = FotoProductoFormSet(request.POST, request.FILES, instance=referencia_color_seleccionada, prefix='fotos')
+            logger.debug("Formset inicializado con instancia de ReferenciaColor.")
+        else:
+            # Si no hay agrupación seleccionada o el formulario principal tiene errores
+            # creamos un formset vacío pero con los datos del POST para que valide
+            formset_instance = FotoProductoFormSet(request.POST, request.FILES, prefix='fotos')
+            logger.debug("Formset inicializado sin instancia de ReferenciaColor.")
+
+        # Validar ambos, pero la lógica de subida de nuevas fotos será condicional
+        if form.is_valid() and formset_instance.is_valid():
+            logger.debug("Formulario principal y Formset son VÁLIDOS. Procediendo a guardar.")
+
+            # IMPORTANT: Re-confirmar la agrupación seleccionada si el formulario principal es válido
+            # Esto es redundante si ya se hizo arriba, pero asegura que `referencia_color_seleccionada`
+            # sea la instancia válida final para el guardado.
+            referencia_color_seleccionada = form.cleaned_data['articulo_color']
             descripcion_general = form.cleaned_data.get('descripcion_general', '')
-            imagenes_subidas = request.FILES.getlist('imagenes') # 'imagenes' es el name del input en tu form.
+            imagenes_subidas = request.FILES.getlist('imagenes')
 
             fotos_creadas_count = 0
-            for imagen_file in imagenes_subidas:
-                try:
-                    # La lógica de creación se queda igual. El modelo se encargará del resto.
-                    FotoProducto.objects.create(
-                        referencia_color=referencia_color_seleccionada,
-                        imagen=imagen_file,
-                        descripcion_foto=descripcion_general
-                    )
-                    fotos_creadas_count += 1
-                except Exception as e:
-                    messages.error(request, f"Error al guardar la imagen {imagen_file.name}: {e}")
-            
-            if fotos_creadas_count > 0:
-                messages.success(request, f"¡{fotos_creadas_count} foto(s) subida(s) exitosamente para {referencia_color_seleccionada}!")
-            
-            return redirect('productos:producto_subir_fotos_agrupadas') # Asegúrate que el nombre de la URL sea correcto
-    else: # Método GET (cuando se carga la página por primera vez)
-        # 3. TAMBIÉN LE PASAMOS LA EMPRESA AL CREAR EL FORMULARIO VACÍO
-        # Esto es lo que filtra el menú desplegable que ve el usuario.
+            # SOLO PROCESAR NUEVAS IMÁGENES SI REALMENTE HAY ARCHIVOS SUBIDOS
+            if imagenes_subidas: # <--- CAMBIO CLAVE AQUI
+                for imagen_file in imagenes_subidas:
+                    try:
+                        FotoProducto.objects.create(
+                            referencia_color=referencia_color_seleccionada,
+                            imagen=imagen_file,
+                            descripcion_foto=descripcion_general
+                        )
+                        fotos_creadas_count += 1
+                    except Exception as e:
+                        messages.error(request, f"Error al guardar la imagen {imagen_file.name}: {e}")
+            else:
+                logger.debug("No se detectaron nuevas imágenes para subir.")
+
+            # Guardar cambios del formset (actualizar/eliminar fotos existentes)
+            try:
+                formset_instance.save()
+                if formset_instance.deleted_objects:
+                    messages.success(request, f"Se eliminaron {len(formset_instance.deleted_objects)} fotos existentes.")
+
+                # Mensaje para nuevas fotos, solo si se subieron
+                if fotos_creadas_count > 0:
+                    messages.success(request, f"¡{fotos_creadas_count} foto(s) subida(s) exitosamente para {referencia_color_seleccionada}!")
+                elif not formset_instance.deleted_objects and not formset_instance.changed_objects:
+                    # Si no se subieron nuevas fotos y no se eliminaron/cambiaron existentes
+                    messages.info(request, "No se realizaron cambios en las fotos.")
+                else:
+                    messages.info(request, "Se guardaron los cambios en las fotos existentes.") # Mensaje más general si hubo cambios en existentes
+
+            except Exception as e:
+                messages.error(request, f"Error al actualizar/eliminar fotos existentes: {e}")
+                # Si hay un error al guardar el formset, volvemos a renderizar con los errores
+                context = {
+                    'form': form,
+                    'formset': formset_instance,
+                    'titulo': f"Subir Fotos para: {empresa_actual.nombre}",
+                    'fotos_existentes': referencia_color_seleccionada.fotos_agrupadas.all() if referencia_color_seleccionada else [],
+                    'agrupacion_seleccionada_id': referencia_color_seleccionada.pk if referencia_color_seleccionada else None,
+                }
+                return render(request, 'productos/subir_fotos_agrupadas.html', context)
+
+            # Si todo fue bien, redirigimos
+            return redirect(f"{url_to_redirect_base}?agrupacion_id={referencia_color_seleccionada.pk}")
+
+        else: # Formulario principal o formset no válidos
+            logger.warning(f"Validación fallida. Errores del Formulario: {form.errors.as_json()}. Errores del Formset: {formset_instance.errors if formset_instance else 'No instanciado'}")
+            # Aseguramos que el formset se re-instancie correctamente para mostrar errores
+            if referencia_color_seleccionada and not formset_instance:
+                formset_instance = FotoProductoFormSet(request.POST, request.FILES, instance=referencia_color_seleccionada, prefix='fotos')
+            elif not referencia_color_seleccionada and not formset_instance:
+                formset_instance = FotoProductoFormSet(request.POST, request.FILES, prefix='fotos')
+            messages.error(request, "Por favor corrige los errores en el formulario.")
+
+    else: # Método GET
         form = SeleccionarAgrupacionParaFotosForm(empresa=empresa_actual)
+
+        if agrupacion_id_preseleccionada:
+            try:
+                referencia_color_instance = ReferenciaColor.objects.get(
+                    pk=agrupacion_id_preseleccionada, empresa=empresa_actual
+                )
+                form.initial['articulo_color'] = referencia_color_instance
+                formset_instance = FotoProductoFormSet(instance=referencia_color_instance, prefix='fotos')
+                fotos_existentes = referencia_color_instance.fotos_agrupadas.all()
+            except ReferenciaColor.DoesNotExist:
+                messages.warning(request, "La agrupación de fotos seleccionada no existe o no pertenece a tu empresa.")
+                formset_instance = FotoProductoFormSet(prefix='fotos')
+        else:
+            formset_instance = FotoProductoFormSet(prefix='fotos')
 
     context = {
         'form': form,
-        'titulo': f"Subir Fotos para: {empresa_actual.nombre}", # Título personalizado
+        'formset': formset_instance,
+        'titulo': f"Subir Fotos para: {empresa_actual.nombre}",
+        'fotos_existentes': fotos_existentes,
+        'agrupacion_seleccionada_id': agrupacion_id_preseleccionada,
     }
+    logger.debug("Renderizando plantilla con el contexto.")
     return render(request, 'productos/subir_fotos_agrupadas.html', context)

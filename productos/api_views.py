@@ -153,3 +153,4 @@ def buscar_referencias_api(request):
     results = [{'id': item['referencia'], 'text': item['referencia']} for item in referencias_qs]
     
     return JsonResponse({'results': results})
+
