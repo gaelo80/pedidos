@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import Group
 from vendedores.models import Vendedor
-from core.auth_utils import es_admin_sistema
+from core.auth_utils import es_administrador_app
 from core.mixins import TenantAwareMixin
 
 User = get_user_model()
@@ -23,7 +23,7 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     
     def test_func(self):
         # SOLO LOS ADMINS DEL SISTEMA PUEDEN VER ESTA LISTA
-        return es_admin_sistema(self.request.user)
+        return es_administrador_app(self.request.user)
 
     # AÑADIDO: PATRÓN DE MANEJO DE PERMISOS DE 'clientes'
     def handle_no_permission(self):
@@ -35,7 +35,7 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         empresa_actual = getattr(self.request, 'tenant', None)
         if self.request.user.is_superuser:
             base_qs = User.objects.all()
-        elif empresa_actual and es_admin_sistema(self.request.user):
+        elif empresa_actual and es_administrador_app(self.request.user):
             # AHORA USAMOS EL CAMPO 'empresa' DIRECTO EN EL MODELO User
             base_qs = User.objects.filter(empresa=empresa_actual)
         else:
@@ -59,7 +59,7 @@ class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     success_message = "¡Usuario '%(username)s' creado exitosamente!"
     
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administrador_app(self.request.user)
 
     # AÑADIDO: PATRÓN DE MANEJO DE PERMISOS
     def handle_no_permission(self):
@@ -84,14 +84,8 @@ class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context['titulo'] = 'Crear Nuevo Usuario'
         context['nombre_boton'] = 'Crear Usuario'
-        return context 
-    
-    
-    
-    
-    
-    
-    
+        return context                  
+   
     
 class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = User
@@ -102,7 +96,7 @@ class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     success_message = "Usuario '%(username)s' actualizado exitosamente."
     
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administrador_app(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para editar usuarios.")
@@ -114,7 +108,7 @@ class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         empresa_actual = getattr(self.request, 'tenant', None)
         if self.request.user.is_superuser:
             return User.objects.all()
-        if empresa_actual and es_admin_sistema(self.request.user):
+        if empresa_actual and es_administrador_app(self.request.user):
             return User.objects.filter(empresa=empresa_actual)
         return User.objects.none()
     
@@ -225,7 +219,9 @@ def user_set_password_view(request, pk):
 class SuperuserRequiredMixin:
     """Mixin que deniega el acceso a usuarios que no son superusuarios."""
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
+        # Ahora, es_administrador_app también permite el acceso a estas vistas.
+        # es_administrador_app ya incluye is_superuser.
+        if not es_administrador_app(request.user):
             messages.error(request, "Esta sección solo está disponible para administradores del sistema.")
             return redirect('core:index') # O a una página de acceso denegado
         return super().dispatch(request, *args, **kwargs)

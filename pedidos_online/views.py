@@ -4,17 +4,19 @@ from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, Sum, Max, F, ExpressionWrapper, DurationField
+from django.db.models import Q, Sum, Max, F, ExpressionWrapper, DurationField, DecimalField, Case, When, Value, Min, fields
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import traceback
 from django.template.loader import get_template
 import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Subquery, OuterRef
+from django.contrib.auth.models import Group
 
 # Existing app imports
 from core.utils import get_logo_base_64_despacho
@@ -23,8 +25,8 @@ from pedidos.utils import preparar_datos_seccion
 from productos.models import Producto
 from vendedores.models import Vendedor
 from clientes.models import Cliente
-from bodega.models import MovimientoInventario
-from core.auth_utils import es_admin_sistema, es_vendedor
+from bodega.models import MovimientoInventario, ComprobanteDespacho, DetalleComprobanteDespacho
+from core.auth_utils import es_administracion, es_online, es_vendedor
 
 # New app imports
 from .models import ClienteOnline, PrecioEspecial
@@ -257,7 +259,7 @@ def lista_pedidos_borrador_online(request):
     )
 
     # Filter by seller if the user is a seller and not an admin/superuser
-    if es_vendedor(user) and not (user.is_staff or es_admin_sistema(user)):
+    if es_vendedor(user) and not (user.is_staff or es_administracion(user)):
         queryset = base_queryset.filter(vendedor__user=user)
         titulo = 'Mis Pedidos Borrador Online'
     else:
@@ -601,20 +603,15 @@ def api_get_cliente_estandar_data(request, cliente_id):
 @login_required
 @permission_required('pedidos.view_pedido', login_url='core:acceso_denegado')
 def reporte_ventas_vendedor_online(request):
-    """
-    Genera un informe de ventas por vendedor para pedidos ONLINE.
-    Permite filtrar por rango de fechas y por vendedor (si el usuario es admin).
-    """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:acceso_denegado')
+        return redirect('core:acceso_denied')
 
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
     vendedor_id_seleccionado = request.GET.get('vendedor_id')
 
-    # Convertir fechas a objetos datetime
     fecha_inicio = None
     if fecha_inicio_str:
         try:
@@ -625,69 +622,96 @@ def reporte_ventas_vendedor_online(request):
     fecha_fin = None
     if fecha_fin_str:
         try:
-            # Add one day to include the entire end day
             fecha_fin = timezone.datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timezone.timedelta(days=1)
         except ValueError:
             messages.error(request, "Formato de fecha de fin inválido.")
 
-    # Base queryset for ONLINE orders
     pedidos_qs = Pedido.objects.filter(
         empresa=empresa_actual,
-        tipo_pedido='ONLINE',
-        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO'] # Consider only completed sales
+        tipo_pedido='ONLINE', 
+        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO']
     ).select_related('cliente_online', 'vendedor__user')
 
-    # Apply date filters
     if fecha_inicio:
         pedidos_qs = pedidos_qs.filter(fecha_hora__gte=fecha_inicio)
     if fecha_fin:
         pedidos_qs = pedidos_qs.filter(fecha_hora__lt=fecha_fin)
 
-    # Filter by seller based on user permissions
     user = request.user
-    vendedores_list = Vendedor.objects.filter(user__empresa=empresa_actual).select_related('user').order_by('user__first_name')
-    es_admin = es_admin_sistema(user) or user.is_superuser
-
+    es_admin = es_administracion(user) or user.is_superuser
+    
+    # CAMBIO CLAVE AQUÍ: Buscar el grupo por su nombre correcto 'Online'
+    try:
+        online_group = Group.objects.get(name='Online') 
+    except Group.DoesNotExist:
+        messages.error(request, "El grupo 'Online' no existe en el sistema. Contacte al administrador.")
+        return redirect('core:acceso_denied') # O redirigir a una página de error más específica
+        
+    vendedores_list_online_for_dropdown = Vendedor.objects.filter(
+        user__empresa=empresa_actual, 
+        user__groups=online_group # FILTRO POR EL GRUPO 'Online'
+    ).select_related('user').order_by('user__first_name')
+    
     if es_admin:
         if vendedor_id_seleccionado:
             pedidos_qs = pedidos_qs.filter(vendedor__pk=vendedor_id_seleccionado)
+        pedidos_qs = pedidos_qs.filter(vendedor__user__groups=online_group) # Filtrar pedidos por vendedores 'Online'
         titulo = "Informe de Ventas Online por Vendedor"
-    elif es_vendedor(user):
-        pedidos_qs = pedidos_qs.filter(vendedor__user=user)
-        titulo = f"Mis Ventas Online ({user.get_full_name()})"
-    else:
+    elif user.groups.filter(name='Online').exists(): # Si el usuario logueado pertenece al grupo 'Online'
+        try:
+            vendedor_obj = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
+            pedidos_qs = pedidos_qs.filter(vendedor=vendedor_obj)
+            titulo = f"Mis Ventas Online ({user.get_full_name()})"
+        except Vendedor.DoesNotExist:
+            messages.error(request, "No se encontró un perfil de vendedor online activo para su cuenta en esta empresa.")
+            return redirect('core:acceso_denied')
+    else: 
         messages.warning(request, "No tiene permisos para ver este informe.")
-        return redirect('core:acceso_denegado')
+        return redirect('core:acceso_denied')
 
-    # Annotate pedidos with total requested and dispatched units
     pedidos_list = pedidos_qs.annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), 0),
-        total_unidades_despachadas_pedido=Coalesce(Sum('detalles__cantidad_verificada'), 0)
+        total_unidades_despachadas_pedido=Coalesce(
+            Subquery(
+                DetalleComprobanteDespacho.objects.filter(
+                    comprobante_despacho__pedido_id=OuterRef('pk')
+                ).values('comprobante_despacho__pedido_id')
+                .annotate(total_desp=Coalesce(Sum('cantidad_despachada'), Value(0)))
+                .values('total_desp')[:1],
+                output_field=fields.IntegerField()
+            ), 
+            Value(0)
+        )
     ).order_by('-fecha_hora')
 
-    # Calculate totals for the selected seller (or all if admin and no specific seller selected)
     total_unidades_solicitadas_vendedor = pedidos_qs.aggregate(
         total=Coalesce(Sum('detalles__cantidad'), 0)
     )['total']
     valor_total_ventas_solicitadas_vendedor = pedidos_qs.aggregate(
         total=Coalesce(Sum(F('detalles__cantidad') * F('detalles__precio_unitario')), Decimal('0.00'))
     )['total']
-    total_unidades_despachadas_vendedor = pedidos_qs.aggregate(
-        total=Coalesce(Sum('detalles__cantidad_verificada'), 0)
+    
+    total_unidades_despachadas_vendedor = DetalleComprobanteDespacho.objects.filter(
+        comprobante_despacho__pedido__in=pedidos_qs.values('pk')
+    ).aggregate(
+        total=Coalesce(Sum('cantidad_despachada'), 0)
     )['total']
+
     cantidad_pedidos_vendedor = pedidos_qs.count()
 
     porcentaje_despacho_vendedor = 0
     if total_unidades_solicitadas_vendedor > 0:
         porcentaje_despacho_vendedor = (total_unidades_despachadas_vendedor / total_unidades_solicitadas_vendedor) * 100
+    porcentaje_despacho_vendedor = Decimal(porcentaje_despacho_vendedor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
 
     context = {
         'titulo': titulo,
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
-        'vendedores_list': vendedores_list if es_admin else [],
-        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado else None,
-        'es_admin_sistema': es_admin,
+        'vendedores_list': vendedores_list_online_for_dropdown if es_admin else [], 
+        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado and vendedor_id_seleccionado.isdigit() else None,
+        'es_administracion': es_admin,
         'pedidos_list': pedidos_list,
         'total_unidades_solicitadas_vendedor': total_unidades_solicitadas_vendedor,
         'valor_total_ventas_solicitadas_vendedor': valor_total_ventas_solicitadas_vendedor,
@@ -698,8 +722,9 @@ def reporte_ventas_vendedor_online(request):
     return render(request, 'pedidos_online/reporte_ventas_vendedor_online.html', context)
 
 
+
 @login_required
-@permission_required('pedidos.view_pedido', login_url='core:acceso_denegado')
+@permission_required('pedidos.view_pedido', login_url='core:acceso_denied')
 def reporte_ventas_general_online(request):
     """
     Genera un informe general de ventas para pedidos ONLINE,
@@ -708,11 +733,11 @@ def reporte_ventas_general_online(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:acceso_denegado')
+        return redirect('core:acceso_denied')
 
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
-    vendedor_id_seleccionado = request.GET.get('vendedor_id') # Get selected seller ID
+    vendedor_id_seleccionado = request.GET.get('vendedor_id') 
 
     fecha_inicio = None
     if fecha_inicio_str:
@@ -728,11 +753,10 @@ def reporte_ventas_general_online(request):
         except ValueError:
             messages.error(request, "Formato de fecha de fin inválido.")
 
-    # Base queryset for ONLINE orders
     pedidos_qs = Pedido.objects.filter(
         empresa=empresa_actual,
-        tipo_pedido='ONLINE',
-        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO'] # Only consider completed sales
+        tipo_pedido='ONLINE', 
+        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO']
     )
 
     if fecha_inicio:
@@ -740,58 +764,83 @@ def reporte_ventas_general_online(request):
     if fecha_fin:
         pedidos_qs = pedidos_qs.filter(fecha_hora__lt=fecha_fin)
 
-    # Filter by seller based on user permissions (similar to reporte_ventas_vendedor_online)
     user = request.user
-    vendedores_list = Vendedor.objects.filter(user__empresa=empresa_actual).select_related('user').order_by('user__first_name')
-    es_admin = es_admin_sistema(user) or user.is_superuser
-
+    es_admin = es_administracion(user) or user.is_superuser
+    
+    # Para el dropdown de vendedores en el filtro (solo si es admin)
+    vendedores_list_online_for_dropdown = []
     if es_admin:
+        # CAMBIO CLAVE AQUÍ: Buscar el grupo por su nombre correcto 'Online'
+        try:
+            online_group = Group.objects.get(name='Online')
+        except Group.DoesNotExist:
+            messages.error(request, "El grupo 'Online' no existe en el sistema. Contacte al administrador.")
+            return redirect('core:acceso_denied') # O redirigir a una página de error más específica
+        
+        vendedores_list_online_for_dropdown = Vendedor.objects.filter(
+            user__empresa=empresa_actual, 
+            user__groups=online_group # FILTRO POR EL GRUPO 'Online'
+        ).select_related('user').order_by('user__first_name')
+
         if vendedor_id_seleccionado:
             pedidos_qs = pedidos_qs.filter(vendedor__pk=vendedor_id_seleccionado)
-    elif es_vendedor(user):
-        pedidos_qs = pedidos_qs.filter(vendedor__user=user)
-        # If a seller is logged in, they only see their own sales,
-        # so the seller filter dropdown might not be necessary for them in the template.
-        # However, we still pass vendedores_list for consistency if needed for other logic.
+        # Si es admin y no selecciona vendedor, filtrar los pedidos por vendedores online
+        pedidos_qs = pedidos_qs.filter(vendedor__user__groups=online_group)
+    elif user.groups.filter(name='Online').exists(): # Si el usuario logueado pertenece al grupo 'Online'
+        try:
+            vendedor_obj = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
+            pedidos_qs = pedidos_qs.filter(vendedor=vendedor_obj)
+        except Vendedor.DoesNotExist:
+            messages.error(request, "No se encontró un perfil de vendedor online activo para su cuenta en esta empresa.")
+            return redirect('core:acceso_denied')
+    else: # Si el usuario no es admin ni vendedor online
+        messages.warning(request, "No tiene permisos para ver este informe.")
+        return redirect('core:acceso_denied')
 
-
-    # General totals for all online sales
     total_unidades_solicitadas_general = pedidos_qs.aggregate(
         total=Coalesce(Sum('detalles__cantidad'), 0)
     )['total']
-    total_unidades_despachadas_general = pedidos_qs.aggregate(
-        total=Coalesce(Sum('detalles__cantidad_verificada'), 0)
+    
+    total_unidades_despachadas_general = DetalleComprobanteDespacho.objects.filter(
+        comprobante_despacho__pedido__in=pedidos_qs.values('pk')
+    ).aggregate(
+        total=Coalesce(Sum('cantidad_despachada'), 0)
     )['total']
+
     cantidad_pedidos = pedidos_qs.count()
 
-    # Sales by product
-    ventas_por_producto = DetallePedido.objects.filter(
-        pedido__in=pedidos_qs
+    ventas_por_producto = DetalleComprobanteDespacho.objects.filter(
+        comprobante_despacho__pedido__in=pedidos_qs.values('pk')
     ).values(
         'producto__referencia',
         'producto__color',
-        'producto__nombre'
+        'producto__nombre' 
     ).annotate(
-        cantidad_total_vendida=Coalesce(Sum('cantidad'), 0)
+        cantidad_total_vendida=Coalesce(Sum('cantidad_despachada'), 0)
     ).order_by('producto__referencia', 'producto__color')
 
-    # Add a display name for the product
-    for item in ventas_por_producto:
-        item['nombre_producto_display'] = f"{item['producto__nombre']} ({item['producto__referencia']})"
-
-    # Annotate pedidos_list for the table
-    pedidos_list = pedidos_qs.select_related('cliente_online', 'vendedor__user').annotate(
+    pedidos_list = pedidos_qs.annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), 0),
-        total_unidades_despachadas_pedido=Coalesce(Sum('detalles__cantidad_verificada'), 0)
+        total_unidades_despachadas_pedido=Coalesce(
+            Subquery(
+                DetalleComprobanteDespacho.objects.filter(
+                    comprobante_despacho__pedido_id=OuterRef('pk')
+                ).values('comprobante_despacho__pedido_id')
+                .annotate(total_desp=Coalesce(Sum('cantidad_despachada'), Value(0)))
+                .values('total_desp')[:1],
+                output_field=fields.IntegerField()
+            ), 
+            Value(0)
+        )
     ).order_by('-fecha_hora')
 
     context = {
         'titulo': "Informe General de Ventas Online",
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
-        'vendedores_list': vendedores_list if es_admin else [],
-        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado else None,
-        'es_admin_sistema': es_admin,
+        'vendedores_list': vendedores_list_online_for_dropdown if es_admin else [], 
+        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado and vendedor_id_seleccionado.isdigit() else None,
+        'es_administracion': es_admin,
         'total_unidades_solicitadas_general': total_unidades_solicitadas_general,
         'total_unidades_despachadas_general': total_unidades_despachadas_general,
         'cantidad_pedidos': cantidad_pedidos,
@@ -1161,7 +1210,7 @@ def generar_borrador_online_pdf(request, pk):
         query_params['empresa'] = empresa_actual
 
     # Filtro adicional para vendedores (solo pueden ver sus borradores)
-    if es_vendedor(request.user) and not (request.user.is_superuser or es_admin_sistema(request.user)):
+    if es_vendedor(request.user) and not (request.user.is_superuser or es_administracion(request.user)):
         try:
             # CORRECCIÓN: Filtrar Vendedor por user__empresa
             vendedor_obj = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)

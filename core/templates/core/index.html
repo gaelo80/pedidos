@@ -4,41 +4,45 @@
 {% block page_title %}{{ titulo }}{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4 main-panel-container"> {# Añadida clase para posible estilizado extra #}
-    <h2 class="mb-4 text-center panel-title">{{ titulo }}</h2> {# Añadida clase #}
-    
-    {% if opciones %}
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-            {% for opcion in opciones %}
-                <div class="col">
-                    {# El enlace ahora envuelve toda la tarjeta para mejor UX #}
-                    <a href="{{ opcion.url_target|default:opcion.url }}" class="option-card-link" 
-                       {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
-                        <div class="card option-card h-100 text-center">
-                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-4">
-                                <div class="icon-wrapper mb-3">
-                                    {# Aplicamos la clase de color del icono aquí #}
-                                    <i class="{{ opcion.icono }} {{ opcion.icono_color_class|default:'icon-default-color' }} fa-3x"></i>
-                                </div>
-                                <h5 class="card-title option-title">{{ opcion.titulo }}</h5>
-                                <p class="card-text small option-description flex-grow-1">{{ opcion.descripcion }}</p>
-                                {% if opcion.deshabilitado %}
-                                    <span class="btn btn-sm btn-outline-secondary mt-auto disabled-indicator">No disponible</span>
-                                {% else %}
-                                    {# El botón es más un indicador visual ya que toda la tarjeta es un enlace #}
-                                    <span class="btn btn-sm btn-primary-outline mt-auto access-indicator">
-                                        Acceder <i class="fas fa-arrow-right ms-1"></i>
-                                    </span>
-                                {% endif %}
-                            </div>
+<div class="container-fluid mt-4 mb-5 px-4">
+    <h2 class="text-center panel-title display-5 fw-bold text-primary mb-5">
+        {{ titulo }}
+    </h2>
+
+    {% if opciones_agrupadas %} {# Ahora iteramos sobre las categorías agrupadas #}
+        <div class="row g-4"> {# g-4 para espacio entre las tarjetas de categoría #}
+            {% for categoria in opciones_agrupadas %}
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 d-flex align-items-stretch"> {# 3 o 4 categorías por fila en pantallas grandes #}
+                    <div class="card h-100 shadow-lg border-0 rounded-4 category-card"> {# Tarjeta para cada categoría #}
+                        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-4">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-folder-open me-2"></i>{{ categoria.nombre_categoria }}</h5>
                         </div>
-                    </a>
+                        <div class="card-body p-0"> {# padding 0 para que la lista interna lo defina #}
+                            <ul class="list-group list-group-flush rounded-bottom-4"> {# Lista de enlaces sin bordes entre items y redondeada abajo #}
+                                {% for opcion in categoria.opciones %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-3 custom-list-item-hover">
+                                        <a href="{{ opcion.url_target|default:opcion.url }}" class="flex-grow-1 text-decoration-none text-dark fw-semibold" 
+                                           {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                                            <i class="{{ opcion.icono }} me-2 {{ opcion.icono_color_class|default:'icon-default-color' }}"></i>
+                                            {{ opcion.titulo }}
+                                            <small class="d-block text-muted mt-1">{{ opcion.descripcion }}</small>
+                                        </a>
+                                        {% if opcion.deshabilitado %}
+                                            <span class="badge bg-secondary text-white rounded-pill px-3 py-2">No disponible</span>
+                                        {% else %}
+                                            <i class="fas fa-chevron-right text-primary ms-2"></i> {# Flecha indicadora #}
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="alert alert-warning text-center" role="alert">
-            No hay opciones disponibles para tu perfil de usuario. Contacta al administrador si crees que esto es un error.
+        <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> No hay opciones disponibles para tu perfil de usuario. Contacta al administrador si crees que esto es un error.
         </div>
     {% endif %}
 </div>
@@ -46,96 +50,98 @@
 
 {% block extra_css %}
 <style>
-    /* Estilos para el panel principal de core/index.html */
+    /* ----------------------------------------------------- */
+    /* DEFINICIÓN DE VARIABLES DE COLOR (CRUCIAL)           */
+    /* ASEGÚRATE DE QUE ESTAS VARIABLES ESTÉN DEFINIDAS      */
+    /* EN TU CSS PRINCIPAL DE BOOTSTRAP O EN EL :ROOT GLOBAL */
+    /* O DEFINELAS AQUÍ SI NO ESTÁN EN OTRO LADO.             */
+    /* ----------------------------------------------------- */
+    /* Ejemplo de cómo podrían estar en tu CSS principal o un archivo de tema:
+    :root {
+        --bs-primary: #0d6efd;
+        --bs-success: #198754;
+        --bs-info: #0dcaf0;
+        --bs-warning: #ffc107;
+        --bs-danger: #dc3545;
+        --bs-dark: #212529;
+        --bs-secondary: #6c757d;
+        --bs-light: #f8f9fa;
+        --bs-gray-400: #ced4da;
+        --bs-gray-500: #adb5bd;
+        --bs-gray-700: #495057;
+        --bs-border-color: #198754;
+
+        --bs-primary-rgb: 13,110,253; /* Necesario para rgba */
+        --bs-dark-rgb: 33,37,41;
+
+        --icon-color-primary: var(--bs-primary);
+        --icon-color-success: var(--bs-success);
+        --icon-color-warning: var(--bs-warning);
+        --icon-color-danger: var(--bs-danger);
+        --icon-color-info: var(--bs-info);
+        --icon-color-secondary: var(--bs-secondary);
+        --icon-color-dark: var(--bs-dark);
+        --icon-color-default: var(--bs-gray-500);
+
+        --card-hover-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.25);
+        --card-hover-transform: translateY(-8px);
+    }
+    */
+
+    /* Estilos generales del panel */
     .panel-title {
-        font-weight: 300; /* Más ligero */
-        letter-spacing: 1px;
+        font-weight: 600;
         font-size: 2.5rem;
-        margin-bottom: 2rem !important; /* Más espacio abajo */
+        margin-bottom: 2.5rem !important;
+        color: var(--bs-primary) !important;
     }
 
-    .option-card-link {
-        text-decoration: none;
-        display: block; /* Para que el hover de la tarjeta funcione bien */
-        height: 100%;
+    /* Estilos para las tarjetas de categoría */
+    .category-card {
+        background-color: var(--bs-card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.75rem; /* rounded-4 */
+        overflow: hidden;
     }
 
-    .option-card {
-        background-color: var(--color-fondo-tarjeta);
-        border: 1px solid #444; /* Borde sutil */
-        color: var(--color-texto-principal);
-        border-radius: 12px; /* Bordes más redondeados */
-        transition: transform 0.3s ease, box-shadow 0.3s ease, border-left-color 0.3s ease;
-        overflow: hidden; /* Para efectos de borde o pseudo-elementos */
-        border-left: 5px solid transparent; /* Borde de acento inicial transparente */
+    .category-card .card-header {
+        border-bottom: none; /* Quitamos el borde inferior si la lista es flush */
     }
 
-    .option-card:hover {
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-        border-left-color: var(--color-borde-tarjeta-hover);
+    .category-card .list-group-item {
+        border-left: 5px solid transparent; /* Acento en el borde izquierdo de cada item */
+        transition: all 0.2s ease-in-out;
     }
 
-    .option-card .card-body {
-        padding: 1.75rem !important;
+    .category-card .list-group-item:hover {
+        background-color: var(--bs-light); /* Fondo suave al pasar el ratón */
+        border-left-color: var(--bs-primary); /* Color del acento al pasar el ratón */
+        transform: translateX(5px); /* Deslizamiento sutil */
     }
 
-    .option-card .icon-wrapper {
-        /* Podrías añadir un fondo o forma al contenedor del icono */
-        /* background-color: rgba(255,255,255,0.05); */
-        /* border-radius: 50%; */
-        /* padding: 15px; */
-        /* width: 70px; */
-        /* height: 70px; */
-        /* display: flex; */
-        /* align-items: center; */
-        /* justify-content: center; */
+    .custom-list-item-hover .text-dark {
+        transition: color 0.2s ease-in-out;
     }
 
-    .option-card .option-title {
-        color: var(--color-texto-principal);
-        font-weight: 500;
-        font-size: 1.1rem;
+    .custom-list-item-hover:hover .text-dark {
+        color: var(--bs-primary) !important; /* Cambia el color del título al pasar el ratón */
     }
 
-    .option-card .option-description {
-        color: var(--color-texto-secundario);
-        font-size: 0.8rem;
+    /* Estilos para los iconos dentro de los ítems de la lista */
+    .list-group-item i.fas {
+        min-width: 20px; /* Asegura un ancho mínimo para alinear iconos */
     }
 
-    /* Indicadores (reemplazan el botón anterior ya que toda la tarjeta es un enlace) */
-    .access-indicator, .disabled-indicator {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-weight: 500;
-    }
-    .access-indicator {
-        background-color: transparent;
-        border: 1px solid var(--color-acento-primario);
-        color: var(--color-acento-primario);
-    }
-    .option-card:hover .access-indicator {
-        background-color: var(--color-acento-primario);
-        color: white;
-    }
-    .disabled-indicator {
-        border: 1px solid var(--color-texto-secundario);
-        color: var(--color-texto-secundario);
-        opacity: 0.7;
-    }
+    /* Colores de iconos (solo color del texto para los iconos en lista) */
+    .icon-primary { color: var(--icon-color-primary, var(--bs-primary)); }
+    .icon-success { color: var(--icon-color-success, var(--bs-success)); }
+    .icon-warning { color: var(--icon-color-warning, var(--bs-warning)); }
+    .icon-danger { color: var(--icon-color-danger, var(--bs-danger)); }
+    .icon-info { color: var(--icon-color-info, var(--bs-info)); }
+    .icon-secondary { color: var(--icon-color-secondary, var(--bs-secondary)); }
+    .icon-dark { color: var(--icon-color-dark, var(--bs-dark)); }
+    .icon-default-color { color: var(--icon-color-default, var(--bs-gray-500)); }
 
-
-    /* Colores específicos para iconos (debes definir estas clases en tu vista o manualmente) */
-    /* O usar las clases de Font Awesome text-success, text-warning, etc. y sobreescribirlas en base.html */
-    .icon-default-color { color: var(--color-acento-secundario); } /* Color por defecto si no se especifica */
-    .icon-success { color: var(--icon-color-success); }
-    .icon-warning { color: var(--icon-color-warning); }
-    .icon-danger { color: var(--icon-color-danger); }
-    .icon-info { color: var(--icon-color-info); }
-    .icon-secondary { color: var(--icon-color-secondary); }
-    .icon-primary { color: var(--icon-color-primary); }
-    .icon-dark { color: var(--icon-color-dark); } /* Para el admin cog */
 
 </style>
 {% endblock extra_css %}

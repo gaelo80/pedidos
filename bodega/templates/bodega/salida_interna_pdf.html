@@ -5,37 +5,169 @@
     <meta charset="UTF-8">
     <title>Comprobante Salida N° {{ salida_interna.pk }}</title>
     <style>
-        @page { size: letter; margin: 1.5cm; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #333; }
-        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        .header-table td { vertical-align: top; padding: 5px; }
-        .company-info { width: 55%; }
-        .document-info { width: 45%; text-align: right; }
-        .logo { max-width: 180px; max-height: 50px; margin-bottom: 10px; }
-        h1 { font-size: 18pt; color: #000; margin: 0; padding: 0; }
-        .document-info p { margin: 2px 0; font-size: 10pt; }
-        .document-info .label { font-weight: bold; }
-        .info-section { border-top: 2px solid #333; border-bottom: 2px solid #333; padding: 10px 0; margin-bottom: 25px; }
-        .info-grid td { padding: 3px 5px; font-size: 9.5pt; }
-        .items-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .items-table th, .items-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        .items-table thead th { background-color: #f2f2f2; font-size: 8pt; text-transform: uppercase; color: #333; border-bottom-width: 2px; border-color: #333; }
-        .items-table .text-center { text-align: center; }
-        .signatures { margin-top: 70px; page-break-inside: avoid; width: 100%; }
-        .signatures td { width: 50%; padding: 0 20px; text-align: center; }
-        .signature-line { border-top: 1px solid #333; margin-top: 50px; }
-        .signature-label { font-size: 9pt; }
-        .footer { position: fixed; bottom: -1cm; left: 0; right: 0; text-align: center; font-size: 8pt; color: #999; }
+        /* Estilos generales de la página y tipografía */
+        @page { size: letter; margin: 1.5cm; } /* Margen uniforme de 1.5 cm en página carta */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 9pt; /* Tamaño de fuente base */
+            line-height: 1.4; /* Espaciado entre líneas para mejor legibilidad */
+            color: #333; /* Gris oscuro para el texto principal */
+        }
+
+        /* Estilos del encabezado del documento (Logo, Información de la Empresa y del Documento) */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px; /* Espacio después del encabezado */
+        }
+        .header-table td {
+            vertical-align: top;
+            padding: 5px; /* Espaciado interno de las celdas del encabezado */
+        }
+        .company-info {
+            width: 55%;
+            font-size: 9.5pt; /* Ligeramente más grande para la info de la empresa */
+        }
+        .document-info {
+            width: 45%;
+            text-align: right;
+        }
+        .logo {
+            max-width: 180px;
+            max-height: 50px;
+            margin-bottom: 10px; /* Espacio debajo del logo */
+        }
+        h1 {
+            font-size: 18pt;
+            color: #000; /* Negro puro para el título principal del documento */
+            margin: 0;
+            padding: 0;
+            margin-bottom: 5px; /* Espacio debajo del título del documento */
+        }
+        .document-info p {
+            margin: 2px 0;
+            font-size: 10pt; /* Tamaño de fuente para la información clave del documento */
+        }
+        .document-info .label {
+            font-weight: bold; /* Etiquetas en negrita */
+            color: #555; /* Un gris un poco más claro para las etiquetas */
+        }
+        .document-info strong {
+            color: #000; /* Negro puro para el estado resaltado */
+        }
+
+        /* Sección de Información General de la Salida */
+        .info-section {
+            border-top: 2px solid #333; /* Borde superior más grueso */
+            border-bottom: 2px solid #333; /* Borde inferior más grueso */
+            padding: 10px 0; /* Espaciado vertical dentro de la sección */
+            margin-bottom: 25px; /* Espacio después de la sección de información */
+        }
+        .info-section table {
+            width: 100%;
+        }
+        .info-section td {
+            padding: 3px 5px;
+            font-size: 9.5pt;
+        }
+        .info-section td strong {
+            font-weight: bold; /* Etiquetas en negrita dentro de la sección */
+        }
+
+        /* Tabla de Ítems Despachados */
+        h3 {
+            font-size: 12pt; /* Tamaño de fuente para subtítulos (Productos Despachados, Observaciones) */
+            color: #000;
+            margin-bottom: 5px; /* Espacio debajo del subtítulo de productos */
+            margin-top: 20px; /* Espacio antes del subtítulo */
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px; /* Espacio antes de la tabla de ítems */
+        }
+        .items-table th, .items-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd; /* Líneas divisorias sutiles entre filas */
+        }
+        .items-table thead th {
+            background-color: #f2f2f2; /* Fondo gris claro para la cabecera de la tabla */
+            font-size: 8pt;
+            text-transform: uppercase;
+            color: #333;
+            border-bottom-width: 2px; /* Borde inferior más grueso en la cabecera */
+            border-color: #333;
+            font-weight: bold; /* Asegurar negrita en cabeceras */
+        }
+        .items-table .text-center {
+            text-align: center;
+        }
+        .items-table tbody td:first-child { /* Referencia */
+            font-weight: bold; /* Resaltar la referencia */
+        }
+        .items-table tbody tr:nth-child(even) {
+            background-color: #fcfcfc; /* Ligero sombreado para filas pares para legibilidad */
+        }
+
+
+        /* Observaciones Generales */
+        .observaciones-generales {
+            margin-top: 25px; /* Espacio después de la tabla de ítems */
+            margin-bottom: 30px; /* Espacio antes de las firmas */
+        }
+        .observaciones-generales p {
+            font-size: 9pt;
+            font-style: italic;
+            color: #555; /* Un gris un poco más claro para las observaciones */
+        }
+
+
+        /* Sección de Firmas */
+        .signatures {
+            margin-top: 70px; /* Espacio generoso antes de las firmas */
+            page-break-inside: avoid; /* Evita que esta sección se corte entre páginas */
+            width: 100%;
+        }
+        .signatures td {
+            width: 50%;
+            padding: 0 20px;
+            text-align: center;
+        }
+        .signature-line {
+            border-top: 1px solid #333; /* Línea para firmar */
+            margin-top: 50px; /* Espacio encima de la línea */
+            width: 80%; /* Ancho de la línea de firma */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .signature-label {
+            font-size: 9pt;
+            margin-top: 5px; /* Espacio debajo de la línea */
+            color: #555;
+        }
+
+        /* Pie de Página */
+        .footer {
+            position: fixed; /* Fija el footer en la parte inferior de cada página */
+            bottom: -1cm; /* Posición desde la parte inferior de la página */
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999; /* Color de texto gris para el footer */
+        }
     </style>
 </head>
 <body>
     <table class="header-table">
         <tr>
             <td class="company-info">
-                {% if logo_base64 %}<img src="{{ logo_base64 }}" alt="Logo" class="logo">{% endif %}
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo de la Empresa" class="logo">{% endif %} {# Asegurado el prefijo data:image/png;base64, para el logo #}
                 <p style="font-weight:bold; margin:0;">{{ salida_interna.empresa.nombre }}</p>
                 {% if salida_interna.empresa.nit %}<p style="margin:0;">NIT: {{ salida_interna.empresa.nit }}</p>{% endif %}
-                {% if salida_interna.empresa.direccion %}<p style="margin:0;">{{ salida_interna.empresa.direccion }}, {{ salida_interna.empresa.ciudad.nombre }}</p>{% endif %}
+                {% if salida_interna.empresa.direccion %}<p style="margin:0;">{{ salida_interna.empresa.direccion }}</p>{% endif %}
+                {% if salida_interna.empresa.ciudad %}<p style="margin:0;">{{ salida_interna.empresa.ciudad.nombre }}</p>{% endif %} {# Ciudad separada para claridad #}
             </td>
             <td class="document-info">
                 <h1>SALIDA INTERNA</h1>
@@ -49,8 +181,8 @@
     <div class="info-section">
         <table style="width:100%;">
             <tr>
-                <td style="width:20%;"><strong>Tipo Salida:</strong></td>
-                <td style="width:80%;">{{ salida_interna.get_tipo_salida_display }}</td>
+                <td style="width:25%;"><strong>Tipo Salida:</strong></td> {# Aumentar ancho para las etiquetas #}
+                <td style="width:75%;">{{ salida_interna.get_tipo_salida_display }}</td>
             </tr>
             <tr>
                 <td><strong>Destino:</strong></td>
@@ -63,7 +195,7 @@
         </table>
     </div>
 
-    <h3 style="margin-bottom: 5px;">Productos Despachados</h3>
+    <h3>Productos Despachados</h3>
     <table class="items-table">
         <thead>
             <tr>
@@ -83,17 +215,19 @@
                 <td>{{ detalle.producto.color|default:"-" }}</td>
                 <td>{{ detalle.producto.talla|default:"-" }}</td>
                 <td class="text-center">{{ detalle.cantidad_despachada|intcomma }}</td>
-                <td>{{ detalle.observaciones_detalle|default:"" }}</td>
+                <td>{{ detalle.observaciones_detalle|default:"-" }}</td> {# Default para observaciones vacías #}
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-center" style="padding: 20px;">No hay productos detallados.</td></tr>
+            <tr><td colspan="6" class="text-center" style="padding: 20px;">No hay productos detallados en esta salida interna.</td></tr> {# Mensaje más específico #}
             {% endfor %}
         </tbody>
     </table>
 
     {% if salida_interna.observaciones_salida %}
-        <h3 style="margin-top:25px;">Observaciones Generales</h3>
-        <p style="font-size: 9pt; font-style: italic;">{{ salida_interna.observaciones_salida|linebreaksbr }}</p>
+        <div class="observaciones-generales">
+            <h3>Observaciones Generales</h3>
+            <p>{{ salida_interna.observaciones_salida|linebreaksbr }}</p>
+        </div>
     {% endif %}
 
     <table class="signatures">

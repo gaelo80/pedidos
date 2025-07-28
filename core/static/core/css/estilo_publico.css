@@ -1,6 +1,193 @@
+/* static/core/css/estilo_publico.css */
+
+/* Estilos generales del body */
 body {
-    background-color: #494545; /* Ejemplo: un gris claro */
-    /* O puedes usar otros tipos de fondo: */
-    /* background-image: url('{% static "core/img/tu_imagen_de_fondo.jpg" %}'); */
-    /* background-size: cover; */
+    background-color: #f8f9fa; /* Un gris muy claro, casi blanco, para el fondo de la página */
+    /* Puedes añadir una imagen de fondo sutil si lo deseas, ej: */
+    /* background-image: url('{% static "core/img/fondo-catalogo-sutil.png" %}'); */
+    /* background-repeat: repeat; */
+    /* background-size: auto; */
+}
+
+/* Mejora de la cabecera y el título principal del catálogo */
+.catalog-header {
+    /* Un degradado suave y moderno para el texto */
+    background: linear-gradient(45deg, #007bff, #28a745); 
+    -webkit-background-clip: text; /* Vendor-prefixed for WebKit browsers */
+    background-clip: text;
+    -webkit-text-fill-color: transparent; /* Hace que el texto sea transparente para que se vea el fondo */
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Sombra sutil para darle profundidad */
+}
+
+/* Estilos para la sección de búsqueda y filtro */
+.search-filter-section {
+    background-color: #ffffff; /* Fondo blanco para la tarjeta de búsqueda */
+    border-radius: .75rem; /* Bordes redondeados */
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Sombra sutil */
+    padding: 1.5rem; /* Espaciado interno generoso */
+    border: 1px solid #e9ecef; /* Borde muy ligero para definir el bloque */
+}
+.search-filter-section .form-control,
+.search-filter-section .form-select {
+    border: 1px solid #ced4da; /* Borde estándar de control de formulario */
+    box-shadow: none; /* Eliminar sombras de foco por defecto de Bootstrap */
+}
+.search-filter-section .form-control:focus,
+.search-filter-section .form-select:focus {
+    border-color: #86b7fe; /* Borde azul suave al enfocar */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Sombra de foco */
+}
+.search-filter-section .btn {
+    font-weight: bold; /* Texto del botón de búsqueda más fuerte */
+}
+
+/* Estilos para las tarjetas de producto */
+.product-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Transición suave para hover */
+    border-radius: .75rem; /* Bordes suaves para la tarjeta */
+    overflow: hidden; /* Asegura que la imagen redondeada no se desborde */
+    border: none; /* Eliminar el borde por defecto de la tarjeta si quieres un look más flotante */
+    background-color: #ffffff; /* Fondo blanco para las tarjetas */
+}
+.product-card:hover {
+    transform: translateY(-8px); /* Un ligero elevamiento al pasar el ratón */
+    box-shadow: 0 .75rem 1.5rem rgba(0,0,0,.15); /* Sombra más pronunciada al pasar el ratón */
+}
+
+/* Imagen de la tarjeta */
+.product-img {
+    aspect-ratio: 1 / 1; /* Fuerza la relación de aspecto 1:1 */
+    object-fit: cover; /* Recorta la imagen para cubrir el área sin distorsionar */
+    width: 100%; /* Asegura que ocupe todo el ancho del contenedor */
+    transition: transform 0.3s ease-in-out; /* Transición para el efecto de zoom */
+    border-radius: .75rem .75rem 0 0; /* Solo bordes superiores redondeados */
+}
+
+/* Contenedor del enlace de la imagen para el efecto overlay/zoom */
+.product-card a.d-block.overflow-hidden {
+    position: relative;
+    display: block;
+}
+
+/* Efecto de zoom en la imagen al pasar el ratón */
+.product-card a.d-block.overflow-hidden:hover .product-img {
+    transform: scale(1.08); /* Un zoom un poco más notorio */
+}
+
+/* Overlay sutil en la imagen al pasar el ratón */
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0); /* Transparente por defecto */
+    transition: background-color 0.3s ease-in-out; /* Transición para el cambio de color */
+    border-radius: .75rem .75rem 0 0; /* Coincide con el redondeado de la imagen */
+}
+.product-card a.d-block.overflow-hidden:hover .image-overlay {
+    background-color: rgba(0, 0, 0, 0.15); /* Overlay más oscuro al pasar el ratón */
+}
+
+/* Estilos para el card-body de la tarjeta de producto */
+.product-card .card-body {
+    padding: 1.25rem; /* Espaciado estándar */
+}
+.product-card .card-title {
+    font-size: 1.15rem; /* Tamaño de fuente para el título de la tarjeta */
+}
+.product-card h6 {
+    font-size: 0.95rem; /* Tamaño de fuente para el subtítulo de tallas */
+}
+
+/* Estilos para la lista de tallas disponibles */
+.product-card .list-group-item {
+    border-color: #f0f0f0; /* Borde más sutil para los items de lista */
+    padding-left: 0; /* Eliminar padding a la izquierda para alinear con el card-body */
+    padding-right: 0; /* Eliminar padding a la derecha */
+    font-size: 0.9em; /* Ligeramente más pequeño para la lista */
+    color: #555; /* Un gris más oscuro que text-muted */
+}
+
+/* Estilos para las insignias (badges) de disponibilidad */
+.list-group-item .badge {
+    font-size: 0.8em; /* Un poco más pequeña */
+    padding: .4em .8em; /* Más padding para que se vea mejor */
+    font-weight: 500;
+    border-radius: 50rem !important; /* Totalmente redondeada */
+}
+.badge.bg-success {
+    background-color: #28a745 !important;
+    color: #fff !important;
+}
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+.badge.bg-info { /* Para el icono de tag */
+    background-color: transparent !important;
+    color: #17a2b8 !important;
+}
+
+/* Paginación */
+.pagination {
+    --bs-pagination-color: #007bff; /* Color de texto predeterminado de los links */
+    --bs-pagination-hover-color: #0056b3; /* Color de texto al pasar el ratón */
+    --bs-pagination-focus-color: #0056b3;
+    --bs-pagination-active-bg: #007bff;
+    --bs-pagination-active-border-color: #007bff;
+    --bs-pagination-disabled-color: #6c757d;
+    --bs-pagination-disabled-bg: #e9ecef;
+    --bs-pagination-border-color: #dee2e6;
+}
+.pagination .page-item .page-link {
+    border-radius: .5rem !important; /* Botones redondeados */
+    margin: 0 .25rem; /* Espacio entre botones */
+    min-width: 40px; /* Ancho mínimo para botones */
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
+}
+.pagination .page-item .page-link:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #007bff;
+}
+.pagination .page-item.disabled .page-link {
+    cursor: not-allowed;
+}
+
+/* Mensajes de alerta mejorados */
+.alert {
+    border-radius: .5rem;
+    font-size: 1.1rem;
+    padding: 1.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05); /* Sombra sutil */
+}
+.alert-info {
+    background-color: #e0f2f7; /* Tono más suave de info */
+    border-color: #bee5eb;
+    color: #0c5460; /* Texto más oscuro para contraste */
+}
+
+/* Scrollbar personalizado para el div de fotos ocultas (si se usa en Lightbox) */
+div::-webkit-scrollbar {
+    width: 8px;
+}
+div::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+div::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+div::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }

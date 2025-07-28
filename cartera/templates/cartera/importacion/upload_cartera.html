@@ -1,38 +1,34 @@
 {% extends 'core/base.html' %}
 {% load static %}
+{% load widget_tweaks %}
 
 {% block page_title %}
     {{ titulo|default:"Importar Cartera" }}
 {% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
-    <div class="row mb-3">
+<div class="container-fluid mt-4 mb-5 px-4"> {# Cambiado a container-fluid para consistencia #}
+    <div class="row align-items-center mb-4"> {# Añadido align-items-center y mb-4 #}
         <div class="col-md-8">
-             <h2 class="mb-3">{{ titulo|default:"Importar Documentos de Cartera" }}</h2>
+            <h1 class="display-6 fw-bold mb-0 text-primary"> {# Unificado el estilo del título #}
+                <i class="fas fa-file-excel me-2"></i> {{ titulo|default:"Importar Documentos de Cartera" }}
+            </h1>
         </div>
-        <div class="col-md-4 text-md-end">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel
+        <div class="col-md-4 text-md-end mt-3 mt-md-0"> {# Ajustado margen en móvil #}
+            <a href="{% url 'core:index' %}" class="btn btn-secondary rounded-pill shadow-sm"> {# Añadido rounded-pill shadow-sm #}
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel
             </a>
         </div>
     </div>
 
     <div class="row justify-content-center">
         <div class="col-md-10 col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-light border-bottom"> 
-                    <h5 class="mb-0">Formulario de Importación</h5>
+            <div class="card shadow-lg border-0 rounded-3"> {# Card styling consistente #}
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header styling consistente #}
+                    <h5 class="mb-0"><i class="fas fa-file-import me-2"></i> Formulario de Importación</h5> {# Icono para el header #}
                 </div>
                 <div class="card-body p-4">
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                {{ message|safe }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
+                    {# ELIMINADO EL BLOQUE DE MENSAJES: base.html ya se encarga #}
 
                     <p class="text-muted mb-4">
                         Selecciona el formato del archivo (perfil), el tipo de documento que contiene (Factura o Remisión) y luego elige el archivo Excel correspondiente.
@@ -42,46 +38,45 @@
                     <form method="post" enctype="multipart/form-data" id="formUploadCartera">
                         {% csrf_token %}
                         
-                        {# --- CAMBIO CLAVE: Renderizado manual de los campos del formulario --- #}
                         <div class="mb-3">
-                            <label for="{{ form.perfil_importacion.id_for_label }}" class="form-label fw-bold">{{ form.perfil_importacion.label }}</label>
-                            {{ form.perfil_importacion }}
+                            <label for="{{ form.perfil_importacion.id_for_label }}" class="form-label fw-semibold">{{ form.perfil_importacion.label }}</label> {# fw-semibold en vez de fw-bold #}
+                            {{ form.perfil_importacion|add_class:"form-select rounded-pill" }} {# Añadido form-select y rounded-pill #}
                             {% for error in form.perfil_importacion.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.tipo_documento.id_for_label }}" class="form-label fw-bold">{{ form.tipo_documento.label }}</label>
-                            {{ form.tipo_documento }}
+                            <label for="{{ form.tipo_documento.id_for_label }}" class="form-label fw-semibold">{{ form.tipo_documento.label }}</label> {# fw-semibold #}
+                            {{ form.tipo_documento|add_class:"form-select rounded-pill" }} {# Añadido form-select y rounded-pill #}
                             {% for error in form.tipo_documento.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
 
                         <div class="mb-4">
-                            <label for="{{ form.archivo_excel.id_for_label }}" class="form-label fw-bold">{{ form.archivo_excel.label }}</label>
-                            {{ form.archivo_excel }}
+                            <label for="{{ form.archivo_excel.id_for_label }}" class="form-label fw-semibold">{{ form.archivo_excel.label }}</label> {# fw-semibold #}
+                            {{ form.archivo_excel|add_class:"form-control" }} {# Asegurado form-control #}
                             {% for error in form.archivo_excel.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
                         
                         <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm" id="btnImportar"> {# Añadido rounded-pill shadow-sm e ID #}
                                 <i class="fas fa-upload me-2"></i>Importar Archivo
                             </button>
                         </div>
                     </form>
-                    <hr class="my-4">
+                    <hr class="my-4 border-secondary-subtle"> {# Hr más sutil #}
                     <div class="text-center">
-                         <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-outline-secondary">
+                         <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm"> {# Añadido rounded-pill shadow-sm y btn-lg #}
                             <i class="fas fa-file-invoice-dollar me-2"></i>Ir al Reporte de Cartera
                         </a>
                     </div>
                 </div>
-                <div class="card-footer bg-light border-top text-muted small">
-                     <p class="mb-1"><strong>Instrucciones:</strong></p>
+                <div class="card-footer bg-light text-muted small rounded-bottom-3"> {# Removido border-top, añadido rounded-bottom-3 #}
+                     <p class="mb-1 fw-semibold"><strong>Instrucciones:</strong></p> {# fw-semibold para el título #}
                     <ul class="mb-0 ps-4">
                         <li>Asegúrate de tener un <strong>Perfil de Importación</strong> creado para el formato de tu archivo en el panel de Administración.</li>
                         <li>Las columnas en el Excel deben coincidir con las definidas en el perfil seleccionado.</li>
@@ -94,27 +89,25 @@
 </div>
 {% endblock content %}
 
-{% block extra_js %}
+{% block extra_scripts %} {# Renombrado extra_js a extra_scripts para consistencia #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('formUploadCartera');
-    if (form) {
+    const btnImportar = document.getElementById('btnImportar'); // Usar el ID del botón
+
+    if (form && btnImportar) {
         form.addEventListener('submit', function(e) {
-            // Validación simple para asegurar que se seleccionó un perfil
             const perfilField = document.getElementById('{{ form.perfil_importacion.id_for_label }}');
             if (perfilField && perfilField.hasAttribute('disabled')) {
                 alert('No se puede importar. No hay perfiles de importación configurados para esta empresa.');
-                e.preventDefault(); // Detiene el envío del formulario
+                e.preventDefault();
                 return;
             }
 
-            const button = form.querySelector('button[type="submit"]');
-            if (button) {
-                button.disabled = true;
-                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando, por favor espera...';
-            }
+            btnImportar.disabled = true;
+            btnImportar.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando, por favor espera...';
         });
     }
 });
 </script>
-{% endblock extra_js %}
+{% endblock extra_scripts %}

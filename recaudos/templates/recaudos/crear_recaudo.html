@@ -1,63 +1,87 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
+{# Asegúrate de que Select2 CSS para Bootstrap 5 esté cargado en base.html si no está #}
 
 {% block page_title %}{{ titulo }}{% endblock page_title %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm" style="background-color: var(--color-fondo-tarjeta); color: var(--color-texto-principal);">
-            <div class="card-header">
-                <h4 class="mb-0" style="color: white;">{{ titulo }}</h4>
-            </div>
-            <div class="card-body">
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.cliente.id_for_label }}" class="form-label" style="color: white;">{{ form.cliente.label }}</label>
-                        {{ form.cliente }}
-                        {% if form.cliente.help_text %}
-                            <small class="form-text text-white">{{ form.cliente.help_text }}</small>
-                        {% endif %}
-                        {% for error in form.cliente.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
+<div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7"> {# Ancho centrado para el formulario #}
+            <h1 class="display-6 fw-bold mb-4 text-primary text-center">
+                <i class="fas fa-plus-circle me-2"></i> {{ titulo|default:"Registrar Recaudo" }}
+            </h1>
 
-                    <div class="mb-3">
-                        <label for="{{ form.monto_recibido.id_for_label }}" class="form-label" style="color: white;">{{ form.monto_recibido.label }}</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            {{ form.monto_recibido }}
+            {# Mensajes (si tu vista los envía) #}
+            {% if messages %}
+                <div class="messages-container mb-4">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> Datos del Recaudo</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% comment %} Aquí asumo que el formulario se renderiza manualmente.
+                                 Si usas Crispy Forms, solo tendrías que poner {{ form|crispy }} aquí.
+                                 De lo contrario, aplica las clases de Bootstrap 5 a los campos individualmente.
+                        {% endcomment %}
+                        
+                        <div class="mb-4"> {# Más margen inferior para el grupo de cliente #}
+                            <label for="{{ form.cliente.id_for_label }}" class="form-label fw-semibold">{{ form.cliente.label }}</label>
+                            {{ form.cliente }} {# El widget de Django debería tener form-select si es un Select2 #}
+                            {% if form.cliente.help_text %}
+                                <small class="form-text text-muted">{{ form.cliente.help_text }}</small>
+                            {% endif %}
+                            {% for error in form.cliente.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
                         </div>
-                        {% for error in form.monto_recibido.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
 
-                    <div class="mb-3">
-                        <label for="{{ form.concepto.id_for_label }}" class="form-label" style="color: white;">{{ form.concepto.label }}</label>
-                        {{ form.concepto }}
-                         {% if form.concepto.help_text %}
-                            <small class="form-text text-white">{{ form.concepto.help_text }}</small>
-                        {% endif %}
-                        {% for error in form.concepto.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    <hr style="background-color: white;">
+                        <div class="mb-4"> {# Más margen inferior para el monto #}
+                            <label for="{{ form.monto_recibido.id_for_label }}" class="form-label fw-semibold">{{ form.monto_recibido.label }}</label>
+                            <div class="input-group input-group-lg"> {# input-group-lg para campo de monto grande #}
+                                <span class="input-group-text rounded-start-pill">$</span> {# Rounded pill a la izquierda #}
+                                {{ form.monto_recibido|add_class:"form-control rounded-end-pill" }} {# Asegurar clases y rounded-pill a la derecha #}
+                            </div>
+                            {% for error in form.monto_recibido.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-secondary me-md-2">
-                            <i class="fas fa-times"></i> Cancelar
-                        </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Guardar Recaudo
-                        </button>
-                    </div>
-                </form>
+                        <div class="mb-4"> {# Más margen inferior para el concepto #}
+                            <label for="{{ form.concepto.id_for_label }}" class="form-label fw-semibold">{{ form.concepto.label }}</label>
+                            {{ form.concepto|add_class:"form-control" }} {# Textarea o input normal #}
+                            {% if form.concepto.help_text %}
+                                <small class="form-text text-muted">{{ form.concepto.help_text }}</small>
+                            {% endif %}
+                            {% for error in form.concepto.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <hr class="my-4 border-secondary-subtle"> {# Ligeramente más visible #}
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm me-md-2">
+                                <i class="fas fa-times me-2"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                                <i class="fas fa-save me-2"></i> Guardar Recaudo
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -65,44 +89,60 @@
 {% endblock content %}
 
 {% block extra_scripts %}
-<script>
-// Este script se añade al que ya tienes para el Select2
-$(document).ready(function() {
-    // El código del Select2 que ya tienes...
-    $('#{{ form.cliente.id_for_label }}').select2({
-        theme: "bootstrap-5",
-        placeholder: 'Busca y selecciona un cliente...',
-        dropdownCssClass: "select2-dropdown-dark"
-    });
+    {# Select2 CSS y JS se cargan en base.html, pero aquí se añaden los temas específicos #}
+    {# Si no los tienes en base.html, añádelos aquí #}
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
-    // --- CÓDIGO NUEVO PARA FORMATEAR MILES ---
-    const montoInput = document.getElementById('id_monto_recibido');
+    <script>
+    $(document).ready(function() {
+        // --- Inicialización de Select2 para el Cliente ---
+        const clienteDevolucionSelect = $('#{{ form.cliente.id_for_label }}');
+        if (clienteDevolucionSelect.length) { // Simplificamos la comprobación de typeof select2
+            clienteDevolucionSelect.select2({
+                placeholder: "-- Selecciona Cliente --",
+                language: "es",
+                theme: "bootstrap-5",
+                allowClear: true,
+                dropdownCssClass: "select2-dropdown-light" // Usamos tema claro para que el texto oscuro de Select2 se vea en fondos claros
+            });
+            console.log("Select2 inicializado para cliente: #{{ form.cliente.id_for_label }}");
+        } else {
+            console.warn("Select2 para cliente ('#{{ form.cliente.id_for_label }}') no encontrado.");
+        }
 
-    if (montoInput) {
-        montoInput.addEventListener('input', function(e) {
-            // 1. Obtiene el valor actual y elimina todo lo que no sea un dígito
-            let rawValue = e.target.value.replace(/[^\d]/g, '');
-            
-            // 2. Si hay un valor, lo formatea
-            if (rawValue) {
-                const numberValue = parseInt(rawValue, 10);
-                // 3. Lo formatea usando la configuración regional de Colombia (que usa puntos para miles)
-                e.target.value = numberValue.toLocaleString('es-CO');
-            } else {
-                e.target.value = '';
-            }
-        });
+        // --- CÓDIGO PARA FORMATEAR MILES EN EL MONTO RECIBIDO ---
+        const montoInput = document.getElementById('id_monto_recibido');
 
-        // 4. IMPORTANTE: Antes de enviar el formulario, quitamos los puntos
-        const form = montoInput.closest('form');
-        if (form) {
-            form.addEventListener('submit', function() {
-                if (montoInput.value) {
-                    montoInput.value = montoInput.value.replace(/\./g, '');
+        if (montoInput) {
+            montoInput.addEventListener('input', function(e) {
+                let rawValue = e.target.value.replace(/[^\d]/g, ''); // Elimina todo excepto dígitos
+                
+                if (rawValue) {
+                    const numberValue = Number(rawValue);
+                    if (!isNaN(numberValue)) {
+                        // Formatea con separadores de miles para es-CO, sin decimales aún
+                        const formattedValue = numberValue.toLocaleString('es-CO');
+                        e.target.value = formattedValue;
+                    } else {
+                        e.target.value = rawValue; // Si no es un número válido, deja solo los dígitos
+                    }
+                } else {
+                    e.target.value = ''; // Si está vacío, deja el campo vacío
                 }
             });
+
+            // Al enviar el formulario, eliminamos el formato para que el backend reciba solo números
+            const form = montoInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    if (montoInput.value) {
+                        montoInput.value = montoInput.value.replace(/\./g, '').replace(/,/g, ''); // Elimina puntos y comas
+                    }
+                });
+            }
+        } else {
+            console.warn("MontoInput NO encontrado. Revisa el ID 'id_monto_recibido'.");
         }
-    }
-});
-</script>
+    });
+    </script>
 {% endblock extra_scripts %}

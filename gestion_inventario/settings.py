@@ -9,7 +9,7 @@ load_dotenv()
     # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-CONTRASEÑA_PARA_VERIFICAR_PEDIDO = "Nohelia123F"
+CONTRASEÑA_PARA_VERIFICAR_PEDIDO = "Admin1234"
 
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
@@ -170,6 +170,7 @@ TEMPLATES = [
                     'django.contrib.messages.context_processors.messages',
                     'core.context_processors.empresa_context',
                     'core.context_processors.notificaciones_context', 
+                    'core.context_processors.user_roles_context',
                 ],
             },
         },

@@ -7,22 +7,104 @@
 
 {% block extra_head %}
     {{ block.super }}
-    <style>
-        /* Estilos para la tabla de despacho de pedidos */
-        .fila-completa td { /* Aplicar a las celdas para mayor especificidad sobre estilos de TR de Bootstrap */
-            background-color: #d1e7dd !important; /* Verde claro (Bootstrap success-subtle) */
-        }
-        .fila-parcial td {
-            background-color: #fff3cd !important; /* Amarillo claro (Bootstrap warning-subtle) */
-        }
-        .fila-pendiente td {
-            background-color: #f8f9fa !important; /* Gris muy claro (Bootstrap light) */
-        }
-        /* Si quieres que el texto del badge también tenga más contraste */
-        .fila-completa .badge.bg-success {
-            color: #0a3622 !important; /* Texto oscuro para badge verde claro */
-        }
-    </style>
+<style>
+    /* Estilos generales para el layout de pantalla completa */
+    body, html {
+        height: 100%;
+    }
+    .container.mt-4 {
+        max-width: 100%; /* Usar todo el ancho disponible */
+        padding: 0 15px; /* Pequeño padding lateral */
+    }
+    .card.shadow-lg {
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+
+    /* Estilos para la tarjeta de producto activo */
+    #producto-activo-card {
+        min-height: 400px; /* Altura mínima para que siempre se vea bien */
+        display: flex; /* Usar flexbox para centrar contenido */
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    #producto-activo-card .card-body {
+        flex-grow: 1; /* Permite que el cuerpo ocupe el espacio restante */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    #producto-referencia-nombre {
+        font-size: 2.5rem; /* Más grande */
+        margin-bottom: 0.5rem;
+    }
+    #producto-color-talla {
+        font-size: 1.8rem;
+        margin-bottom: 1rem;
+    }
+    #producto-codigo-barras {
+        font-family: 'monospace'; /* Para que el código de barras se vea bien */
+        font-size: 1.2rem;
+        letter-spacing: 1px;
+    }
+    #cantidad-despachada-display {
+        font-size: 4rem; /* Muy grande */
+    }
+    .d-flex.align-items-baseline span {
+        font-size: 1.5rem;
+    }
+    .d-flex.align-items-baseline strong {
+        font-size: 2.5rem;
+        display: block; /* Para que el número vaya debajo del texto */
+    }
+    #cantidad-pedida-display, #cantidad-pendiente-display {
+        font-size: 2rem;
+    }
+
+    /* Estilos para la lista de pendientes */
+    #lista-pendientes {
+        max-height: calc(100vh - 450px); /* Ajusta este valor según la altura de tu header y footer, 450px es un estimado */
+        overflow-y: auto; /* Scroll si hay muchos ítems */
+    }
+    .list-group-item-success {
+        background-color: #d1e7dd; /* success-subtle */
+    }
+    .list-group-item-warning {
+        background-color: #fff3cd; /* warning-subtle */
+    }
+    .list-group-item-light {
+        background-color: #f8f9fa; /* light */
+    }
+
+    /* Estilo para el input de escaneo */
+    #barcode-input {
+        height: 60px; /* Más alto */
+        font-size: 1.5rem; /* Texto más grande */
+    }
+
+    /* Mensajes de estado del escáner */
+    #scan_status {
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: .5rem;
+        padding: .5rem 1rem;
+        font-weight: bold;
+    }
+
+    /* Animación de resaltado (opcional) */
+    .highlight-success {
+        animation: highlightFade 1.5s ease-out forwards;
+    }
+
+    @keyframes highlightFade {
+        0% { background-color: rgba(186, 230, 203, 0.7); } /* Verde claro */
+        100% { background-color: transparent; }
+    }
+</style>
 {% endblock extra_head %}
 
 {% block content %}
@@ -36,147 +118,200 @@
             </a>
         </div>
     </div>
-<div class="container mt-4">
+    <div class="container mt-4">
 
-    {#<h2 class="mb-4">{{ titulo }}</h2>#}
+        {#<h2 class="mb-4">{{ titulo }}</h2>#}
 
-    <div class="card mb-3">
-        <div class="card-body row">
-            <div class="col-md-6">
-                <strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}<br>
-                <strong>NIT/ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}<br>
-                <strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}
+        <div class="card mb-3">
+            <div class="card-body row">
+                <div class="col-md-6">
+                    <strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}<br>
+                    <strong>NIT/ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}<br>
+                    <strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Estado Actual:</strong> <span class="badge bg-info">{{ pedido.get_estado_display }}</span><br>
+                    <strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}
+                </div>
+                {% if pedido.notas %}
+                <div class="col-12 mt-3">
+                    <strong>Observaciones del Vendedor:</strong><br>
+                    <div class="border rounded p-2 bg-light">
+                        {{ pedido.notas|linebreaksbr }}
+                    </div>
+                </div>
+                {% endif %}
             </div>
-            <div class="col-md-6">
-                <strong>Estado Actual:</strong> <span class="badge bg-info">{{ pedido.get_estado_display }}</span><br>
-                <strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}
+        </div>
+
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" id="despacho-form">
+            {% csrf_token %}
+
+            <div class="row mb-4 align-items-center">
+
+                <div class="col-md-3">
+                    <label for="scanner_input" class="form-label fw-bold h4 text-white">Escanear Producto:</label>
+
+                </div>
+
+                <div class="col-md-6">
+                    <input type="text" id="barcode-input" class="form-control form-control-lg" placeholder="Esperando código de barras..." autofocus autocomplete="off">
+                </div>
+
+                <div class="col-md-3" id="scan_status">
+                    </div>
+
             </div>
-            {% if pedido.notas %}
-            <div class="col-12 mt-3">
-                <strong>Observaciones del Vendedor:</strong><br>
-                <div class="border rounded p-2 bg-light">
-                    {{ pedido.notas|linebreaksbr }}
+            <audio id="audio_success" src="{% static 'sounds/success.mp3' %}" preload="auto"></audio>
+            <audio id="audio_error" src="{% static 'sounds/error.mp3' %}" preload="auto"></audio>
+
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div id="producto-activo-card" class="card shadow-lg border-primary mb-3">
+                        <div class="card-header bg-primary text-white h4">
+                            Producto Actual / Siguiente para Despachar
+                        </div>
+                        <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                            <p class="text-muted" id="instruccion-inicial">Escanee un producto o seleccione uno de la lista de pendientes.</p>
+                            <h3 id="producto-referencia-nombre" class="display-5 fw-bold text-primary">---</h3>
+                            <h4 id="producto-color-talla" class="text-secondary">---</h4>
+                            <p class="lead text-muted">Código de Barras: <strong id="producto-codigo-barras">---</strong></p>
+
+                            <div class="d-flex align-items-baseline my-3">
+                                <span class="fs-4 me-3">Pedido: <strong id="cantidad-pedida-display" class="text-info">0</strong></span>
+                                <span class="fs-1 mx-4">Despachado: <strong id="cantidad-despachada-display" class="text-success">0</strong></span>
+                                <span class="fs-4 ms-3">Pendiente: <strong id="cantidad-pendiente-display" class="text-danger">0</strong></span>
+                            </div>
+
+
+                            <div class="mt-4">
+                                {# <button type="button" class="btn btn-outline-secondary me-2" id="btn-prev-product"><i class="fas fa-chevron-left"></i> Anterior</button> #}
+                                {# <button type="button" class="btn btn-outline-secondary" id="btn-next-product">Siguiente <i class="fas fa-chevron-right"></i></button> #}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-light text-dark h5">
+                            Resumen del Pedido
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush" id="lista-pendientes">
+                                <li class="list-group-item text-muted text-center py-4" id="cargando-pendientes">Cargando ítems...</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mt-3">
+                        <div class="card-header bg-light text-dark h5">
+                            Totales del Despacho
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1">Cantidad Pedida Total: <strong id="total-pedido-display" class="float-end">0</strong></p>
+                            <p class="mb-0">Cantidad Despachada Total: <strong id="total-despachado-display" class="float-end text-success">0</strong></p>
+                            <hr>
+                            <p class="mb-0 fs-5">Pendiente por Despachar: <strong id="total-pendiente-display" class="float-end text-danger">0</strong></p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% endif %}
-        </div>
+
+
+             <div class="mt-4 d-flex justify-content-between">
+
+                    <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="btn btn-info">
+                        <i class="fas fa-list"></i> Volver a la Lista de Pedidos
+                    </a>
+
+                 <button type="button" class="btn btn-info btn-lg" id="btn-enviar-parcial">
+                     <i class="fas fa-paper-plane me-2"></i> Enviar Parcial
+                 </button>
+
+                <button type="button" class="btn btn-secondary" id="btn-guardar-parcial-ajax">
+                    <i class="fas fa-save"></i> Guardar Despacho Parcial
+                </button>
+                 {% if puede_finalizar %}
+                 <button type="submit" name="action" value="finalizar_despacho" class="btn btn-success" id="btn-finalizar">
+                     <i class="fas fa-check-circle"></i> Finalizar y Marcar como Enviado
+                 </button>
+                 {% endif %}
+
+                 <form method="post" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de finalizar este pedido como incompleto y devolver el stock pendiente?');">
+                     {% csrf_token %}
+                     <button type="submit" class="btn btn-warning"><i class="fas fa-exclamation-triangle"></i> Finalizar Incompleto</button>
+                 </form>
+                 <form method="post" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de CANCELAR completamente este pedido y reintegrar todo el stock? Esta acción no se puede deshacer.');">
+                     {% csrf_token %}
+                     <button type="submit" class="btn btn-danger"><i class="fas fa-times-circle"></i> Cancelar Pedido</button>
+                 </form>
+             </div>
+        </form>
     </div>
 
-
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <form method="post" id="despacho-form">
-        {% csrf_token %}
-
-        <div class="row mb-4 align-items-center">
-
-            <div class="col-md-3">
-                <label for="scanner_input" class="form-label fw-bold h4 text-white">Escanear Producto:</label>
-
-            </div>
-
-            <div class="col-md-6">
-                <input type="text" id="barcode-input" class="form-control form-control-lg" placeholder="Esperando código de barras..." autofocus autocomplete="off">
-            </div>
-
-            <div class="col-md-3" id="scan_status">
+    <div class="modal fade" id="mensajeModal" tabindex="-1" aria-labelledby="mensajeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mensajeModalLabel"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-
+                <div class="modal-body" id="mensajeModalBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
         </div>
-        <audio id="audio_success" src="{% static 'sounds/success.mp3' %}" preload="auto"></audio>
-        <audio id="audio_error" src="{% static 'sounds/error.mp3' %}" preload="auto"></audio>
-
-        <table class="table table-bordered table-hover">
-            </table>
-
-
-
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Producto (Ref/Nombre/Color/Talla)</th>
-                        <th class="text-center">Cod. Barras</th>
-                        <th class="text-center">Pedido</th>
-                        <th class="text-center" style="width: 120px;">Despachado</th>
-                        <th class="text-center">Estado</th>
-                    </tr>
-                </thead>
-
-
-
-                
-                <tbody id="tabla-detalles-body">
-                    {% for detalle in detalles_pedido %}
-                    <tr id="fila-detalle-{{ detalle.pk }}" data-detalle-id="{{ detalle.pk }}">
-                        <td>{{ detalle.producto }}</td>
-                        <td class="text-center"><small>{{ detalle.producto.codigo_barras|default:"-" }}</small></td>
-                        <td class="text-center cantidad-pedida">{{ detalle.cantidad }}</td>
-                        <td class="text-center">
-                            <input type="number"
-                                   name="despachado_{{ detalle.pk }}"
-                                   id="despachado-{{ detalle.pk }}"
-                                   class="form-control form-control-sm text-center cantidad-despachada"
-                                   value="{{ detalle.cantidad_verificada|default:0 }}"
-                                   min="0"
-                                   max="{{ detalle.cantidad }}"
-                                   readonly>
-                        </td>
-                        <td class="text-center estado-linea">
-                            <span class="badge bg-secondary">--</span> {# Color inicial del badge #}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2" class="text-end fw-bold">Totales:</td>
-                        <td class="text-center fw-bold" id="total-pedido">0</td>
-                        <td class="text-center fw-bold" id="total-despachado">0</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-
-        <div class="mt-4 d-flex justify-content-between">
-            <button type="submit" name="action" value="guardar_parcial" class="btn btn-secondary">
-                <i class="fas fa-save"></i> Guardar Despacho Parcial
-            </button>
-            {% if puede_finalizar %}
-            <button type="submit" name="action" value="finalizar_despacho" class="btn btn-success" id="btn-finalizar">
-                <i class="fas fa-check-circle"></i> Finalizar y Marcar como Enviado
-            </button>
-            {% else %}
-            <button type="button" class="btn btn-success" disabled title="El pedido no está en un estado válido para finalizar.">
-                <i class="fas fa-check-circle"></i> Finalizar Despacho
-            </button>
-            {% endif %}
-            <a href="{% url 'bodega:generar_comprobante_despacho' pk=pedido.pk %}" class="btn btn-info" target="_blank">
-                <i class="fas fa-print"></i> Imprimir Último Despacho
-            </a>
-        </div>
-    </form>
-</div>
-
-{% endblock content %}
+    </div>
+{% endblock content %} 
 
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log("SCRIPT INICIADO: DOM Cargado y Event Listener activado."); // Depuración
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
     const barcodeInput = document.getElementById('barcode-input');
-    const tablaBody = document.getElementById('tabla-detalles-body');
-    const filasDetalle = tablaBody.querySelectorAll('tr[data-detalle-id]');
-    const scanStatus = document.getElementById('scan-status');
+    const scanStatusDiv = document.getElementById('scan_status');
     const btnFinalizar = document.getElementById('btn-finalizar');
+    const btnEnviarParcial = document.getElementById('btn-enviar-parcial');
+    const btnGuardarParcialAjax = document.getElementById('btn-guardar-parcial-ajax');
+    console.log("Referencia al botón 'Guardar Despacho Parcial AJAX':", btnGuardarParcialAjax);
+
+    if (btnGuardarParcialAjax === null) {
+        console.error("ERROR CRÍTICO: El elemento con ID 'btn-guardar-parcial-ajax' no fue encontrado en el DOM.");
+        // Podrías incluso añadir una alerta al usuario si esto es un fallo grave
+        // alert("Error de inicialización: Botón 'Guardar' no encontrado. Por favor, contacte soporte.");
+    } else {
+        console.log("ÉXITO: Botón 'Guardar Despacho Parcial AJAX' encontrado:", btnGuardarParcialAjax);
+        // Aquí es donde iría el resto de tu código que usa btnGuardarParcialAjax
+        btnGuardarParcialAjax.addEventListener('click', guardarTodosDetallesParcialmente);
+        console.log("Listener adjuntado al botón 'Guardar Despacho Parcial AJAX'.");
+    }
+    
+
+    // Elementos de la tarjeta de producto activo
+    const productoActivoCard = document.getElementById('producto-activo-card');
+    const instruccionInicial = document.getElementById('instruccion-inicial');
+    const productoReferenciaNombre = document.getElementById('producto-referencia-nombre');
+    const productoColorTalla = document.getElementById('producto-color-talla');
+    const productoCodigoBarras = document.getElementById('producto-codigo-barras');
+    const cantidadPedidaDisplay = document.getElementById('cantidad-pedida-display');
+    const cantidadDespachadaDisplay = document.getElementById('cantidad-despachada-display');
+    const cantidadPendienteDisplay = document.getElementById('cantidad-pendiente-display');
 
     // Audio
     const successAudio = document.getElementById('audio_success');
@@ -187,166 +322,526 @@ document.addEventListener('DOMContentLoaded', function() {
     const pedidoId = "{{ pedido.id }}";
     const jsonDataString = '{{ detalles_json|escapejs|default:"[]" }}';
 
-    let detallesData = {};
+    // ¡¡¡Declaración de variables globales para el script aquí!!!
+    let gruposData = {}; // Objeto para acceder a los grupos por una clave única (referencia+color)
+    let detallesIndividualesPorCodigoBarras = {}; // Objeto para acceder al detalle individual por código de barras (d.id)
+
+    // Elementos de la columna lateral de totales
+    const listaPendientes = document.getElementById('lista-pendientes');
+    const totalPedidoDisplay = document.getElementById('total-pedido-display');
+    const totalDespachadoDisplay = document.getElementById('total-despachado-display');
+    const totalPendienteDisplay = document.getElementById('total-pendiente-display');
+
+    // Referencias a los elementos del modal
+    const mensajeModal = new bootstrap.Modal(document.getElementById('mensajeModal'));
+    const mensajeModalLabel = document.getElementById('mensajeModalLabel');
+    const mensajeModalBody = document.getElementById('mensajeModalBody');
+
+    // --- Inicializar datos agrupados y individuales ---
+    console.log("DEBUG: Raw jsonDataString from Django:", jsonDataString);
+
+    // Limpieza del string JSON para asegurar que JSON.parse lo maneje correctamente
+    let cleanedJsonString = jsonDataString.replace(/&quot;/g, '"').replace(/\\'/g, "'").replace(/\\"/g, '"');
+    cleanedJsonString = cleanedJsonString.replace(/\\n/g, '').replace(/\\r/g, '');
+
+    console.log("DEBUG: Cleaned jsonDataString for JSON.parse:", cleanedJsonString);
 
     try {
-        if (jsonDataString && jsonDataString !== "None" && jsonDataString !== "null") {
-            const jsonData = JSON.parse(jsonDataString);
-            jsonData.forEach(d => {
-                if (d && typeof d.id !== 'undefined') {
-                    detallesData[d.id] = {
-                        ...d,
-                        cantidad_pedida: parseInt(d.cantidad_pedida, 10) || 0,
-                        cantidad_verificada: parseInt(d.cantidad_verificada, 10) || 0
-                    };
+        const jsonData = JSON.parse(cleanedJsonString);
+        console.log("DEBUG: JSON parseado (agrupado) desde cleanedJsonString:", jsonData);
+        console.log("DEBUG: Tipo de jsonData:", typeof jsonData);
+        console.log("DEBUG: Es array?", Array.isArray(jsonData));
+        console.log("DEBUG: Cantidad de grupos:", Array.isArray(jsonData) ? jsonData.length : 0);
+
+        if (Array.isArray(jsonData)) {
+            jsonData.forEach(grupo => {
+                const grupoKey = `${grupo.referencia}-${grupo.color}`;
+                gruposData[grupoKey] = grupo;
+
+                if (grupo.tallas) {
+                    grupo.tallas.forEach(tallaInfo => {
+                        const detalleIndividual = tallaInfo.detalle;
+                        // Asegurarse de que el detalleIndividual tenga todas las propiedades relevantes
+                        detalleIndividual.grupoKey = grupoKey;
+                        detalleIndividual.talla_nombre = tallaInfo.nombre; // Nombre de la talla (ej. 'S', 'M', '32')
+                        detalleIndividual.referencia = grupo.referencia; // Referencia del producto
+                        detalleIndividual.nombre = grupo.nombre;         // Nombre del producto
+                        detalleIndividual.color = grupo.color;           // Color del producto
+
+                        if (detalleIndividual.codigo_barras) {
+                            detallesIndividualesPorCodigoBarras[detalleIndividual.codigo_barras.trim()] = detalleIndividual;
+                        }
+                    });
                 }
             });
+            console.log("DEBUG: gruposData después de poblar:", gruposData);
+            console.log("DEBUG: detallesIndividualesPorCodigoBarras después de poblar:", detallesIndividualesPorCodigoBarras);
+        } else {
+            console.error("ERROR: jsonData no es un array o es de formato inesperado:", jsonData);
+            mostrarStatus('Error: datos de productos no válidos.', 'danger');
         }
     } catch (e) {
-        console.error("Error al parsear detalles_json:", e, jsonDataString);
-        if (scanStatus) {
-            scanStatus.textContent = 'Error cargando productos.';
-            scanStatus.className = 'ms-2 badge bg-danger';
-        }
+        console.error("ERROR CRÍTICO: Fallo al parsear JSON o procesar datos agrupados:", e, "Original String que causó el error:", jsonDataString);
+        mostrarStatus('Error crítico al cargar productos. Recargue la página.', 'danger', 10000);
     }
 
-    function mostrarStatus(mensaje, tipo = 'info', duracion = 2500) {
-        if (scanStatus) {
-            scanStatus.textContent = mensaje;
-            scanStatus.className = `ms-2 badge bg-${tipo}`;
+    // --- Funciones de Utilidad ---
+
+    function mostrarStatus(mensaje, tipo = 'info', duracion = 2500, usarModal = false) { // Añadido 'usarModal' como nuevo parámetro
+        if (scanStatusDiv) {
+            scanStatusDiv.textContent = mensaje;
+            scanStatusDiv.className = `col-md-3 ms-2 badge fs-5 bg-${tipo}`;
             setTimeout(() => {
-                scanStatus.textContent = '';
-                scanStatus.className = 'ms-2';
+                scanStatusDiv.textContent = '';
+                scanStatusDiv.className = 'col-md-3 ms-2';
             }, duracion);
         }
+
+        // Si se solicita usar el modal
+        if (usarModal) {
+            mensajeModalLabel.textContent = tipo === 'success' ? 'Éxito' : (tipo === 'danger' ? 'Error' : 'Advertencia');
+            mensajeModalBody.innerHTML = mensaje; // Usamos innerHTML por si el mensaje tiene formato HTML (ej: listas)
+
+            // Cambiar el color del header del modal según el tipo de mensaje
+            const modalHeader = document.querySelector('#mensajeModal .modal-header');
+            modalHeader.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'bg-secondary');
+            if (tipo === 'success') {
+                modalHeader.classList.add('bg-success', 'text-white');
+            } else if (tipo === 'danger') {
+                modalHeader.classList.add('bg-danger', 'text-white');
+            } else if (tipo === 'warning') {
+                modalHeader.classList.add('bg-warning', 'text-dark'); // Para warning, texto oscuro
+            } else {
+                modalHeader.classList.add('bg-info', 'text-white'); // Default
+            }
+
+            mensajeModal.show();
+        }
+    }
+    function playSound(type) {
+        if (type === 'success' && successAudio) {
+            successAudio.play();
+        } else if (type === 'error' && errorAudio) {
+            errorAudio.play();
+        }
     }
 
-    function actualizarEstadoLinea(fila, cantidadDespachada, cantidadPedida) {
-        if (!fila) return;
-        const estadoBadge = fila.querySelector('.estado-linea .badge');
-        let estadoTexto = '--';
-        let estadoClase = 'bg-secondary';
+    function actualizarProductoActivoCard(detalleIndividual) {
+        if (!detalleIndividual) {
+            instruccionInicial.style.display = 'block';
+            productoReferenciaNombre.textContent = '---';
+            productoColorTalla.textContent = '---';
+            productoCodigoBarras.textContent = '---';
+            cantidadPedidaDisplay.textContent = '0';
+            cantidadDespachadaDisplay.textContent = '0';
+            cantidadPendienteDisplay.textContent = '0';
+            return;
+        }
 
-        fila.classList.remove('fila-completa', 'fila-parcial', 'fila-pendiente');
+        instruccionInicial.style.display = 'none';
 
-        if (cantidadPedida > 0 && cantidadDespachada >= cantidadPedida) {
-            estadoTexto = 'COMPLETO';
-            estadoClase = 'bg-success';
-            fila.classList.add('fila-completa');
-        } else if (cantidadDespachada > 0) {
-            estadoTexto = 'Parcial';
-            estadoClase = 'bg-warning text-dark';
-            fila.classList.add('fila-parcial');
+        // Accedemos directamente a las propiedades que copiamos en detalleIndividual durante la inicialización
+        let displayReferencia = detalleIndividual.referencia || '-';
+        let displayNombre = detalleIndividual.nombre || '-';
+        let displayColor = detalleIndividual.color || '-';
+        let displayTalla = detalleIndividual.talla_nombre || (detalleIndividual.talla || '-');
+
+        productoReferenciaNombre.textContent = `${displayReferencia} - ${displayNombre}`;
+        productoColorTalla.textContent = `${displayColor} - Talla ${displayTalla}`;
+        productoCodigoBarras.textContent = detalleIndividual.codigo_barras || '-';
+        cantidadPedidaDisplay.textContent = detalleIndividual.cantidad_pedida;
+        cantidadDespachadaDisplay.textContent = detalleIndividual.cantidad_verificada;
+        cantidadPendienteDisplay.textContent = detalleIndividual.cantidad_pedida - detalleIndividual.cantidad_verificada;
+
+
+        productoActivoCard.classList.remove('border-primary', 'border-success', 'border-warning', 'border-danger');
+        if (detalleIndividual.cantidad_verificada >= detalleIndividual.cantidad_pedida) {
+            productoActivoCard.classList.add('border-success');
+        } else if (detalleIndividual.cantidad_verificada > 0) {
+            productoActivoCard.classList.add('border-warning');
         } else {
-            estadoTexto = cantidadPedida === 0 ? 'N/A' : 'Pendiente';
-            estadoClase = 'bg-light text-dark';
-            fila.classList.add('fila-pendiente');
-        }
-
-        if (estadoBadge) {
-            estadoBadge.textContent = estadoTexto;
-            estadoBadge.className = `badge ${estadoClase}`;
+            productoActivoCard.classList.add('border-primary');
         }
     }
 
-    function actualizarTotales() {
+    function renderListaPendientes() {
+        console.log("Iniciando renderListaPendientes(). Grupos en data:", Object.keys(gruposData).length);
+        const sortedGrupos = Object.values(gruposData).sort((a, b) => {
+            const refA = a.referencia || '';
+            const refB = b.referencia || '';
+            const colorA = a.color || '';
+            const colorB = b.color || '';
+
+            if (refA !== refB) {
+                return refA.localeCompare(refB);
+            }
+            return colorA.localeCompare(colorB);
+        });
+
+        listaPendientes.innerHTML = '';
+        if (sortedGrupos.length === 0) {
+            listaPendientes.innerHTML = '<li class="list-group-item text-muted text-center py-4">No hay productos en este pedido.</li>';
+            console.log("No hay grupos de detalles, mostrando mensaje de no productos.");
+            return;
+        }
+
+        sortedGrupos.forEach(grupo => {
+            const li = document.createElement('li'); // ÚNICA DECLARACIÓN DE 'li' AQUÍ
+            li.classList.add('list-group-item');
+
+            // Determinar el estado del GRUPO
+            let estadoClase = 'list-group-item-light';
+            if (grupo.total_verificada >= grupo.total_pedida && grupo.total_pedida > 0) {
+                estadoClase = 'list-group-item-success';
+            } else if (grupo.total_verificada > 0) {
+                estadoClase = 'list-group-item-warning';
+            }
+            li.classList.add(estadoClase);
+
+            // Información del encabezado del grupo
+            const referencia = grupo.referencia || '-';
+            const nombre = grupo.nombre || '-';
+            const color = grupo.color || '-';
+
+            const grupoId = `grupo-${referencia.replace(/\s/g, '-')}-${color.replace(/\s/g, '-')}`;
+
+            // Creamos el div del encabezado del grupo
+            const groupHeaderDiv = document.createElement('div');
+            groupHeaderDiv.classList.add('d-flex', 'justify-content-between', 'align-items-center', 'mb-2');
+            groupHeaderDiv.setAttribute('data-bs-toggle', 'collapse');
+            groupHeaderDiv.setAttribute('data-bs-target', `#${grupoId}`);
+            groupHeaderDiv.setAttribute('aria-expanded', 'false');
+            groupHeaderDiv.setAttribute('aria-controls', grupoId);
+            groupHeaderDiv.style.cursor = 'pointer';
+
+            groupHeaderDiv.innerHTML = `
+                <div>
+                    <strong>${referencia}</strong> - ${nombre} (${color})<br>
+                    <small>Total Pedido: ${grupo.total_pedida} | Total Despachado: ${grupo.total_verificada}</small>
+                </div>
+                <span class="badge bg-primary rounded-pill">
+                    ${grupo.total_verificada} / ${grupo.total_pedida}
+                </span>
+                <i class="fas fa-chevron-down ms-2"></i>
+            `;
+            li.appendChild(groupHeaderDiv);
+
+            // **AHORA VAMOS CON LOS DETALLES DE LAS TALLAS (LA PARTE COLAPSABLE)**
+            if (grupo.tallas && Object.keys(grupo.tallas).length > 0) {
+                const collapseDiv = document.createElement('div');
+                collapseDiv.classList.add('collapse');
+                collapseDiv.id = grupoId;
+
+                const ulTallas = document.createElement('ul');
+                ulTallas.classList.add('list-group', 'list-group-flush', 'mt-2');
+
+                grupo.tallas.forEach(tallaInfo => {
+                    const talla_nombre = tallaInfo.nombre;
+                    const detalleIndividual = tallaInfo.detalle;
+
+                    const liTalla = document.createElement('li');
+                    let tallaItemClass = 'list-group-item list-group-item-sm d-flex justify-content-between align-items-center';
+
+                    if (detalleIndividual.cantidad_verificada >= detalleIndividual.cantidad_pedida) {
+                        tallaItemClass += ' list-group-item-success';
+                    } else if (detalleIndividual.cantidad_verificada > 0) {
+                        tallaItemClass += ' list-group-item-warning';
+                    } else {
+                        tallaItemClass += ' list-group-item-light';
+                    }
+                    liTalla.className = tallaItemClass;
+                    liTalla.setAttribute('data-detalle-id', detalleIndividual.id);
+                    liTalla.style.cursor = 'pointer';
+
+                    liTalla.innerHTML = `
+                        <div>
+                            Talla: <strong>${talla_nombre}</strong>
+                        </div>
+                        <span class="badge bg-secondary rounded-pill">
+                            ${detalleIndividual.cantidad_verificada} / ${detalleIndividual.cantidad_pedida}
+                        </span>
+                    `;
+
+                    liTalla.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        actualizarProductoActivoCard(detalleIndividual);
+                        barcodeInput.value = '';
+                        barcodeInput.focus();
+                    });
+
+                    ulTallas.appendChild(liTalla);
+                });
+
+                collapseDiv.appendChild(ulTallas);
+                li.appendChild(collapseDiv);
+            } else {
+                li.innerHTML += '<p class="text-muted text-center mt-2 mb-0"><small>Sin tallas específicas.</small></p>';
+            }
+
+            listaPendientes.appendChild(li);
+        });
+        console.log("renderListaPendientes() ha procesado todos los grupos.");
+    }
+
+    function actualizarTotalesGenerales() {
         let totalPedido = 0;
         let totalDespachado = 0;
 
-        filasDetalle.forEach(fila => {
-            const detalleId = fila.dataset.detalleId;
-            const detalle = detallesData[detalleId];
-            if (!detalle) return;
-
-            const input = fila.querySelector('.cantidad-despachada');
-            const despachado = parseInt(input?.value, 10) || 0;
-
-            totalPedido += detalle.cantidad_pedida;
-            totalDespachado += despachado;
+        Object.values(gruposData).forEach(grupo => {
+            totalPedido += grupo.total_pedida;
+            totalDespachado += grupo.total_verificada;
         });
 
-        document.getElementById('total-pedido').textContent = totalPedido;
-        document.getElementById('total-despachado').textContent = totalDespachado;
+        totalPedidoDisplay.textContent = totalPedido;
+        totalDespachadoDisplay.textContent = totalDespachado;
+        totalPendienteDisplay.textContent = totalPedido - totalDespachado;
 
         if (btnFinalizar) {
-            if (puedeFinalizarDesdeBackend) {
-                const completo = totalDespachado >= totalPedido && totalPedido > 0;
-                btnFinalizar.disabled = !completo;
-                btnFinalizar.title = completo ? 'Marca el pedido como completamente despachado' : 'Aún faltan ítems por escanear';
-            } else {
-                btnFinalizar.disabled = true;
-                btnFinalizar.title = 'El estado actual del pedido no permite finalizar el despacho.';
-            }
+            const todasCompletas = (totalDespachado >= totalPedido) && (totalPedido > 0);
+            btnFinalizar.disabled = !(todasCompletas && puedeFinalizarDesdeBackend);
+            btnFinalizar.title = btnFinalizar.disabled ? 'Aún faltan ítems por escanear o el pedido no está en un estado válido para finalizar.' : 'Marca el pedido como completamente despachado';
         }
     }
 
-    function procesarScan(codigo) {
-        let encontrado = false;
-
-        for (const detalleId in detallesData) {
-            const detalle = detallesData[detalleId];
-            if (detalle.codigo_barras?.trim() === codigo.trim()) {
-                const fila = document.getElementById(`fila-detalle-${detalle.id}`);
-                const input = fila?.querySelector('.cantidad-despachada');
-                const cantidadPedida = detalle.cantidad_pedida;
-                let cantidadActual = parseInt(input?.value, 10) || 0;
-
-                if (cantidadActual < cantidadPedida) {
-                    cantidadActual += 1;
-                    input.value = cantidadActual;
-                    mostrarStatus(`✔️ ${detalle.nombre} (${cantidadActual}/${cantidadPedida})`, 'success');
-                    if (successAudio) successAudio.play();
-                } else {
-                    mostrarStatus(`⚠️ ${detalle.nombre} ya está completo (${cantidadActual}/${cantidadPedida})`, 'info');
-                    if (errorAudio) errorAudio.play();
-                }
-
-                // ✅ Resaltar visualmente la fila
-                fila.classList.add('highlight-success');
-                setTimeout(() => fila.classList.remove('highlight-success'), 1500);
-
-                // ✅ Asegurar que la fila quede visible
-                fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                actualizarEstadoLinea(fila, cantidadActual, cantidadPedida);
-                actualizarTotales();
-                encontrado = true;
-                break;
-            }
+    async function guardarTodosDetallesParcialmente() {
+        const detallesParaGuardar = [];
+        for (const codigoBarras in detallesIndividualesPorCodigoBarras) {
+            const detalle = detallesIndividualesPorCodigoBarras[codigoBarras];
+            detallesParaGuardar.push({
+                id: detalle.id,
+                cantidad_verificada_nueva: detalle.cantidad_verificada // Enviamos la cantidad acumulada
+            });
         }
 
-        if (!encontrado) {
-            mostrarStatus(`❌ Código no encontrado: ${codigo}`, 'danger');
-            if (errorAudio) errorAudio.play();
+        if (detallesParaGuardar.length === 0) {
+            mostrarStatus('No hay productos para guardar.', 'info', 3000, true);
+            return;
+        }
+
+        const url = `/bodega/despacho/{{ pedido.pk }}/guardar-parcial-ajax/`; // URL a tu vista AJAX de guardado
+
+        try {
+            mostrarStatus('Guardando progreso del despacho...', 'info', 0); // Mensaje persistente
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ detalles_a_guardar: detallesParaGuardar }) // Enviamos una lista de detalles
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                mostrarStatus(`✔️ ${result.message}`, 'success', 5000, true);
+                playSound('success');
+            } else if (result.status === 'info') {
+                mostrarStatus(`ℹ️ ${result.message}`, 'info', 5000, true);
+            } else {
+                mostrarStatus(`❌ Error al guardar progreso: ${result.message}`, 'danger', 10000, true);
+                playSound('error');
+            }
+        } catch (error) {
+            console.error('Error de red o del servidor al guardar progreso:', error);
+            mostrarStatus('Error de conexión al guardar progreso. Verifique su red.', 'danger', 10000, true);
+            playSound('error');
+        }
+    }
+
+
+
+
+
+    function procesarScan(codigo) {
+        const detalleIndividual = detallesIndividualesPorCodigoBarras[codigo.trim()];
+
+        if (detalleIndividual) {
+            if (detalleIndividual.cantidad_verificada < detalleIndividual.cantidad_pedida) {
+                detalleIndividual.cantidad_verificada += 1;
+                // Mensaje de éxito, no modal
+                mostrarStatus(`✔️ ${detalleIndividual.referencia} - Talla ${detalleIndividual.talla_nombre} (${detalleIndividual.cantidad_verificada}/${detalleIndividual.cantidad_pedida})`, 'success');
+                playSound('success');
+
+                const grupoDelDetalle = gruposData[detalleIndividual.grupoKey];
+                if (grupoDelDetalle) {
+                    grupoDelDetalle.total_verificada += 1;
+                    guardarDetalleParcialmente(detalleIndividual.id, detalleIndividual.cantidad_verificada); 
+                }
+
+            } else {
+                // Mensaje de advertencia, ahora en modal
+                mostrarStatus(`⚠️ ${detalleIndividual.referencia} - Talla ${detalleIndividual.talla_nombre} ya está completa (${detalleIndividual.cantidad_verificada}/${detalleIndividual.cantidad_pedida})`, 'warning', 2500, true); // <--- USAR MODAL
+                playSound('error'); // Sonido de error también para advertencia
+            }
+            actualizarProductoActivoCard(detalleIndividual);
+            renderListaPendientes();
+            actualizarTotalesGenerales();
+
+        } else {
+            // Mensaje de error (código no encontrado), ahora en modal
+            mostrarStatus(`❌ Código no encontrado o no pertenece a este pedido: <br><strong>${codigo}</strong>`, 'danger', 2500, true); // <--- USAR MODAL
+            playSound('error');
         }
 
         barcodeInput.value = '';
         barcodeInput.focus();
     }
-    // Escuchar escaneo
-    if (barcodeInput) {
-        barcodeInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const codigo = barcodeInput.value.trim();
-                if (codigo) procesarScan(codigo);
+
+    async function guardarDetalleParcialmente(detalleId, nuevaCantidad) {
+        console.log("DEBUG: Iniciando guardarDetalleParcialmente para un solo ítem."); // Añadido para depuración
+
+        const url = `/bodega/despacho/{{ pedido.pk }}/guardar-parcial-ajax/`; 
+        
+        // Aquí es donde está la corrección: El payload debe ser una lista con un solo detalle
+        const data = {
+            detalles_a_guardar: [{ // <-- Esta es la clave 'detalles_a_guardar'
+                id: detalleId, 
+                cantidad_verificada_nueva: nuevaCantidad // <-- Esta es la cantidad para este detalle
+            }] 
+        };
+
+        console.log("DEBUG: Payload para guardarDetalleParcialmente (individual):", data); // Añadido para depuración
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken, 
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                console.log(`Guardado parcial (individual) exitoso: ${result.message}`);
+            } else if (result.status === 'info') {
+                console.log(`Guardado parcial (individual): ${result.message}`);
+            } else {
+                console.error(`Error al guardar parcial (individual): ${result.message}`);
+                mostrarStatus(`Error al guardar individual: ${result.message}`, 'danger', 5000, true);
             }
-        });
+        } catch (error) {
+            console.error('ERROR CATCH: Error de red o del servidor al guardar parcialmente (individual):', error); // Modificado
+            mostrarStatus('Error de conexión al guardar (individual). Verifique su red.', 'danger', 5000, true);
+        }
     }
 
-    // Inicializar tabla al cargar
-    filasDetalle.forEach(fila => {
-        const detalleId = fila.dataset.detalleId;
-        const detalle = detallesData[detalleId];
-        if (!detalle) return;
+    // --- Inicialización al cargar la página ---
+    actualizarTotalesGenerales(); // Mover estas llamadas al final de las funciones
+    renderListaPendientes();      // Mover estas llamadas al final de las funciones
 
-        const input = fila.querySelector('.cantidad-despachada');
-        input.value = detalle.cantidad_verificada;
-        actualizarEstadoLinea(fila, detalle.cantidad_verificada, detalle.cantidad_pedida);
+    let initialDetailToLoad = null;
+    if (Object.keys(gruposData).length > 0) {
+        for (const grupoKey in gruposData) {
+            const grupo = gruposData[grupoKey];
+            if (grupo.tallas) {
+                for (const tallaInfo of grupo.tallas) {
+                    const detalleIndividual = tallaInfo.detalle;
+                    if (detalleIndividual.cantidad_verificada < detalleIndividual.cantidad_pedida) {
+                        initialDetailToLoad = detalleIndividual;
+                        initialDetailToLoad.talla_nombre = tallaInfo.nombre;
+                        break;
+                    }
+                }
+            }
+            if (initialDetailToLoad) break;
+        }
+
+        if (!initialDetailToLoad) {
+            const firstGrupoKey = Object.keys(gruposData)[0];
+            const firstGrupo = gruposData[firstGrupoKey];
+            if (firstGrupo && firstGrupo.tallas && firstGrupo.tallas.length > 0) {
+                initialDetailToLoad = firstGrupo.tallas[0].detalle;
+                initialDetailToLoad.talla_nombre = firstGrupo.tallas[0].nombre;
+            }
+        }
+    }
+
+
+    btnEnviarParcial.addEventListener('click', async function() {
+        // Confirmación opcional para el usuario
+        if (!confirm('¿Está seguro de que desea enviar este despacho parcial y generar un comprobante?')) {
+            return;
+        }
+
+        // Recolectar todos los detalles de productos con sus cantidades verificadas
+        const detallesParaEnviar = [];
+        for (const codigoBarras in detallesIndividualesPorCodigoBarras) {
+            const detalle = detallesIndividualesPorCodigoBarras[codigoBarras];
+            detallesParaEnviar.push({
+                id: detalle.id,
+                cantidad_verificada: detalle.cantidad_verificada
+            });
+        }
+
+        if (detallesParaEnviar.length === 0) {
+            mostrarStatus('No hay productos escaneados para enviar parcialmente.', 'warning', 3000, true);
+            return;
+        }
+
+        const url = `/bodega/despacho/{{ pedido.pk }}/enviar-parcial-ajax/`;
+        const data = {
+            detalles_a_enviar_desde_borrador: detallesParaEnviar 
+        };
+
+        try {
+            mostrarStatus('Enviando despacho parcial...', 'info', 0); // Mensaje persistente
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                mostrarStatus(`✔️ ${result.message}`, 'success', 5000, true);
+                playSound('success');
+
+                // Opcional: Redirigir al usuario al comprobante generado o refrescar la página
+                if (result.comprobante_url) {
+                    // Abrir el comprobante en una nueva pestaña
+                    window.open(result.comprobante_url, '_blank');
+                }
+
+                // Después de un envío parcial, podrías querer recargar la página
+                // para reflejar cualquier cambio de estado del pedido o simplemente
+                // limpiar la interfaz si se considera un "punto de guardado" fuerte.
+                // window.location.reload(); // Descomentar si quieres recargar la página
+
+            } else {
+                mostrarStatus(`❌ Error al enviar despacho parcial: ${result.message}`, 'danger', 10000, true);
+                playSound('error');
+            }
+        } catch (error) {
+            console.error('Error de red o del servidor al enviar despacho parcial:', error);
+            mostrarStatus('Error de conexión al enviar despacho parcial. Verifique su red.', 'danger', 10000, true);
+            playSound('error');
+        }
     });
 
-    actualizarTotales();
-    barcodeInput?.focus();
+
+    actualizarProductoActivoCard(initialDetailToLoad);
+
+    barcodeInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const codigo = barcodeInput.value.trim();
+            if (codigo) {
+                procesarScan(codigo);
+            } else {
+                mostrarStatus("Por favor, escanee un código de barras.", "warning");
+            }
+        }
+    });
+
+    barcodeInput.focus();
 });
 </script>
 {% endblock extra_scripts %}

@@ -1,0 +1,127 @@
+.catalog-header {
+    background: linear-gradient(45deg, #007bff, #28a745); /* Un degradado suave */    
+    -webkit-text-fill-color: transparent;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Sombra sutil para el texto */
+}
+
+/* Estilos para el campo de búsqueda */
+.search-filter-section {
+    background-color: #ffffff; /* Fondo blanco */
+    border-radius: .75rem; /* Bordes redondeados */
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Sombra sutil */
+    padding: 1.5rem; /* Espaciado interno */
+    border: 1px solid #e9ecef; /* Borde muy ligero */
+}
+.search-filter-section .form-control,
+.search-filter-section .form-select {
+    border: 1px solid #ced4da; /* Borde estándar de control */
+    box-shadow: none; /* Eliminar sombras de foco por defecto si no las quieres */
+}
+.search-filter-section .form-control:focus,
+.search-filter-section .form-select:focus {
+    border-color: #86b7fe; /* Borde azul suave al enfocar */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Sombra de foco */
+}
+
+/* Estilos para las tarjetas de producto */
+.product-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border-radius: .75rem; /* Bordes suaves para la tarjeta */
+    overflow: hidden; /* Asegura que la imagen redondeada no se desborde */
+    border: none; /* Eliminar el borde por defecto de la tarjeta si quieres un look más flotante */
+}
+.product-card:hover {
+    transform: translateY(-8px); /* Un ligero elevamiento */
+    box-shadow: 0 .75rem 1.5rem rgba(0,0,0,.15); /* Sombra más pronunciada al pasar el ratón */
+}
+
+/* Imagen de la tarjeta */
+.product-img {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    width: 100%; /* Asegura que ocupe todo el ancho del contenedor */
+    transition: transform 0.3s ease-in-out;
+    border-radius: .75rem .75rem 0 0; /* Solo bordes superiores redondeados */
+}
+
+/* Efecto de zoom en la imagen al pasar el ratón */
+.product-card a.d-block.overflow-hidden:hover .product-img {
+    transform: scale(1.08); /* Un zoom un poco más notorio */
+}
+
+/* Overlay sutil en la imagen al pasar el ratón */
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0); /* Transparente por defecto */
+    transition: background-color 0.3s ease-in-out;
+    border-radius: .75rem .75rem 0 0; /* Coincide con el redondeado de la imagen */
+}
+.product-card a.d-block.overflow-hidden:hover .image-overlay {
+    background-color: rgba(0, 0, 0, 0.15); /* Overlay más oscuro al pasar el ratón */
+}
+
+/* Estilos para las insignias de disponibilidad */
+.list-group-item .badge {
+    font-size: 0.8em; /* Un poco más pequeña */
+    padding: .4em .8em; /* Más padding para que se vea mejor */
+    font-weight: 500;
+    border-radius: 50rem !important; /* Totalmente redondeada */
+}
+.list-group-item {
+    border-color: #f0f0f0; /* Borde más sutil para los items de lista */
+    padding-left: 0; /* Eliminar padding a la izquierda para alinear con el card-body */
+    padding-right: 0; /* Eliminar padding a la derecha */
+}
+
+/* Paginación */
+.pagination .page-item .page-link {
+    border-radius: .5rem !important; /* Botones redondeados */
+    margin: 0 .25rem; /* Espacio entre botones */
+    min-width: 40px; /* Ancho mínimo para botones */
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
+}
+.pagination .page-item .page-link:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #007bff;
+}
+
+/* Mensajes de alerta mejorados */
+.alert {
+    border-radius: .5rem;
+    font-size: 1.1rem;
+    padding: 1.5rem;
+}
+.alert-info {
+    background-color: #e0f2f7; /* Tono más suave de info */
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* Scrollbar personalizado para el div de fotos ocultas */
+div::-webkit-scrollbar {
+    width: 8px;
+}
+div::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+div::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+div::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

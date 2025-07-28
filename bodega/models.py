@@ -271,6 +271,7 @@ class ComprobanteDespacho(models.Model):
     )
 
     notas = models.TextField(blank=True, null=True, verbose_name="Notas del Despacho")
+    es_parcial = models.BooleanField(default=True)
     
     def save(self, *args, **kwargs):
         if not self.empresa_id and self.pedido_id:
@@ -420,3 +421,32 @@ class SalidaInternaDetalle(models.Model):
             ("view_lista_pedidos_bodega", "Puede ver la lista de pedidos para bodega"),
 
         ]
+        
+class BorradorDespacho(models.Model):
+    pedido = models.ForeignKey('pedidos.Pedido', on_delete=models.CASCADE, related_name='borradores_despacho', verbose_name="Pedido")    
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario Responsable")
+    fecha_hora_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha/Hora Creación")
+    fecha_hora_ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    empresa = models.ForeignKey('clientes.Empresa', on_delete=models.CASCADE, verbose_name="Empresa") # Asegúrate de que clientes.Empresa está accesible
+
+    class Meta:
+        verbose_name = "Borrador de Despacho"
+        verbose_name_plural = "Borradores de Despacho"
+        unique_together = ('pedido', 'empresa')
+
+    def __str__(self):
+        return f"Borrador Despacho {self.pedido.pk} - {self.usuario.username if self.usuario else 'N/A'}"
+    
+class DetalleBorradorDespacho(models.Model):
+    borrador_despacho = models.ForeignKey(BorradorDespacho, on_delete=models.CASCADE, related_name='detalles_borrador', verbose_name="Borrador de Despacho")
+    detalle_pedido_origen = models.ForeignKey('pedidos.DetallePedido', on_delete=models.CASCADE, related_name='detalles_borrador_asociados', verbose_name="Detalle Pedido Original")
+    producto = models.ForeignKey('productos.Producto', on_delete=models.CASCADE, verbose_name="Producto")
+    cantidad_escaneada_en_borrador = models.PositiveIntegerField(default=0, verbose_name="Cantidad Escaneada en Borrador")
+
+    class Meta:
+        verbose_name = "Detalle de Borrador de Despacho"
+        verbose_name_plural = "Detalles de Borrador de Despacho"
+        unique_together = ('borrador_despacho', 'detalle_pedido_origen') # Un detalle de pedido solo puede estar una vez en un borrador
+
+    def __str__(self):
+        return f"{self.producto.referencia} ({self.cantidad_escaneada_en_borrador}) en Borrador {self.borrador_despacho.pk}"

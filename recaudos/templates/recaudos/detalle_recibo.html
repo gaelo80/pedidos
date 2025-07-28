@@ -1,82 +1,202 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
+{% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_title %}Recibo de Caja No. {{ recaudo.id }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <div class="card shadow-sm" id="recibo-imprimible" style="background-color: #fff; color: #333;">
-                <div class="card-header bg-dark text-white">
-                    <h4 class="mb-0">Recibo de Caja No. {{ recaudo.id }}</h4>
-                </div>
-                <div class="card-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <strong>Empresa:</strong> {{ recaudo.empresa.nombre }}<br>
-                            <strong>NIT:</strong> {{ recaudo.empresa.nit }}
+<div class="print-area"> {# Cambiamos el ID a una CLASE "print-area" como en tu plantilla funcional #}
+    <div class="container-fluid my-4 px-4"> {# container-fluid para amplitud, px-4 para padding #}
+        <div class="row justify-content-center">
+            <div class="col-md-9 col-lg-7"> {# Ajustar ancho para un recibo más compacto y centrado #}
+                <div class="card shadow-lg border-0 rounded-3" id="recibo-imprimible"> {# Sombra más pronunciada, sin borde, bordes redondeados #}
+                    <div class="card-body p-5"> {# Más padding interno #}
+
+                        <div class="row align-items-center mb-4 pb-3 border-bottom border-secondary-subtle"> {# Borde más sutil #}
+                            <div class="col-6">
+                                {% if logo_base64 %} {# Usamos la variable logo_base64 que pasamos desde la vista #}
+                                    <img src="{{ logo_base64 }}" alt="{{ recaudo.empresa.nombre }} Logo" style="max-height: 70px; max-width: 200px;" class="img-fluid"> {# img-fluid #}
+                                {% else %}
+                                    {# Si no hay logo_base64, muestra el nombre de la empresa #}
+                                    <h3 class="fw-bold text-primary mb-0">{{ recaudo.empresa.nombre }}</h3>
+                                {% endif %}
+                                <p class="small text-muted mb-0">{{ recaudo.empresa.nit }}</p>
+                            </div>
+                            <div class="col-6 text-end">
+                                <h2 class="text-primary fw-bold mb-0">RECIBO DE CAJA</h2> {# fw-bold #}
+                                <h3 class="fw-bold mb-0">No. {{ recaudo.id }}</h3>
+                            </div>
                         </div>
-                        <div class="col-6 text-end">
-                            <strong>Fecha y Hora:</strong> {{ recaudo.fecha_recaudo|date:"Y-m-d h:i A" }}
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Fecha y Hora:</strong> <span class="fw-normal text-dark">{{ recaudo.fecha_recaudo|date:"Y-m-d h:i A" }}</span></p> {# text-dark #}
+                                <p class="mb-0"><strong>Estado:</strong>
+                                    {% comment %} Usar clases de Bootstrap estándar para los badges y asegurar el contraste {% endcomment %}
+                                    {% if recaudo.estado == 'EN_MANOS' %}
+                                        <span class="badge bg-warning text-dark">{{ recaudo.get_estado_display }}</span>
+                                    {% elif recaudo.estado == 'DEPOSITADO' %}
+                                        <span class="badge bg-info text-white">{{ recaudo.get_estado_display }}</span>
+                                    {% elif recaudo.estado == 'VERIFICADO' %}
+                                        <span class="badge bg-success text-white">{{ recaudo.get_estado_display }}</span>
+                                    {% elif recaudo.estado == 'ANULADO' %} {# Añadir estado ANULADO si existe #}
+                                        <span class="badge bg-danger text-white">{{ recaudo.get_estado_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary text-white">{{ recaudo.get_estado_display }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <p class="mb-1"><strong>Recibido por:</strong> <span class="fw-normal text-dark">{{ recaudo.vendedor.user.get_full_name|default:recaudo.vendedor.user.username }}</span></p>
+                                <p class="mb-0"><strong>Firma:</strong> _________________________</p>
+                            </div>
                         </div>
+                        
+                        <hr class="my-4 border-secondary-subtle"> {# Borde más sutil #}
+
+                        <h5 class="text-secondary mb-3 fw-bold">RECIBIDO DE:</h5> {# fw-bold #}
+                        <div class="bg-light p-3 rounded mb-4 border border-secondary-subtle"> {# Ligero fondo y borde #}
+                            <p class="mb-1"><strong>Cliente:</strong> <span class="fw-normal text-dark">{{ recaudo.cliente.nombre_completo }}</span></p>
+                            <p class="mb-0"><strong>Identificación:</strong> <span class="fw-normal text-dark">{{ recaudo.cliente.identificacion }}</span></p>
+                            {% if recaudo.cliente.direccion %}<p class="mb-0"><strong>Dirección:</strong> <span class="fw-normal text-dark">{{ recaudo.cliente.direccion }}</span></p>{% endif %}
+                            {% if recaudo.cliente.telefono %}<p class="mb-0"><strong>Teléfono:</strong> <span class="fw-normal text-dark">{{ recaudo.cliente.telefono }}</span></p>{% endif %}
+                        </div>
+
+                        <h5 class="text-secondary mb-3 fw-bold">CONCEPTO DEL PAGO:</h5> {# fw-bold #}
+                        <div class="bg-light p-3 rounded mb-4 border border-secondary-subtle" style="min-height: 80px;">
+                            <p class="fw-normal text-dark">{{ recaudo.concepto|linebreaksbr|default:"Pago recibido por concepto de..." }}</p>
+                        </div>
+
+                        <div class="text-end bg-primary-subtle p-3 rounded mt-4 mb-4">
+                            <h3 class="mb-0 text-primary">TOTAL RECIBIDO: ${{ recaudo.monto_recibido|intcomma }}</h3>
+                        </div>
+                        
+                        <hr class="my-4 border-secondary-subtle">
+
+                        <p class="text-center text-muted small mt-4">
+                            Este recibo es un comprobante de pago. Por favor, conserve para sus registros.
+                            <br>Dudas e Inquietudes en: {{ recaudo.empresa.correo_electronico|default:"N/A" }} | {{ recaudo.empresa.telefono|default:"N/A" }}
+                        </p>
+
+                    </div> {# Fin card-body #}
+
+                    <div class="card-footer text-center bg-light border-top-0 rounded-bottom-3 no-print" id="botones-accion"> {# rounded-bottom-3 #}
+                        <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm me-2"> {# btn-lg rounded-pill shadow-sm #}
+                            <i class="fas fa-arrow-left me-1"></i> Volver a Recaudos
+                        </a>
+                        <button class="btn btn-primary btn-lg rounded-pill shadow-sm" onclick="window.print();"> {# btn-lg rounded-pill shadow-sm #}
+                            <i class="fas fa-print me-1"></i> Imprimir / Guardar PDF
+                        </button>
                     </div>
-                    <hr>
-                    <h5>Recibido de:</h5>
-                    <p>
-                        <strong>Cliente:</strong> {{ recaudo.cliente.nombre_completo }}<br>
-                        <strong>Identificación:</strong> {{ recaudo.cliente.identificacion }}
-                    </p>
-                    <hr>
-                    <h5>Detalle del Pago:</h5>
-                    <p>
-                        <strong>Concepto:</strong><br>
-                        {{ recaudo.concepto|linebreaksbr|default:"N/A" }}
-                    </p>
-                    <div class="text-end bg-light p-3 rounded mt-3">
-                        <h4 class="mb-0">Total Recibido: ${{ recaudo.monto_recibido|intcomma }}</h4>
-                    </div>
-                    <hr>
-                    <p class="text-muted small">
-                        <strong>Recibido por:</strong> {{ recaudo.vendedor.user.get_full_name }} <br>
-                        <strong>Estado del Recaudo:</strong> {{ recaudo.get_estado_display }}
-                    </p>
-                </div>
-                <div class="card-footer text-center bg-light" id="botones-accion">
-                    <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Volver a Mis Recaudos
-                    </a>
-                    <button class="btn btn-danger" onclick="window.print();">
-                        <i class="fas fa-print"></i> Imprimir / Guardar PDF
-                    </button>
-                </div>
+                </div> {# Fin card #}
             </div>
         </div>
     </div>
-</div>
+</div> {# <-- CIERRA EL DIV "print-area" #}
 {% endblock %}
 
 {% block extra_head %}
+{# Asegúrate que las variables de Bootstrap 5 estén definidas en tu :root de base.html #}
+{# (Ya te di las definiciones de estas variables en respuestas anteriores) #}
 <style>
+/* Estilos para el recibo */
+#recibo-imprimible {
+    font-size: 0.95em;
+    color: var(--bs-body-color); /* Usar variable de texto principal de Bootstrap */
+    background-color: var(--bs-card-bg); /* Usar variable de fondo de tarjeta de Bootstrap */
+    border-radius: 0.75rem; /* rounded-3 de Bootstrap es 0.5rem, este es un poco más */
+}
+
+#recibo-imprimible h2, #recibo-imprimible h3 {
+    color: var(--bs-primary); /* Usar variable de color primario de Bootstrap */
+}
+
+#recibo-imprimible h5 {
+    color: var(--bs-secondary); /* Usar variable de color secundario de Bootstrap */
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+#recibo-imprimible hr {
+    border-top: 1px dashed var(--bs-border-color); /* Usar variable de color de borde de Bootstrap */
+    margin: 1.5rem 0;
+}
+
+/* Reglas de badges (ya las tenías bien, solo asegúrate de que los colores base estén en :root) */
+/* text-dark, text-white para contraste */
+.badge.bg-warning { color: var(--bs-dark) !important; }
+.badge.bg-info { color: var(--bs-white) !important; }
+.badge.bg-success { color: var(--bs-white) !important; }
+.badge.bg-danger { color: var(--bs-white) !important; }
+.badge.bg-secondary { color: var(--bs-white) !important; }
+
+
+/* --- Media Query para IMPRESIÓN (PATRÓN PROBADO) --- */
 @media print {
+    /* 1. Ocultar TODO el contenido del body por defecto */
     body * {
         visibility: hidden;
     }
-    #recibo-imprimible, #recibo-imprimible * {
+
+    /* 2. Hacer visible SOLAMENTE el área de impresión y todo su contenido */
+    .print-area, .print-area * {
         visibility: visible;
     }
-    #recibo-imprimible {
+
+    /* 3. Posicionar y estilizar el área de impresión para que ocupe la página */
+    .print-area {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
+        height: auto; /* Permite que el alto se ajuste al contenido */
         margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border: none;
+        background-color: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* 4. Ocultar elementos específicos que no deben imprimirse, usando la clase "no-print" */
+    .no-print,
+    body > nav,
+    .messages,
+    body > main > *:not(.print-area) {
+        display: none !important;
+    }
+
+    /* 5. Asegurar el reseteo del body */
+    body {
+        padding-top: 0 !important;
+        margin: 0 !important;
+        zoom: 100% !important;
+        -moz-transform: none !important;
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+
+    /* 6. Estilos específicos para el recibo dentro del área de impresión */
+    #recibo-imprimible {
         box-shadow: none !important;
         border: none !important;
+        border-radius: 0 !important;
+        background-color: #fff !important;
+        color: #000 !important;
+        width: 100%;
+        height: auto;
     }
-    #botones-accion {
-        display: none;
+
+    #recibo-imprimible .card-body {
+        padding: 1.5cm !important; /* Márgenes internos para el contenido del recibo (A4) */
+    }
+    
+    /* Ajustes de margen de página (para la impresora) */
+    @page {
+        margin: 1cm; /* Margen de 1 cm alrededor de la página impresa */
     }
 }
 </style>
-{% endblock %}
+{% endblock extra_head %}

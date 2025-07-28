@@ -14,7 +14,7 @@ from .forms import ClienteForm, CiudadForm, CiudadImportForm, ClienteImportForm
 from .resources import CiudadResource, ClienteResource
 from tablib import Dataset
 from django.db.models import Q
-from core.auth_utils import es_admin_sistema, es_cartera, es_factura, es_vendedor
+from core.auth_utils import es_administracion, es_cartera, es_factura, es_vendedor
 from core.mixins import TenantAwareMixin
 
 
@@ -44,7 +44,7 @@ class ClienteListView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixin,
     paginate_by = 15
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
+        return es_administracion(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
     
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para acceder al listado de clientes.")
@@ -80,7 +80,7 @@ class ClienteDetailView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     context_object_name = 'cliente' 
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
+        return es_administracion(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
     
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver los detalles de este cliente.")
@@ -102,7 +102,7 @@ class ClienteCreateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     success_message = "¡Cliente '%(nombre_completo)s' creado exitosamente!"
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
+        return es_administracion(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para crear clientes.")
@@ -131,7 +131,7 @@ class ClienteUpdateView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     success_message = "Cliente '%(nombre_completo)s' actualizado exitosamente."
 
     def test_func(self):
-        return es_admin_sistema(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
+        return es_administracion(self.request.user) or es_cartera(self.request.user) or es_factura(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para editar este cliente.")
@@ -162,7 +162,7 @@ class ClienteDeleteView(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
     success_url = reverse_lazy('clientes:cliente_listado')
     
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administracion(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para eliminar clientes.")
@@ -191,7 +191,7 @@ class CiudadListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     paginate_by = 20
 
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administracion(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver el listado de ciudades.")
@@ -205,7 +205,7 @@ class CiudadCreateView(LoginRequiredMixin, UserPassesTestMixin, SuccessMessageMi
     success_message = "¡Ciudad '%(nombre)s' creada exitosamente!"
 
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administracion(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para crear ciudades.")
@@ -225,7 +225,7 @@ class CiudadUpdateView(LoginRequiredMixin, UserPassesTestMixin, SuccessMessageMi
     success_message = "Ciudad '%(nombre)s' actualizada exitosamente."
 
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administracion(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para editar esta ciudad.")
@@ -243,7 +243,7 @@ class CiudadDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     success_url = reverse_lazy('clientes:ciudad_listado')
 
     def test_func(self):
-        return es_admin_sistema(self.request.user)
+        return es_administracion(self.request.user)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para eliminar ciudades.")
@@ -261,7 +261,7 @@ class CiudadDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 #********************************************************************************
 
 @login_required
-@user_passes_test(es_admin_sistema)
+@user_passes_test(es_administracion)
 def ciudad_import_view(request):
     if request.method == 'POST':
         form = CiudadImportForm(request.POST, request.FILES)
@@ -308,7 +308,7 @@ def ciudad_import_view(request):
     return render(request, 'clientes/ciudad_import.html', context)
 
 @login_required
-@user_passes_test(es_admin_sistema)
+@user_passes_test(es_administracion)
 def ciudad_export_view(request, file_format='xlsx'):
     ciudad_resource = CiudadResource()
     dataset = ciudad_resource.export()
@@ -338,9 +338,10 @@ class ClienteListV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMixi
 
     def test_func(self):
         return (
-            es_admin_sistema(self.request.user) or 
+            es_administracion(self.request.user) or 
             es_cartera(self.request.user) or            
             es_vendedor(self.request.user) or 
+            es_factura(self.request.user) or
             self.request.user.is_superuser
         )
 
@@ -380,9 +381,10 @@ class ClienteDetailV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMi
     
     def test_func(self):
         return (
-            es_admin_sistema(self.request.user) or 
+            es_administracion(self.request.user) or 
             es_cartera(self.request.user) or            
             es_vendedor(self.request.user) or 
+            es_factura(self.request.user) or
             self.request.user.is_superuser
         )
 
@@ -404,7 +406,7 @@ class ClienteDetailV2View(TenantAwareMixin, LoginRequiredMixin, UserPassesTestMi
     
     
 @login_required
-@user_passes_test(es_admin_sistema)
+@user_passes_test(es_administracion)
 def cliente_export_view(request, file_format='xlsx'):
     """
     Gestiona la exportación de clientes a diferentes formatos de archivo.
@@ -434,7 +436,7 @@ def cliente_export_view(request, file_format='xlsx'):
     return response
 
 @login_required
-@user_passes_test(es_admin_sistema)
+@user_passes_test(es_administracion)
 def cliente_import_view(request):
     if request.method == 'POST':
         form = ClienteImportForm(request.POST, request.FILES)

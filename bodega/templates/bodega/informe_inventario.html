@@ -1,21 +1,27 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock page_title %} {# Aseguramos page_title #}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid mt-4 mb-5 px-4"> {# Añadido mb-5 px-4 para consistencia #}
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h2 text-white">{{ titulo }}</h1>
-        <a href="{% url 'bodega:exportar_inventario_excel' %}?{{ filtros_activos.urlencode }}" class="btn btn-success">
-            <i class="fas fa-file-excel me-2"></i>Exportar a Excel
-        </a>
+    <div class="row align-items-center mb-4"> {# Estructura de título consistente #}
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-boxes me-2"></i> {{ titulo }}
+            </h1>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'bodega:exportar_inventario_excel' %}?{{ filtros_activos.urlencode }}" class="btn btn-success btn-lg rounded-pill shadow-sm"> {# Botón consistente #}
+                <i class="fas fa-file-excel me-2"></i> Exportar a Excel
+            </a>
+        </div>
     </div>
 
-    <div class="row">
+    <div class="row mb-4"> {# Espacio entre el título y las tarjetas #}
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-white bg-primary">
+            <div class="card text-white bg-primary rounded-3 shadow-lg"> {# Añadido rounded-3 shadow-lg #}
                 <div class="card-body">
                     <h5 class="card-title"><i class="fas fa-box me-2"></i>Total Productos</h5>
                     <p class="card-text fs-4 fw-bold">{{ total_productos|intcomma }}</p>
@@ -23,88 +29,111 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-white bg-info">
+            <div class="card text-white bg-info rounded-3 shadow-lg"> {# Añadido rounded-3 shadow-lg #}
                 <div class="card-body">
                     <h5 class="card-title"><i class="fas fa-boxes me-2"></i>Total Unidades</h5>
                     <p class="card-text fs-4 fw-bold">{{ total_unidades|intcomma }}</p>
                 </div>
             </div>
         </div>
+        {# Podrías añadir más tarjetas de resumen aquí si las necesitas, siguiendo el mismo patrón #}
     </div>
 
-    <div class="card mb-3">
-        <div class="card-body">
+    <div class="card shadow-lg border-0 rounded-3 mb-4"> {# Card de filtros consistente #}
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header consistente #}
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Opciones de Filtro</h5>
+        </div>
+        <div class="card-body p-4"> {# Padding en el body #}
             <form method="get" action="">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
-                        <label for="ref" class="form-label">Referencia</label>
-                        <input type="text" name="referencia" id="ref" class="form-control" value="{{ filtros_activos.referencia }}">
+                        <label for="ref" class="form-label fw-semibold">Referencia</label> {# fw-semibold #}
+                        <input type="text" name="referencia" id="ref" class="form-control rounded-pill" value="{{ filtros_activos.referencia }}"> {# rounded-pill #}
                     </div>
                     <div class="col-md-3">
-                        <label for="nombre" class="form-label">Descripción</label>
-                        <input type="text" name="nombre" id="nombre" class="form-control" value="{{ filtros_activos.nombre }}">
+                        <label for="nombre" class="form-label fw-semibold">Descripción</label> {# fw-semibold #}
+                        <input type="text" name="nombre" id="nombre" class="form-control rounded-pill" value="{{ filtros_activos.nombre }}"> {# rounded-pill #}
                     </div>
                     <div class="col-md-3">
-                        <label for="ubicacion" class="form-label">Ubicación</label>
-                        <input type="text" name="ubicacion" id="ubicacion" class="form-control" value="{{ filtros_activos.ubicacion }}">
+                        <label for="ubicacion" class="form-label fw-semibold">Ubicación</label> {# fw-semibold #}
+                        <input type="text" name="ubicacion" id="ubicacion" class="form-control rounded-pill" value="{{ filtros_activos.ubicacion }}"> {# rounded-pill #}
                     </div>
-                    <div class="col-md-3 d-flex">
-                        <button type="submit" class="btn btn-primary w-50 me-2">Buscar</button>
-                        <a href="{% url 'bodega:informe_inventario' %}" class="btn btn-secondary w-50">Limpiar</a>
+                    <div class="col-md-3 d-grid gap-2"> {# d-grid gap-2 para los botones #}
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm"> {# btn-lg, rounded-pill, shadow-sm #}
+                            <i class="fas fa-search me-2"></i> Buscar
+                        </button>
+                        <a href="{% url 'bodega:informe_inventario' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm"> {# btn-lg, rounded-pill, shadow-sm #}
+                            <i class="fas fa-eraser me-2"></i> Limpiar
+                        </a>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-striped table-hover table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>Referencia</th>
-                    <th>Descripción</th>
-                    <th>Detalle</th>
-                    <th>Color</th>
-                    <th>Talla</th>
-                    <th>Ubicación</th>
-                    <th class="text-end">Cantidad Stock</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for producto in productos %}
-                <tr>
-                    <td>{{ producto.referencia }}</td>
-                    <td>{{ producto.nombre }}</td>
-                    <td>{{ producto.descripcion|default_if_none:"" }}</td>
-                    <td>{{ producto.color|default_if_none:"" }}</td>
-                    <td>{{ producto.talla|default_if_none:"" }}</td>
-                    <td>{{ producto.ubicacion|default_if_none:"" }}</td>
-                    <td class="text-end fw-bold">{{ producto.stock_actual|intcomma }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center text-muted fst-italic py-4">
-                        No se encontraron productos que coincidan con los filtros.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card shadow-lg border-0 rounded-3"> {# Card de tabla consistente #}
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header consistente #}
+            <h5 class="mb-0"><i class="fas fa-boxes me-2"></i> Detalle de Inventario</h5>
+        </div>
+        <div class="card-body p-4"> {# Padding en el body #}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm mb-0"> {# mb-0 #}
+                    <thead class="table-light"> {# Cabecera de tabla clara #}
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Descripción</th>
+                            <th>Detalle</th>
+                            <th>Color</th>
+                            <th>Talla</th>
+                            <th>Ubicación</th>
+                            <th class="text-end">Cantidad Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos %}
+                        <tr>
+                            <td>{{ producto.referencia }}</td>
+                            <td>{{ producto.nombre }}</td>
+                            <td class="text-muted small">{{ producto.descripcion|default_if_none:"-" }}</td> {# Text-muted small para descripciones #}
+                            <td class="text-muted">{{ producto.color|default_if_none:"-" }}</td>
+                            <td class="text-muted">{{ producto.talla|default_if_none:"-" }}</td>
+                            <td class="text-muted">{{ producto.ubicacion|default_if_none:"-" }}</td>
+                            <td class="text-end fw-bold text-primary">{{ producto.stock_actual|intcomma }}</td> {# Text-primary para el stock #}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted fst-italic py-3"> {# py-3 para consistencia #}
+                                No se encontraron productos que coincidan con los filtros.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     {% if productos.has_other_pages %}
-    <nav aria-label="Paginación de inventario" class="mt-4">
-        <ul class="pagination justify-content-center">
+    <nav aria-label="Paginación de inventario" class="mt-4 d-flex justify-content-center"> {# Añadido d-flex justify-content-center #}
+        <ul class="pagination mb-0"> {# mb-0 #}
             {% if productos.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page=1&{{ filtros_activos.urlencode }}">« Primera</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ productos.previous_page_number }}&{{ filtros_activos.urlencode }}">Anterior</a></li>
+                <li class="page-item">
+                    <a class="page-link rounded-pill-start" href="?page=1&{{ filtros_activos.urlencode }}">« Primera</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ productos.previous_page_number }}&{{ filtros_activos.urlencode }}">Anterior</a>
+                </li>
             {% endif %}
 
             <li class="page-item disabled"><span class="page-link">Página {{ productos.number }} de {{ productos.paginator.num_pages }}</span></li>
 
             {% if productos.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ productos.next_page_number }}&{{ filtros_activos.urlencode }}">Siguiente</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ productos.paginator.num_pages }}&{{ filtros_activos.urlencode }}">Última »</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ productos.next_page_number }}&{{ filtros_activos.urlencode }}">Siguiente</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link rounded-pill-end" href="?page={{ productos.paginator.num_pages }}&{{ filtros_activos.urlencode }}">Última »</a>
+                </li>
             {% endif %}
         </ul>
     </nav>

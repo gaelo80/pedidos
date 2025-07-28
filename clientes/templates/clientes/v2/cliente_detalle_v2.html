@@ -1,37 +1,89 @@
 {% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
 
 {% block page_title %}{{ titulo_pagina|default:"Detalle de Cliente" }}{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>{{ titulo_pagina }}</h2>
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-user-circle me-2"></i> Detalles del Cliente
+            </h1>
+            <p class="lead text-secondary mb-0">
+                Información detallada de **{{ cliente.nombre_completo|default:"el cliente" }}**.
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'clientes:cliente_listado_v2' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm"> {# Quitamos me-2 si es el único botón #}
+                <i class="fas fa-arrow-left me-2"></i> Volver al Listado
+            </a>
+            {# Eliminamos el botón de Editar Cliente #}
+        </div>
+    </div>
 
     {% if messages %}
+        <div class="messages-container mb-4">
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
         {% endfor %}
+        </div>
     {% endif %}
 
     {% if cliente %}
-    <div class="card">
-        <div class="card-header">
-            <h3>{{ cliente.nombre_completo }}</h3>
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h4 class="mb-0">{{ cliente.nombre_completo }}</h4>
         </div>
-        <div class="card-body">
-            <p><strong>Identificación:</strong> {{ cliente.identificacion|default:"N/A" }}</p>
-            <p><strong>Ciudad:</strong> {{ cliente.ciudad.nombre|default:"N/A" }}</p>
-            <p><strong>Dirección:</strong> {{ cliente.direccion|default:"N/A" }}</p>
-            <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"N/A" }}</p>
-            <p><strong>Email:</strong> {{ cliente.email|default:"N/A" }}</p>
-            <p><strong>Fecha Creación:</strong> {{ cliente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+        <div class="card-body p-4">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <p class="mb-1 text-muted">Identificación:</p>
+                    <p class="fw-bold fs-5">{{ cliente.identificacion|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <p class="mb-1 text-muted">Ciudad:</p>
+                    <p class="fw-bold fs-5">{{ cliente.ciudad.nombre|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-12 mb-3">
+                    <p class="mb-1 text-muted">Dirección:</p>
+                    <p class="fw-bold fs-5">{{ cliente.direccion|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <p class="mb-1 text-muted">Teléfono:</p>
+                    <p class="fw-bold fs-5">{{ cliente.telefono|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <p class="mb-1 text-muted">Email:</p>
+                    <p class="fw-bold fs-5">{{ cliente.email|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-12 mb-3">
+                    <p class="mb-1 text-muted">Fecha Creación:</p>
+                    <p class="fw-bold fs-5">{{ cliente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% if cliente.notas %}
+                <div class="col-md-12 mt-3">
+                    <p class="mb-1 text-muted">Notas Adicionales:</p>
+                    <div class="alert alert-info border-0 shadow-sm rounded-3 py-3">
+                        <p class="mb-0" style="white-space: pre-wrap;">{{ cliente.notas }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        <div class="card-footer">
-            <a href="{% url 'clientes:cliente_listado_v2' %}" class="btn btn-secondary">Volver al Listado</a>
-            {# <a href="{% url 'clientes:cliente_editar_v2' pk=cliente.pk %}" class="btn btn-warning">Editar (V2)</a> #}
+        <div class="card-footer bg-light border-0 rounded-bottom-3 d-flex justify-content-end py-3">
+            {# Eliminamos el botón de Editar #}
         </div>
     </div>
     {% else %}
-        <p>Cliente no encontrado.</p>
+        <div class="alert alert-danger text-center py-4 rounded-3 shadow-sm border-0">
+            <i class="fas fa-exclamation-circle me-2"></i> Cliente no encontrado.
+        </div>
     {% endif %}
 </div>
-{% endblock %}
+{% endblock content %}

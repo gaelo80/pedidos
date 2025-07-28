@@ -1,6 +1,7 @@
 from collections import defaultdict
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse
 from django.views.generic import ListView
 from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
@@ -14,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from .models import SalidaInternaCabecera
+from .models import BorradorDespacho, DetalleBorradorDespacho, SalidaInternaCabecera
 from .forms import SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
 from django.utils.decorators import method_decorator
@@ -43,115 +44,360 @@ from factura.models import EstadoFacturaDespacho
 @login_required
 @permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
 def vista_despacho_pedido(request, pk):
-    
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.") 
         return redirect('core:index')
 
-    prefetch_queryset = Pedido.objects.prefetch_related('detalles__producto')
-    pedido = get_object_or_404(prefetch_queryset, pk=pk, empresa=empresa_actual)
+    # Prefetch para optimización de consultas
+    pedido = get_object_or_404(
+        Pedido.objects.prefetch_related('detalles__producto'), 
+        pk=pk, 
+        empresa=empresa_actual
+    )
+    
+    # Definir los estados en los que el pedido puede ser despachado/procesado
+    ESTADOS_PERMITIDOS_PARA_DESPACHO = ['APROBADO_ADMIN', 'PROCESANDO', 'PENDIENTE_BODEGA', 'LISTO_BODEGA_DIRECTO']
 
-    ESTADOS_PERMITIDOS = ['APROBADO_ADMIN', 'PROCESANDO']
-
-    if pedido.estado not in ESTADOS_PERMITIDOS and not request.user.is_superuser:
-        messages.info(request, f"El pedido #{pedido.pk} ya fue enviado. Puedes revisar el comprobante generado.")
-        return redirect('bodega:imprimir_comprobante_especifico', pk_comprobante=comprobante.pk)
-
-
-    # --- Lógica POST (cuando se guarda o finaliza) ---
+    # --- Lógica POST (para manejar botones de formulario tradicionales) ---
     if request.method == 'POST':
-        action = request.POST.get('action', 'guardar_parcial')
+        action = request.POST.get('action') # Obtiene el valor del atributo 'name="action"' del botón submit
 
         try:
             with transaction.atomic():
-                hubo_cambios = False
-                detalles_completos = True
-                
-                # Tu lógica para actualizar cantidades verificadas está bien.
-                for detalle in pedido.detalles.all():
-                    input_name = f'despachado_{detalle.pk}'
-                    cantidad_despachada_str = request.POST.get(input_name, str(detalle.cantidad_verificada or 0))
-                    cantidad_despachada_actual = int(cantidad_despachada_str)
+                # Nota: La lógica de 'guardar_parcial' (cuando el botón era submit tradicional) ya no se maneja aquí.
+                # Ahora es una llamada AJAX a 'guardar_parcialmente_detalle_ajax'.
+                # Este bloque POST solo manejará otros submits de formulario tradicionales.
 
-                    if cantidad_despachada_actual > detalle.cantidad:
-                         messages.error(request, f"Error en producto {detalle.producto}: Se intentó despachar {cantidad_despachada_actual} pero solo se pidieron {detalle.cantidad}.")
-                         raise transaction.TransactionManagementError("Cantidad despachada excede la pedida.")
+                if action == 'finalizar_pedido_incompleto': 
+                    # Redirige a la vista específica que maneja esta acción
+                    return redirect('bodega:finalizar_pedido_incompleto', pk=pk)
 
-                    if detalle.cantidad_verificada != cantidad_despachada_actual:
-                        detalle.cantidad_verificada = cantidad_despachada_actual
-                        detalle.save(update_fields=['cantidad_verificada'])
-                        hubo_cambios = True
-
-                    if detalle.cantidad_verificada < detalle.cantidad:
-                        detalles_completos = False                                      
-                        
-                # --- Lógica para Finalizar y Crear Comprobante ---
-                if action == 'finalizar_despacho':
-                    if not detalles_completos:
-                        messages.warning(request, f"No se puede finalizar. Faltan ítems por despachar en el Pedido #{pedido.pk}.")
-                    else:
-                        # ✅ CORRECCIÓN 1: LÓGICA PARA CREAR COMPROBANTE AÑADIDA
-                        comprobante, created = ComprobanteDespacho.objects.get_or_create(
-                            pedido=pedido,
-                            empresa=empresa_actual,
-                            defaults={'usuario_responsable': request.user}
-                        )
-                        
-                        if created:
-                            detalles_a_crear = [
-                                DetalleComprobanteDespacho(
-                                    comprobante_despacho=comprobante,
-                                    producto=d.producto,
-                                    cantidad_despachada=d.cantidad_verificada,
-                                    detalle_pedido_origen=d
-                                )
-                                for d in pedido.detalles.filter(cantidad_verificada__gt=0)
-                            ]
-                            DetalleComprobanteDespacho.objects.bulk_create(detalles_a_crear)
-                            
-                            pedido.estado = 'ENVIADO'
-                            pedido.save(update_fields=['estado'])
-                            messages.success(request, f"Comprobante #{comprobante.pk} creado. Pedido #{pedido.pk} marcado como 'Enviado'.")
-                        else:
-                            messages.info(request, f"El Pedido #{pedido.pk} ya tiene un comprobante (#{comprobante.pk}) asociado.")
-                            
+                elif action == 'cancelar_pedido_bodega': 
+                    # Redirige a la vista específica que maneja esta acción
+                    return redirect('bodega:cancelar_pedido_bodega', pk=pk)
                 
-                
-                elif hubo_cambios: # Guardado parcial
-                    if pedido.estado != 'PROCESANDO':
-                       pedido.estado = 'PROCESANDO'
-                       pedido.save(update_fields=['estado'])
-                    messages.info(request, f"Despacho parcial del Pedido #{pedido.pk} guardado.")
-                else:
-                    messages.info(request, "No se detectaron cambios para guardar.")
+                # Si llega aquí, significa que se envió un POST con una acción no reconocida o no esperada.
+                messages.error(request, f"Acción '{action}' no válida o no implementada para este pedido.")
+                # Redirige de vuelta a la misma página del despacho
+                return redirect('bodega:despacho_pedido', pk=pk)
 
         except Exception as e:
-            messages.error(request, f"Ocurrió un error inesperado al guardar: {e}")
-            
-        return redirect('bodega:despacho_pedido', pk=pk)
+            messages.error(request, f"Ocurrió un error inesperado al procesar la acción: {e}")
+            # Si hay un error en la acción POST, redirige de nuevo a la página de despacho
+            return redirect('bodega:despacho_pedido', pk=pk)
 
-    # --- Lógica GET (cuando se muestra la página) ---
+    # --- Lógica GET (cuando se muestra la página de despacho) ---
+    # PRIMERO: Verificar el estado del pedido al cargar la página GET
+    if pedido.estado not in ESTADOS_PERMITIDOS_PARA_DESPACHO and not request.user.is_superuser:
+        messages.info(request, f"El pedido #{pedido.pk} ya está en estado '{pedido.get_estado_display()}' y no puede ser modificado aquí. Puedes revisar los comprobantes generados si aplica.")
+        # Si el pedido no es modificable, redirigimos a la lista de pedidos de bodega.
+        return redirect('bodega:lista_pedidos_bodega')
+    
+    # Si el estado es válido, procedemos a cargar los detalles
+    
+    # Cargar el borrador de despacho existente para este pedido
+    # Se usa .first() porque unique_together = ('pedido', 'empresa') asegura que solo hay uno.
+    borrador_existente = BorradorDespacho.objects.filter(
+        pedido=pedido,
+        empresa=empresa_actual
+    ).first()
+    
+    # Mapear las cantidades escaneadas del borrador para inicializar el frontend
+    cantidades_en_borrador_map = {}
+    if borrador_existente:
+        cantidades_en_borrador_map = {
+            db.detalle_pedido_origen_id: db.cantidad_escaneada_en_borrador 
+            for db in borrador_existente.detalles_borrador.all()
+        }
+
     detalles_pedido = pedido.detalles.all().order_by('producto__referencia', 'producto__talla')
 
-    # ✅ CORRECCIÓN 2: LÓGICA PARA HABILITAR EL BOTÓN 'FINALIZAR'
-    # Calculamos si todas las cantidades ya fueron verificadas
-    cantidades_completas = all(d.cantidad == d.cantidad_verificada for d in detalles_pedido)
-    
-    detalles_json = json.dumps([
-        {'id': d.pk, 'codigo_barras': d.producto.codigo_barras or "", 'cantidad_pedida': d.cantidad, 'cantidad_verificada': d.cantidad_verificada or 0} for d in detalles_pedido
-    ])
+    items_agrupados_dict = defaultdict(lambda: {
+        'referencia': '', 'nombre': '', 'color': '', 'tallas': [],
+        'total_pedida': 0, 'total_verificada': 0 # total_verificada aquí es la suma de lo que está en el borrador
+    })
 
+    for detalle in detalles_pedido:
+        producto_obj = detalle.producto
+        clave_agrupacion = (producto_obj.referencia, producto_obj.color or '')
+        
+        # Cantidad acumulada en el borrador para este detalle
+        # Esta es la cantidad que el frontend debe mostrar como "Despachado" en la UI de escaneo
+        cantidad_a_mostrar_en_frontend = cantidades_en_borrador_map.get(detalle.pk, 0) 
+
+        if not items_agrupados_dict[clave_agrupacion]['referencia']:
+            items_agrupados_dict[clave_agrupacion]['referencia'] = producto_obj.referencia
+            items_agrupados_dict[clave_agrupacion]['nombre'] = producto_obj.nombre
+            items_agrupados_dict[clave_agrupacion]['color'] = producto_obj.color or ''
+
+        items_agrupados_dict[clave_agrupacion]['tallas'].append({
+            'nombre': producto_obj.talla or '',
+            'detalle': { 
+                'id': detalle.pk,
+                'codigo_barras': producto_obj.codigo_barras or '', 
+                'cantidad_pedida': detalle.cantidad,
+                'cantidad_verificada': cantidad_a_mostrar_en_frontend, # Cantidad del borrador para el frontend
+            }
+        })
+        items_agrupados_dict[clave_agrupacion]['total_pedida'] += detalle.cantidad
+        items_agrupados_dict[clave_agrupacion]['total_verificada'] += cantidad_a_mostrar_en_frontend # Suma de lo que está en el borrador
+
+    detalles_json_data = list(items_agrupados_dict.values())
+    detalles_json_data.sort(key=lambda x: (x['referencia'], x['color']))
+    detalles_json = json.dumps(detalles_json_data) 
+    
     context = {
         'pedido': pedido,
-        'detalles_pedido': detalles_pedido,
-        'detalles_json': detalles_json,
+        'detalles_pedido': detalles_pedido, # Aún útil para los enlaces y otros datos, pero NO para cantidad_verificada
+        'detalles_json': detalles_json, # JSON que ahora incluye cantidades del borrador
         'titulo': f"Despacho Pedido #{pedido.pk}",
-        # La variable ahora depende de si las cantidades están completas Y del estado del pedido
-        'puede_finalizar': cantidades_completas and pedido.estado in ESTADOS_PERMITIDOS
     }
     return render(request, 'bodega/despacho_pedido.html', context)
 
+@csrf_exempt
+@require_POST
+@login_required
+@permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
+def guardar_parcialmente_detalle_ajax(request, pk): # 'pk' es el pedido_id
+    """
+    Guarda el progreso de la verificación (cantidades escaneadas en borrador) de uno o más DetallePedido
+    en el modelo BorradorDespacho. No afecta DetallePedido.cantidad_verificada ni genera comprobantes.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        logger.error("Error: Empresa no identificada en guardar_parcialmente_detalle_ajax.")
+        return JsonResponse({'status': 'error', 'message': 'Empresa no identificada.'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        detalles_a_guardar_frontend = data.get('detalles_a_guardar', [])
+
+        if not detalles_a_guardar_frontend:
+            return JsonResponse({'status': 'info', 'message': 'No se enviaron detalles para guardar.'}, status=200)
+
+        with transaction.atomic():
+            pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+
+            # Obtener o crear el borrador para este pedido y usuario
+            borrador, _ = BorradorDespacho.objects.get_or_create(
+                pedido=pedido,
+                empresa=empresa_actual,
+                defaults={'usuario': request.user}
+            )
+
+            # Mapear los detalles del pedido original y los del borrador existente
+            detalles_pedido_map = {d.pk: d for d in pedido.detalles.select_for_update()} # Bloquear los DetallePedido
+            detalles_borrador_map = {
+                db.detalle_pedido_origen_id: db 
+                for db in borrador.detalles_borrador.select_for_update() # Bloquear los DetalleBorradorDespacho
+            }
+
+            cambios_realizados = 0
+            for item_data in detalles_a_guardar_frontend:
+                detalle_id = item_data.get('id')
+                cantidad_escaneada_borrador = item_data.get('cantidad_verificada_nueva') # Es la cantidad de escaneos para el borrador
+
+                if detalle_id is None or cantidad_escaneada_borrador is None:
+                    logger.warning(f"DEBUG: Detalle con datos incompletos en el payload: {item_data}")
+                    continue
+
+                try:
+                    cantidad_escaneada_borrador = int(cantidad_escaneada_borrador)
+                    if cantidad_escaneada_borrador < 0:
+                        logger.warning(f"DEBUG: Cantidad negativa para detalle {detalle_id}: {cantidad_escaneada_borrador}")
+                        continue
+                except ValueError:
+                    logger.warning(f"DEBUG: Cantidad no válida para detalle {detalle_id}: {cantidad_escaneada_borrador}")
+                    continue
+
+                detalle_original = detalles_pedido_map.get(detalle_id)
+                if not detalle_original:
+                    logger.warning(f"DEBUG: Detalle {detalle_id} no encontrado o no pertenece a este pedido/empresa.")
+                    continue
+
+                # Validar que la cantidad escaneada en borrador no exceda la pedida original
+                if cantidad_escaneada_borrador > detalle_original.cantidad:
+                    logger.warning(f"DEBUG: Exceso de cantidad para {detalle_original.producto.referencia}: {cantidad_escaneada_borrador} > {detalle_original.cantidad}.")
+                    # Aquí puedes decidir si lanzar un error fatal o simplemente ignorar el exceso
+                    cantidad_escaneada_borrador = detalle_original.cantidad # Limitar al máximo pedido
+
+                detalle_borrador_obj = detalles_borrador_map.get(detalle_id)
+
+                if detalle_borrador_obj: # Si ya existe un detalle de borrador para este DetallePedido
+                    if detalle_borrador_obj.cantidad_escaneada_en_borrador != cantidad_escaneada_borrador:
+                        detalle_borrador_obj.cantidad_escaneada_en_borrador = cantidad_escaneada_borrador
+                        detalle_borrador_obj.save(update_fields=['cantidad_escaneada_en_borrador'])
+                        cambios_realizados += 1
+                        logger.info(f"DetalleBorradorDespacho {detalle_borrador_obj.pk} actualizado. Cant. Borrador: {cantidad_escaneada_borrador}.")
+                else: # Si no existe, crear uno nuevo
+                    DetalleBorradorDespacho.objects.create(
+                        borrador_despacho=borrador,
+                        detalle_pedido_origen=detalle_original,
+                        producto=detalle_original.producto, # El producto del detalle original
+                        cantidad_escaneada_en_borrador=cantidad_escaneada_borrador
+                    )
+                    cambios_realizados += 1
+                    logger.info(f"Nuevo DetalleBorradorDespacho creado para {detalle_original.pk}. Cant. Borrador: {cantidad_escaneada_borrador}.")
+
+            # Actualizar el estado del pedido a 'PROCESANDO' si se guarda progreso
+            if cambios_realizados > 0 and pedido.estado in ['APROBADO_ADMIN', 'PROCESANDO', 'PENDIENTE_BODEGA', 'LISTO_BODEGA_DIRECTO']:
+                pedido.estado = 'PROCESANDO'
+                pedido.save(update_fields=['estado'])
+                logger.info(f"Pedido {pedido.pk} estado cambiado a PROCESANDO.")
+
+            if cambios_realizados > 0:
+                return JsonResponse({'status': 'success', 'message': f'Progreso de {cambios_realizados} ítems guardado exitosamente.'})
+            else:
+                return JsonResponse({'status': 'info', 'message': 'No se detectaron cambios significativos para guardar.'})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Formato JSON inválido.'}, status=400)
+    except Exception as e:
+        logger.error(f"Error inesperado en guardar_parcialmente_detalle_ajax para pedido {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': f'Error interno del servidor: {str(e)}'}, status=500)
+    
+    
+@csrf_exempt
+@require_POST
+@login_required
+@permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
+def enviar_despacho_parcial_ajax(request, pk):
+    """
+    Procesa un envío parcial del despacho, tomando las cantidades del BorradorDespacho,
+    generando un ComprobanteDespacho por esas cantidades, actualizando DetallePedido.cantidad_verificada
+    y eliminando el borrador. NO AFECTA INVENTARIO DIRECTAMENTE.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        logger.error("Error: Empresa no identificada en enviar_despacho_parcial_ajax.")
+        return JsonResponse({'status': 'error', 'message': 'Empresa no identificada.'}, status=400)
+
+    try:
+        with transaction.atomic():
+            pedido = get_object_or_404(
+                Pedido.objects.select_for_update().prefetch_related('detalles'), 
+                pk=pk, 
+                empresa=empresa_actual
+            )
+
+            ESTADOS_PERMITIDOS_ENVIO = ['APROBADO_ADMIN', 'PROCESANDO', 'PENDIENTE_BODEGA']
+            if pedido.estado not in ESTADOS_PERMITIDOS_ENVIO and not request.user.is_superuser:
+                logger.warning(f"DEBUG: Pedido {pk} en estado no permitido ({pedido.get_estado_display()}) para envío.")
+                raise ValueError(f"El pedido #{pedido.pk} no puede ser enviado en su estado actual ({pedido.get_estado_display()}).")
+
+            # Obtener el borrador de despacho para este pedido
+            borrador = BorradorDespacho.objects.filter(pedido=pedido, empresa=empresa_actual).first()
+
+            if not borrador or not borrador.detalles_borrador.exists():
+                logger.warning("DEBUG: No hay borrador de despacho o no tiene ítems para este pedido. No se puede enviar.")
+                return JsonResponse({'status': 'warning', 'message': 'No hay unidades escaneadas en borrador para enviar.'}, status=200)
+
+            items_para_este_comprobante = []
+            detalles_pedido_actualizados = [] # Para actualizar DetallePedido.cantidad_verificada
+
+            # Iterar sobre los detalles del borrador para construir el comprobante
+            for detalle_borrador in borrador.detalles_borrador.select_for_update():
+                detalle_original = detalle_borrador.detalle_pedido_origen # El DetallePedido original
+
+                cantidad_a_comprobar_en_esta_op = detalle_borrador.cantidad_escaneada_en_borrador
+
+                if cantidad_a_comprobar_en_esta_op > 0:
+                    items_para_este_comprobante.append({
+                        'producto': detalle_original.producto, # Producto del detalle original
+                        'cantidad_despachada': cantidad_a_comprobar_en_esta_op, # Cantidad del borrador
+                        'detalle_pedido_origen': detalle_original
+                    })
+
+                    # Preparar la actualización de DetallePedido.cantidad_verificada (acumulada total)
+                    # Sumar lo que ya estaba en DetallePedido.cantidad_verificada + lo que viene del borrador
+                    detalle_original.cantidad_verificada = (detalle_original.cantidad_verificada or 0) + cantidad_a_comprobar_en_esta_op
+                    detalle_original.verificado_bodega = True
+                    detalles_pedido_actualizados.append(detalle_original)
+
+                # Eliminar el detalle del borrador después de procesarlo para el comprobante
+                detalle_borrador.delete() # Esto eliminará el detalle de borrador
+
+            # Después de procesar todos los detalles, si el borrador está vacío, eliminarlo
+            if not borrador.detalles_borrador.exists():
+                borrador.delete()
+                logger.info(f"DEBUG: Borrador de despacho {borrador.pk} eliminado al estar vacío.")
+
+            if not items_para_este_comprobante:
+                logger.warning("DEBUG: Aunque había borrador, ninguna unidad con cantidad > 0 fue encontrada para el comprobante.")
+                return JsonResponse({'status': 'warning', 'message': 'No se detectaron unidades para despachar en el borrador.'}, status=200)
+
+            # Crear el ComprobanteDespacho
+            comprobante = ComprobanteDespacho.objects.create(
+                pedido=pedido,
+                empresa=empresa_actual,
+                fecha_hora_despacho=timezone.now(),
+                usuario_responsable=request.user,
+                # es_parcial se determinará después de actualizar los DetallePedido
+            )
+            logger.info(f"DEBUG: Comprobante {comprobante.pk} creado.")
+
+            # Bulk create los DetalleComprobanteDespacho
+            detalles_comprobante_bulk_create = []
+            for item_data in items_para_este_comprobante:
+                detalles_comprobante_bulk_create.append(
+                    DetalleComprobanteDespacho(
+                        comprobante_despacho=comprobante,
+                        producto=item_data['producto'],
+                        cantidad_despachada=item_data['cantidad_despachada'],
+                        detalle_pedido_origen=item_data['detalle_pedido_origen']
+                    )
+                )
+            DetalleComprobanteDespacho.objects.bulk_create(detalles_comprobante_bulk_create)
+            logger.info(f"DEBUG: {len(detalles_comprobante_bulk_create)} detalles creados para comprobante.")
+
+            # Actualizar DetallePedido.cantidad_verificada para reflejar el acumulado real
+            DetallePedido.objects.bulk_update(detalles_pedido_actualizados, ['cantidad_verificada', 'verificado_bodega'])
+            logger.info(f"DEBUG: {len(detalles_pedido_actualizados)} DetallePedido actualizados con nuevas cantidades verificadas.")
+
+            # *** ELIMINAR CREACIÓN DE MovimientoInventario AQUÍ ***
+            # Esto es crucial porque el inventario se descuenta al tomar el pedido.
+            # for item_data in items_para_este_comprobante:
+            #     MovimientoInventario.objects.create(...) 
+            # ******************************************************
+
+            # Actualizar el estado del pedido y el comprobante es_parcial
+            pedido.refresh_from_db() # Refrescar para que tenga los nuevos valores de cantidad_verificada
+            todos_los_items_despachados_completamente = all(
+                (d.cantidad_verificada or 0) >= d.cantidad for d in pedido.detalles.all()
+            )
+
+            comprobante.es_parcial = not todos_los_items_despachados_completamente
+            comprobante.save(update_fields=['es_parcial']) # Guardar el campo es_parcial del comprobante
+
+            if todos_los_items_despachados_completamente:
+                pedido.estado = 'ENVIADO' # O 'COMPLETADO'
+                messages.success(request, f"Pedido #{pedido.pk} completamente despachado y enviado.")
+                logger.info(f"DEBUG: Pedido {pk} marcado como ENVIADO.")
+            elif pedido.estado in ['APROBADO_ADMIN', 'PENDIENTE_BODEGA']:
+                pedido.estado = 'PROCESANDO'
+                messages.info(request, f"Despacho parcial del Pedido #{pedido.pk} enviado.")
+                logger.info(f"DEBUG: Pedido {pk} marcado como PROCESANDO.")
+
+            pedido.save(update_fields=['estado'])
+
+            from factura.models import EstadoFacturaDespacho # Asegúrate de importar
+            EstadoFacturaDespacho.objects.create(empresa=empresa_actual, despacho=comprobante)
+            logger.info("DEBUG: EstadoFacturaDespacho creado para el nuevo comprobante.")
+
+            comprobante_url = reverse('bodega:imprimir_comprobante_especifico', kwargs={'pk_comprobante': comprobante.pk})
+
+            return JsonResponse({'status': 'success', 'message': 'Despacho enviado con éxito.', 'comprobante_url': comprobante_url})
+
+    except ValueError as e:
+        logger.error(f"Error de validación en enviar_despacho_parcial_ajax para pedido {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': f'Error de datos: {str(e)}'}, status=400)
+    except DetallePedido.DoesNotExist as e:
+        logger.error(f"Detalle de pedido no encontrado en enviar_despacho_parcial_ajax para pedido {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Uno o más detalles de pedido no encontrados o no pertenecen a este pedido.'}, status=404)
+    except Exception as e:
+        logger.critical(f"Error inesperado y crítico en enviar_despacho_parcial_ajax para pedido {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': f'Error interno del servidor al enviar despacho: {str(e)}'}, status=500)
 
 @login_required
 @permission_required('bodega.view_lista_pedidos_bodega', login_url='core:acceso_denegado')
@@ -183,7 +429,7 @@ def vista_lista_pedidos_bodega(request):
     # --- Determinar qué estados mostrar ---
     # Asegúrate que estos estados coincidan con los definidos en tu modelo Pedido.ESTADO_PEDIDO_CHOICES
     estados_validos = [choice[0] for choice in Pedido.ESTADO_PEDIDO_CHOICES] # ['PENDIENTE', 'APROBADO_CARTERA', ..., 'CANCELADO']
-    estados_por_defecto = ['APROBADO_ADMIN', 'PROCESANDO'] # Estados a mostrar si no se filtra
+    estados_por_defecto = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO'] # Estados a mostrar si no se filtra
 
     titulo = f'Pedidos Bodega ({empresa_actual.nombre})'
     estado_display_filtro = "Todos (por defecto)"
@@ -1437,88 +1683,104 @@ def lista_informes_conteo(request):
 @login_required
 @permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
 def finalizar_pedido_incompleto(request, pk):
-    """
-    Finaliza un pedido que ha sido despachado parcialmente.
-    Devuelve al stock las unidades pendientes no despachadas.
-    """
     empresa_actual = getattr(request, 'tenant', None)
-    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
-
-    if pedido.estado != 'PROCESANDO':
-        messages.error(request, f"Solo se pueden finalizar pedidos que están en estado 'Procesando'.")
-        return redirect('bodega:lista_pedidos_bodega')
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
 
     try:
         with transaction.atomic():
-            unidades_devueltas = 0
-            # 1. Iterar sobre cada línea del pedido para devolver lo pendiente
+            pedido = get_object_or_404(Pedido.objects.select_for_update().prefetch_related('detalles__producto'), pk=pk, empresa=empresa_actual)
+
+            if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO':
+                messages.warning(request, f"El pedido #{pedido.pk} ya está en un estado final y no puede ser marcado como incompleto.")
+                return redirect('bodega:lista_pedidos_bodega')
+            
+            # Eliminar cualquier borrador de despacho pendiente para este pedido
+            BorradorDespacho.objects.filter(pedido=pedido, empresa=empresa_actual).delete()
+            logger.info(f"DEBUG: Borrador de despacho para Pedido {pedido.pk} eliminado al finalizar incompleto.")
+
+            # Actualizar el estado de los detalles del pedido y REINTRODUCIR MovimientoInventario para pendientes
             for detalle in pedido.detalles.all():
                 cantidad_pendiente = detalle.cantidad - (detalle.cantidad_verificada or 0)
-                
                 if cantidad_pendiente > 0:
+                    # REINTRODUCIR: Crear MovimientoInventario para las cantidades que VUELVEN
                     MovimientoInventario.objects.create(
                         empresa=empresa_actual,
                         producto=detalle.producto,
-                        cantidad=cantidad_pendiente, # POSITIVO, es una entrada al stock
-                        tipo_movimiento='ENTRADA_CANCELACION', # Asegúrate que este tipo exista
-                        documento_referencia=f"Cierre Pedido Inc. #{pedido.pk}",
+                        cantidad=cantidad_pendiente, # Cantidad positiva para entrada
+                        tipo_movimiento='ENTRADA_CANCELACION', # Tipo que indica que regresa por cancelación
+                        documento_referencia=f"Devolución por Pedido Incompleto {pedido.pk}",
                         usuario=request.user,
-                        notas=f"Devolución a stock por cierre de pedido incompleto."
+                        notas=f"Devolución de {cantidad_pendiente} unidades no despachadas del pedido {pedido.pk}"
                     )
-                    unidades_devueltas += cantidad_pendiente
-            
-            # 2. Actualizar el estado del pedido
-            pedido.estado = 'ENVIADO_INCOMPLETO'
-            pedido.save(update_fields=['estado'])
+                    logger.info(f"DEBUG: MovimientoInventario de ENTRADA para {cantidad_pendiente} de {detalle.producto.referencia} (Pedido {pedido.pk}) al finalizar incompleto.")
+                
+                # Opcional: Podrías querer setear cantidad_verificada a su cantidad total para asegurar la "finalización" lógica
+                # pero para el borrador y la lógica actual, ya estará en el valor despachado.
+                # Si el objetivo es que la cantidad verificada refleje solo lo *despachado*, no la toques aquí.
 
-            messages.success(request, f"Pedido #{pedido.pk} finalizado. Se devolvieron {unidades_devueltas} unidades pendientes al stock.")
+            pedido.estado = 'ENVIADO_INCOMPLETO' # O un estado similar que indique el cierre
+            pedido.save(update_fields=['estado'])
+            messages.success(request, f"Pedido #{pedido.pk} marcado como INCOMPLETO. Las unidades pendientes han regresado al inventario.")
 
     except Exception as e:
-        messages.error(request, f"Ocurrió un error al finalizar el pedido: {e}")
-
+        messages.error(request, f"Error al finalizar pedido incompleto: {e}")
+        logger.error(f"Error en finalizar_pedido_incompleto: {e}", exc_info=True)
+    
     return redirect('bodega:lista_pedidos_bodega')
 
 @require_POST
 @login_required
 @permission_required('pedidos.change_pedido', login_url='core:acceso_denegado')
 def cancelar_pedido_bodega(request, pk):
-    """
-    Cancela un pedido completo desde bodega, cambiando su estado y
-    devolviendo todos sus productos al stock.
-    """
     empresa_actual = getattr(request, 'tenant', None)
-    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
-
-    ESTADOS_CANCELABLES = ['APROBADO_ADMIN', 'PROCESANDO']
-
-    if pedido.estado not in ESTADOS_CANCELABLES:
-        messages.error(request, f"El pedido #{pedido.pk} no se puede cancelar porque su estado es '{pedido.get_estado_display()}'.")
-        return redirect('bodega:lista_pedidos_bodega')
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
 
     try:
         with transaction.atomic():
+            pedido = get_object_or_404(Pedido.objects.select_for_update().prefetch_related('detalles__producto'), pk=pk, empresa=empresa_actual)
+
+            if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO':
+                messages.warning(request, f"El pedido #{pedido.pk} ya está en un estado final y no puede ser cancelado.")
+                return redirect('bodega:lista_pedidos_bodega')
+
+            # Eliminar cualquier borrador de despacho pendiente para este pedido
+            BorradorDespacho.objects.filter(pedido=pedido, empresa=empresa_actual).delete()
+            logger.info(f"DEBUG: Borrador de despacho para Pedido {pedido.pk} eliminado al cancelar.")
+
+            # Reintroducir MovimientoInventario para TODAS las unidades pedidas
             for detalle in pedido.detalles.all():
-                if detalle.cantidad > 0:
+                cantidad_a_devolver = detalle.cantidad # Se devuelve toda la cantidad pedida
+                if cantidad_a_devolver > 0:
+                    # REINTRODUCIR: Crear MovimientoInventario para todas las cantidades que VUELVEN
                     MovimientoInventario.objects.create(
                         empresa=empresa_actual,
                         producto=detalle.producto,
-                        cantidad=detalle.cantidad,
-                        tipo_movimiento='ENTRADA_CANCELACION',
-                        documento_referencia=f"Cancelado Pedido #{pedido.pk}",
+                        cantidad=cantidad_a_devolver, # Cantidad positiva para entrada
+                        tipo_movimiento='ENTRADA_CANCELACION', # Tipo que indica que regresa por cancelación
+                        documento_referencia=f"Devolución por Cancelación Pedido {pedido.pk}",
                         usuario=request.user,
-                        notas=f"Devolución a stock por cancelación desde bodega."
+                        notas=f"Devolución de {cantidad_a_devolver} unidades del pedido cancelado {pedido.pk}"
                     )
-            
-            pedido.estado = 'CANCELADO_BODEGA'
-            pedido.save(update_fields=['estado'])
+                    logger.info(f"DEBUG: MovimientoInventario de ENTRADA para {cantidad_a_devolver} de {detalle.producto.referencia} (Pedido {pedido.pk}) al cancelar.")
+                
+                # Opcional: Resetear cantidad_verificada a 0 al cancelar el pedido completamente
+                detalle.cantidad_verificada = 0
+                detalle.save(update_fields=['cantidad_verificada'])
 
-            messages.success(request, f"El Pedido #{pedido.pk} ha sido cancelado. El stock ha sido reintegrado.")
+
+            pedido.estado = 'CANCELADO'
+            pedido.save(update_fields=['estado'])
+            messages.success(request, f"Pedido #{pedido.pk} CANCELADO exitosamente. Todas las unidades han regresado al inventario.")
 
     except Exception as e:
-        messages.error(request, f"Ocurrió un error inesperado al cancelar el pedido: {e}")
-
+        messages.error(request, f"Error al cancelar el pedido: {e}")
+        logger.error(f"Error en cancelar_pedido_bodega: {e}", exc_info=True)
+    
     return redirect('bodega:lista_pedidos_bodega')
-
 
 @login_required
 # Asegúrate que el permiso sea el adecuado para tu app, ej: 'productos.view_producto'

@@ -26,7 +26,7 @@
 
                     {# --- INICIO: FILTRO DE VENDEDOR --- #}
                     {# Este bloque solo se muestra si el usuario es admin/gerencia y hay lista de vendedores #}
-                    {% if es_admin_sistema and vendedores_list %}
+                    {% if es_administracion and vendedores_list %}
                     <div class="col-md-3">
                         <label for="vendedor_id" class="form-label form-label-sm">Vendedor Online:</label>
                         <select name="vendedor_id" id="vendedor_id" class="form-select form-select-sm">
@@ -90,7 +90,7 @@
                                 <th># Pedido</th>
                                 <th>Fecha</th>
                                 <th>Cliente Online</th>
-                                {% if es_admin_sistema %}<th>Vendedor Online</th>{% endif %} {# Mostrar vendedor si es admin #}
+                                {% if es_administracion %}<th>Vendedor Online</th>{% endif %} {# Mostrar vendedor si es admin #}
                                 <th class="text-center">Unid. Solicitadas</th>
                                 <th class="text-center">Unid. Despachadas</th>
                                 <th>Estado</th>
@@ -103,12 +103,14 @@
                                     <td>{{ pedido.pk }}</td>
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
                                     <td>{{ pedido.cliente_online.nombre_completo|default:"N/A" }}</td>
-                                    {% if es_admin_sistema %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
+                                    {% if es_administracion %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
                                     <td><span class="badge bg-info text-dark">{{ pedido.get_estado_display|default:pedido.estado }}</span></td>
                                     <td>
-                                        <a href="{% url 'pedidos_online:editar_pedido_online' pedido.pk %}" class="btn btn-sm btn-outline-primary" target="_blank">Ver Pedido</a>
+                                        <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class="fas fa-file-pdf me-1"></i> Ver PDF del Pedido
+                                        </a>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -117,7 +119,7 @@
                 </div>
             {% else %}
                 <div class="alert alert-info text-center">
-                    {% if es_admin_sistema and not vendedor_id_seleccionado %}
+                    {% if es_administracion and not vendedor_id_seleccionado %}
                         Por favor, seleccione un vendedor online para ver el informe.
                     {% else %}
                         No se encontraron ventas online para los filtros seleccionados.

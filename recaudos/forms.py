@@ -21,7 +21,8 @@ class RecaudoForm(forms.ModelForm):
         model = Recaudo
         fields = ['cliente', 'monto_recibido', 'concepto']
         widgets = {
-            'monto_recibido': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
+            
+            'monto_recibido': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0.00'}), # Puedes quitar 'step' si no es necesario para texto
             'concepto': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle de las facturas o pagos realizados por el cliente...'}),
         }
         labels = {
@@ -55,7 +56,7 @@ class ConsignacionForm(forms.ModelForm):
         fields = ['fecha_consignacion', 'monto_total', 'numero_referencia', 'comprobante_adjunto', 'recaudos']
         widgets = {
             'fecha_consignacion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'monto_total': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'readonly': 'readonly'}),
+            'monto_total': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'readonly': 'readonly'}),
             'numero_referencia': forms.TextInput(attrs={'class': 'form-control'}),
             'comprobante_adjunto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }

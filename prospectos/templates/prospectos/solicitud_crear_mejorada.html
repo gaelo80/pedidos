@@ -1,18 +1,23 @@
 {% extends "core/base.html" %}
 {% load crispy_forms_tags %}
+{% load static %} {# Asegúrate de cargar static si no lo está en tu base.html para iconos/imágenes #}
 
 {% block page_title %}Crear Solicitud de Cliente{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="container mt-5 mb-5"> {# Más margen superior e inferior para espacio #}
     
-    <div class="row mb-4 align-items-center">
-        <div class="col">
-            <h1 class="h2 mb-0" style="color:rgb(202, 184, 184);">{{ titulo_pagina }}</h1>
-            <p class="text-white mb-0">Diligencia los datos y adjunta la documentación requerida.</p>
+    <div class="row mb-5 align-items-center"> {# mb-5 para más espacio #}
+        <div class="col-md-8"> {# Columna más ancha para el título #}
+            <h1 class="display-5 fw-bold mb-0 text-primary"> {# Título más grande y en color primario #}
+                <i class="fas fa-file-invoice me-3"></i>{{ titulo_pagina }}
+            </h1>
+            <p class="lead text-secondary mt-2 mb-0"> {# Texto descriptivo más destacado #}
+                Diligencia los datos y adjunta la documentación requerida para el estudio de crédito.
+            </p>
         </div>
-        <div class="col-auto">
-            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">
+        <div class="col-md-4 text-md-end"> {# Columna para el botón alineada a la derecha #}
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg"> {# Botón más grande #}
                 <i class="fas fa-arrow-left me-2"></i>Volver al Panel
             </a>
         </div>
@@ -21,12 +26,12 @@
     <form method="post" enctype="multipart/form-data" novalidate id="solicitud-form">
         {% csrf_token %}
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light py-3">
-                <h5 class="mb-0"><i class="fas fa-user-tie me-2 text-primary"></i>Información del Prospecto</h5>
+        <div class="card shadow-lg mb-5 border-0 rounded-3"> {# Sombra más pronunciada, sin borde, redondeado #}
+            <div class="card-header bg-primary-subtle py-4 rounded-top-3"> {# Fondo suave de color primario, más padding #}
+                <h5 class="mb-0 text-primary"><i class="fas fa-user-tie me-3"></i>Información del Prospecto</h5> {# Icono más grande y espaciado #}
             </div>
-            <div class="card-body p-4">
-                <div class="row g-3">
+            <div class="card-body p-5"> {# Más padding interno #}
+                <div class="row g-4"> {# g-4 para más espacio entre campos #}
                     <div class="col-md-6">{{ form.nombre_completo|as_crispy_field }}</div>
                     <div class="col-md-6">{{ form.identificacion|as_crispy_field }}</div>
                     <div class="col-md-6">{{ form.email|as_crispy_field }}</div>
@@ -37,22 +42,22 @@
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-light py-3">
-                <h5 class="mb-0"><i class="fas fa-file-upload me-2 text-primary"></i>Documentación para Estudio</h5>
+        <div class="card shadow-lg mb-5 border-0 rounded-3"> {# Sombra y redondeo consistentes #}
+            <div class="card-header bg-primary-subtle py-4 rounded-top-3">
+                <h5 class="mb-0 text-primary"><i class="fas fa-file-upload me-3"></i>Documentación para Estudio</h5>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-5">
                 {{ documentos_formset.management_form }}
 
-                <div id="documento-activo-container">
+                <div id="documento-activo-container" class="mb-4"> {# Agregado mb-4 para espaciado #}
                     {% for doc_form in documentos_formset %}
                         {% if not doc_form.instance.pk %}
-                        <div class="document-form-row p-3 border rounded bg-light">
+                        <div class="document-form-row p-4 border rounded-3 bg-light mb-3"> {# Más padding, redondeado, sombra sutil #}
                             <div class="row g-3 align-items-center">
                                 <div class="col-md-5">{{ doc_form.tipo_documento|as_crispy_field }}</div>
-                                <div class="col-md-6">
+                                <div class="col-md-6 d-flex flex-column"> {# Usamos flex-column para alinear botón #}
                                     {{ doc_form.archivo|as_crispy_field }}
-                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara align-self-start"> {# Alineado a la izquierda #}
                                         <i class="fas fa-camera me-1"></i> Tomar Foto
                                     </button>
                                 </div>
@@ -67,23 +72,24 @@
                     {% endfor %}
                 </div>
 
-                <div class="text-center my-3">
-                    <button type="button" id="add-document-btn" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>Añadir Documento a la Lista
+                <div class="text-center my-4"> {# Más margen vertical #}
+                    <button type="button" id="add-document-btn" class="btn btn-primary btn-lg rounded-pill"> {# Botón más grande y redondeado #}
+                        <i class="fas fa-plus me-2"></i>Añadir Documento
                     </button>
                 </div>
                 
-                <hr>
+                <hr class="my-5 border-3 text-muted opacity-25"> {# Línea divisoria más gruesa y sutil #}
 
-                <h6 class="text-muted mb-3" id="lista-adjuntos-titulo" style="display: none;">Documentos Adjuntados:</h6>
-                <div id="documentos-adjuntados-lista" class="vstack gap-1"></div>
+                <h6 class="text-secondary mb-3" id="lista-adjuntos-titulo" style="display: none;">Documentos Adjuntados:</h6> {# Color secundario #}
+                <div id="documentos-adjuntados-lista" class="vstack gap-2"></div> {# gap-2 para más espacio entre items #}
 
-                <div id="empty-form" class="document-form-row p-3 border rounded bg-light" style="display: none;">
+                {# Plantilla oculta para nuevos formularios, se mantienen los estilos originales aquí para clonar #}
+                <div id="empty-form" class="document-form-row p-4 border rounded-3 bg-light mb-3" style="display: none;">
                     <div class="row g-3 align-items-center">
                         <div class="col-md-5">{{ documentos_formset.empty_form.tipo_documento|as_crispy_field }}</div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 d-flex flex-column">
                             {{ documentos_formset.empty_form.archivo|as_crispy_field }}
-                            <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara">
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-1 btn-camara align-self-start">
                                 <i class="fas fa-camera me-1"></i> Tomar Foto
                             </button>
                         </div>
@@ -97,11 +103,11 @@
             </div>
         </div>
 
-        <div class="mt-4 d-flex justify-content-end gap-2">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
+        <div class="mt-5 d-flex justify-content-end gap-3"> {# Más margen superior, gap-3 #}
+            <a href="{% url 'core:index' %}" class="btn btn-secondary btn-lg"> {# Botón más grande #}
                 <i class="fas fa-times me-2"></i>Cancelar
             </a>
-            <button type="submit" class="btn btn-success btn-lg">
+            <button type="submit" class="btn btn-success btn-lg"> {# Botón más grande #}
                 <i class="fas fa-save me-2"></i>Enviar Solicitud
             </button>
         </div>
@@ -111,12 +117,12 @@
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
+      <div class="modal-header bg-primary text-white"> {# Header del modal con color #}
         <h5 class="modal-title" id="cameraModalLabel">Tomar Foto del Documento</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button> {# Botón de cierre blanco #}
       </div>
-      <div class="modal-body text-center">
-        <video id="camera-stream" width="100%" height="auto" autoplay playsinline></video>
+      <div class="modal-body text-center p-4"> {# Más padding en el body del modal #}
+        <video id="camera-stream" width="100%" height="auto" autoplay playsinline class="rounded shadow-sm"></video> {# Bordes redondeados, sombra #}
         <canvas id="camera-canvas" style="display:none;"></canvas>
       </div>
       <div class="modal-footer">
@@ -139,18 +145,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const activoContainer = document.querySelector('#documento-activo-container');
     const listaAdjuntosTitulo = document.querySelector('#lista-adjuntos-titulo');
 
+    // Mapeo para nombres de tipo de documento
+    const tipoDocumentoMap = {};
+    const firstTipoSelect = document.querySelector('#empty-form select[name$="tipo_documento"]');
+    if (firstTipoSelect) {
+        Array.from(firstTipoSelect.options).forEach(option => {
+            tipoDocumentoMap[option.value] = option.text;
+        });
+    }
+
     function updateDocumentOptions() {
-        const selects = formContainer.querySelectorAll('.tipo-documento-select');
+        const selects = formContainer.querySelectorAll('select[name$="tipo_documento"]');
         let selectedValues = [];
         selects.forEach(select => {
             const formRow = select.closest('.document-form-row');
-            if (select.value && formRow && formRow.style.display !== 'none') {
+            // Solo considerar si el formulario no está marcado para eliminación y no es el empty_form
+            const isMarkedForDelete = formRow.querySelector('input[name$="-DELETE"]:checked');
+            if (select.value && formRow && formRow.style.display !== 'none' && !isMarkedForDelete) {
                 selectedValues.push(select.value);
             }
         });
         selects.forEach(select => {
             const currentSelectedValue = select.value;
             for (const option of select.options) {
+                // Si la opción ya está seleccionada en el select actual, siempre mostrarla
+                // Si no está seleccionada, pero está en `selectedValues` (ya elegida en otro form), ocultarla
                 if (!selectedValues.includes(option.value) || option.value === currentSelectedValue) {
                     option.style.display = '';
                 } else {
@@ -162,46 +181,83 @@ document.addEventListener('DOMContentLoaded', function() {
 
     addButton.addEventListener('click', () => {
         const formActivo = activoContainer.querySelector('.document-form-row');
-        if (!formActivo) return;
+        // Si no hay un formulario activo visible, significa que ya se ha procesado.
+        // O si ya está oculto (si aplica una lógica de ocultamiento en lugar de mover)
+        if (!formActivo || formActivo.style.display === 'none') {
+             // Este caso puede darse si ya se hizo clic en "Añadir Documento" sin recargar
+            // Se puede mostrar un mensaje o simplemente añadir un nuevo formulario
+            // console.warn("No hay formulario activo para procesar. Añadiendo uno nuevo.");
+            // Si el emptyForm no está en activoContainer, lo tomamos del template
+            const emptyFormTemplate = document.querySelector('#empty-form');
+            const newForm = emptyFormTemplate.cloneNode(true);
+            newForm.removeAttribute('id'); // Importante para que no duplique el ID
+            newForm.style.display = 'block';
 
-        const tipoSelect = formActivo.querySelector('.tipo-documento-select');
+            let formNum = parseInt(totalFormsInput.value);
+            newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
+            
+            activoContainer.appendChild(newForm);
+            totalFormsInput.value = formNum + 1;
+            updateDocumentOptions();
+            return; // Salir de la función para no procesar como "existente"
+        }
+
+        const tipoSelect = formActivo.querySelector('select[name$="tipo_documento"]'); // Asegurarse de seleccionar el tipo de documento del form activo
         const fileInput = formActivo.querySelector('input[type="file"]');
         
+        // Validar que se haya seleccionado tipo y archivo
         if (!tipoSelect.value || !fileInput || fileInput.files.length === 0) {
-            alert('Por favor, seleccione un tipo de documento y adjunte el archivo correspondiente.');
+            alert('Por favor, seleccione un tipo de documento y adjunte el archivo correspondiente en el formulario actual.');
             return;
         }
 
         // Leer los valores ANTES de hacer cualquier cambio
-        const tipoText = tipoSelect.options[tipoSelect.selectedIndex].text;
-        const fileText = fileInput.files[0].name;
+        const tipoValue = tipoSelect.value; // Valor para el campo oculto
+        const tipoText = tipoDocumentoMap[tipoValue] || tipoSelect.options[tipoSelect.selectedIndex].text;
+        const file = fileInput.files[0];
+        const fileText = file.name;
 
-        // **INICIO DE LA SOLUCIÓN DEFINITIVA**
-        
-        // 1. Ocultar los campos de formulario originales
-        const tipoWrapper = formActivo.querySelector('.row > div:nth-child(1)');
-        const archivoWrapper = formActivo.querySelector('.row > div:nth-child(2)');
-        if (tipoWrapper) tipoWrapper.style.display = 'none';
-        if (archivoWrapper) archivoWrapper.style.display = 'none';
+        // 1. Ocultar los campos de formulario originales y crear la vista de solo lectura
+        const formRowElement = formActivo.querySelector('.row.g-3'); // El div row dentro de document-form-row
+        if (!formRowElement) return; // Asegurar que existe
 
-        // 2. Crear la nueva vista de solo lectura y añadirla
+        // Eliminar los campos originales de crispy-forms para que no se vean
+        formRowElement.innerHTML = ''; // Limpiar el contenido original de la fila
+
+        // Crear los campos ocultos para enviar los datos con el formulario
+        const hiddenTipoInput = document.createElement('input');
+        hiddenTipoInput.type = 'hidden';
+        hiddenTipoInput.name = tipoSelect.name;
+        hiddenTipoInput.value = tipoValue;
+        formRowElement.appendChild(hiddenTipoInput);
+
+        // Clonar el FileInput original y añadirlo como campo oculto
+        const clonedFileInput = fileInput.cloneNode(true); // Clonar con los archivos
+        clonedFileInput.style.display = 'none';
+        formRowElement.appendChild(clonedFileInput);
+
+        // Crear la vista de solo lectura (como una fila más legible)
         const vistaSoloLectura = document.createElement('div');
-        vistaSoloLectura.classList.add('col-md-11', 'd-flex', 'align-items-center');
+        vistaSoloLectura.classList.add('col-12', 'd-flex', 'align-items-center');
         vistaSoloLectura.innerHTML = `
             <div class="col-5"><strong>${tipoText}</strong></div>
-            <div class="col-7 fst-italic text-muted">${fileText}</div>
+            <div class="col-6 fst-italic text-muted">${fileText}</div>
         `;
-        formActivo.querySelector('.row.g-3').prepend(vistaSoloLectura);
-        
-        // 3. Limpiar y mover el formulario
-        formActivo.classList.remove('p-3', 'border', 'bg-light');
-        formActivo.classList.add('py-2');
+        formRowElement.prepend(vistaSoloLectura); // Añadir al principio
+
+        // Mover el botón de eliminar al final de la fila de solo lectura
+        const removeButtonContainer = document.createElement('div');
+        removeButtonContainer.classList.add('col-1', 'text-end');
+        removeButtonContainer.appendChild(formActivo.querySelector('.remove-form-btn'));
+        formRowElement.appendChild(removeButtonContainer);
+
+        // 2. Mover el formulario completo (que ahora es de solo lectura) a la lista de adjuntados
+        formActivo.classList.remove('p-4', 'border', 'bg-light', 'mb-3'); // Quitar estilos de form activo
+        formActivo.classList.add('py-2', 'border-bottom', 'rounded-0'); // Añadir estilos de item de lista
         listaAdjuntados.appendChild(formActivo);
         listaAdjuntosTitulo.style.display = 'block';
 
-        // **FIN DE LA SOLUCIÓN DEFINITIVA**
-
-        // Añadir un nuevo formulario vacío (esta parte no cambia)
+        // 3. Añadir un nuevo formulario vacío para la siguiente carga
         const emptyFormTemplate = document.querySelector('#empty-form');
         const newForm = emptyFormTemplate.cloneNode(true);
         newForm.removeAttribute('id');
@@ -210,42 +266,45 @@ document.addEventListener('DOMContentLoaded', function() {
         let formNum = parseInt(totalFormsInput.value);
         newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
         
-        activoContainer.innerHTML = '';
+        activoContainer.innerHTML = ''; // Limpiar el contenedor del form activo
         activoContainer.appendChild(newForm);
         
         totalFormsInput.value = formNum + 1;
         updateDocumentOptions();
     });
 
-    // Delegación de eventos (sin cambios)
+    // Delegación de eventos para el botón de eliminar
     formContainer.addEventListener('click', function(e) {
         const removeButton = e.target.closest('.remove-form-btn');
         if (removeButton) {
             const formRow = removeButton.closest('.document-form-row');
-            const esActivo = activoContainer.contains(formRow);
+            // Encontrar el input DELETE asociado a este formulario
+            const deleteInput = formRow.querySelector('input[name$="-DELETE"]');
 
-            if (esActivo && listaAdjuntados.children.length === 0) {
-                 alert("No se puede eliminar el único formulario de carga.");
-                 return;
-            }
-            formRow.style.display = 'none';
-            const deleteInput = formRow.querySelector('input[type="file"]');
             if (deleteInput) {
-                deleteInput.value = ''; 
-            }
-            const deleteCheckbox = formRow.querySelector('input[type="checkbox"]');
-            if (deleteCheckbox) {
-                deleteCheckbox.checked = true;
-            }
-            if (!esActivo) {
-                 formRow.remove();
+                // Marcar el input DELETE para que el FormSet lo elimine en el backend
+                deleteInput.checked = true;
+                formRow.style.display = 'none'; // Ocultar el formulario visualmente
+                updateDocumentOptions(); // Actualizar las opciones de los selects
+                // Opcional: si la lista adjuntados queda vacía, ocultar el título
+                if (listaAdjuntados.children.length === 0) {
+                    listaAdjuntosTitulo.style.display = 'none';
+                }
             } else {
-                activoContainer.innerHTML = '';
+                // Si no hay input DELETE (es un formulario recién añadido no guardado aún), simplemente removerlo
+                formRow.remove();
+                // Si removemos el único formulario activo, añadir uno nuevo
+                if (activoContainer.children.length === 0) {
+                     const emptyFormTemplate = document.querySelector('#empty-form');
+                     const newForm = emptyFormTemplate.cloneNode(true);
+                     newForm.removeAttribute('id');
+                     newForm.style.display = 'block';
+                     let formNum = parseInt(totalFormsInput.value);
+                     newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
+                     activoContainer.appendChild(newForm);
+                }
+                updateDocumentOptions();
             }
-            if (listaAdjuntados.children.length === 0) {
-                listaAdjuntosTitulo.style.display = 'none';
-            }
-            updateDocumentOptions();
         }
 
         const cameraButton = e.target.closest('.btn-camara');
@@ -254,6 +313,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Inicializar opciones al cargar la página
     updateDocumentOptions();
 
     // Lógica de la cámara (sin cambios)

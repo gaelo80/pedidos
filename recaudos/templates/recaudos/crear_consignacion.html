@@ -1,90 +1,109 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock page_title %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <form method="post" enctype="multipart/form-data" novalidate>
-            {% csrf_token %}
-            <div class="card shadow-sm" style="background-color: var(--color-fondo-tarjeta); color: var(--color-texto-principal);">
-                <div class="card-header">
-                    <h4 class="mb-0" style="color: white;">{{ titulo }}</h4>
+<div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8"> {# Ancho centrado para el formulario #}
+            <h1 class="display-6 fw-bold mb-4 text-primary text-center">
+                <i class="fas fa-hand-holding-usd me-2"></i> {{ titulo|default:"Registrar Consignación" }}
+            </h1>
+
+            {# Mensajes (si tu vista los envía) #}
+            {% if messages %}
+                <div class="messages-container mb-4">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <!-- Columna para seleccionar recaudos -->
-                        <div class="col-md-7">
-                            <h5 style="color: white;">1. Selecciona los Recaudos a Incluir</h5>
-                            <div id="recaudos-list" style="max-height: 400px; overflow-y: auto; background-color: #2c3e50; padding: 15px; border-radius: 5px;">
-                                
-                                {% for recaudo in recaudos_pendientes %}
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" name="recaudos" value="{{ recaudo.pk }}" class="form-check-input" id="recaudo_{{ recaudo.pk }}" data-monto="{{ recaudo.monto_recibido }}">
-                                    <label for="recaudo_{{ recaudo.pk }}" class="form-check-label">
-                                        Recibo #{{ recaudo.id }} - <strong>${{ recaudo.monto_recibido|intcomma }}</strong>
-                                        <small class="text-muted d-block">{{ recaudo.cliente.nombre_completo }}</small>
-                                    </label>
-                                </div>
-                                {% empty %}
-                                <p class="text-warning">No tienes recaudos pendientes para consignar.</p>
-                                {% endfor %}
+            {% endif %}
 
-                                <div style="display: none;">{{ form.recaudos }}</div>
-                            </div>
-                            {% for error in form.recaudos.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        <!-- Columna para datos de la consignación -->
-                        <div class="col-md-5">
-                            <h5 style="color: white;">2. Completa los Datos del Depósito</h5>
-                            <div class="mb-3">
-                                <label for="{{ form.monto_total.id_for_label }}" class="form-label" style="color: white;">{{ form.monto_total.label }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    {{ form.monto_total }}
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+                <div class="card shadow-lg border-0 rounded-3">
+                    <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i> Detalles de la Consignación</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-4"> {# g-4 para espacio entre columnas #}
+                            <div class="col-md-7">
+                                <h5 class="fw-bold text-secondary mb-3">1. Selecciona los Recaudos a Incluir</h5>
+                                <div id="recaudos-list" class="bg-light p-3 rounded border border-secondary-subtle" style="max-height: 400px; overflow-y: auto;"> {# Fondo claro, borde sutil #}
+                                    {% for recaudo in recaudos_pendientes %}
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox"
+                                               name="recaudos"
+                                               value="{{ recaudo.pk }}"
+                                               class="form-check-input"
+                                               id="recaudo_{{ recaudo.pk }}"
+                                               data-monto="{{ recaudo.monto_recibido|floatformat:"-2" }}"
+                                               {% if form.recaudos.value and recaudo.pk|stringformat:"s" in form.recaudos.value %}checked{% endif %}>
+                                        <label for="recaudo_{{ recaudo.pk }}" class="form-check-label text-dark"> {# text-dark para label #}
+                                            Recibo #{{ recaudo.id }} - <strong class="text-primary">${{ recaudo.monto_recibido|intcomma }}</strong>
+                                            <small class="text-muted d-block">{{ recaudo.cliente.nombre_completo }}</small>
+                                        </label>
+                                    </div>
+                                    {% empty %}
+                                    <p class="alert alert-success text-center py-2 rounded-3 border-0">No tienes recaudos pendientes para consignar.</p> {# Estilo de alerta #}
+                                    {% endfor %}
                                 </div>
-                                {% for error in form.monto_total.errors %}
+                                {% for error in form.recaudos.errors %}
                                     <div class="text-danger small mt-1">{{ error }}</div>
                                 {% endfor %}
                             </div>
-                            <div class="mb-3">
-                                <label for="{{ form.fecha_consignacion.id_for_label }}" class="form-label" style="color: white;">{{ form.fecha_consignacion.label }}</label>
-                                {{ form.fecha_consignacion }}
-                                {% for error in form.fecha_consignacion.errors %}
-                                    <div class="text-danger small mt-1">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            <div class="mb-3">
-                                <label for="{{ form.numero_referencia.id_for_label }}" class="form-label" style="color: white;">{{ form.numero_referencia.label }}</label>
-                                {{ form.numero_referencia }}
-                                {% for error in form.numero_referencia.errors %}
-                                    <div class="text-danger small mt-1">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            <div class="mb-3">
-                                <label for="{{ form.comprobante_adjunto.id_for_label }}" class="form-label" style="color: white;">{{ form.comprobante_adjunto.label }}</label>
-                                {{ form.comprobante_adjunto }}
-                                {% for error in form.comprobante_adjunto.errors %}
-                                    <div class="text-danger small mt-1">{{ error }}</div>
-                                {% endfor %}
+
+                            <div class="col-md-5">
+                                <h5 class="fw-bold text-secondary mb-3">2. Completa los Datos del Depósito</h5>
+                                <div class="mb-3">
+                                    <label for="{{ form.monto_total.id_for_label }}" class="form-label fw-semibold">{{ form.monto_total.label }}</label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text rounded-start-pill">$</span>
+                                        {{ form.monto_total|add_class:"form-control rounded-end-pill" }}
+                                    </div>
+                                    {% for error in form.monto_total.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ form.fecha_consignacion.id_for_label }}" class="form-label fw-semibold">{{ form.fecha_consignacion.label }}</label>
+                                    {{ form.fecha_consignacion|add_class:"form-control rounded-pill" }} {# rounded-pill #}
+                                    {% for error in form.fecha_consignacion.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ form.numero_referencia.id_for_label }}" class="form-label fw-semibold">{{ form.numero_referencia.label }}</label>
+                                    {{ form.numero_referencia|add_class:"form-control rounded-pill" }} {# rounded-pill #}
+                                    {% for error in form.numero_referencia.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ form.comprobante_adjunto.id_for_label }}" class="form-label fw-semibold">{{ form.comprobante_adjunto.label }}</label>
+                                    {{ form.comprobante_adjunto|add_class:"form-control" }} {# No rounded-pill para file input #}
+                                    {% for error in form.comprobante_adjunto.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div class="card-footer text-end bg-light border-top-0 rounded-bottom-3 py-3"> {# rounded-bottom-3 #}
+                        <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm me-md-2">
+                            <i class="fas fa-times me-2"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                            <i class="fas fa-check me-2"></i> Registrar Consignación
+                        </button>
+                    </div>
                 </div>
-                <div class="card-footer text-end">
-                    <a href="{% url 'recaudos:lista_recaudos' %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Cancelar
-                    </a>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-check"></i> Registrar Consignación
-                    </button>
-                </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -97,24 +116,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (!montoTotalInput) {
         console.error("Error: No se encontró el campo de monto total (id_monto_total).");
-        return; 
+        return;
+    }
+
+    // Función para formatear el número como moneda (sin el símbolo '$')
+    // Acepta números o strings, y devuelve string formateado o vacío
+    function formatCurrency(value) {
+        let num = parseFloat(String(value).replace(/[^\d,\.]/g, '').replace(',', '.')); // Limpia y convierte a float
+        if (isNaN(num)) return '';
+        // Usamos toLocaleString para formato local, incluyendo decimales
+        return num.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function calcularTotal() {
         let total = 0;
         checkboxes.forEach(function(checkbox) {
             if (checkbox.checked) {
-                total += parseFloat(checkbox.dataset.monto);
+                // Asegúrate de que parseFloat reciba un número limpio si data-monto tiene formato
+                total += parseFloat(checkbox.dataset.monto.replace(',', '.')); // Reemplaza coma por punto para parsear
             }
         });
-        montoTotalInput.value = total.toFixed(2);
+        montoTotalInput.value = formatCurrency(total); // Formatea el total y lo asigna
     }
 
     checkboxes.forEach(function(checkbox) {
         checkbox.addEventListener('change', calcularTotal);
     });
 
-    calcularTotal();
+    calcularTotal(); // Llamar al inicio para inicializar o recalcular
+
+    // Listener para el input de montoTotalInput para formato al escribir (si es editable)
+    // Asumo que montoTotalInput es inicialmente no editable o se actualiza solo por checkboxes
+    // Si el usuario puede escribir directamente, esta lógica es crucial
+    montoTotalInput.addEventListener('input', function(e) {
+        let rawValue = e.target.value.replace(/[^\d,]/g, ''); // Permite dígitos y comas
+        // Si hay una coma, asegúrate que solo sea una y al final
+        let parts = rawValue.split(',');
+        if (parts.length > 2) { // Más de una coma
+            rawValue = parts[0] + ',' + parts.slice(1).join('');
+        }
+        
+        let num = parseFloat(rawValue.replace(',', '.')); // Convertir para cálculo
+        if (!isNaN(num)) {
+            // Formatear el número, pero mantener la coma si el usuario la está escribiendo
+            let formatted = num.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            if (rawValue.endsWith(',') && formatted.indexOf(',') === -1) { // Si el usuario está escribiendo la coma decimal
+                formatted += ',';
+            }
+            e.target.value = formatted;
+        } else {
+            e.target.value = rawValue;
+        }
+    });
+
+    // Al enviar el formulario, eliminamos el formato para que el backend reciba solo números
+    const form = montoTotalInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (montoTotalInput.value) {
+                // Elimina puntos de miles y reemplaza coma decimal por punto decimal
+                montoTotalInput.value = montoTotalInput.value.replace(/\./g, '').replace(/,/g, '.');
+            }
+        });
+    }
 });
 </script>
-{% endblock %}
+{% endblock extra_scripts %}

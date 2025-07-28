@@ -100,7 +100,7 @@
                                     <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
                                     {# Usar la anotación correcta de la vista #}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>
-                                    <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
+                                    <td class="text-center">{{ pedido.total_unidades_despachadas_en_pedido|intcomma }}</td> {# <-- LÍNEA CORREGIDA #}
                                     <td><span class="badge bg-info text-dark">{{ pedido.get_estado_display|default:pedido.estado }}</span></td>
                                 </tr>
                             {% endfor %}

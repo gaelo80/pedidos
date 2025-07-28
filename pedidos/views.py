@@ -14,6 +14,7 @@ from urllib.parse import quote
 from django.contrib.auth.models import User
 import json
 import re
+from collections import defaultdict
 from django.contrib.auth.decorators import login_required, permission_required
 from .serializers import PedidoSerializer
 from weasyprint import HTML
@@ -24,7 +25,7 @@ from .forms import PedidoForm
 from productos.models import Producto
 from vendedores.models import Vendedor
 from bodega.models import MovimientoInventario
-from core.auth_utils import es_admin_sistema, es_bodega, es_vendedor, es_cartera, es_admin_sistema, es_factura
+from core.auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_administracion, es_factura
 from core.utils import get_logo_base_64_despacho
 from .utils import preparar_datos_seccion
 from core.mixins import TenantAwareMixin
@@ -97,7 +98,7 @@ def vista_crear_pedido_web(request, pk=None):
     try:
         if hasattr(request.user, 'perfil_vendedor'):
              vendedor = request.user.perfil_vendedor
-        elif request.user.is_staff or es_admin_sistema(request.user):
+        elif request.user.is_staff or es_administracion(request.user):
             pass
         
         else:
@@ -107,11 +108,11 @@ def vista_crear_pedido_web(request, pk=None):
         vendedor = Vendedor.objects.filter(user=request.user, user__empresa=empresa_actual).first()
         
     except Vendedor.DoesNotExist:
-        if not (request.user.is_staff or es_admin_sistema(request.user)) and not vendedor:
+        if not (request.user.is_staff or es_administracion(request.user)) and not vendedor:
             messages.error(request, "Perfil de vendedor no encontrado para esta empresa.")
             return redirect('core:acceso_denegado')
     except AttributeError:
-        if not (request.user.is_staff or es_admin_sistema(request.user)):
+        if not (request.user.is_staff or es_administracion(request.user)):
             messages.error(request, "Atributo de perfil de vendedor no encontrado.")
             return redirect('core:acceso_denegado')
         
@@ -119,7 +120,7 @@ def vista_crear_pedido_web(request, pk=None):
     detalles_existentes = None
     if pk is not None:
         query_params = {'pk': pk, 'estado': 'BORRADOR', 'empresa': empresa_actual}
-        if vendedor and not (request.user.is_staff or es_admin_sistema(request.user)):
+        if vendedor and not (request.user.is_staff or es_administracion(request.user)):
             query_params['vendedor'] = vendedor
         pedido_instance = get_object_or_404(Pedido, **query_params)
         
@@ -190,7 +191,7 @@ def vista_crear_pedido_web(request, pk=None):
                             pedido.empresa = empresa_actual
                             if vendedor:
                                 pedido.vendedor = vendedor
-                            elif request.user.is_staff or es_admin_sistema(request.user):
+                            elif request.user.is_staff or es_administracion(request.user):
  
                                 pass
 
@@ -259,7 +260,7 @@ def vista_crear_pedido_web(request, pk=None):
                         pedido.empresa = empresa_actual
                         if vendedor:
                             pedido.vendedor = vendedor
-                        elif not pedido.vendedor and (request.user.is_staff or es_admin_sistema(request.user)):
+                        elif not pedido.vendedor and (request.user.is_staff or es_administracion(request.user)):
                              pass # Lógica de asignación de vendedor para admin en borradores
                         
                         if not pedido.vendedor:
@@ -318,7 +319,7 @@ def vista_crear_pedido_web(request, pk=None):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_administracion(u), login_url='core:acceso_denegado')
 def lista_pedidos_para_aprobacion_cartera(request):
     
     """
@@ -347,7 +348,7 @@ def lista_pedidos_para_aprobacion_cartera(request):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_administracion(u), login_url='core:acceso_denegado')
 @require_POST
 def aprobar_pedido_cartera(request, pk):
     
@@ -391,7 +392,7 @@ def aprobar_pedido_cartera(request, pk):
 
 
 @login_required
-@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_admin_sistema(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_cartera(u) or u.is_superuser or es_administracion(u), login_url='core:acceso_denegado')
 @require_POST
 def rechazar_pedido_cartera(request, pk):
     
@@ -446,7 +447,7 @@ def rechazar_pedido_cartera(request, pk):
 
 
 @login_required
-@user_passes_test(es_admin_sistema, login_url='core:acceso_denegado')
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
 def lista_pedidos_para_aprobacion_admin(request):
     
     """
@@ -474,7 +475,7 @@ def lista_pedidos_para_aprobacion_admin(request):
 
 
 @login_required
-@user_passes_test(es_admin_sistema, login_url='core:acceso_denegado')
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
 @require_POST
 def aprobar_pedido_admin(request, pk):
     
@@ -515,7 +516,7 @@ def aprobar_pedido_admin(request, pk):
 
 
 @login_required
-@user_passes_test(lambda u: es_admin_sistema(u) or es_factura(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: es_administracion(u) or es_factura(u), login_url='core:acceso_denegado')
 @require_POST
 def rechazar_pedido_admin(request, pk):
     
@@ -596,7 +597,7 @@ def generar_pedido_pdf(request, pk):
     )
     
     es_su_pedido = (hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor)
-    es_admin_o_staff = request.user.is_superuser or es_admin_sistema(request.user)
+    es_admin_o_staff = request.user.is_superuser or es_administracion(request.user)
     grupos_autorizados = ['Bodega', 'Cartera', 'Factura', 'Administracion']
     pertenece_a_grupo_autorizado = request.user.groups.filter(name__in=grupos_autorizados).exists()
     
@@ -785,7 +786,7 @@ def vista_lista_pedidos_borrador(request):
     
     user, search_query = request.user, request.GET.get('q', None)
     queryset, titulo = Pedido.objects.none(), 'Mis Pedidos Borrador'
-    es_admin = es_admin_sistema(user) or user.is_superuser
+    es_admin = es_administracion(user) or user.is_superuser
     
     base_queryset = Pedido.objects.filter(empresa=empresa_actual, estado='BORRADOR')
     
@@ -805,7 +806,7 @@ def vista_lista_pedidos_borrador(request):
 
 @login_required
 @require_POST
-@user_passes_test(lambda u: not es_bodega(u) or es_admin_sistema(u), login_url='core:acceso_denegado')
+@user_passes_test(lambda u: not es_bodega(u) or es_administracion(u), login_url='core:acceso_denegado')
 def vista_eliminar_pedido_borrador(request, pk):
     
     """
@@ -842,13 +843,13 @@ def vista_detalle_pedido(request, pk):
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
-    
+
     query = Pedido.objects.prefetch_related('detalles__producto', 'cliente', 'vendedor__user')
     pedido = get_object_or_404(query, pk=pk, empresa=empresa_actual)
 
-    # --- Reglas de acceso ---
+    # --- Reglas de acceso (mantener igual) ---
     es_superuser = request.user.is_superuser
-    es_admin = es_admin_sistema(request.user)
+    es_admin = es_administracion(request.user)
     es_vendedor_y_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
     estado_borrador = pedido.estado == 'BORRADOR'
 
@@ -861,7 +862,7 @@ def vista_detalle_pedido(request, pk):
             # Aquí permitimos que usuarios normales (ej. bodega) puedan ver pedidos NO borrador
             pass  # Permitido
 
-    # --- Cálculo del IVA ---
+    # --- Cálculo del IVA (mantener igual) ---
     iva_porcentaje = Decimal('0.00')
     if hasattr(pedido, 'IVA_RATE') and pedido.IVA_RATE is not None:
         try:
@@ -869,16 +870,72 @@ def vista_detalle_pedido(request, pk):
         except (TypeError, ValueError):
             pass
 
+    # --- LÓGICA DE AGRUPAMIENTO DE PRODUCTOS PARA LA TABLA ---
+    detalles_pedido = pedido.detalles.all() # Obtener todos los detalles del pedido
+
+    items_agrupados_por_referencia_color = defaultdict(lambda: {
+        'referencia': '',
+        'descripcion': '', # Campo para el nombre/descripción del producto
+        'color': '',
+        'tallas': {}, # Para almacenar 'talla_nombre': cantidad
+        'total_cantidad': 0,
+        'precio_unitario': Decimal('0.00'), # Para el valor numérico del precio
+        'precio_unitario_display': '', # Para mostrar el precio unitario formateado
+        'subtotal_display': '', # Para mostrar el subtotal del grupo formateado
+    })
+
+    todas_las_tallas_pedidas = set() # Para los encabezados de columna de las tallas
+
+    for detalle in detalles_pedido:
+        producto_obj = detalle.producto
+        referencia_str = producto_obj.referencia or ""
+        color_str = producto_obj.color or ""
+        # Asegura que la talla sea un string para usarla como clave de diccionario y en el set
+        talla_str = str(producto_obj.talla) if producto_obj.talla else "N/A"
+
+        clave_agrupacion = (referencia_str, color_str)
+        grupo = items_agrupados_por_referencia_color[clave_agrupacion]
+
+        # Rellenar datos generales del grupo (solo una vez)
+        if not grupo['referencia']:
+            grupo['referencia'] = referencia_str
+            grupo['descripcion'] = producto_obj.nombre or "" # Usar nombre del producto como descripción
+            grupo['color'] = color_str
+            grupo['precio_unitario'] = detalle.precio_unitario # Asumimos que es el mismo por referencia/color
+            # Formato colombiano para display del precio unitario
+            grupo['precio_unitario_display'] = f"${detalle.precio_unitario:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        # Asignar la cantidad a la talla correspondiente dentro del grupo
+        grupo['tallas'][talla_str] = (grupo['tallas'].get(talla_str, 0) + detalle.cantidad)
+        grupo['total_cantidad'] += detalle.cantidad
+
+        # Registrar la talla para la lista de encabezados de columna de la tabla
+        todas_las_tallas_pedidas.add(talla_str)
+
+    items_para_tabla_html = []
+    for clave_agrupacion, data in items_agrupados_por_referencia_color.items():
+        # Calcular el subtotal del grupo
+        subtotal_grupo = data['total_cantidad'] * data['precio_unitario']
+        data['subtotal_display'] = f"${subtotal_grupo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        items_para_tabla_html.append(data)
+
+    # Ordenar las tallas para los encabezados de columna de la tabla (numéricamente para números, alfabéticamente para otros)
+    todas_las_tallas_ordenadas = sorted(list(todas_las_tallas_pedidas), key=lambda x: (int(x) if x.isdigit() else float('inf'), x))
+
+    # Ordenar los grupos para la tabla (por referencia, luego por color)
+    items_para_tabla_html.sort(key=lambda x: (x['referencia'], x['color']))
+    # --- FIN DE LA LÓGICA DE AGRUPAMIENTO DE PRODUCTOS PARA LA TABLA ---
+
     context = {
-        'pedido': pedido,
-        'detalles_pedido': pedido.detalles.all(),
         'titulo': f'Detalle del Pedido #{pedido.pk}',
-        'iva_porcentaje': iva_porcentaje
+        'pedido': pedido,
+        # 'detalles_pedido': detalles_pedido, # Ya no necesitas esto para la tabla de productos
+        'items_agrupados_para_tabla': items_para_tabla_html, # <-- NUEVOS DATOS PARA LA TABLA
+        'todas_las_tallas_ordenadas': todas_las_tallas_ordenadas, # <-- NUEVOS ENCABEZADOS DE TALLAS
+        'iva_porcentaje': iva_porcentaje # Porcentaje de IVA ya calculado
     }
 
     return render(request, 'pedidos/detalle_pedido_template.html', context)
-
-
 
 
 class DescargarFotosPedidoView(TenantAwareMixin, View):
@@ -925,7 +982,7 @@ def generar_borrador_pdf(request, pk):
         query_params['empresa'] = empresa_actual
     
     # Filtro adicional para vendedores (solo pueden ver sus borradores)
-    if es_vendedor(request.user) and not (request.user.is_superuser or es_admin_sistema(request.user)):
+    if es_vendedor(request.user) and not (request.user.is_superuser or es_administracion(request.user)):
         try:
             vendedor_obj = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)
             query_params['vendedor'] = vendedor_obj

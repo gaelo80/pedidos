@@ -1,6 +1,7 @@
 {% extends 'core/base.html' %} {# O tu plantilla base principal #}
 {% load humanize %} {# Para filtros como intcomma #}
 {% load static %} {# Si necesitas archivos estáticos específicos aquí #}
+{% load core_extras %}
 
 {% block page_title %}{{ titulo|default:"Detalle de Pedido" }}{% endblock page_title %}
 
@@ -43,39 +44,50 @@
             </div>
 
             {# Detalles del Pedido (Productos) #}
-            <h5 class="mt-4">Productos en el Pedido</h5>
-            {% if detalles_pedido %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered table-striped">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Producto (Referencia)</th>
-                                <th>Descripción</th>
-                                <th>Color</th>
-                                <th>Talla</th>
-                                <th class="text-center">Cantidad</th>
-                                <th class="text-end">Precio Unit. (IVA Incl.)</th>
-                                <th class="text-end">Subtotal (IVA Incl.)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for detalle in detalles_pedido %}
-                            <tr>
-                                <td>{{ detalle.producto.referencia|default:"N/A" }}</td>
-                                <td>{{ detalle.producto.nombre }}</td>
-                                <td>{{ detalle.producto.color|default:"N/A" }}</td>
-                                <td>{{ detalle.producto.talla|default:"N/A" }}</td>
-                                <td class="text-center">{{ detalle.cantidad|intcomma }}</td>
-                                <td class="text-end">${{ detalle.precio_unitario|intcomma:0 }}</td>
-                                <td class="text-end">${{ detalle.subtotal|intcomma:0 }}</td>
-                            </tr>
+        <h5 class="mt-4">Productos en el Pedido</h5>
+        {% if items_agrupados_para_tabla %} {# Ahora iteramos sobre los datos agrupados #}
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-striped" style="width: 100%;">
+                    <thead class="table-light">
+                        <tr>
+                            <th rowspan="2" style="width: 10%;">Ref.</th>
+                            <th rowspan="2" style="width: 20%;">Descripción</th>
+                            <th rowspan="2" style="width: 10%;">Color</th>
+                            <th colspan="{{ todas_las_tallas_ordenadas|length }}" style="width: auto; text-align: center;">Tallas</th>
+                            <th rowspan="2" style="width: 8%;">Total</th>
+                            <th rowspan="2" style="width: 12%;">Vr. Unit.</th>
+                            <th rowspan="2" style="width: 15%;">VALOR</th>
+                        </tr>
+                        <tr>
+                            {# Encabezados dinámicos para cada talla #}
+                            {% for talla in todas_las_tallas_ordenadas %}
+                                <th style="width: auto; text-align: center;">{{ talla }}</th>
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p class="text-muted">Este pedido no tiene productos detallados.</p>
-            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grupo in items_agrupados_para_tabla %}
+                        <tr>
+                            <td>{{ grupo.referencia }}</td>
+                            <td>{{ grupo.descripcion }}</td>
+                            <td>{{ grupo.color }}</td>
+                            {# Columna para cada talla - Usar el filtro get_item #}
+                            {% for talla_header in todas_las_tallas_ordenadas %}
+                                <td class="text-center">
+                                    {{ grupo.tallas|get_item:talla_header|default:"-" }}
+                                </td>
+                            {% endfor %}
+                            <td class="text-center">{{ grupo.total_cantidad|intcomma }}</td>
+                            <td class="text-end">{{ grupo.precio_unitario_display }}</td>
+                            <td class="text-end">{{ grupo.subtotal_display }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">Este pedido no tiene productos detallados.</p>
+        {% endif %}
 
             {# Totales del Pedido #}
             <div class="row justify-content-end mt-4">

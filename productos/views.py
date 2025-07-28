@@ -12,7 +12,7 @@ from django.http import HttpResponse
 from .models import Producto, FotoProducto 
 from .forms import ProductoForm 
 from django.contrib.auth.decorators import login_required, permission_required
-from core.auth_utils import es_admin_sistema, es_diseno
+from core.auth_utils import es_administracion, es_diseno
 from .forms import ProductoForm, ProductoImportForm
 from .resources import ProductoResource
 from tablib import Dataset

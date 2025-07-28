@@ -1,119 +1,136 @@
 {% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
 
-{% block page_title %}{{ titulo_pagina|default:"Listado de Clientes (V2)" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Listado de Clientes" }}{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>{{ titulo_pagina }}</h2>
-        <div class="row">
-        <div class="col-md-8">
-            {#<h1 class="mb-3">{{ titulo }}</h1>#}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-users me-2"></i> Listado de Clientes
+            </h1>
+            <p class="lead text-secondary mb-0">
+                Consulta el listado completo de clientes registrados en el sistema.
+            </p>
         </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
-            </a>
-        </div>
+        {# Eliminamos los botones de acciones (Nuevo Cliente, Importar/Exportar) #}
+        {# <div class="col-md-6 text-md-end"> ... </div> #}
     </div>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-
+    {% if messages %}
+        <div class="messages-container mb-4">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
         </div>
-        <div class="col-md-6">
-            <form method="get" action="{% url 'clientes:cliente_listado_v2' %}"> {# ASUMIENDO que cambiaste el name a cliente_listado_v2 #}
-                <div class="input-group">
-                    <input type="text" name="q_v2" class="form-control" placeholder="Buscar por nombre, ID o ciudad..." value="{{ search_query_v2 }}">
-                    <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    {% endif %}
+
+    <div class="card shadow-lg mb-4 border-0 rounded-3">
+        <div class="card-body p-4">
+            <form method="get" action="{% url 'clientes:cliente_listado_v2' %}">
+                <div class="input-group input-group-lg rounded-pill overflow-hidden shadow-sm border">
+                    <input type="text" class="form-control border-0 ps-4" name="q_v2" placeholder="Buscar por Nombre o Identificación (NIT/Cédula)..." value="{{ search_query_v2 }}">
+                    <button class="btn btn-primary px-4 border-0" type="submit">
+                        <i class="fas fa-search me-2"></i> Buscar
+                    </button>
+                    {% if search_query_v2 %}
+                        <a href="{% url 'clientes:cliente_listado_v2' %}" class="btn btn-outline-secondary px-4 border-0" title="Limpiar búsqueda">
+                            <i class="fas fa-times me-2"></i> Limpiar
+                        </a>
+                    {% endif %}
                 </div>
             </form>
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-
-    {% if clientes %}
-        <table class="table table-striped">
-            {# ... tu tabla de clientes ... (como ya la tienes) ... #}
-             <thead>
-                <tr>
-                    <th>Nombre Completo</th>
-                    <th>Identificación</th>
-                    <th>Ciudad</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for cliente_obj in clientes %}
-                <tr>
-                    <td>
-                        <a href="{% url 'clientes:cliente_detalle_v2' pk=cliente_obj.pk %}">{{ cliente_obj.nombre_completo }}</a>
-                    </td>
-                    <td>{{ cliente_obj.identificacion|default:"N/A" }}</td>
-                    <td>{{ cliente_obj.ciudad.nombre|default:"N/A" }}</td>
-                    <td>
-                        <a href="{% url 'clientes:cliente_detalle_v2' pk=cliente_obj.pk %}" class="btn btn-info btn-sm">Ver ...</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        {# --- INICIO DE LA SECCIÓN DE PAGINACIÓN --- #}
-        {% if is_paginated %}
-            <nav aria-label="Paginación de clientes">
-                <ul class="pagination justify-content-center">
-                    {# Botón Anterior #}
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Anterior">
-                                <span aria-hidden="true">&laquo;</span> Anterior
-                            </a>
-                        </li>
-                    {% else %}
-                        <li class="page-item disabled">
-                            <span class="page-link" aria-label="Anterior">
-                                <span aria-hidden="true">&laquo;</span> Anterior
-                            </span>
-                        </li>
-                    {% endif %}
-
-                    {# Números de Página (opcional, puedes expandir esto) #}
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                            <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
-                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                             <li class="page-item"><a class="page-link" href="?page={{ num }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}">{{ num }}</a></li>
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {# Botón Siguiente #}
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Siguiente">
-                                Siguiente <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                    {% else %}
-                        <li class="page-item disabled">
-                            <span class="page-link" aria-label="Siguiente">
-                                Siguiente <span aria-hidden="true">&raquo;</span>
-                            </span>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
-        {# --- FIN DE LA SECCIÓN DE PAGINACIÓN --- #}
-
-    {% else %}
-        <div class="alert alert-info mt-3" role="alert">
-            No hay clientes registrados para mostrar{% if search_query_v2 %} que coincidan con su búsqueda "{{ search_query_v2 }}" {% endif %}.
+    <div class="card shadow-lg mb-5 border-0 rounded-3">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i> Clientes Registrados {% if search_query_v2 %}(Resultados para "<strong>{{ search_query_v2 }}</strong>"){% endif %}
+            </h5>
         </div>
-    {% endif %}
+        <div class="card-body p-4">
+            {% if clientes %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm border-light align-middle caption-top">
+                        <caption class="text-end fw-bold text-muted">Total Clientes: {{ page_obj.paginator.count|default:0|intcomma }}</caption>
+                        <thead class="table-group-divider">
+                            <tr class="table-primary">
+                                <th>Nombre Completo</th>
+                                <th>Identificación</th>
+                                <th>Ciudad</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente_obj in clientes %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'clientes:cliente_detalle_v2' pk=cliente_obj.pk %}" class="text-primary fw-semibold text-decoration-none">{{ cliente_obj.nombre_completo }}</a>
+                                    </td>
+                                    <td>{{ cliente_obj.identificacion|default:"N/A" }}</td>
+                                    <td>{{ cliente_obj.ciudad.nombre|default:"N/A" }}</td>
+                                    <td class="text-center">
+                                        <div class="btn-group" role="group" aria-label="Acciones de Cliente">
+                                            <a href="{% url 'clientes:cliente_detalle_v2' pk=cliente_obj.pk %}" class="btn btn-outline-info btn-sm rounded-pill" title="Ver Detalles"> {# Eliminamos ms-1 si es el único botón #}
+                                                <i class="fas fa-eye"></i> Ver Detalles
+                                            </a>
+                                            {# Eliminamos botones de Editar y Eliminar #}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-group-divider">
+                            <tr>
+                                <td colspan="4" class="text-muted text-center">Fin de la lista de clientes.</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                {% if is_paginated %}
+                    <nav aria-label="Paginación de clientes" class="mt-4">
+                        <ul class="pagination justify-content-center pagination-lg">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link rounded-start-pill" href="?page=1{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Primera"><i class="fas fa-angle-double-left"></i></a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Anterior"><i class="fas fa-angle-left"></i></a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link rounded-start-pill"><i class="fas fa-angle-double-left"></i></span></li>
+                                <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-left"></i></span></li>
+                            {% endif %}
+
+                            <li class="page-item active" aria-current="page">
+                                <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Siguiente"><i class="fas fa-angle-right"></i></a></li>
+                                <li class="page-item"><a class="page-link rounded-end-pill" href="?page={{ page_obj.paginator.num_pages }}{% if search_query_v2 %}&q_v2={{ search_query_v2 }}{% endif %}" aria-label="Última"><i class="fas fa-angle-double-right"></i></a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-right"></i></span></li>
+                                <li class="page-item disabled"><span class="page-link rounded-end-pill"><i class="fas fa-angle-double-right"></i></span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info text-center py-4 rounded-3 shadow-sm border-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% if search_query_v2 %}
+                        No se encontraron clientes que coincidan con "<strong>{{ search_query_v2 }}</strong>".
+                    {% else %}
+                        No hay clientes registrados.
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock content %}

@@ -1,90 +1,103 @@
 {% extends 'core/base_publica.html' %}
 {% load static %}
-{% load humanize %}  {# Estas cargas están bien si las usas en esta plantilla #}
-{% load core_extras %} {# O en la base #}
+{% load humanize %}
+{% load core_extras %} {# Si tienes filtros o tags personalizados #}
 
 {% block titulo %}{{ titulo|default:"Catálogo de Productos" }}{% endblock %}
 
-{# Ya NO necesitas los <link> a Bootstrap CSS y Lightbox CSS aquí, porque están en base_publica.html #}
-
 {% block content %}
 
-<div class="container mt-4">
-    <h1 class="mb-4 text-white">{{ titulo|default:"Catálogo Disponible" }}</h1>
+<div class="container mt-5 mb-5"> {# Margen superior e inferior para espacio #}
+    <h1 class="mb-5 text-center catalog-header"> {# Clase para el estilo del título #}
+        <i class="bi bi-shop me-3"></i> {{ titulo|default:"Catálogo Disponible" }}
+    </h1>
 
-    <form method="get" class="mb-4">
-        <div class="d-flex gap-2">
-            <input type="text" name="q" class="form-control" placeholder="Buscar por referencia, color o nombre..." value="{{ query|default:'' }}">
-            
-            <select name="categoria" class="form-select" style="max-width: 150px;">
-                <option value="">Todas</option>
-                <option value="DAMA" {% if categoria_seleccionada == 'DAMA' %}selected{% endif %}>Dama</option>
-                <option value="CABALLERO" {% if categoria_seleccionada == 'CABALLERO' %}selected{% endif %}>Caballero</option>
-                <option value="UNISEX" {% if categoria_seleccionada == 'UNISEX' %}selected{% endif %}>Unisex</option>
-            </select>
-            <button class="btn btn-outline-primary" type="submit">Buscar</button>
-        </div>
-    </form>
+    <div class="search-filter-section mb-5"> {# Nueva sección para el filtro/búsqueda #}
+        <form method="get">
+            <div class="row g-3 align-items-end"> {# Usamos row y g-3 para espaciado uniforme #}
+                <div class="col-md-5 col-lg-6">
+                    <label for="search-input" class="form-label visually-hidden">Buscar</label> {# Oculta la etiqueta visualmente #}
+                    <input type="text" name="q" id="search-input" class="form-control form-control-lg rounded-pill ps-4" 
+                           placeholder="Buscar por referencia, color, nombre o palabra clave..." 
+                           value="{{ query|default:'' }}" 
+                           aria-label="Término de búsqueda">
+                </div>
+                <div class="col-md-4 col-lg-3">
+                    <label for="category-select" class="form-label visually-hidden">Categoría</label>
+                    <select name="categoria" id="category-select" class="form-select form-select-lg rounded-pill pe-4" aria-label="Filtrar por categoría">
+                        <option value="">Todas las categorías</option>
+                        <option value="DAMA" {% if categoria_seleccionada == 'DAMA' %}selected{% endif %}>Dama</option>
+                        <option value="CABALLERO" {% if categoria_seleccionada == 'CABALLERO' %}selected{% endif %}>Caballero</option>
+                        <option value="UNISEX" {% if categoria_seleccionada == 'UNISEX' %}selected{% endif %}>Unisex</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-lg-3 text-md-end">
+                    <button class="btn btn-primary btn-lg rounded-pill w-100" type="submit">
+                        <i class="bi bi-search me-2"></i> Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
 
     {% if pagina_items %}
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4"> {# g-4 para un poco más de espacio entre tarjetas #}
             {% for item_catalogo in pagina_items %}
                 <div class="col">
-                    <div class="card h-100 shadow-sm">
-                        {# Línea de depuración, útil para verificar cuántas fotos hay #}
-                                               
+                    <div class="card h-100 product-card"> {# Aplicamos la clase product-card #}
+                        {# --- Sección de la Imagen --- #}
                         {% if item_catalogo.fotos %}
-                            {# Tomamos la primera foto para mostrarla en la tarjeta #}
                             {% with primera_foto=item_catalogo.fotos.0 %}
                             <a href="{{ primera_foto.imagen.url }}"
                                data-lightbox="galeria-{{ item_catalogo.referencia_color_obj.id }}"
-                               data-title="{{ item_catalogo.nombre_display_final }} - {{ primera_foto.descripcion_foto|default_if_none:'' }}">
-                                <img src="{{ primera_foto.imagen.url }}" class="card-img-top" alt="{{ item_catalogo.nombre_display_final }} - Foto principal" style="aspect-ratio: 1 / 1; object-fit: cover;">
+                               data-title="{{ item_catalogo.nombre_display_final }} - {{ primera_foto.descripcion_foto|default_if_none:'' }}"
+                               class="d-block overflow-hidden rounded-top-3 position-relative"> {# Añadimos position-relative para el overlay #}
+                                <img src="{{ primera_foto.imagen.url }}" class="card-img-top product-img" alt="{{ item_catalogo.nombre_display_final }} - Foto principal" loading="lazy"> {# loading="lazy" para rendimiento #}
+                                <div class="image-overlay"></div> {# Overlay para efecto hover #}
                             </a>
                             {% endwith %}
 
                             {# Enlaces ocultos para el resto de las imágenes de esta galería/ReferenciaColor #}
                             <div style="display: none;">
                                 {% for foto in item_catalogo.fotos %}
-                                    {% if not forloop.first %}  {# <--- CORREGIDO: DESCOMENTADO #}
+                                    {% if not forloop.first %}
                                     <a href="{{ foto.imagen.url }}"
                                        data-lightbox="galeria-{{ item_catalogo.referencia_color_obj.id }}"
                                        data-title="{{ item_catalogo.nombre_display_final }} - {{ foto.descripcion_foto|default_if_none:'' }}">
-                                        {# No se necesita contenido visible para estos enlaces ocultos #}
                                     </a>
-                                    {% endif %}                 {# <--- CORREGIDO: DESCOMENTADO #}
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         {% else %}
                             {# Imagen placeholder si no hay fotos #}
-                            <img src="{% static 'core/img/placeholder_image.jpg' %}" class="card-img-top" alt="Imagen no disponible" style="aspect-ratio: 1 / 1; object-fit: cover;">
+                            <img src="{% static 'core/img/placeholder_image.jpg' %}" class="card-img-top product-img" alt="Imagen no disponible" loading="lazy">
                         {% endif %}
                         {# --- FIN DE LA SECCIÓN DE IMAGEN --- #}
 
-                        <div class="card-body">
-                            <h5 class="card-title">
+                        <div class="card-body d-flex flex-column"> {# Usamos flex-column para que el contenido se ajuste bien #}
+                            <h5 class="card-title text-primary fw-bold mb-1"> {# Color primario y bold para la referencia #}
                                 {{ item_catalogo.referencia_color_obj.referencia_base }} - {{ item_catalogo.referencia_color_obj.color|default:"Sin Color" }}
                             </h5>
                             {% if item_catalogo.nombre_display_final and item_catalogo.nombre_display_final != item_catalogo.referencia_color_obj.referencia_base %}
-                                <p class="card-text text-muted">{{ item_catalogo.nombre_display_final }}</p>
+                                <p class="card-text text-muted small mb-3">{{ item_catalogo.nombre_display_final }}</p> {# Pequeño y atenuado para el nombre #}
                             {% endif %}
 
-                            <h6>Tallas Disponibles:</h6>
+                            <h6 class="text-secondary mb-2">Tallas Disponibles:</h6> {# Subtítulo en color secundario #}
                             {% if item_catalogo.variantes_info %}
-                                <ul class="list-group list-group-flush">
+                                <ul class="list-group list-group-flush flex-grow-1"> {# flex-grow-1 para empujar la paginación a la parte inferior #}
                                     {% for variante_info in item_catalogo.variantes_info %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Talla: <strong>{{ variante_info.talla|default:"Única" }}</strong>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center py-2"> {# py-2 para padding vertical #}
+                                            <span><i class="bi bi-tag-fill me-2 text-info"></i>Talla: <strong>{{ variante_info.talla|default:"Única" }}</strong></span> {# Icono para la talla #}
                                             {% if variante_info.disponible %}
-                                                <span class="badge bg-success rounded-pill">Disponible</span>
+                                                <span class="badge bg-success rounded-pill px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i> Disponible</span> {# Badges más grandes y redondeados #}
                                             {% else %}
-                                                <span class="badge bg-secondary rounded-pill">Agotado</span>
+                                                <span class="badge bg-secondary rounded-pill px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i> Agotado</span>
                                             {% endif %}
                                         </li>
                                     {% endfor %}
                                 </ul>
                             {% else %}
-                                <p class="text-muted">No hay información de tallas para esta combinación.</p>
+                                <p class="text-muted small">No hay información de tallas para esta combinación.</p>
                             {% endif %}
                         </div>
                     </div>
@@ -92,43 +105,35 @@
             {% endfor %}
         </div>
 
-
-
-
-
-
-
-
-
-
         {# Paginación #}
         {% if pagina_items.has_other_pages %}
-        <nav aria-label="Paginación del catálogo" class="mt-5">
-            <ul class="pagination justify-content-center">
+        <nav aria-label="Paginación del catálogo" class="mt-5 mb-5">
+            <ul class="pagination justify-content-center pagination-lg"> {# pagination-lg para botones más grandes #}
                 {% if pagina_items.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Primero">&laquo;&laquo;</a></li>
-                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Anterior">&laquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Primero"><i class="bi bi-chevron-bar-left"></i></a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Anterior"><i class="bi bi-chevron-left"></i></a></li>
                 {% else %}
-                    <li class="page-item disabled"><span class="page-link">&laquo;&laquo;</span></li>
-                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-bar-left"></i></span></li>
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
                 {% endif %}
                 <li class="page-item active" aria-current="page"><span class="page-link">Página {{ pagina_items.number }} de {{ pagina_items.paginator.num_pages }}</span></li>
                 {% if pagina_items.has_next %}
-                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Siguiente">&raquo;</a></li>
-                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Último">&raquo;&raquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Siguiente"><i class="bi bi-chevron-right"></i></a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ pagina_items.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if categoria_seleccionada %}&categoria={{ categoria_seleccionada }}{% endif %}" aria-label="Último"><i class="bi bi-chevron-bar-right"></i></a></li>
                 {% else %}
-                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                    <li class="page-item disabled"><span class="page-link">&raquo;&raquo;</span></li>
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-bar-right"></i></span></li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
     {% else %}
-        <div class="alert alert-info mt-4" role="alert">
+        <div class="alert alert-info mt-4 text-center py-4" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i> {# Icono en el mensaje #}
             {% if query %}
-                No se encontraron productos disponibles que coincidan con tu búsqueda "{{ query }}".
+                No se encontraron productos disponibles que coincidan con tu búsqueda "<strong>{{ query }}</strong>". Por favor, intenta con otros términos.
             {% else %}
-                Actualmente no hay productos disponibles en el catálogo.
+                Actualmente no hay productos disponibles en el catálogo. ¡Pronto tendremos novedades!
             {% endif %}
         </div>
     {% endif %}

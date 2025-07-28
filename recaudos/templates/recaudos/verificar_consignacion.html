@@ -1,91 +1,151 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
+{% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock page_title %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card shadow-sm" style="background-color: var(--color-fondo-tarjeta);">
-            <div class="card-header">
-                <h4 class="mb-0" style="color: white;">{{ titulo }}</h4>
-            </div>
-            <div class="card-body text-white">
-                <div class="row">
-                    <!-- Columna de detalles -->
-                    <div class="col-md-6">
-                        <h5>Detalles de la Consignación</h5>
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item bg-transparent text-white"><strong>Vendedor:</strong> {{ consignacion.vendedor.user.get_full_name }}</li>
-                            <li class="list-group-item bg-transparent text-white"><strong>Fecha Depósito:</strong> {{ consignacion.fecha_consignacion|date:"Y-m-d" }}</li>
-                            <li class="list-group-item bg-transparent text-white"><strong>Referencia:</strong> {{ consignacion.numero_referencia }}</li>
-                            <li class="list-group-item bg-transparent text-white"><strong>Monto Total:</strong> <span class="fs-5 fw-bold">${{ consignacion.monto_total|intcomma }}</span></li>
-                            <li class="list-group-item bg-transparent text-white"><strong>Estado:</strong> {{ consignacion.get_estado_display }}</li>
-                        </ul>
-                        <h5 class="mt-4">Recaudos Incluidos</h5>
-                        <ul class="list-group list-group-flush">
-                            {% for recaudo in consignacion.recaudos_incluidos.all %}
-                            <li class="list-group-item bg-transparent text-white">
-                                Recibo #{{ recaudo.id }} - ${{ recaudo.monto_recibido|intcomma }} ({{ recaudo.cliente.nombre_completo }})
-                            </li>
-                            {% endfor %}
-                        </ul>
+<div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8"> {# Ancho centrado para la vista de verificación #}
+            <h1 class="display-6 fw-bold mb-4 text-primary text-center">
+                <i class="fas fa-hand-holding-usd me-2"></i> {{ titulo|default:"Verificar Consignación" }}
+            </h1>
+
+            {# Mensajes (si tu vista los envía) #}
+            {% if messages %}
+                <div class="messages-container mb-4">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
-                    <!-- Columna del comprobante -->
-                    <div class="col-md-6">
-                        <h5>Comprobante Adjunto</h5>
-                        {% if consignacion.comprobante_adjunto %}
-                            <a href="{{ consignacion.comprobante_adjunto.url }}" target="_blank">
-                                <img src="{{ consignacion.comprobante_adjunto.url }}" alt="Comprobante de consignación" class="img-fluid rounded border">
-                            </a>
-                            <small class="text-muted d-block mt-2">Haz clic en la imagen para verla en tamaño completo.</small>
-                        {% else %}
-                            <p class="text-warning">No se adjuntó ningún comprobante.</p>
-                        {% endif %}
+                {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if consignacion %}
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i> Detalles de la Consignación #{{ consignacion.id }}</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4"> {# g-4 para espacio entre columnas #}
+                        <div class="col-md-6">
+                            <h5 class="fw-bold text-secondary mb-3">Información General</h5>
+                            <ul class="list-group list-group-flush border rounded-3 overflow-hidden"> {# Borde y redondeado para la lista #}
+                                <li class="list-group-item bg-light py-2"><strong>Vendedor:</strong> <span class="text-dark">{{ consignacion.vendedor.user.get_full_name|default:consignacion.vendedor.user.username }}</span></li>
+                                <li class="list-group-item py-2"><strong>Fecha Depósito:</strong> <span class="text-dark">{{ consignacion.fecha_consignacion|date:"Y-m-d" }}</span></li>
+                                <li class="list-group-item bg-light py-2"><strong>Referencia:</strong> <span class="text-dark">{{ consignacion.numero_referencia }}</span></li>
+                                <li class="list-group-item py-2">
+                                    <strong>Monto Total:</strong> <span class="fs-4 fw-bold text-success">${{ consignacion.monto_total|intcomma }}</span>
+                                </li>
+                                <li class="list-group-item bg-light py-2">
+                                    <strong>Estado:</strong>
+                                    {% if consignacion.estado == 'PENDIENTE' %}
+                                        <span class="badge bg-warning text-dark">{{ consignacion.get_estado_display }}</span>
+                                    {% elif consignacion.estado == 'APROBADO' or consignacion.estado == 'VERIFICADO' %} {# Asumo 'APROBADO' para consignación #}
+                                        <span class="badge bg-success text-white">{{ consignacion.get_estado_display }}</span>
+                                    {% elif consignacion.estado == 'RECHAZADO' %}
+                                        <span class="badge bg-danger text-white">{{ consignacion.get_estado_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary text-white">{{ consignacion.get_estado_display }}</span>
+                                    {% endif %}
+                                </li>
+                            </ul>
+                            <h5 class="fw-bold text-secondary mt-4 mb-3">Recaudos Incluidos</h5>
+                            <ul class="list-group list-group-flush border rounded-3 overflow-hidden">
+                                {% for recaudo in consignacion.recaudos_incluidos.all %}
+                                <li class="list-group-item py-2 {% cycle 'bg-light' '' %}"> {# Alternar fondo para legibilidad #}
+                                    Recibo #{{ recaudo.id }} - <span class="text-primary fw-bold">${{ recaudo.monto_recibido|intcomma }}</span> (<span class="text-dark">{{ recaudo.cliente.nombre_completo }}</span>)
+                                </li>
+                                {% empty %}
+                                <li class="list-group-item py-2 text-muted">No hay recaudos asociados a esta consignación.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="fw-bold text-secondary mb-3">Comprobante Adjunto</h5>
+                            {% if consignacion.comprobante_adjunto %}
+                                <a href="{{ consignacion.comprobante_adjunto.url }}" target="_blank" class="d-block mb-3">
+                                    <img src="{{ consignacion.comprobante_adjunto.url }}" alt="Comprobante de consignación" class="img-fluid rounded shadow-sm border border-secondary-subtle"> {# Sombra y borde sutil #}
+                                </a>
+                                <small class="text-muted d-block mt-2">Haz clic en la imagen para verla en tamaño completo.</small>
+                            {% else %}
+                                <p class="alert alert-warning text-center py-2 rounded-3 border-0 shadow-sm">No se adjuntó ningún comprobante.</p>
+                            {% endif %}
+                            {% if consignacion.notas_rechazo %}
+                            <div class="mt-4">
+                                <h5 class="fw-bold text-danger mb-2">Motivo de Rechazo:</h5>
+                                <div class="alert alert-danger rounded-3 shadow-sm border-0 py-3">
+                                    <p class="mb-0">{{ consignacion.notas_rechazo }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
-            </div>
-            {% if consignacion.estado == 'PENDIENTE' %}
-            <div class="card-footer text-end">
-                <!-- Botón para Rechazar (abre un modal) -->
-                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalRechazar">
-                    <i class="fas fa-times-circle"></i> Rechazar
-                </button>
-                <!-- Formulario para Aprobar -->
-                <form method="post" class="d-inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="accion" value="aprobar">
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-check-circle"></i> Aprobar Consignación
+                {% if consignacion.estado == 'PENDIENTE' %}
+                <div class="card-footer text-end bg-light border-top-0 rounded-bottom-3 py-3">
+                    <button type="button" class="btn btn-outline-danger btn-lg rounded-pill shadow-sm me-2" data-bs-toggle="modal" data-bs-target="#modalRechazar">
+                        <i class="fas fa-times-circle me-2"></i> Rechazar
                     </button>
-                </form>
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="aprobar">
+                        <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                            <i class="fas fa-check-circle me-2"></i> Aprobar Consignación
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
+            {% else %}
+                <div class="alert alert-danger text-center py-4 rounded-3 shadow-sm border-0">
+                    <i class="fas fa-exclamation-circle me-2"></i> Consignación no encontrada.
+                </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modal para Rechazar -->
 <div class="modal fade" id="modalRechazar" tabindex="-1" aria-labelledby="modalRechazarLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content" style="background-color: var(--color-fondo-tarjeta); color: white;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow-lg">
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="rechazar">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalRechazarLabel">Rechazar Consignación</h5>
+                <div class="modal-header bg-gradient bg-danger text-white rounded-top-3">
+                    <h5 class="modal-title" id="modalRechazarLabel"><i class="fas fa-exclamation-triangle me-2"></i> Rechazar Consignación</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p>Por favor, escribe el motivo del rechazo. Esta nota será visible para el vendedor.</p>
-                    <textarea name="notas_rechazo" class="form-control" rows="3" required></textarea>
+                <div class="modal-body p-4">
+                    <p class="text-dark">Por favor, escribe el motivo del rechazo. Esta nota será visible para el vendedor.</p>
+                    <textarea name="notas_rechazo" class="form-control rounded-pill" rows="3" required></textarea> {# rounded-pill #}
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-3 py-3">
+                    <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-lg rounded-pill shadow-sm">Confirmar Rechazo</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-{% endblock %}
+{% endblock content %}
+
+{% block extra_head %}
+{# Ajustes para la impresión que ya tenías #}
+<style>
+/* ... (Tu CSS @media print existente aquí) ... */
+
+/* Colores de badges para impresión si no se imprimen bien por defecto */
+@media print {
+    .badge.bg-warning { background-color: #ffc107 !important; color: #212529 !important; border: 1px solid #ffc107; }
+    .badge.bg-info { background-color: #0dcaf0 !important; color: white !important; border: 1px solid #0dcaf0; }
+    .badge.bg-success { background-color: #198754 !important; color: white !important; border: 1px solid #198754; }
+    .badge.bg-danger { background-color: #dc3545 !important; color: white !important; border: 1px solid #dc3545; }
+    .badge.bg-secondary { background-color: #6c757d !important; color: white !important; border: 1px solid #6c757d; }
+}
+
+</style>
+{% endblock extra_head %}

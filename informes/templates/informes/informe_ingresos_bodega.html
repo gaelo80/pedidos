@@ -1,84 +1,106 @@
-{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+{% extends 'core/base.html' %}
+{% load humanize %} {# Aseguramos que humanize esté cargado si se usa #}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %} {# Cambiado a page_title #}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>{{ titulo }}</h2>
-        <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver a Informes</a>
+<div class="container-fluid mt-4 mb-5 px-4"> {# Contenedor consistente #}
+    <div class="row align-items-center mb-4"> {# Estructura de título consistente #}
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-chart-line me-2"></i> {{ titulo }}
+            </h1>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary rounded-pill shadow-sm"> {# Botón consistente #}
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel Principal
+            </a>
+        </div>
     </div>
 
-    <form method="get" class="card card-body mb-4">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label for="fecha_inicio" class="form-label">Fecha Ingreso Desde:</label>
-                <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}">
-            </div>
-            <div class="col-md-3">
-                <label for="fecha_fin" class="form-label">Fecha Ingreso Hasta:</label>
-                <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
-            </div>
-            <div class="col-md-3">
-                <label for="usuario_id" class="form-label">Usuario Registró:</label>
-                <select name="usuario_id" id="usuario_id" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    {% for u in usuarios_filtro %}
-                    <option value="{{ u.id }}" {% if usuario_id_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 align-self-end">
-                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
-                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="btn btn-secondary btn-sm">Limpiar</a>
-            </div>
+    <div class="card shadow-lg border-0 rounded-3 mb-4"> {# Card de filtros consistente #}
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header consistente #}
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Opciones de Filtro</h5>
         </div>
-    </form>
+        <div class="card-body p-4"> {# Padding en el body #}
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="fecha_inicio" class="form-label fw-semibold">Fecha Ingreso Desde:</label> {# fw-semibold #}
+                    <input type="date" class="form-control rounded-pill" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|default:'' }}"> {# rounded-pill #}
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha_fin" class="form-label fw-semibold">Fecha Ingreso Hasta:</label> {# fw-semibold #}
+                    <input type="date" class="form-control rounded-pill" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}"> {# rounded-pill #}
+                </div>
+                <div class="col-md-3">
+                    <label for="usuario_id" class="form-label fw-semibold">Usuario Registró:</label> {# fw-semibold #}
+                    <select name="usuario_id" id="usuario_id" class="form-select rounded-pill"> {# rounded-pill #}
+                        <option value="">Todos</option>
+                        {% for u in usuarios_filtro %}
+                        <option value="{{ u.id }}" {% if usuario_id_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid gap-2"> {# d-grid gap-2 para los botones #}
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm mt-md-auto"> {# btn-lg, rounded-pill, shadow-sm, mt-md-auto para alinear #}
+                        <i class="fas fa-filter me-2"></i> Filtrar
+                    </button>
+                    <a href="{% url 'informes:informe_ingresos_bodega' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm"> {# btn-lg, rounded-pill, shadow-sm #}
+                        <i class="fas fa-eraser me-2"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
 
     {% if ingresos_list %}
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped table-hover table-sm">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID Ingreso</th>
-                        <th>Fecha y Hora</th>
-                        <th>Usuario Registró</th>
-                        <th>Proveedor/Origen</th>
-                        <th>Doc. Referencia</th>
-                        <th>Notas</th>
-                        <th># Items</th>
-                        <th>Cant. Total Prod.</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ingreso in ingresos_list %}
-                    <tr>
-                        <td>{{ ingreso.pk }}</td>
-                        <td>{{ ingreso.fecha_hora|date:"d/m/Y H:i" }}</td>
-                        <td>{{ ingreso.usuario.username|default:"N/A" }}</td>
-                        <td>{{ ingreso.proveedor_info|default:"" }}</td>
-                        <td>{{ ingreso.documento_referencia|default:"" }}</td>
-                        <td style="white-space: pre-wrap;">{{ ingreso.notas|default:"" }}</td>
-                        <td>{{ ingreso.numero_items }}</td>
-                        <td>{{ ingreso.cantidad_total_productos }}</td>
-                        <td>
-                            <a href="{% url 'bodega:detalle_ingreso' ingreso.pk %}" class="btn btn-info btn-sm">Ver Detalle</a>
-                            {#<a href="{% url 'admin:bodega_ingresobodega_change' ingreso.pk %}" class="btn btn-secondary btn-sm" target="_blank" title="Ver en Admin">#}
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="card shadow-lg border-0 rounded-3"> {# Card de tabla consistente #}
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header consistente #}
+                <h5 class="mb-0"><i class="fas fa-table me-2"></i> Detalle de Ingresos</h5>
+            </div>
+            <div class="card-body p-4"> {# Padding en el body #}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm mb-0"> {# Removido table-bordered, actualizado table-dark a table-light #}
+                        <thead class="table-light"> {# Cabecera de tabla clara #}
+                            <tr>
+                                <th>ID Ingreso</th>
+                                <th>Fecha y Hora</th>
+                                <th>Usuario Registró</th>
+                                <th>Proveedor/Origen</th>
+                                <th>Doc. Referencia</th>
+                                <th>Notas</th>
+                                <th class="text-center"># Items</th> {# Centrado #}
+                                <th class="text-center">Cant. Total Prod.</th> {# Centrado #}
+                                <th class="text-center">Acciones</th> {# Centrado #}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ingreso in ingresos_list %}
+                            <tr>
+                                <td>{{ ingreso.pk }}</td>
+                                <td>{{ ingreso.fecha_hora|date:"d/m/Y H:i" }}</td>
+                                <td>{{ ingreso.usuario.username|default:"N/A" }}</td>
+                                <td>{{ ingreso.proveedor_info|default:"-" }}</td> {# Default para campos vacíos #}
+                                <td>{{ ingreso.documento_referencia|default:"-" }}</td> {# Default para campos vacíos #}
+                                <td style="white-space: pre-wrap;" class="text-muted small">{{ ingreso.notas|default:"-" }}</td> {# Notas más discretas #}
+                                <td class="text-center fw-bold">{{ ingreso.numero_items }}</td> {# Negrita y centrado #}
+                                <td class="text-center fw-bold">{{ ingreso.cantidad_total_productos }}</td> {# Negrita y centrado #}
+                                <td class="text-center">
+                                    <a href="{% url 'bodega:detalle_ingreso' ingreso.pk %}" class="btn btn-info btn-sm rounded-pill shadow-sm" title="Ver detalles del ingreso"> {# Botón consistente #}
+                                        <i class="fas fa-eye me-1"></i> Detalle
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     {% else %}
-        <div class="alert alert-info" role="alert">
-            No hay ingresos a bodega que coincidan con los filtros seleccionados.
+        <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0" role="alert"> {# Alerta consistente #}
+            <i class="fas fa-exclamation-triangle me-2"></i> No hay ingresos a bodega que coincidan con los filtros seleccionados.
         </div>
     {% endif %}
 </div>
-
-{% comment %} Añade FontAwesome si quieres usar el ícono del ojo, por ejemplo en tu base.html:
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-{% endcomment %}
-
 {% endblock %}

@@ -1,187 +1,153 @@
 {% extends 'core/base.html' %}
-{% load humanize %} {# Para formatear números si prefieres usarlo en lugar del formato manual #}
+{% load humanize %}
 
 {% block page_title %}{{ titulo }}{% endblock page_title %}
 
-{% block extra_css %}
-<style>
-    /* Estilos específicos para el formulario de filtros en reporte_cartera.html */
-    .filtro-cartera-form.bg-light {
-        /* bg-light ya provee el fondo claro (#f8f9fa por defecto en Bootstrap) */
-    }
-
-    .filtro-cartera-form.bg-light .form-label {
-        color: var(--component-text-dark, #212529); /* Usa la variable o un fallback */
-        font-weight: 500;
-    }
-
-    .filtro-cartera-form.bg-light .form-control,
-    .filtro-cartera-form.bg-light .form-select {
-        color: var(--component-text-dark, #212529);
-        background-color: var(--component-input-bg, #ffffff);
-        border: 1px solid var(--component-input-border, #ced4da);
-    }
-
-    .filtro-cartera-form.bg-light .form-control::placeholder { color: #6c757d; opacity: 1; }
-    /* ... (otros selectores de placeholder como antes) ... */
-
-    .filtro-cartera-form.bg-light .form-select option {
-        color: var(--component-text-dark, #212529);
-        background-color: var(--component-input-bg, #ffffff);
-    }
-
-    /* Asegurar que el resto del contenido de la tabla también sea legible */
-    .tabla-cartera-container .table {
-        color: var(--component-text-dark, #212529);
-        background-color: var(--component-input-bg, #ffffff); /* Fondo blanco para la tabla */
-    }
-    .tabla-cartera-container .table thead.table-light th {
-        color: var(--component-text-dark, #212529);
-        background-color: var(--component-bg-light, #e9ecef);
-    }
-    .tabla-cartera-container .table tbody tr.table-group-divider td {
-        background-color: var(--component-bg-light, #f8f9fa);
-        color: #000; /* Texto negro fuerte para el nombre del cliente */
-        font-weight: bold;
-    }
-     .tabla-cartera-container .table-danger td,
-     .tabla-cartera-container .table-danger strong {
-        color: #721c24 !important; /* Color oscuro para texto en filas de peligro */
-        /* background-color: #f8d7da !important; /* Fondo que Bootstrap ya debería aplicar */
-    }
-    .text-muted {
-        color: #6c757d !important; /* Bootstrap default muted color */
-    }
-    .alert.alert-info.resumen-cartera { /* Sé más específico si es necesario */
-        color: var(--component-text-dark, #0c5460); /* Texto oscuro para info alerts */
-        background-color: #d1ecf1; /* Fondo claro para info alerts */
-        border-color: #bee5eb;
-    }
-    .alert.alert-info.resumen-cartera strong{
-        color: var(--component-text-dark, #0c5460);
-    }
-    .alert.alert-info.resumen-cartera .text-danger,
-    .alert.alert-info.resumen-cartera .text-danger strong {
-        color: #721c24 !important;
-    }
-    .alert.alert-info.resumen-cartera .text-success,
-    .alert.alert-info.resumen-cartera .text-success strong {
-        color: #155724 !important;
-    }
-
-
-</style>
-{% endblock extra_css %}
+{% block extra_head %}
+{# Considera eliminar extra_css si los estilos se manejan con las variables globales y clases de Bootstrap #}
+{# <style> ... </style> #}
+{% endblock extra_head %}
 
 {% block content %}
-    <div class="row">
+<div class="container-fluid mt-4 mb-5 px-4"> {# Cambiado a container-fluid para consistencia #}
+    <div class="row align-items-center mb-4"> {# Añadido align-items-center y mb-4 #}
         <div class="col-md-8">
-            <h1 class="mb-3">{{ titulo }}</h1>
+            <h1 class="display-6 fw-bold mb-0 text-primary"> {# Unificado el estilo del título #}
+                <i class="fas fa-file-invoice-dollar me-2"></i> {{ titulo }}
+            </h1>
         </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+        <div class="col-md-4 text-md-end mt-3 mt-md-0"> {# Ajustado margen en móvil #}
+            <a href="{% url 'core:index' %}" class="btn btn-secondary rounded-pill shadow-sm"> {# Añadido rounded-pill shadow-sm #}
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel Principal
             </a>
         </div>
     </div>
-<div class="container mt-4">
-    {#<h2>{{ titulo }}</h2>#}
-    <hr>
 
-    {# --- Formulario de Filtros (Opcional) --- #}
-    <form method="get" class="mb-4 bg-light p-3 rounded border">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-5">
-                <label for="cliente" class="form-label">Buscar Cliente (Nombre/ID)</label>
-                <input type="text" name="cliente" id="cliente" class="form-control form-control-sm" value="{{ cliente_filtro|default:'' }}">
-            </div>
-            <div class="col-md-4">
-                <label for="vencido" class="form-label">Estado Vencimiento</label>
-                <select name="vencido" id="vencido" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    <option value="1" {% if vencido_filtro == '1' %}selected{% endif %}>Solo Vencidos</option>
-                    <option value="0" {% if vencido_filtro == '0' %}selected{% endif %}>Solo Al Día</option>
-                </select>
-            </div>
-            {% if puede_filtrar_por_vendedor_dropdown %} {# Esta variable viene del contexto de la vista #}
-            <div class="col-md-3"> {# Ajusta el tamaño de la columna según tu layout #}
-                <label for="id_vendedor_filtro_id" class="form-label">Vendedor:</label>
-                <select name="vendedor_filtro_id" id="id_vendedor_filtro_id" class="form-select form-select-sm">
-                    <option value="">Todos los Vendedores</option>
-                    {% for vendedor_obj in vendedores_list_filtro %}
-                        <option value="{{ vendedor_obj.pk }}" {% if vendedor_obj.pk|stringformat:"s" == vendedor_id_seleccionado_filtro %}selected{% endif %}>
-                            {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }} ({{ vendedor_obj.codigo_interno }})
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
-                {# Revisa el nombre de tu URL para el reporte #}
-                <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-secondary btn-sm w-100 mt-1">Limpiar</a>
-            </div>
+    {# --- Formulario de Filtros Encapsulado en una Card --- #}
+    <div class="card shadow-lg border-0 rounded-3 mb-4"> {# Card styling consistente #}
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header styling consistente #}
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Opciones de Filtro</h5>
         </div>
-    </form>
+        <div class="card-body p-4">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="cliente" class="form-label fw-semibold">Buscar Cliente (Nombre/ID)</label>
+                    <input type="text" name="cliente" id="cliente" class="form-control rounded-pill" value="{{ cliente_filtro|default:'' }}"> {# rounded-pill #}
+                </div>
+                <div class="col-md-4">
+                    <label for="vencido" class="form-label fw-semibold">Estado Vencimiento</label>
+                    <select name="vencido" id="vencido" class="form-select rounded-pill"> {# rounded-pill #}
+                        <option value="">Todos</option>
+                        <option value="1" {% if vencido_filtro == '1' %}selected{% endif %}>Solo Vencidos</option>
+                        <option value="0" {% if vencido_filtro == '0' %}selected{% endif %}>Solo Al Día</option>
+                    </select>
+                </div>
+                {% if puede_filtrar_por_vendedor_dropdown %}
+                <div class="col-md-3">
+                    <label for="id_vendedor_filtro_id" class="form-label fw-semibold">Vendedor:</label>
+                    <select name="vendedor_filtro_id" id="id_vendedor_filtro_id" class="form-select rounded-pill"> {# rounded-pill #}
+                        <option value="">Todos los Vendedores</option>
+                        {% for vendedor_obj in vendedores_list_filtro %}
+                            <option value="{{ vendedor_obj.pk }}" {% if vendedor_obj.pk|stringformat:"s" == vendedor_id_seleccionado_filtro %}selected{% endif %}>
+                                {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }} ({{ vendedor_obj.codigo_interno }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-12 col-md-3 mt-3 mt-md-0"> {# Ajuste de columna para botones #}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                            <i class="fas fa-filter me-2"></i> Filtrar
+                        </button>
+                        <a href="{% url 'cartera:reporte_cartera_general' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                            <i class="fas fa-eraser me-2"></i> Limpiar Filtros
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     {# --- Fin Formulario de Filtros --- #}
 
     {# --- Resumen General --- #}
-    <div class="alert alert-info">
-        <strong>Documentos Pendientes:</strong> {{ total_documentos }} | 
-        <strong>Saldo Total:</strong> ${{ total_general_saldo_fmt }} | 
-        <strong class="{% if total_general_vencido > 0 %}text-danger{% endif %}">Saldo Vencido:</strong> <span class="{% if total_general_vencido > 0 %}text-danger fw-bold{% endif %}">${{ total_general_vencido_fmt }}</span>
+    <div class="alert alert-info py-3 rounded-3 shadow-sm border-0 d-flex justify-content-between align-items-center mb-4"> {# Añadido estilos, mb-4 #}
+        <h5 class="mb-0 text-dark">
+            <i class="fas fa-info-circle me-2"></i> Documentos Pendientes: <strong class="text-primary">{{ total_documentos }}</strong>
+        </h5>
+        <h5 class="mb-0 text-dark">
+            Saldo Total: <strong class="text-success">${{ total_general_saldo_fmt }}</strong>
+        </h5>
+        <h5 class="mb-0">
+            <strong class="{% if total_general_vencido > 0 %}text-danger{% else %}text-success{% endif %}">
+                Saldo Vencido: ${{ total_general_vencido_fmt }}
+            </strong>
+        </h5>
     </div>
     {# --- Fin Resumen --- #}
 
     {# --- Tabla de Cartera Agrupada por Cliente --- #}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>Cliente</th>
-                    <th>Tipo Doc.</th>
-                    <th>Número Doc.</th>
-                    <th>Fecha Doc.</th>
-                    <th>Fecha Ven.</th>
-                    <th class="text-end">Saldo Actual</th>
-                    <th class="text-center">Días Mora</th>
-                    {% if es_admin_sistema_general %}<th>Vendedor Cartera</th>{% endif %} {# Mostrar vendedor solo a admin #}
-                </tr>
-            </thead>
-            <tbody>
-                {# Agrupar por cliente usando la variable 'cliente' del objeto documento #}
-                {% regroup documentos_list by cliente as lista_por_cliente %}
-
-                {% for grupo in lista_por_cliente %}
-                    {# Fila de cabecera para cada cliente #}
-                    <tr class="table-group-divider">
-                        <td colspan="{% if es_admin_sistema_general %}8{% else %}7{% endif %}">
-                            <strong>{{ grupo.grouper.nombre_completo }}</strong> (ID: {{ grupo.grouper.identificacion }}) 
-                            {# Calcular y mostrar totales por cliente (esto requiere lógica adicional en la vista o aquí) #}
-                            {# Ejemplo simple (no implementado completamente arriba): #}
-                            {# Saldo Cliente: ${{ grupo.list|sum:"saldo_actual"|floatformat:2|intcomma }} #}
-                        </td>
-                    </tr>
-                    {# Filas de documentos para este cliente #}
-                    {% for doc in grupo.list %}
-                        <tr class="{% if doc.esta_vencido %}table-danger{% endif %}">
-                            <td></td> {# Columna vacía bajo el nombre del cliente #}
-                            <td>{{ doc.get_tipo_documento_display }}</td>
-                            <td>{{ doc.numero_documento }}</td>
-                            <td>{{ doc.fecha_documento|date:"Y-m-d"|default:"-" }}</td>
-                            <td class="{% if doc.esta_vencido %}fw-bold{% endif %}">{{ doc.fecha_vencimiento|date:"Y-m-d"|default:"-" }}</td>
-                            <td class="text-end">${{ doc.saldo_actual|floatformat:2|intcomma }}</td>
-                            <td class="text-center">{{ doc.dias_mora }}</td>
-                            {% if es_admin_sistema_general %}<td>{{ doc.nombre_vendedor_cartera|default:"-" }}</td>{% endif %}
+    <div class="card shadow-lg border-0 rounded-3"> {# Card styling consistente #}
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header styling consistente #}
+            <h5 class="mb-0"><i class="fas fa-table me-2"></i> Detalle de Cartera por Cliente</h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm mb-0"> {# Eliminado estilos inline, mb-0 #}
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Tipo Doc.</th>
+                            <th>Número Doc.</th>
+                            <th>Fecha Doc.</th>
+                            <th>Fecha Ven.</th>
+                            <th class="text-end">Saldo Actual</th>
+                            <th class="text-center">Días Mora</th>
+                            {% if es_administracion %}<th>Vendedor Cartera</th>{% endif %}
                         </tr>
-                    {% endfor %}
-                {% empty %}
-                    <tr>
-                        <td colspan="{% if es_admin_sistema_general %}8{% else %}7{% endif %}" class="text-center text-muted">No hay documentos de cartera pendientes para mostrar con los filtros aplicados.</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody>
+                        {% regroup documentos_list by cliente as lista_por_cliente %}
+
+                        {% for grupo in lista_por_cliente %}
+                            <tr class="table-group-divider bg-primary-subtle"> {# Un color más sutil para el grupo #}
+                                <td colspan="{% if es_administracion %}8{% else %}7{% endif %}" class="fw-bold text-dark"> {# Texto oscuro y negrita #}
+                                    <i class="fas fa-user-circle me-2"></i> {{ grupo.grouper.nombre_completo }} (ID: {{ grupo.grouper.identificacion }})
+                                </td>
+                            </tr>
+                            {% for doc in grupo.list %}
+                                <tr class="{% if doc.esta_vencido %}table-danger{% endif %}">
+                                    <td></td>
+                                    <td>{{ doc.get_tipo_documento_display }}</td>
+                                    <td>{{ doc.numero_documento }}</td>
+                                    <td>{{ doc.fecha_documento|date:"Y-m-d"|default:"-" }}</td>
+                                    <td class="{% if doc.esta_vencido %}fw-bold text-danger{% endif %}">{{ doc.fecha_vencimiento|date:"Y-m-d"|default:"-" }}</td> {# Texto rojo si está vencido #}
+                                    <td class="text-end fw-semibold">${{ doc.saldo_actual|floatformat:2|intcomma }}</td> {# fw-semibold #}
+                                    <td class="text-center {% if doc.dias_mora > 0 %}text-danger fw-bold{% endif %}">{{ doc.dias_mora }}</td> {# Texto rojo si hay mora #}
+                                    {% if es_administracion %}<td class="text-muted">{{ doc.nombre_vendedor_cartera|default:"-" }}</td>{% endif %}
+                                </tr>
+                            {% endfor %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="{% if es_administracion %}8{% else %}7{% endif %}" class="text-center text-muted fst-italic py-3">No hay documentos de cartera pendientes para mostrar con los filtros aplicados.</td>
+                            </tr>
+                        {% endfor %}
+                        {# Fila de totales generales si es útil mostrarla al final de la tabla #}
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="5" class="text-end">Total General:</td>
+                            <td class="text-end">${{ total_general_saldo_fmt }}</td>
+                            <td colspan="{% if es_administracion %}2{% else %}1{% endif %}" class="text-center">
+                                {% if total_general_vencido > 0 %}
+                                    <span class="text-danger">${{ total_general_vencido_fmt }} Vencido</span>
+                                {% else %}
+                                    <span>${{ total_general_vencido_fmt }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     {# --- Fin Tabla --- #}
 </div>

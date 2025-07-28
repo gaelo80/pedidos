@@ -1,5 +1,6 @@
 {% extends 'core/base.html' %}
 {% load static %}
+{% load crispy_forms_tags %} {# Asegúrate de cargar crispy_forms_tags si lo usas para renderizar formularios #}
 
 {% block page_title %}
     {{ titulo|default:"Registrar Devolución" }}
@@ -7,67 +8,108 @@
 
 {% comment %}
     Bloque para estilos CSS personalizados.
-    Puedes definir aquí reglas para afinar detalles que Bootstrap no cubra
-    o para personalizar la apariencia de los componentes Select2.
+    Ajustes finos para que Select2 y los formsets se vean bien con Bootstrap 5.
 {% endcomment %}
 {% block extra_head %}
 <style>
-    /* Estilo para cada fila del formset, puedes ajustar el padding o borde */
-    .detalle-devolucion-item {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        /* border-bottom: 1px dashed #e0e0e0; */ /* Un borde más sutil si lo prefieres al actual */
+    /* Estilos generales para el layout de página */
+    .container-fluid.px-4 { /* Añadir esta regla si estás usando container-fluid px-4 en el body */
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
     }
-
-    /* Asegurar que los labels y los inputs tengan un buen respiro */
+    
+    /* Asegurar que los labels tengan un buen respiro y sean más prominentes */
     .form-label {
         margin-bottom: 0.5rem;
-        font-weight: 500; /* Un poco más de peso a las etiquetas */
+        font-weight: 600; /* fw-semibold */
+        color: var(--bs-body-color); /* Usar color de texto predeterminado de Bootstrap */
     }
 
-    /* Si los Select2 se cortan dentro de los cards, a veces esto ayuda: */
-    /*
-    .card-body .select2-container {
+    /* Estilo para cada fila del formset */
+    .detalle-devolucion-item {
+        padding-top: 1.5rem; /* Más padding superior */
+        padding-bottom: 1.5rem; /* Más padding inferior */
+        margin-bottom: 1.5rem; /* Más margen inferior para separar filas */
+        border-bottom: 1px dashed var(--bs-border-color-translucent); /* Borde sutil y consistente con Bootstrap 5 */
+    }
+    /* Eliminar el borde inferior de la última fila dinámica si es necesario */
+    .detalle-devolucion-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    /* Asegurar que los Select2 se estiren al 100% y estén por encima de todo */
+    .select2-container--bootstrap-5 {
         width: 100% !important;
     }
-    .select2-dropdown {
-        z-index: 1056; // Asegura que el dropdown del Select2 esté por encima de otros elementos Bootstrap
+    .select2-container--bootstrap-5 .select2-dropdown {
+        z-index: 1056; /* Asegura que el dropdown del Select2 esté por encima de otros elementos Bootstrap (ej. modales) */
     }
-    */
+
+    /* Ajustes para el botón de eliminar dentro del formset */
+    .dynamic-form-row .btn-outline-danger {
+        min-width: 44px; /* Asegura un tamaño mínimo para el botón */
+        min-height: 44px; /* Asegura un tamaño mínimo para el botón */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem; /* Ajustar padding si es necesario */
+    }
 </style>
 {% endblock extra_head %}
 
 {% block content %}
-    <div class="row mb-3 align-items-center">
+<div class="container-fluid mt-4 mb-5 px-4"> {# Usamos container-fluid para mayor amplitud, y px-4 para padding lateral #}
+
+    <div class="row mb-4 align-items-center">
         <div class="col-md-8">
-            <h1 class="mb-0">{{ titulo|default:"Registrar Devolución" }}</h1>
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-plus-circle me-2"></i> Registrar Devolución
+            </h1>
+            <p class="lead text-secondary mb-0">
+                Registra una nueva devolución de productos de clientes al inventario.
+            </p>
         </div>
         <div class="col-md-4 text-md-end">
-            <a href="{% url 'informes:informe_lista_devoluciones' %}" class="btn btn-info">
-                <i class="fas fa-list-ul me-1"></i> Ver Devoluciones
+            <a href="{% url 'informes:informe_lista_devoluciones' %}" class="btn btn-outline-info btn-lg rounded-pill shadow-sm me-2">
+                <i class="fas fa-list-ul me-2"></i> Ver Devoluciones
             </a>
-            <a href="{% url 'core:index' %}" class="btn btn-secondary ms-2">
-                <i class="fas fa-arrow-left me-1"></i> Volver al Panel
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel
             </a>
         </div>
     </div>
+
+    {# Mensajes (si tu vista los envía) #}
+    {% if messages %}
+        <div class="messages-container mb-4">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 shadow-sm border-0" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+        </div>
+    {% endif %}
 
     <form method="post" novalidate id="devolucion-form">
         {% csrf_token %}
 
         {# --- Sección Cabecera Devolución (Formulario Principal) --- #}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light border-bottom">
-                <h5 class="mb-0 fw-bold" style="color:black">Información de la Devolución</h5>
+        <div class="card shadow-lg mb-4 border-0 rounded-3">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> Información General de la Devolución</h5>
             </div>
             <div class="card-body p-4">
                 {% if form.non_field_errors %}
-                    <div class="alert alert-danger p-2" role="alert">{{ form.non_field_errors|join:", " }}</div>
+                    <div class="alert alert-danger p-2 rounded-3 shadow-sm" role="alert">{{ form.non_field_errors|join:", " }}</div>
                 {% endif %}
-                <div class="row g-3"> {# g-3 añade gutters (espaciado) entre columnas #}
+                <div class="row g-4"> {# g-4 para más espacio entre campos #}
                     <div class="col-md-6">
+                        {# Renderizar con crispy_forms_tags si lo estás usando, o manualmente con Bootstrap #}
+                        {# Si no usas crispy, asegúrate de que el widget de Select2 tenga la clase form-select #}
                         <label for="{{ form.cliente.id_for_label }}" class="form-label">{{ form.cliente.label }}{% if form.cliente.field.required %} <span class="text-danger">*</span>{% endif %}</label>
-                        {{ form.cliente }} {# ID generado por Django, ej: id_cliente #}
+                        {{ form.cliente }}
                         {% if form.cliente.errors %}<div class="invalid-feedback d-block">{{ form.cliente.errors|join:", " }}</div>{% endif %}
                         {% if form.cliente.help_text %}<div class="form-text mt-1">{{ form.cliente.help_text }}</div>{% endif %}
                     </div>
@@ -83,21 +125,21 @@
         </div>
 
         {# --- Sección Detalles Devolución (FormSet) --- #}
-        <div class="card shadow-sm">
-            <div class="card-header bg-light border-bottom">
-                <h5 class="mb-0 fw-bold" style="color:black">Productos Devueltos</h5>
+        <div class="card shadow-lg border-0 rounded-3">
+            <div class="card-header bg-gradient bg-secondary text-white py-3 rounded-top-3"> {# Color secundario para diferenciar #}
+                <h5 class="mb-0"><i class="fas fa-box-open me-2"></i> Productos Devueltos</h5>
             </div>
             <div class="card-body p-4" data-formset-prefix="{{ formset.prefix }}">
                 {{ formset.management_form }}
                 {% if formset.non_form_errors %}
-                    <div class="alert alert-danger p-2" role="alert">{{ formset.non_form_errors|join:", " }}</div>
+                    <div class="alert alert-danger p-2 rounded-3 shadow-sm" role="alert">{{ formset.non_form_errors|join:", " }}</div>
                 {% endif %}
 
                 <div id="detalle-devolucion-list" data-formset-body>
                     {% for detalle_form in formset %}
-                        <div class="dynamic-form-row detalle-devolucion-item {% if not forloop.last %}border-bottom{% endif %} pb-3 mb-3" id="{{ detalle_form.prefix }}-row" data-formset-form>
+                        <div class="dynamic-form-row detalle-devolucion-item {% if not forloop.last %}border-bottom{% endif %}" id="{{ detalle_form.prefix }}-row" data-formset-form>
                             {{ detalle_form.id }}
-                            <div class="row g-3 align-items-start"> {# align-items-start para que las etiquetas se mantengan arriba consistentemente #}
+                            <div class="row g-3 align-items-start">
                                 <div class="col-md-5">
                                     <label for="{{ detalle_form.producto.id_for_label }}" class="form-label">{{ detalle_form.producto.label }}{% if detalle_form.producto.field.required %}<span class="text-danger">*</span>{% endif %}</label>
                                     {{ detalle_form.producto }}
@@ -114,11 +156,10 @@
                                     {% if detalle_form.estado_producto.errors %}<div class="invalid-feedback d-block">{{ detalle_form.estado_producto.errors|join:", " }}</div>{% endif %}
                                 </div>
                                 {% if formset.can_delete %}
-                                <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end pb-1">
-                                    {# Usamos align-items-end en la columna y pb-1 para alinear el botón con la base de los inputs si las etiquetas están arriba #}
+                                <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end"> {# Eliminado pb-1 y mt-2 innecesarios con align-items-end #}
                                     <div style="display:none;">{{ detalle_form.DELETE }}</div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm mt-md-0 mt-2" title="Eliminar este producto" data-formset-delete-button>
-                                        <i class="fas fa-trash"></i> <span class="d-sm-none ms-1">Quitar</span>
+                                    <button type="button" class="btn btn-outline-danger rounded-pill shadow-sm" title="Eliminar este producto" data-formset-delete-button>
+                                        <i class="fas fa-trash me-1"></i> <span class="d-sm-inline">Quitar</span> {# Siempre mostrar Quitar en sm y superior #}
                                     </button>
                                 </div>
                                 {% endif %}
@@ -129,7 +170,7 @@
 
                 {# Plantilla para nuevas filas del formset #}
                 <script type="form-template" data-formset-empty-form>
-                    <div class="dynamic-form-row detalle-devolucion-item {% if not forloop.last %}border-bottom{% endif %} pb-3 mb-3" id="{{ formset.empty_form.prefix }}-row" data-formset-form>
+                    <div class="dynamic-form-row detalle-devolucion-item border-bottom pb-3 mb-3" id="{{ formset.empty_form.prefix }}-row" data-formset-form>
                         {{ formset.empty_form.id }}
                         <div class="row g-3 align-items-start">
                             <div class="col-md-5">
@@ -145,14 +186,12 @@
                                 {{ formset.empty_form.estado_producto }}
                             </div>
                             {% if formset.can_delete %}
-                            <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end pb-1">
+                            <div class="col-md-2 col-sm-3 col-12 d-flex align-items-end justify-content-center justify-content-md-end">
                                 <div style="display:none;">
-                                    {# Django-formset.js se encarga de esto, pero es bueno tenerlo explícito si se necesita #}
-                                    {# <input type="checkbox" name="{{ formset.empty_form.DELETE.html_name }}" id="{{ formset.empty_form.DELETE.id_for_label }}"> #}
                                     {{ formset.empty_form.DELETE }}
                                 </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm mt-md-0 mt-2" title="Eliminar este producto" data-formset-delete-button>
-                                    <i class="fas fa-trash"></i> <span class="d-sm-none ms-1">Quitar</span>
+                                <button type="button" class="btn btn-outline-danger rounded-pill shadow-sm" title="Eliminar este producto" data-formset-delete-button>
+                                    <i class="fas fa-trash me-1"></i> <span class="d-sm-inline">Quitar</span>
                                 </button>
                             </div>
                             {% endif %}
@@ -160,14 +199,14 @@
                     </div>
                 </script>
 
-                <button type="button" id="add-item-button" class="btn btn-success mt-3" data-formset-add>
-                    <i class="fas fa-plus me-1"></i> Añadir Producto
+                <button type="button" id="add-item-button" class="btn btn-success mt-3 rounded-pill shadow-sm" data-formset-add>
+                    <i class="fas fa-plus me-2"></i> Añadir Producto
                 </button>
             </div>{# Fin card-body del formset #}
 
-            <div class="card-footer text-center bg-light border-top py-3">
-                <button type="submit" class="btn btn-primary btn-lg px-5">
-                    <i class="fas fa-save me-2"></i>Registrar Devolución
+            <div class="card-footer text-center bg-light border-top py-3 rounded-bottom-3">
+                <button type="submit" class="btn btn-primary btn-lg px-5 rounded-pill shadow-lg">
+                    <i class="fas fa-save me-2"></i> Registrar Devolución
                 </button>
             </div>
         </div>{# Fin card del formset #}
@@ -176,6 +215,12 @@
 {% endblock content %}
 
 {% block extra_scripts %}
+    {# Select2 CSS para que los selectores se vean bien con Bootstrap 5 #}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+    {# jQuery es necesario para Select2 y django-formset.js #}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
     <script src="{% static 'core/js/django-formset.js' %}"></script>
@@ -183,14 +228,12 @@
     <script>
     $(document).ready(function() {
         // --- Inicialización de Select2 para el Cliente ---
-        // Usamos el ID que Django genera para el campo 'cliente' del formulario principal.
-        // Si el campo en tu DevolucionClienteForm se llama 'cliente', su ID será 'id_cliente'.
         const clienteDevolucionSelect = $('#{{ form.cliente.id_for_label }}');
         if (clienteDevolucionSelect.length && typeof clienteDevolucionSelect.select2 === 'function') {
             clienteDevolucionSelect.select2({
                 placeholder: "-- Selecciona Cliente --",
                 language: "es",
-                theme: "bootstrap-5", // Asegúrate de tener el CSS de este tema si lo usas
+                theme: "bootstrap-5",
                 allowClear: true,
                 // dropdownParent: clienteDevolucionSelect.closest('.card-body') // Descomentar si Select2 se corta
             });
@@ -211,22 +254,43 @@
                 language: "es",
                 theme: "bootstrap-5",
                 allowClear: true,
-                minimumInputLength: 2, // Caracteres mínimos para iniciar búsqueda AJAX
+                minimumInputLength: 2,
                 ajax: {
                     url: "/api/v1/productos/buscar/", // Asegúrate que esta URL API funcione correctamente
                     dataType: 'json',
-                    delay: 250, // Retraso en ms antes de enviar la petición AJAX
+                    delay: 250,
                     data: function (params) {
-                        return { term: params.term }; // Término de búsqueda
+                        return { term: params.term };
                     },
-                    processResults: function (data) {
-                        return { results: data.results }; // Formato esperado por Select2
-                    },
-                    cache: true
-                }
+                processResults: function (data) {
+                    // TU API YA DEVUELVE 'id' Y 'text' EN LOS OBJETOS DENTRO DE 'results'
+                    const formattedResults = data.results.map(item => ({
+                        id: item.id,   // <--- ¡CAMBIA A item.id!
+                        text: item.text // <--- ¡CAMBIA A item.text! (Tu API ya lo formatea)
+                    }));
+                    return { results: formattedResults };
+                },
+                cache: true
+            },
                 // dropdownParent: $selector.closest('.detalle-devolucion-item') // Descomentar si Select2 se corta
             });
-            console.log("Select2-AJAX inicializado para:", $selector.attr('id') || 'un selector de producto');
+            $selector.on('select2:open', function() {
+                // Usa el método 'data()' de jQuery para acceder a la instancia de Select2
+                // y luego acceder directamente al campo de búsqueda que Select2 maneja.
+                var select2Instance = $(this).data('select2');
+                if (select2Instance && select2Instance.$search.length) {
+                    // Un pequeño setTimeout sigue siendo útil para el timing
+                    setTimeout(function() {
+                        select2Instance.$search.focus();
+                    }, 1); // Prueba con un retraso de 1 milisegundo, es casi instantáneo
+                } else {
+                    // Fallback si la instancia directa no funciona por alguna razón
+                    setTimeout(function() {
+                        $('.select2-container--open .select2-search__field').focus();
+                    }, 50);
+                }
+            });
+                        console.log("Select2-AJAX inicializado para:", $selector.attr('id') || 'un selector de producto');
         }
 
         // --- Inicializar Select2 en filas existentes del formset ---
@@ -260,7 +324,8 @@
                     } else {
                         console.warn("Select de producto no encontrado en la nueva fila añadida.");
                     }
-                    // Puedes añadir aquí cualquier otra inicialización que necesiten los campos de la nueva fila
+                    // Quitar el borde inferior a la nueva última fila
+                    $newForm.prev('.detalle-devolucion-item').removeClass('border-bottom');
                 }
             });
 
@@ -268,6 +333,8 @@
             $formsetContainer.on('formDeleted', '[data-formset-form]', function() {
                 console.log('Fila de formset eliminada:', $(this).attr('id'));
                 // Aquí podrías recalcular totales o hacer otras acciones si es necesario
+                // Y si la fila eliminada era la última, la penúltima puede necesitar el borde
+                $formsetContainer.find('.detalle-devolucion-item:last').removeClass('border-bottom'); // Solo la última no debe tener borde
             });
             console.log("Plugin django-formset.js eventos adjuntados correctamente.");
         } else {
