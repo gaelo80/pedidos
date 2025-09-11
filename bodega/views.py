@@ -1,5 +1,5 @@
 from collections import defaultdict
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse
 from django.views.generic import ListView
@@ -39,6 +39,20 @@ from django.db.models import Max, F
 from core.mixins import TenantAwareMixin
 from .resources import PlantillaConteoResource
 from factura.models import EstadoFacturaDespacho
+
+
+def admin_permission_required(view_func):
+    """
+    Decorador que verifica si el usuario es superusuario o pertenece al grupo 'administracion'.
+    """
+    @login_required(login_url='core:acceso_denegado')
+    def _wrapped_view_func(request, *args, **kwargs):
+        user = request.user
+        if user.is_superuser or user.groups.filter(name='administracion').exists():
+            return view_func(request, *args, **kwargs)
+        messages.error(request, "No tienes permisos para acceder a esta página.")
+        return redirect('core:acceso_denegado')
+    return _wrapped_view_func
 
 
 @login_required
@@ -881,20 +895,20 @@ def vista_registrar_ingreso(request):
                     formset.instance = ingreso_header
                     formset.save()
 
-                    print(f"Registrando entrada de stock para Ingreso #{ingreso_header.pk}...")
-                    detalles_guardados = ingreso_header.detalles.all()
-                    for detalle in detalles_guardados:
-                        if detalle.cantidad > 0:
-                            MovimientoInventario.objects.create(
-                                empresa=empresa_actual,
-                                producto=detalle.producto,
-                                cantidad=detalle.cantidad, 
-                                tipo_movimiento='ENTRADA_COMPRA', 
-                                documento_referencia=f"Ingreso #{ingreso_header.pk} ({ingreso_header.documento_referencia or ''})".strip(),
-                                usuario=request.user,
-                                notas=f'Entrada por Ingreso a Bodega #{ingreso_header.pk}'
-                            )
-                            print(f" + Stock actualizado para {detalle.producto}: +{detalle.cantidad}")
+                    # print(f"Registrando entrada de stock para Ingreso #{ingreso_header.pk}...")
+                    # detalles_guardados = ingreso_header.detalles.all()
+                    #for detalle in detalles_guardados:
+                        #if detalle.cantidad > 0:
+                            #MovimientoInventario.objects.create(
+                                #empresa=empresa_actual,
+                                #producto=detalle.producto,
+                                #cantidad=detalle.cantidad, 
+                                #tipo_movimiento='ENTRADA_COMPRA', 
+                                #documento_referencia=f"Ingreso #{ingreso_header.pk} ({ingreso_header.documento_referencia or ''})".strip(),
+                                #usuario=request.user,
+                                #notas=f'Entrada por Ingreso a Bodega #{ingreso_header.pk}'
+                            #)
+                            #print(f" + Stock actualizado para {detalle.producto}: +{detalle.cantidad}")
 
                     messages.success(request, f"Ingreso a Bodega #{ingreso_header.pk} registrado exitosamente.")
                     return redirect('bodega:vista_registrar_ingreso') # Nombre corregido
@@ -1222,7 +1236,8 @@ class InformeDespachosView(TenantAwareMixin, LoginRequiredMixin, PermissionRequi
         return context
 
 @login_required
-@permission_required('factura.view_ingresobodega', login_url='core:acceso_denegado')
+@admin_permission_required
+# @permission_required('bodega.view_ingresobodega', login_url='core:acceso_denegado')
 def vista_detalle_ingreso_bodega(request, pk):
     
     empresa_actual = getattr(request, 'tenant', None)

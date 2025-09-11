@@ -716,6 +716,8 @@ def informe_total_pedidos(request):
     )
     total_pedidos_valor = agregados['total_valor']
     
+    total_pedidos_valor = total_pedidos_valor.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
     # Ordenamos el queryset ANOTADO
     pedidos_ordenados = pedidos_qs.order_by('-fecha_hora')
     
