@@ -1236,8 +1236,7 @@ class InformeDespachosView(TenantAwareMixin, LoginRequiredMixin, PermissionRequi
         return context
 
 @login_required
-@admin_permission_required
-# @permission_required('bodega.view_ingresobodega', login_url='core:acceso_denegado')
+@permission_required('bodega.view_ingresobodega', login_url='core:acceso_denegado')
 def vista_detalle_ingreso_bodega(request, pk):
     
     empresa_actual = getattr(request, 'tenant', None)
