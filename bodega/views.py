@@ -2,7 +2,9 @@ from collections import defaultdict
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse
+from django.views.generic import UpdateView
 from django.views.generic import ListView
+from django.urls import reverse_lazy
 from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
@@ -16,7 +18,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from .models import BorradorDespacho, DetalleBorradorDespacho, SalidaInternaCabecera
-from .forms import SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
+from .forms import DetalleIngresoModificarFormSet, SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
 from django.utils.decorators import method_decorator
 import logging
@@ -1970,3 +1972,47 @@ class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, Perm
         else:
             logger.error("get_context_data: No se encontró el objeto 'movimiento' en el contexto.")
         return context
+    
+    
+logger = logging.getLogger(__name__)
+
+class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    model = IngresoBodega
+    template_name = 'bodega/modificar_ingreso_bodega.html'  
+    permission_required = 'bodega.change_ingresobodega'
+    form_class = IngresoBodegaForm # MANTÉN ESTA LÍNEA para que la vista funcione
+    
+    def get_queryset(self):
+        """Sobrescribe el queryset para filtrar por la empresa del usuario."""
+        queryset = super().get_queryset()
+        empresa_actual = getattr(self.request, 'tenant', None)
+        if not empresa_actual:
+            logger.error("Intento de acceso a IngresoUpdateView sin empresa asignada.")
+            return queryset.none()
+        return queryset.filter(empresa=empresa_actual)
+
+    def get_context_data(self, **kwargs):
+        # Llama a la implementación de la clase padre para obtener el contexto base.
+        # Esto incluye el 'form' principal con la instancia ya cargada.
+        context = super().get_context_data(**kwargs)
+        
+        # Ahora, solo agrega el formset, que no es manejado automáticamente.
+        if self.request.POST:
+            context['formset'] = DetalleIngresoModificarFormSet(self.request.POST, instance=self.object)
+        else:
+            context['formset'] = DetalleIngresoModificarFormSet(instance=self.object)
+        
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        formset = DetalleIngresoModificarFormSet(request.POST, instance=self.object)
+        
+        if formset.is_valid():
+            with transaction.atomic():
+                formset.save()
+            messages.success(request, "Los detalles del ingreso han sido actualizados exitosamente.")
+            return redirect('bodega:detalle_ingreso', pk=self.object.pk)
+        else:
+            messages.error(request, "Por favor corrige los errores en el formulario.")
+            return self.render_to_response(self.get_context_data(formset=formset))

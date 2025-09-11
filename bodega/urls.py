@@ -22,6 +22,7 @@ urlpatterns = [
      path('verificar-pedido/<int:pk>/', views.vista_verificar_pedido, name='verificar_pedido'),
      path('informes/despachos/', views.InformeDespachosView.as_view(), name='informe_despachos'),
      path('ingreso/<int:pk>/detalle/', views.vista_detalle_ingreso_bodega, name='detalle_ingreso'),    
+     path('ingreso/<int:pk>/modificar/', views.IngresoUpdateView.as_view(), name='modificar_ingreso_bodega'),
      path('salidas-internas/', views.lista_salidas_internas, name='lista_salidas_internas'),
      path('salidas-internas/registrar/', views.registrar_salida_interna, name='registrar_salida_interna'),
      path('salidas-internas/<int:pk>/detalle/', views.detalle_salida_interna, name='detalle_salida_interna'),

@@ -4,6 +4,7 @@ from .models import IngresoBodega, DetalleIngresoBodega
 from .models import SalidaInternaCabecera, SalidaInternaDetalle
 from django.utils import timezone
 from django.forms import BaseInlineFormSet
+from django.forms import inlineformset_factory
 
 
 class IngresoBodegaForm(forms.ModelForm):
@@ -221,3 +222,46 @@ class ImportarConteoForm(forms.Form):
         required=False,
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.csv'})
     )
+    
+
+class DetalleIngresoBodegaForm(forms.ModelForm):
+    class Meta:
+        model = DetalleIngresoBodega
+        fields = ['producto', 'cantidad', 'costo_unitario']
+
+DetalleIngresoBodegaFormSet = inlineformset_factory(
+    IngresoBodega,
+    DetalleIngresoBodega,
+    form=DetalleIngresoBodegaForm,
+    extra=1, # Permite agregar una fila vacía por defecto
+    can_delete=True # Habilita la opción de eliminar detalles
+)
+
+class DetalleIngresoModificarForm(forms.ModelForm):
+    cantidad = forms.IntegerField(
+        label="Cantidad",
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'})
+    )
+    costo_unitario = forms.DecimalField(
+        label="Costo Unitario",
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Opcional'})
+    )
+    
+    class Meta:
+        model = DetalleIngresoBodega
+        fields = ['cantidad', 'costo_unitario']
+
+# Nuevo formset para modificar solo los detalles
+DetalleIngresoModificarFormSet = inlineformset_factory(
+    parent_model=IngresoBodega,
+    model=DetalleIngresoBodega,
+    form=DetalleIngresoModificarForm, # Usamos el nuevo formulario
+    extra=0, # No agregamos campos extra
+    can_delete=False, # No se puede eliminar
+    min_num=1,
+    validate_min=True,
+)

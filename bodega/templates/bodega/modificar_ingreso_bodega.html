@@ -1,0 +1,67 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}Modificar Ingreso Bodega #{{ object.pk }}{% endblock page_title %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="mb-3">Modificar Ingreso #{{ object.pk }}</h1>
+    </div>
+    <div class="col-md-4 text-md-end mb-3">
+        <a href="{% url 'bodega:detalle_ingreso' object.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Detalle
+        </a>
+    </div>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <div style="display: none;">
+        {{ form.as_p }}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-bold">
+            Detalles del Ingreso (Productos)
+        </div>
+        <div class="card-body">
+            {{ formset.management_form }}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Costo Unitario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in formset %}
+                    <tr>
+                        {% for hidden in form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        <td>
+                            {{ form.instance.producto.referencia }} - {{ form.instance.producto.nombre }}
+                        </td>
+                        <td>
+                            {{ form.cantidad }}
+                            {% if form.cantidad.errors %}<div class="text-danger small">{{ form.cantidad.errors }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {{ form.costo_unitario }}
+                            {% if form.costo_unitario.errors %}<div class="text-danger small">{{ form.costo_unitario.errors }}</div>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <button type="submit" class="btn btn-success btn-lg">Guardar Cambios</button>
+    </div>
+</form>
+{% endblock content %}
