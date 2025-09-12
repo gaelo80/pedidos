@@ -1980,7 +1980,7 @@ class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
     model = IngresoBodega
     template_name = 'bodega/modificar_ingreso_bodega.html'  
     permission_required = 'bodega.change_ingresobodega'
-    form_class = IngresoBodegaForm # MANTÉN ESTA LÍNEA para que la vista funcione
+    form_class = IngresoBodegaForm
     
     def get_queryset(self):
         """Sobrescribe el queryset para filtrar por la empresa del usuario."""
@@ -1992,16 +1992,11 @@ class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         return queryset.filter(empresa=empresa_actual)
 
     def get_context_data(self, **kwargs):
-        # Llama a la implementación de la clase padre para obtener el contexto base.
-        # Esto incluye el 'form' principal con la instancia ya cargada.
         context = super().get_context_data(**kwargs)
-        
-        # Ahora, solo agrega el formset, que no es manejado automáticamente.
         if self.request.POST:
             context['formset'] = DetalleIngresoModificarFormSet(self.request.POST, instance=self.object)
         else:
             context['formset'] = DetalleIngresoModificarFormSet(instance=self.object)
-        
         return context
 
     def post(self, request, *args, **kwargs):
@@ -2010,8 +2005,36 @@ class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         
         if formset.is_valid():
             with transaction.atomic():
+                # 1. Obtener los detalles de ingreso originales
+                detalles_originales = {
+                    detalle.pk: detalle.cantidad 
+                    for detalle in self.object.detalles.all()
+                }
+
+                # 2. Guardar los nuevos valores del formset
                 formset.save()
-            messages.success(request, "Los detalles del ingreso han sido actualizados exitosamente.")
+
+                # 3. Calcular la diferencia y registrar el movimiento
+                for form in formset:
+                    # Comprobar que el formulario representa un objeto existente
+                    if form.instance.pk:
+                        nuevo_detalle = form.instance
+                        cantidad_antigua = detalles_originales.get(nuevo_detalle.pk, 0)
+                        
+                        if nuevo_detalle.cantidad != cantidad_antigua:
+                            diferencia = nuevo_detalle.cantidad - cantidad_antigua
+                            producto = nuevo_detalle.producto
+                            
+                            # Crear un nuevo movimiento de inventario
+                            MovimientoInventario.objects.create(
+                                producto=producto,
+                                cantidad=diferencia,
+                                tipo_movimiento='MODIFICACION',
+                                usuario=request.user,
+                                empresa=self.object.empresa
+                            )
+            
+            messages.success(request, "Los detalles del ingreso y el stock han sido actualizados exitosamente.")
             return redirect('bodega:detalle_ingreso', pk=self.object.pk)
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")

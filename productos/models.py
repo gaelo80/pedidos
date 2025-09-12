@@ -1,4 +1,5 @@
 # productos/models.py
+from decimal import Decimal
 import os
 import uuid
 from django.db import models
@@ -132,6 +133,13 @@ class Producto(models.Model):
         verbose_name="Agrupación de Fotos (Ref+Color)",
         help_text="Se asigna automáticamente al guardar.",
         null=True, blank=True
+    )
+    
+    stock = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal(0),
+        verbose_name="Stock"
     )
     
     referencia = models.CharField(max_length=50, db_index=True, verbose_name="Referencia")
