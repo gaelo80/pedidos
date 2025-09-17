@@ -47,6 +47,10 @@ class ProductoResource(resources.ModelResource):
 
     def before_import_row(self, row, **kwargs):
         row['empresa'] = self.empresa_actual.id
+        
+        codigo_barras_val = row.get('codigo_barras')
+        if not codigo_barras_val or str(codigo_barras_val).strip() == '':
+            row['codigo_barras'] = None
         # CONVIERTE 'S'/'N' o 'si'/'no' a 1/0 para el BooleanWidget
         activo_val = str(row.get('activo', '')).strip().lower()
         if activo_val in ['s', 'si', 'true', '1']:
