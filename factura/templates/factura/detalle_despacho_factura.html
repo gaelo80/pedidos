@@ -59,7 +59,7 @@
                     <h5 class="mb-0">Información del Pedido</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>ID Pedido:</strong> <a class="text:center" href="{% url 'pedidos:detalle_pedido' pedido.pk %}">{{ pedido.pk }}</a></p>
+                    <p><strong>ID Pedido:</strong> <a class="text:center" href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}">{{ pedido.numero_pedido_empresa }}</a></p>
                     <p><strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"d/m/Y P" }}</p>
                     <p><strong>Estado Actual del Pedido:</strong> <span class="badge bg-info">{{ pedido.get_estado_display }}</span></p>
                     <p><strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</p>

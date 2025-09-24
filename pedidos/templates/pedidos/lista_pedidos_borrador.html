@@ -52,7 +52,7 @@
         <tbody>
             {% for pedido in pedidos_list %}
             <tr>
-                <th scope="row">{{ pedido.pk }}</th>
+                <th scope="row">{{ pedido.numero_pedido_empresa }}</th>
                 <td>{{ pedido.cliente.nombre_completo }}</td>
                 <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
                 {# <td>{{ pedido.total|floatformat:0 }}</td> #}

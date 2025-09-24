@@ -13,74 +13,54 @@ class DetallePedidoInline(admin.TabularInline):
     fields = ('producto', 'cantidad', 'precio_unitario', 'subtotal')
     readonly_fields = ('subtotal',)
 
-    # --- ¡PUNTO CRÍTICO DE SEGURIDAD! ---
-    # El campo de autocompletado para 'producto' depende de que el 'ProductoAdmin'
-    # en 'productos/admin.py' esté correctamente asegurado con los métodos
-    # get_queryset() y get_search_results() para filtrar por empresa.
     autocomplete_fields = ['producto']
 
-# ===================================================================
-# ADMIN PRINCIPAL PARA EL MODELO PEDIDO
-# ===================================================================
-@admin.register(Pedido) # Usamos el decorador @admin.register para registrar el modelo
+
+@admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     
-    # --- CONFIGURACIÓN VISUAL Y DE USABILIDAD ---
-    # Se añade 'empresa' para que los superusuarios puedan ver a quién pertenece cada pedido.
+    # --- CONFIGURACIÓN VISUAL Y DE USABILIDAD (Se queda igual) ---
     list_display = (
-        'id',
-        'empresa',
-        'cliente',
-        'vendedor',
-        'fecha_hora',
-        'estado',
-        'ver_total',
-        'enlace_pdf',
-        'enlace_descarga_fotos_lista', # <- AÑADIDO DE VUELTA
+        'id', 'empresa', 'cliente', 'vendedor', 'fecha_hora', 'estado',
+        'ver_total', 'enlace_pdf', 'enlace_descarga_fotos_lista',
     )
-    # Se añade 'empresa' a los filtros.
     list_filter = ('empresa', 'estado', 'fecha_hora', 'vendedor__user__username')
     search_fields = ('id', 'cliente__nombre_completo', 'cliente__identificacion', 'vendedor__user__username')
     date_hierarchy = 'fecha_hora'
     inlines = [DetallePedidoInline]
-
-    # --- ¡PUNTO CRÍTICO DE SEGURIDAD! ---
-    # Estos campos dependen de que 'ClienteAdmin' y 'VendedorAdmin' estén
-    # correctamente asegurados para filtrar por empresa.
     autocomplete_fields = ['cliente', 'vendedor']
 
-    # Se hacen los campos de decisión y la empresa de solo lectura para mantener la integridad.
+    # --- CORRECCIÓN A READONLY_FIELDS ---
+    # Cambiamos los nombres para que apunten a los nuevos métodos que definiremos más abajo
     readonly_fields = (
-        'empresa',
-        'fecha_hora',
-        'token_descarga_fotos',
+        'empresa', 'fecha_hora', 'token_descarga_fotos',
         'get_enlace_descarga_fotos_formulario',
-        'subtotal_base_bruto',
-        'valor_total_descuento',
-        'subtotal_final_neto',
-        'valor_iva_final',
-        'total_a_pagar',
-        'total_cantidad_productos',
-        'usuario_decision_cartera', 
-        'fecha_decision_cartera',
-        'usuario_decision_admin', 
-        'fecha_decision_admin',
+        'mostrar_subtotal_base_bruto',
+        'mostrar_valor_total_descuento',
+        'mostrar_subtotal_final_neto',
+        'mostrar_valor_iva_final',
+        'mostrar_total_a_pagar',
+        'mostrar_total_cantidad_productos',
+        'usuario_decision_cartera', 'fecha_decision_cartera',
+        'usuario_decision_admin', 'fecha_decision_admin',
     )
 
-    # Organización de los campos en el formulario de detalle.
+    # Organización de los campos en el formulario de detalle (Se queda igual)
     fieldsets = (
         ("Información Principal", {
             'fields': ('empresa', 'cliente', 'vendedor', 'estado', 'fecha_hora')
         }),
+        # --- CORRECCIÓN EN FIELDSETS ---
+        # Usamos los nombres de los nuevos métodos también aquí
         ('Montos y Descuento', {
             'fields': (
                 'porcentaje_descuento',
-                'subtotal_base_bruto',
-                'valor_total_descuento',
-                'subtotal_final_neto',
-                'valor_iva_final',
-                'total_a_pagar',
-                'total_cantidad_productos',
+                'mostrar_subtotal_base_bruto',
+                'mostrar_valor_total_descuento',
+                'mostrar_subtotal_final_neto',
+                'mostrar_valor_iva_final',
+                'mostrar_total_a_pagar',
+                'mostrar_total_cantidad_productos',
             )
         }),
         ('Observaciones y Decisiones de Aprobación', {
@@ -97,45 +77,53 @@ class PedidoAdmin(admin.ModelAdmin):
         }),
     )
 
-    # --- CORRECCIÓN DE SEGURIDAD 1: Filtrado de la lista principal ---
+    # --- LÓGICA DE SEGURIDAD (Se queda igual) ---
     def get_queryset(self, request):
-        """
-        Filtra los pedidos para mostrar únicamente los que pertenecen a la 
-        empresa del usuario actual (tenant).
-        """
         qs = super().get_queryset(request)
         tenant = getattr(request, 'tenant', None)
-        
-        # Un superusuario puede ver los pedidos de todas las empresas.
         if request.user.is_superuser:
             return qs
-        
-        # Un usuario normal solo ve los de su empresa.
         if tenant:
             return qs.filter(empresa=tenant)
-        
-        # Como medida de seguridad, no se muestra nada si no se detecta una empresa.
         return qs.none()
     
-    # --- CORRECCIÓN DE SEGURIDAD 2: Asignación al guardar un nuevo pedido ---
     def save_model(self, request, obj, form, change):
-        """
-        Asigna automáticamente la empresa del usuario actual al crear
-        un nuevo pedido desde el panel de administración.
-        """
-        # 'change' es False cuando el objeto se está creando.
         if not change:
             tenant = getattr(request, 'tenant', None)
             if tenant:
                 obj.empresa = tenant
-        
         super().save_model(request, obj, form, change)
 
-    # --- MÉTODOS AUXILIARES PARA MOSTRAR EN EL ADMIN ---
+    # --- NUEVOS MÉTODOS PARA MOSTRAR VALORES CALCULADOS ---
+    @admin.display(description='Subtotal Base Bruto')
+    def mostrar_subtotal_base_bruto(self, obj):
+        return f"${obj.subtotal_base_bruto:,.2f}"
+
+    @admin.display(description='Valor Descuento')
+    def mostrar_valor_total_descuento(self, obj):
+        return f"${obj.valor_total_descuento:,.2f}"
+
+    @admin.display(description='Subtotal Neto')
+    def mostrar_subtotal_final_neto(self, obj):
+        return f"${obj.subtotal_final_neto:,.2f}"
+
+    @admin.display(description='Valor IVA')
+    def mostrar_valor_iva_final(self, obj):
+        return f"${obj.valor_iva_final:,.2f}"
+
+    @admin.display(description='Total a Pagar')
+    def mostrar_total_a_pagar(self, obj):
+        # Esta función ahora también da formato al número
+        return f"${obj.total_a_pagar:,.2f}"
+
+    @admin.display(description='Cantidad de Productos')
+    def mostrar_total_cantidad_productos(self, obj):
+        return obj.total_cantidad_productos
+
+    # --- MÉTODOS AUXILIARES QUE YA TENÍAS (Se quedan igual) ---
     def ver_total(self, obj):
-        if hasattr(obj, 'total_a_pagar'):
-            return f"${obj.total_a_pagar:,.2f}"
-        return "N/A"
+        # Reemplazamos esta lógica para llamar a nuestro nuevo método
+        return self.mostrar_total_a_pagar(obj)
     ver_total.short_description = 'Total Pedido'
 
     def enlace_pdf(self, obj):
@@ -146,7 +134,6 @@ class PedidoAdmin(admin.ModelAdmin):
     enlace_pdf.short_description = 'PDF Pedido'
 
     def get_enlace_descarga_fotos_formulario(self, obj):
-        """Muestra el enlace de descarga en el formulario de detalle."""
         if obj.token_descarga_fotos:
             enlace = obj.get_enlace_descarga_fotos()
             if enlace:
@@ -154,9 +141,7 @@ class PedidoAdmin(admin.ModelAdmin):
         return "No disponible"
     get_enlace_descarga_fotos_formulario.short_description = "Enlace de Descarga de Fotos"
 
-    # --- FUNCIÓN AÑADIDA DE VUELTA ---
     def enlace_descarga_fotos_lista(self, obj):
-        """Para mostrar un enlace corto en la lista de Pedidos."""
         if obj.token_descarga_fotos:
             enlace = obj.get_enlace_descarga_fotos()
             if enlace:

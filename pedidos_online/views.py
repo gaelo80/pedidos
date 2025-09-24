@@ -170,13 +170,13 @@ def crear_pedido_online(request, pk=None):
                                     producto=detalle_data['producto'],
                                     cantidad=-detalle_data['cantidad'],
                                     tipo_movimiento='SALIDA_VENTA_DIRECTA',
-                                    documento_referencia=f'Online Order #{pedido.pk}',
+                                    documento_referencia=f'Online Order pedido.numero_pedido_empresa',
                                     usuario=request.user,
-                                    notas=f'Automatic exit for Online Order creation #{pedido.pk}'
+                                    notas=f'Automatic exit for Online Order creation pedido.numero_pedido_empresa'
                                 )
                                 productos_con_movimiento_ids.add(detalle_data['producto'].id)
 
-                        messages.success(request, f"Online Order #{pedido.pk} created and sent to warehouse.")
+                        messages.success(request, f"Online Order pedido.numero_pedido_empresa created and sent to warehouse.")
                         return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
 
                     elif accion == 'guardar_borrador':
@@ -194,7 +194,7 @@ def crear_pedido_online(request, pk=None):
                                 cantidad=detalle_data['cantidad'],
                                 precio_unitario=detalle_data['precio_unitario']
                             )
-                        messages.success(request, f"Online Order Draft #{pedido.pk} saved.")
+                        messages.success(request, f"Online Order Draft pedido.numero_pedido_empresa saved.")
                         return redirect('pedidos_online:editar_pedido_online', pk=pedido.pk)
 
             except Exception as e:
@@ -1277,6 +1277,6 @@ def generar_borrador_online_pdf(request, pk):
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.pk}: {pisa_status.err}")
+       logger.error(f"Error al generar PDF de borrador ONLINE para pedido pedido.numero_pedido_empresa: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response

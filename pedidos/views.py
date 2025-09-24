@@ -237,14 +237,14 @@ def vista_crear_pedido_web(request, pk=None):
                                     producto=detalle_final_mov.producto,
                                     cantidad= -detalle_final_mov.cantidad,
                                     tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                                    documento_referencia=f'Pedido #{pedido.pk} (Creado)',
+                                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Creado)',
                                     usuario=request.user,
-                                    notas=f'Salida por creación de pedido #{pedido.pk} (pendiente aprobación)'
+                                    notas=f'Salida por creación de pedido pedido.numero_pedido_empresa (pendiente aprobación)'
                                 )
                             print("DEBUG PEDIDO-STOCK: Bucle de MovInv terminado.") # <<<< PRINT 11
                             
-                            messages.success(request, f"Pedido #{pedido.pk} creado y enviado a aprobación. Stock descontado.")
-                            return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
+                            messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
+                            return redirect('pedidos:pedido_creado_exito', pk=pedido.numero_pedido_empresa)
                     except Exception as e:
                         print(f"DEBUG PEDIDO-STOCK: EXCEPCIÓN en transacción: {e}") # <<<< PRINT 12
                         import traceback
@@ -279,8 +279,8 @@ def vista_crear_pedido_web(request, pk=None):
                             productos_guardados_ids.add(producto_obj.pk)
                         if form_instance:
                             DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
-                        messages.success(request, f"Pedido Borrador #{pedido.pk} guardado exitosamente.")
-                        return redirect('pedidos:editar_pedido_web', pk=pedido.pk)
+                        messages.success(request, f"Pedido Borrador pedido.numero_pedido_empresa guardado exitosamente.")
+                        return redirect('pedidos:editar_pedido_web', pk=pedido.numero_pedido_empresa)
                 except Exception as e:
                     messages.error(request, f"Error al guardar el borrador: {e}")
 
@@ -380,11 +380,11 @@ def aprobar_pedido_cartera(request, pk):
             if motivo:
                 pedido.motivo_cartera = motivo
             pedido.save()
-            print(f"DEBUG APROB-CARTERA: Pedido #{pedido.pk} guardado con estado {pedido.estado}")
-            messages.success(request, f"Pedido #{pedido.pk} aprobado por Cartera y enviado a Administración.")
+            print(f"DEBUG APROB-CARTERA: Pedido pedido.numero_pedido_empresa guardado con estado {pedido.estado}")
+            messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} aprobado por Cartera y enviado a Administración.")
     except Exception as e:
         print(f"DEBUG APROB-CARTERA: Excepción al aprobar: {e}")
-        messages.error(request, f"Error al aprobar el pedido #{pedido.pk} por Cartera: {e}")
+        messages.error(request, f"Error al aprobar el pedido pedido.numero_pedido_empresa por Cartera: {e}")
         
     return redirect('pedidos:lista_aprobacion_cartera')
 
@@ -433,13 +433,13 @@ def rechazar_pedido_cartera(request, pk):
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_CARTERA',
-                    documento_referencia=f'Pedido #{pedido.pk} (Rechazo Cartera)',
+                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Rechazo Cartera)',
                     usuario=request.user,
-                    notas=f'Reintegro por rechazo Cartera. Pedido #{pedido.pk}. Motivo: {motivo}'
+                    notas=f'Reintegro por rechazo Cartera. Pedido pedido.numero_pedido_empresa. Motivo: {motivo}'
                 )
-            messages.warning(request, f"Pedido #{pedido.pk} rechazado por Cartera. Stock reintegrado.")
+            messages.warning(request, f"Pedido #{pedido.numero_pedido_empresa} rechazado por Cartera. Stock reintegrado.")
     except Exception as e:
-        messages.error(request, f"Error al rechazar el pedido #{pedido.pk} por Cartera: {e}")
+        messages.error(request, f"Error al rechazar el pedido pedido.numero_pedido_empresa por Cartera: {e}")
 
     return redirect('pedidos:lista_aprobacion_cartera')
 
@@ -505,9 +505,9 @@ def aprobar_pedido_admin(request, pk):
                 pedido.motivo_admin = motivo
             pedido.save()
             # No hay movimiento de stock aquí según la nueva lógica
-            messages.success(request, f"Pedido #{pedido.pk} aprobado por Administración y enviado a Bodega.")
+            messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} aprobado por Administración y enviado a Bodega.")
     except Exception as e:
-        messages.error(request, f"Error al aprobar el pedido #{pedido.pk} por Administración: {e}")
+        messages.error(request, f"Error al aprobar el pedido pedido.numero_pedido_empresa por Administración: {e}")
         
     return redirect('pedidos:lista_aprobacion_admin')
 
@@ -556,13 +556,13 @@ def rechazar_pedido_admin(request, pk):
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_ADMIN',
-                    documento_referencia=f'Pedido #{pedido.pk} (Rechazo Admin)',
+                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Rechazo Admin)',
                     usuario=request.user,
-                    notas=f'Reintegro por rechazo Admin. Pedido #{pedido.pk}. Motivo: {motivo}'
+                    notas=f'Reintegro por rechazo Admin. Pedido pedido.numero_pedido_empresa. Motivo: {motivo}'
                 )
-            messages.warning(request, f"Pedido #{pedido.pk} rechazado por Administración. Stock reintegrado.")
+            messages.warning(request, f"Pedido #{pedido.numero_pedido_empresa} rechazado por Administración. Stock reintegrado.")
     except Exception as e:
-        messages.error(request, f"Error al rechazar el pedido #{pedido.pk} por Administración: {e}")
+        messages.error(request, f"Error al rechazar el pedido pedido.numero_pedido_empresa por Administración: {e}")
         
     return redirect('pedidos:lista_aprobacion_admin')
 
@@ -652,7 +652,7 @@ def generar_pedido_pdf(request, pk):
     html = template.render(context)
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.pk}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.numero_pedido_empresa}.pdf"'
     
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
@@ -691,7 +691,7 @@ def vista_pedido_exito(request, pk):
             if telefono_cliente_limpio:
                 mensaje_texto = (
                     f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''}, "
-                    f"te comparto el pedido #{pedido.pk}. " 
+                    f"te comparto el pedido pedido.numero_pedido_empresa. " 
                     f"Adjunta el PDF descargado para confirmar. Gracias."
                 )
                 mensaje_encoded = quote(mensaje_texto)
@@ -706,7 +706,7 @@ def vista_pedido_exito(request, pk):
         context = {
             'pedido': pedido, 
             'whatsapp_url': whatsapp_url, 
-            'titulo': f'Pedido #{pedido.pk} Creado',
+            'titulo': f'Pedido #{pedido.numero_pedido_empresa} Creado',
             'crear_nuevo_pedido_url': crear_nuevo_pedido_url, # Pasa la URL al contexto
         }
         return render(request, 'pedidos/pedido_exito.html', context)
@@ -823,7 +823,7 @@ def vista_eliminar_pedido_borrador(request, pk):
     try:
         vendedor = Vendedor.objects.get(user=request.user, empresa=empresa_actual)
         pedido = get_object_or_404(Pedido, pk=pk, vendedor=vendedor, estado='BORRADOR', empresa=empresa_actual)
-        pedido_id = pedido.pk
+        pedido_id = pedido.numero_pedido_empresa
         pedido.delete()
         messages.success(request, f"El pedido borrador #{pedido_id} ha sido eliminado exitosamente.")
     except Vendedor.DoesNotExist:
@@ -927,7 +927,7 @@ def vista_detalle_pedido(request, pk):
     # --- FIN DE LA LÓGICA DE AGRUPAMIENTO DE PRODUCTOS PARA LA TABLA ---
 
     context = {
-        'titulo': f'Detalle del Pedido #{pedido.pk}',
+        'titulo': f'Detalle del Pedido pedido.numero_pedido_empresa',
         'pedido': pedido,
         # 'detalles_pedido': detalles_pedido, # Ya no necesitas esto para la tabla de productos
         'items_agrupados_para_tabla': items_para_tabla_html, # <-- NUEVOS DATOS PARA LA TABLA
@@ -957,7 +957,7 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
                         if foto.imagen and hasattr(foto.imagen, 'url') and foto.imagen.url not in urls_fotos_ya_agregadas:
                             fotos_del_pedido.append(foto)
                             urls_fotos_ya_agregadas.add(foto.imagen.url)
-        context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido #{pedido.pk}"}
+        context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido pedido.numero_pedido_empresa"}
         return render(request, self.template_name, context)
     
 @login_required
@@ -1044,12 +1044,12 @@ def generar_borrador_pdf(request, pk):
     html = template.render(context)
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="pedido_borrador_{pedido.pk}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="pedido_borrador_{pedido.numero_pedido_empresa}.pdf"'
     
     # Uso de xhtml2pdf (si no tienes WeasyPrint configurado)
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador para pedido #{pedido.pk}: {pisa_status.err}")
+       logger.error(f"Error al generar PDF de borrador para pedido pedido.numero_pedido_empresa: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response

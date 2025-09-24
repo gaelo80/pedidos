@@ -11,11 +11,11 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">{{ titulo }}</h4>
                 <div>
-                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-danger btn-sm" target="_blank">
+                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.numero_pedido_empresa %}" class="btn btn-danger btn-sm" target="_blank">
                         <i class="fas fa-file-pdf me-1"></i>Generar PDF
                     </a>
                     {% if pedido.estado == 'BORRADOR' %}
-                        <a href="{% url 'pedidos:editar_pedido_web' pedido.pk %}" class="btn btn-warning btn-sm">
+                        <a href="{% url 'pedidos:editar_pedido_web' pedido.numero_pedido_empresa %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit me-1"></i>Editar Pedido
                         </a>
                     {% endif %}
@@ -35,7 +35,7 @@
                 </div>
                 <div class="col-md-6">
                     <h5>Datos del Pedido</h5>
-                    <p><strong>Pedido N°:</strong> {{ pedido.pk }}</p>
+                    <p><strong>Pedido N°:</strong> {{ pedido.numero_pedido_empresa }}</p>
                     <p><strong>Fecha y Hora:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i:s" }}</p>
                     <p><strong>Vendedor:</strong> {{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</p>
                     <p><strong>Estado:</strong> <span class="badge bg-primary">{{ pedido.get_estado_display }}</span></p>

@@ -125,7 +125,7 @@
                         <tbody>
                             {% for pedido in pedidos_list %}
                                 <tr>
-                                    <td>{{ pedido.pk }}</td>
+                                    <td>{{ pedido.numero_pedido_empresa }}</td>
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
                                     <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
                                     {% if es_administracion %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
@@ -133,7 +133,7 @@
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
                                     <td><span class="badge {% if pedido.estado == 'COMPLETADO' or pedido.estado == 'ENVIADO' %}bg-success{% elif pedido.estado == 'CANCELADO' %}bg-danger{% else %}bg-secondary{% endif %}">{{ pedido.get_estado_display|default:pedido.estado }}</span></td> {# Badges con colores semánticos #}
                                     <td class="text-center">
-                                        <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" target="_blank" title="Ver Detalles del Pedido"> {# rounded-pill y shadow-sm #}
+                                        <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" target="_blank" title="Ver Detalles del Pedido"> {# rounded-pill y shadow-sm #}
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>

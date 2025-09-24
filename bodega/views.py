@@ -106,7 +106,7 @@ def vista_despacho_pedido(request, pk):
     # --- Lógica GET (cuando se muestra la página de despacho) ---
     # PRIMERO: Verificar el estado del pedido al cargar la página GET
     if pedido.estado not in ESTADOS_PERMITIDOS_PARA_DESPACHO and not request.user.is_superuser:
-        messages.info(request, f"El pedido #{pedido.pk} ya está en estado '{pedido.get_estado_display()}' y no puede ser modificado aquí. Puedes revisar los comprobantes generados si aplica.")
+        messages.info(request, f"El pedido pedido.numero_pedido_empresa ya está en estado '{pedido.get_estado_display()}' y no puede ser modificado aquí. Puedes revisar los comprobantes generados si aplica.")
         # Si el pedido no es modificable, redirigimos a la lista de pedidos de bodega.
         return redirect('bodega:lista_pedidos_bodega')
     
@@ -167,7 +167,7 @@ def vista_despacho_pedido(request, pk):
         'pedido': pedido,
         'detalles_pedido': detalles_pedido, # Aún útil para los enlaces y otros datos, pero NO para cantidad_verificada
         'detalles_json': detalles_json, # JSON que ahora incluye cantidades del borrador
-        'titulo': f"Despacho Pedido #{pedido.pk}",
+        'titulo': f"Despacho Pedido pedido.numero_pedido_empresa",
     }
     return render(request, 'bodega/despacho_pedido.html', context)
 
@@ -300,7 +300,7 @@ def enviar_despacho_parcial_ajax(request, pk):
             ESTADOS_PERMITIDOS_ENVIO = ['APROBADO_ADMIN', 'PROCESANDO', 'PENDIENTE_BODEGA']
             if pedido.estado not in ESTADOS_PERMITIDOS_ENVIO and not request.user.is_superuser:
                 logger.warning(f"DEBUG: Pedido {pk} en estado no permitido ({pedido.get_estado_display()}) para envío.")
-                raise ValueError(f"El pedido #{pedido.pk} no puede ser enviado en su estado actual ({pedido.get_estado_display()}).")
+                raise ValueError(f"El pedido pedido.numero_pedido_empresa no puede ser enviado en su estado actual ({pedido.get_estado_display()}).")
 
             # Obtener el borrador de despacho para este pedido
             borrador = BorradorDespacho.objects.filter(pedido=pedido, empresa=empresa_actual).first()
@@ -388,11 +388,11 @@ def enviar_despacho_parcial_ajax(request, pk):
 
             if todos_los_items_despachados_completamente:
                 pedido.estado = 'ENVIADO' # O 'COMPLETADO'
-                messages.success(request, f"Pedido #{pedido.pk} completamente despachado y enviado.")
+                messages.success(request, f"Pedido pedido.numero_pedido_empresa completamente despachado y enviado.")
                 logger.info(f"DEBUG: Pedido {pk} marcado como ENVIADO.")
             elif pedido.estado in ['APROBADO_ADMIN', 'PENDIENTE_BODEGA']:
                 pedido.estado = 'PROCESANDO'
-                messages.info(request, f"Despacho parcial del Pedido #{pedido.pk} enviado.")
+                messages.info(request, f"Despacho parcial del Pedido pedido.numero_pedido_empresa enviado.")
                 logger.info(f"DEBUG: Pedido {pk} marcado como PROCESANDO.")
 
             pedido.save(update_fields=['estado'])
@@ -516,7 +516,7 @@ def vista_verificar_pedido(request, pk):
         context = {
             'pedido': pedido,
             'detalles_pedido': detalles_para_mostrar,
-            'titulo': f'Verificar Pedido #{pedido.pk}'
+            'titulo': f'Verificar Pedido #{pedido.numero_pedido_empresa}'
         }
         return render(request, 'bodega/verificar_pedido.html', context)
 
@@ -533,7 +533,7 @@ def vista_verificar_pedido(request, pk):
 
         ESTADOS_PERMITIDOS_VERIFICACION = ['APROBADO_ADMIN', 'PENDIENTE', 'PENDIENTE_BODEGA', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO']
         if pedido.estado not in ESTADOS_PERMITIDOS_VERIFICACION and not request.user.is_superuser : # Superusuario puede forzar
-            messages.error(request, f"El pedido #{pedido.pk} no se puede modificar en su estado actual ({pedido.get_estado_display()}).")
+            messages.error(request, f"El pedido pedido.numero_pedido_empresa no se puede modificar en su estado actual ({pedido.get_estado_display()}).")
             return redirect('bodega:verificar_pedido', pk=pedido.pk)
 
         items_efectivamente_despachados_para_comprobante = [] 
@@ -643,14 +643,14 @@ def vista_verificar_pedido(request, pk):
                     if todas_completas:
                         if pedido.estado not in ['COMPLETADO', 'ENVIADO', 'ENTREGADO', 'CANCELADO']:
                             nuevo_estado_pedido = 'COMPLETADO' 
-                            messages.success(request, f'Pedido #{pedido.pk} marcado como COMPLETAMENTE DESPACHADO/VERIFICADO!')
+                            messages.success(request, f'Pedido pedido.numero_pedido_empresa marcado como COMPLETAMENTE DESPACHADO/VERIFICADO!')
                     else: 
                         if items_efectivamente_despachados_para_comprobante or hubo_cambios_generales_en_detalle_pedido : 
                             if pedido.estado in ['PENDIENTE', 'APROBADO_ADMIN', 'PENDIENTE_BODEGA']: # Ajustar estados según tu flujo
                                 nuevo_estado_pedido = 'PROCESANDO'
-                                messages.info(request, f'Pedido #{pedido.pk} ahora en estado PROCESANDO.')
+                                messages.info(request, f'Pedido pedido.numero_pedido_empresa ahora en estado PROCESANDO.')
                             elif pedido.estado == 'PROCESANDO':
-                                messages.info(request, f'Verificación/Despacho actualizado para pedido #{pedido.pk} (sigue en PROCESANDO).')
+                                messages.info(request, f'Verificación/Despacho actualizado para pedido pedido.numero_pedido_empresa (sigue en PROCESANDO).')
                     
                     if nuevo_estado_pedido != pedido.estado:
                         pedido.estado = nuevo_estado_pedido
@@ -1714,7 +1714,7 @@ def finalizar_pedido_incompleto(request, pk):
             pedido = get_object_or_404(Pedido.objects.select_for_update().prefetch_related('detalles__producto'), pk=pk, empresa=empresa_actual)
 
             if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO':
-                messages.warning(request, f"El pedido #{pedido.pk} ya está en un estado final y no puede ser marcado como incompleto.")
+                messages.warning(request, f"El pedido pedido.numero_pedido_empresa ya está en un estado final y no puede ser marcado como incompleto.")
                 return redirect('bodega:lista_pedidos_bodega')
             
             # Eliminar cualquier borrador de despacho pendiente para este pedido
@@ -1743,7 +1743,7 @@ def finalizar_pedido_incompleto(request, pk):
 
             pedido.estado = 'ENVIADO_INCOMPLETO' # O un estado similar que indique el cierre
             pedido.save(update_fields=['estado'])
-            messages.success(request, f"Pedido #{pedido.pk} marcado como INCOMPLETO. Las unidades pendientes han regresado al inventario.")
+            messages.success(request, f"Pedido pedido.numero_pedido_empresa marcado como INCOMPLETO. Las unidades pendientes han regresado al inventario.")
 
     except Exception as e:
         messages.error(request, f"Error al finalizar pedido incompleto: {e}")
@@ -1765,7 +1765,7 @@ def cancelar_pedido_bodega(request, pk):
             pedido = get_object_or_404(Pedido.objects.select_for_update().prefetch_related('detalles__producto'), pk=pk, empresa=empresa_actual)
 
             if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO':
-                messages.warning(request, f"El pedido #{pedido.pk} ya está en un estado final y no puede ser cancelado.")
+                messages.warning(request, f"El pedido pedido.numero_pedido_empresa ya está en un estado final y no puede ser cancelado.")
                 return redirect('bodega:lista_pedidos_bodega')
 
             # Eliminar cualquier borrador de despacho pendiente para este pedido
@@ -1795,7 +1795,7 @@ def cancelar_pedido_bodega(request, pk):
 
             pedido.estado = 'CANCELADO'
             pedido.save(update_fields=['estado'])
-            messages.success(request, f"Pedido #{pedido.pk} CANCELADO exitosamente. Todas las unidades han regresado al inventario.")
+            messages.success(request, f"Pedido pedido.numero_pedido_empresa CANCELADO exitosamente. Todas las unidades han regresado al inventario.")
 
     except Exception as e:
         messages.error(request, f"Error al cancelar el pedido: {e}")

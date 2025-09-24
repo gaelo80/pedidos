@@ -42,7 +42,7 @@
                 <tbody>
                     {% for pedido in pedidos_list %}
                     <tr>
-                        <td>{{ pedido.pk }}</td>
+                        <td>{{ pedido.numero_pedido_empresa }}</td>
                         <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
                         <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
                         <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
@@ -50,7 +50,7 @@
                         <td>{{ pedido.usuario_decision_admin.username|default:"N/A" }}</td>
                         <td style="white-space: pre-wrap;">{{ pedido.motivo_admin|default:"" }}</td>
                         <td>
-                            <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-info btn-sm" target="_blank">Ver Pedido</a>
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm" target="_blank">Ver Pedido</a>
                         </td>
                     </tr>
                     {% endfor %}

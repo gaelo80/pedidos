@@ -4,7 +4,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Pedido N° {{ pedido.pk }} - {{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</title>
+    <title>Pedido N° {{ pedido.numero_pedido_empresa }} - {{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</title>
    <style type="text/css">
         @page {
             size: letter;
@@ -88,7 +88,7 @@
         </tr>
     </table>
 
-    <h1>Pedido N° {{ pedido.pk }}</h1>
+    <h1>Pedido N° {{ pedido.numero_pedido_empresa }}</h1>
 
     <table class="info-table" style="margin-bottom: 20px;">
         <tr>

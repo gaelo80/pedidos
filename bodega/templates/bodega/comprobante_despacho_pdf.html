@@ -7,7 +7,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Comprobante de Despacho - Pedido N° {{ pedido.pk }}</title>
+    <title>Comprobante de Despacho - Pedido N° {{ pedido.numero_pedido_empresa }}</title>
     <style type="text/css">
         /* === INICIO: ESTILOS CSS COPIADOS DE TU PLANTILLA ORIGINAL === */
         @page {
@@ -144,7 +144,7 @@
     {# --- Título del Comprobante y Número de Pedido --- #}
     <h1 class="comprobante-title">COMPROBANTE DE DESPACHO</h1>
     <p class="numero-pedido-display">
-        Pedido N° <span class="numero-pedido">{{ pedido.pk }}</span>
+        Pedido N° <span class="numero-pedido">{{ pedido.numero_pedido_empresa }}</span>
     </p>
 
     {# --- Información del Pedido y Despacho (usando tu estructura de .info-table) --- #}

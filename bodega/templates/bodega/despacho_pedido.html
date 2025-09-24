@@ -248,11 +248,11 @@
                  </button>
                  {% endif %}
 
-                 <form method="post" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de finalizar este pedido como incompleto y devolver el stock pendiente?');">
+                 <form method="post" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.numero_pedido_empresa %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de finalizar este pedido como incompleto y devolver el stock pendiente?');">
                      {% csrf_token %}
                      <button type="submit" class="btn btn-warning"><i class="fas fa-exclamation-triangle"></i> Finalizar Incompleto</button>
                  </form>
-                 <form method="post" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de CANCELAR completamente este pedido y reintegrar todo el stock? Esta acción no se puede deshacer.');">
+                 <form method="post" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.numero_pedido_empresa %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de CANCELAR completamente este pedido y reintegrar todo el stock? Esta acción no se puede deshacer.');">
                      {% csrf_token %}
                      <button type="submit" class="btn btn-danger"><i class="fas fa-times-circle"></i> Cancelar Pedido</button>
                  </form>
@@ -618,7 +618,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const url = `/bodega/despacho/{{ pedido.pk }}/guardar-parcial-ajax/`; // URL a tu vista AJAX de guardado
+        const url = `/bodega/despacho/{{ pedido.numero_pedido_empresa }}/guardar-parcial-ajax/`; // URL a tu vista AJAX de guardado
 
         try {
             mostrarStatus('Guardando progreso del despacho...', 'info', 0); // Mensaje persistente
@@ -691,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function guardarDetalleParcialmente(detalleId, nuevaCantidad) {
         console.log("DEBUG: Iniciando guardarDetalleParcialmente para un solo ítem."); // Añadido para depuración
 
-        const url = `/bodega/despacho/{{ pedido.pk }}/guardar-parcial-ajax/`; 
+        const url = `/bodega/despacho/{{ pedido.numero_pedido_empresa }}/guardar-parcial-ajax/`; 
         
         // Aquí es donde está la corrección: El payload debe ser una lista con un solo detalle
         const data = {
@@ -782,7 +782,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const url = `/bodega/despacho/{{ pedido.pk }}/enviar-parcial-ajax/`;
+        const url = `/bodega/despacho/{{ pedido.numero_pedido_empresa }}/enviar-parcial-ajax/`;
         const data = {
             detalles_a_enviar_desde_borrador: detallesParaEnviar 
         };

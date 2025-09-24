@@ -29,17 +29,17 @@
                     <tbody>
                         {% for pedido in pedidos_list %}
                         <tr>
-                            <td>{{ pedido.pk }}</td>
+                            <td>{{ pedido.numero_pedido_empresa }}</td>
                             <td>{{ pedido.fecha_hora|date:"d/m/Y" }}</td>
                             <td>{{ pedido.destinatario.nombre_completo }}</td>
                             <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username }}</td>
                             <td class="text-end">${{ pedido.total_a_pagar|intcomma:0 }}</td>
                             <td class="text-center">
-                                <a href="{% url 'pedidos_online:editar_pedido_online' pedido.pk %}" class="btn btn-warning btn-sm" title="Editar Borrador">
+                                <a href="{% url 'pedidos_online:editar_pedido_online' pedido.numero_pedido_empresa %}" class="btn btn-warning btn-sm" title="Editar Borrador">
                                     <i class="fas fa-edit"></i>
                                 </a>
 
-                                <a href="{% url 'pedidos_online:generar_borrador_online_pdf' pk=pedido.pk %}" class="btn btn-info btn-sm ms-1" title="Imprimir Borrador PDF" target="_blank">
+                                <a href="{% url 'pedidos_online:generar_borrador_online_pdf' pk=pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm ms-1" title="Imprimir Borrador PDF" target="_blank">
                                     <i class="fas fa-print"></i> PDF
                                 </a>
 

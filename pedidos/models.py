@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
 from pedidos_online.models import ClienteOnline
+from django.db import transaction
 
 class Pedido(models.Model):
     empresa = models.ForeignKey(
@@ -14,6 +15,13 @@ class Pedido(models.Model):
         on_delete=models.CASCADE, 
         related_name='pedidos',
         verbose_name="Empresa",        
+    )
+    
+    numero_pedido_empresa = models.PositiveIntegerField(
+        verbose_name="Número de Pedido por Empresa",
+        null=True,
+        blank=True,
+        editable=False
     )
     
     ESTADO_PEDIDO_CHOICES = [
@@ -180,6 +188,7 @@ class Pedido(models.Model):
                  raise ValidationError(f"El prospecto '{self.prospecto}' no pertenece a la empresa '{empresa}'.")
             
     def save(self, *args, **kwargs):
+        
         if not self.empresa_id:
             if self.cliente and self.cliente.empresa_id:
                 self.empresa_id = self.cliente.empresa_id
@@ -187,9 +196,21 @@ class Pedido(models.Model):
                 self.empresa_id = self.vendedor.empresa_id
             elif self.prospecto and self.prospecto.empresa_id:
                 self.empresa_id = self.prospecto.empresa_id
-            elif self.cliente_online and self.cliente_online.empresa_id: # Añadir esta condición
+            elif self.cliente_online and self.cliente_online.empresa_id:
                 self.empresa_id = self.cliente_online.empresa_id
-        super().save(*args, **kwargs)
+
+
+        if self.pk is None and self.numero_pedido_empresa is None:
+            with transaction.atomic():
+
+                ultimo_pedido = Pedido.objects.filter(empresa=self.empresa).select_for_update().order_by('-numero_pedido_empresa').first()
+
+                if ultimo_pedido and ultimo_pedido.numero_pedido_empresa:
+                    self.numero_pedido_empresa = ultimo_pedido.numero_pedido_empresa + 1
+                else:
+                    self.numero_pedido_empresa = 1 
+    
+            super().save(*args, **kwargs)
 
     @property
     def subtotal_base_bruto(self):
@@ -251,13 +272,15 @@ class Pedido(models.Model):
             nombre_referencia = f"[Prospecto] {nombre_referencia}"
         elif self.tipo_pedido == 'ONLINE' and self.cliente_online:
             nombre_referencia = f"[Online] {nombre_referencia}"
-        return f"Pedido #{self.pk} - {nombre_referencia} ({self.get_estado_display()})"
+        display_number = self.numero_pedido_empresa if self.numero_pedido_empresa else self.pk        
+        return f"Pedido #{display_number} - {nombre_referencia} ({self.get_estado_display()})"
     
     
     class Meta:
         verbose_name = "Pedido"
         verbose_name_plural = "Pedidos"
         ordering = ['-fecha_hora']
+        unique_together = ('empresa', 'numero_pedido_empresa')
 
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE, verbose_name="Pedido Asociado") 

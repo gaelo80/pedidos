@@ -94,7 +94,7 @@
                         <tbody>
                             {% for pedido in pedidos_list %}
                                 <tr>
-                                    <td class="text-center"><a href="{% url 'pedidos:editar_pedido_web' pedido.pk %}">{{ pedido.pk }}</a></td>
+                                    <td class="text-center"><a href="{% url 'pedidos:editar_pedido_web' pedido.numero_pedido_empresa %}">{{ pedido.numero_pedido_empresa }}</a></td>
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
                                     <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
                                     <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
