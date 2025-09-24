@@ -531,7 +531,7 @@ def vista_verificar_pedido(request, pk):
             return redirect('bodega:verificar_pedido', pk=pedido.pk)
         print(f"--- VISTA_VERIFICAR_PEDIDO (POST): INICIO para Pedido #{pk} ---")
 
-        ESTADOS_PERMITIDOS_VERIFICACION = ['APROBADO_ADMIN', 'PENDIENTE', 'PENDIENTE_BODEGA', 'PROCESANDO']
+        ESTADOS_PERMITIDOS_VERIFICACION = ['APROBADO_ADMIN', 'PENDIENTE', 'PENDIENTE_BODEGA', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO']
         if pedido.estado not in ESTADOS_PERMITIDOS_VERIFICACION and not request.user.is_superuser : # Superusuario puede forzar
             messages.error(request, f"El pedido #{pedido.pk} no se puede modificar en su estado actual ({pedido.get_estado_display()}).")
             return redirect('bodega:verificar_pedido', pk=pedido.pk)
