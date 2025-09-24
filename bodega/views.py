@@ -1099,7 +1099,12 @@ def vista_conteo_inventario(request):
                 logger.critical(f"Error fatal al llamar a _procesar_y_guardar_conteo: {e}", exc_info=True)
                 return redirect('bodega:vista_conteo_inventario')
         else:
-            messages.error(request, "Por favor corrige los errores en la información general del conteo.")
+            return JsonResponse({
+                'status': 'error',
+                'message': 'El formulario de Información General tiene errores.',
+                'errors': info_form.errors
+            }, status=400)
+            #messages.error(request, "Por favor corrige los errores en la información general del conteo.")
 
     # --- LÓGICA GET ---
     items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
