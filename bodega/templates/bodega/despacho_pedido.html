@@ -248,11 +248,11 @@
                  </button>
                  {% endif %}
 
-                 <form method="post" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.numero_pedido_empresa %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de finalizar este pedido como incompleto y devolver el stock pendiente?');">
+                 <form method="post" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de finalizar este pedido como incompleto y devolver el stock pendiente?');">
                      {% csrf_token %}
                      <button type="submit" class="btn btn-warning"><i class="fas fa-exclamation-triangle"></i> Finalizar Incompleto</button>
                  </form>
-                 <form method="post" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.numero_pedido_empresa %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de CANCELAR completamente este pedido y reintegrar todo el stock? Esta acción no se puede deshacer.');">
+                 <form method="post" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de CANCELAR completamente este pedido y reintegrar todo el stock? Esta acción no se puede deshacer.');">
                      {% csrf_token %}
                      <button type="submit" class="btn btn-danger"><i class="fas fa-times-circle"></i> Cancelar Pedido</button>
                  </form>

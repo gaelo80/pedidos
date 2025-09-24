@@ -24,7 +24,7 @@
 
     <div class="mt-3 d-flex flex-wrap gap-2">
         {# Botón para Descargar PDF #}
-        <a href="{% url 'pedidos:generar_pedido_pdf' pk=pedido.numero_pedido_empresa %}" class="btn btn-primary" target="_blank">
+        <a href="{% url 'pedidos:generar_pedido_pdf' pk=pedido.pk %}" class="btn btn-primary" target="_blank">
             <i class="fas fa-file-pdf me-1"></i> Descargar PDF del Pedido
         </a>
 

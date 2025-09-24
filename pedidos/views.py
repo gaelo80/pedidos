@@ -244,7 +244,7 @@ def vista_crear_pedido_web(request, pk=None):
                             print("DEBUG PEDIDO-STOCK: Bucle de MovInv terminado.") # <<<< PRINT 11
                             
                             messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
-                            return redirect('pedidos:pedido_creado_exito', pk=pedido.numero_pedido_empresa)
+                            return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
                     except Exception as e:
                         print(f"DEBUG PEDIDO-STOCK: EXCEPCIÓN en transacción: {e}") # <<<< PRINT 12
                         import traceback
@@ -280,7 +280,7 @@ def vista_crear_pedido_web(request, pk=None):
                         if form_instance:
                             DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
                         messages.success(request, f"Pedido Borrador pedido.numero_pedido_empresa guardado exitosamente.")
-                        return redirect('pedidos:editar_pedido_web', pk=pedido.numero_pedido_empresa)
+                        return redirect('pedidos:editar_pedido_web', pk=pedido.pk)
                 except Exception as e:
                     messages.error(request, f"Error al guardar el borrador: {e}")
 
@@ -763,7 +763,7 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
         detalles_agrupados_json = json.dumps(lista_grupos_final)
     context = {
         'pedido_form': pedido_form, 'referencias': list(referencias_qs),
-        'titulo': f'Editar Pedido Borrador #{pedido_instance.pk}' if pedido_instance else 'Crear Nuevo Pedido',
+        'titulo': f'Editar Pedido Borrador #{pedido_instance.numero_pedido_empresa}' if pedido_instance else 'Crear Nuevo Pedido',
         'pedido_instance': pedido_instance,
         'detalles_agrupados_json_data': detalles_agrupados_json,
         'linea_counter_init': linea_counter_init
@@ -808,31 +808,35 @@ def vista_lista_pedidos_borrador(request):
 @require_POST
 @user_passes_test(lambda u: not es_bodega(u) or es_administracion(u), login_url='core:acceso_denegado')
 def vista_eliminar_pedido_borrador(request, pk):
-    
-    """
-    Elimina un pedido en estado de borrador, asegurando que pertenezca al vendedor
-    y a la empresa actual.
-    """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('pedidos:lista_pedidos_borrador')
-    
-    
-    
-    try:
-        vendedor = Vendedor.objects.get(user=request.user, empresa=empresa_actual)
-        pedido = get_object_or_404(Pedido, pk=pk, vendedor=vendedor, estado='BORRADOR', empresa=empresa_actual)
-        pedido_id = pedido.numero_pedido_empresa
-        pedido.delete()
-        messages.success(request, f"El pedido borrador #{pedido_id} ha sido eliminado exitosamente.")
-    except Vendedor.DoesNotExist:
-        messages.error(request, "No tienes un perfil de vendedor en esta empresa para realizar esta acción.")
-    except Pedido.DoesNotExist:
-        messages.error(request, "El pedido borrador que intentas eliminar no existe o no te pertenece.")
-    except Exception as e:
-        messages.error(request, f"Ocurrió un error inesperado al eliminar el borrador: {e}")
-        
+
+    # Elimina el bloque try/except para ver el error real si no funciona.
+    # Primero, encuentra el pedido solo por PK y empresa
+    pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
+
+    # Luego, verifica las condiciones
+    if pedido.estado != 'BORRADOR':
+        messages.error(request, "Solo se pueden eliminar pedidos en estado borrador.")
+        return redirect('pedidos:lista_pedidos_borrador')
+
+    if es_vendedor(request.user):
+        try:
+            vendedor = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)
+            if pedido.vendedor != vendedor:
+                messages.error(request, "No tienes permisos para eliminar este borrador. No te pertenece.")
+                return redirect('pedidos:lista_pedidos_borrador')
+        except Vendedor.DoesNotExist:
+            messages.error(request, "No tienes un perfil de vendedor en esta empresa.")
+            return redirect('pedidos:lista_pedidos_borrador')
+
+    # Si todo está bien, elimina el pedido
+    pedido_id = pedido.pk
+    pedido.delete()
+    messages.success(request, f"El pedido borrador #{pedido_id} ha sido eliminado exitosamente.")
+
     return redirect('pedidos:lista_pedidos_borrador')
 
 
