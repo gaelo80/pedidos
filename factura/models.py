@@ -72,7 +72,7 @@ class Factura(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Facturación Pedido #{self.pedido.pk} - {self.get_estado_facturacion_display()}"
+        return f"Facturación Pedido #{self.pedido.numero_pedido_empresa} - {self.get_estado_facturacion_display()}"
 
     class Meta:
         verbose_name = "Registro de Facturación de Pedido"

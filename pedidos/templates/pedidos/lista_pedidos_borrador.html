@@ -57,15 +57,15 @@
                 <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
                 {# <td>{{ pedido.total|floatformat:0 }}</td> #}
                 <td class="text-center">
-                    <a href="{% url 'pedidos:editar_pedido_web' pk=pedido.pk %}" class="btn btn-warning btn-sm" title="Editar Borrador">
+                    <a href="{% url 'pedidos:editar_pedido_web' pk=pedido.numero_pedido_empresa %}" class="btn btn-warning btn-sm" title="Editar Borrador">
                         <i class="fas fa-pencil-alt"></i> Editar {# Usa un icono o texto #}
                     </a>
 
-                    <a href="{% url 'pedidos:generar_borrador_pdf' pk=pedido.pk %}" class="btn btn-info btn-sm ms-1" title="Imprimir Borrador PDF" target="_blank">
+                    <a href="{% url 'pedidos:generar_borrador_pdf' pk=pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm ms-1" title="Imprimir Borrador PDF" target="_blank">
                         <i class="fas fa-print"></i> Imprimir PDF
                     </a>
                     
-                    <form method="POST" action="{% url 'pedidos:eliminar_pedido_borrador' pk=pedido.pk %}" class="d-inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este borrador? No se podrá recuperar.');">
+                    <form method="POST" action="{% url 'pedidos:eliminar_pedido_borrador' pk=pedido.numero_pedido_empresa %}" class="d-inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este borrador? No se podrá recuperar.');">
                         {% csrf_token %} {# ¡Importante para seguridad POST! #}
                         <button type="submit" class="btn btn-danger btn-sm" title="Eliminar Borrador">
                             <i class="fas fa-trash-alt"></i> Eliminar

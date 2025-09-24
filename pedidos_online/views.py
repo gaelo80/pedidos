@@ -177,7 +177,7 @@ def crear_pedido_online(request, pk=None):
                                 productos_con_movimiento_ids.add(detalle_data['producto'].id)
 
                         messages.success(request, f"Online Order pedido.numero_pedido_empresa created and sent to warehouse.")
-                        return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
+                        return redirect('pedidos:pedido_creado_exito', pk=pedido.numero_pedido_empresa)
 
                     elif accion == 'guardar_borrador':
                         pedido.estado = 'BORRADOR'
