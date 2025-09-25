@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import SalidaInternaCabecera, SalidaInternaDetalle
+from .models import SalidaInternaCabecera, SalidaInternaDetalle, BorradorDespacho, DetalleBorradorDespacho
 from bodega.models import (
     IngresoBodega, DetalleIngresoBodega, 
     PersonalBodega, MovimientoInventario,
@@ -120,12 +120,7 @@ class DetalleComprobanteDespachoInline(admin.TabularInline):
     autocomplete_fields = ['producto']
     readonly_fields = ('producto', 'cantidad_despachada', 'detalle_pedido_origen') # Hacemos que los detalles aquí sean de solo lectura
     
-    
-    
-    
-    
-    
-    
+  
 
 @admin.register(ComprobanteDespacho)
 class ComprobanteDespachoAdmin(TenantAwareAdmin):
@@ -142,6 +137,25 @@ class ComprobanteDespachoAdmin(TenantAwareAdmin):
             return qs
         tenant = getattr(request, 'tenant', None)
         return qs.filter(empresa=tenant) if tenant else qs.none()
+    
+    
+
+class DetalleBorradorDespachoInline(admin.TabularInline):
+    model = DetalleBorradorDespacho
+    extra = 0
+    readonly_fields = ('producto', 'cantidad_escaneada_en_borrador')
+    can_delete = True # Permitir borrar detalles si es necesario
+
+@admin.register(BorradorDespacho)
+class BorradorDespachoAdmin(TenantAwareAdmin):
+  
+    list_display = ('id', 'pedido', 'empresa', 'usuario')
+    list_filter = ('empresa', 'usuario')
+    search_fields = ('pedido__id', 'pedido__numero_pedido_empresa', 'usuario__username')
+    inlines = [DetalleBorradorDespachoInline]
+       
+    readonly_fields = ('pedido', 'empresa', 'usuario')
+
     
 
 

@@ -1277,6 +1277,6 @@ def generar_borrador_online_pdf(request, pk):
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador ONLINE para pedido pedido.numero_pedido_empresa: {pisa_status.err}")
+       logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response

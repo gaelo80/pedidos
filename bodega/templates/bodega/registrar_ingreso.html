@@ -63,36 +63,45 @@
 
             {% if formset.non_form_errors %}
                  <div class="alert alert-danger p-2">{{ formset.non_form_errors }}</div>
-             {% endif %}
+            {% endif %}
 
-            {# Iterar sobre cada formulario individual dentro del FormSet #}
-            {% for detalle_form in formset %}
-                <div class="detalle-ingreso-item border-bottom pb-3 mb-3">
-                    {{ detalle_form.id }} {# Campo oculto #}
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-5">
-                            <label for="{{ detalle_form.producto.id_for_label }}" class="form-label">{{ detalle_form.producto.label }}</label>
-                            {{ detalle_form.producto }} {# Select normal por ahora. Mejorar con Select2-AJAX #}
-                            {% if detalle_form.producto.errors %}<div class="text-danger small">{{ detalle_form.producto.errors }}</div>{% endif %}
+            {# Contenedor para las filas del formset #}
+            <div id="detalle-ingreso-list">
+                {# Iterar sobre cada formulario individual dentro del FormSet #}
+                {% for detalle_form in formset %}
+                    <div class="detalle-ingreso-item border-bottom pb-3 mb-3">
+                        {{ detalle_form.id }} {# Campo oculto #}
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label for="{{ detalle_form.producto.id_for_label }}" class="form-label">{{ detalle_form.producto.label }}</label>
+                                {{ detalle_form.producto }}
+                                {% if detalle_form.producto.errors %}<div class="text-danger small">{{ detalle_form.producto.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ detalle_form.cantidad.id_for_label }}" class="form-label">{{ detalle_form.cantidad.label }}</label>
+                                {{ detalle_form.cantidad }}
+                                {% if detalle_form.cantidad.errors %}<div class="text-danger small">{{ detalle_form.cantidad.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ detalle_form.costo_unitario.id_for_label }}" class="form-label">{{ detalle_form.costo_unitario.label }}</label>
+                                {{ detalle_form.costo_unitario }}
+                                {% if detalle_form.costo_unitario.errors %}<div class="text-danger small">{{ detalle_form.costo_unitario.errors }}</div>{% endif %}
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label for="{{ detalle_form.cantidad.id_for_label }}" class="form-label">{{ detalle_form.cantidad.label }}</label>
-                            {{ detalle_form.cantidad }}
-                            {% if detalle_form.cantidad.errors %}<div class="text-danger small">{{ detalle_form.cantidad.errors }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-3">
-                            <label for="{{ detalle_form.costo_unitario.id_for_label }}" class="form-label">{{ detalle_form.costo_unitario.label }}</label>
-                            {{ detalle_form.costo_unitario }}
-                            {% if detalle_form.costo_unitario.errors %}<div class="text-danger small">{{ detalle_form.costo_unitario.errors }}</div>{% endif %}
-                        </div>
-                        {# Podrías añadir aquí el checkbox DELETE si lo habilitas #}
+                         {% if detalle_form.non_field_errors %}
+                             <div class="alert alert-warning p-1 mt-2 small">{{ detalle_form.non_field_errors }}</div>
+                        {% endif %}
                     </div>
-                     {% if detalle_form.non_field_errors %}
-                         <div class="alert alert-warning p-1 mt-2 small">{{ detalle_form.non_field_errors }}</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-            {# Botón futuro para añadir más filas con JS #}
+                {% endfor %}
+            </div>
+
+            {# --- BOTÓN PARA AGREGAR FILAS --- #}
+            <div class="text-end mt-3">
+                <button type="button" id="add-detalle-ingreso" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i> Agregar Producto
+                </button>
+            </div>
+
         </div> {# Fin card-body #}
 
         <div class="card-footer text-center">
@@ -101,14 +110,69 @@
     </div> {# Fin card #}
 
 </form>
+
+{# --- PLANTILLA OCULTA PARA LA NUEVA FILA --- #}
+<template id="detalle-ingreso-template">
+    <div class="detalle-ingreso-item border-bottom pb-3 mb-3">
+        {# El formset.empty_form usa '__prefix__' como placeholder para el índice de la nueva fila #}
+        {{ formset.empty_form.id }}
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="{{ formset.empty_form.producto.id_for_label }}" class="form-label">{{ formset.empty_form.producto.label }}</label>
+                {{ formset.empty_form.producto }}
+            </div>
+            <div class="col-md-3">
+                <label for="{{ formset.empty_form.cantidad.id_for_label }}" class="form-label">{{ formset.empty_form.cantidad.label }}</label>
+                {{ formset.empty_form.cantidad }}
+            </div>
+            <div class="col-md-3">
+                <label for="{{ formset.empty_form.costo_unitario.id_for_label }}" class="form-label">{{ formset.empty_form.costo_unitario.label }}</label>
+                {{ formset.empty_form.costo_unitario }}
+            </div>
+        </div>
+    </div>
+</template>
+
 {% endblock content %}
 
 {% block extra_scripts %}
 <script>
-    // $(document).ready(function() {
-    //     // TODO: Inicializar Select2 con AJAX para los campos 'producto'
-    //     // $('.producto-select-ingreso').select2({ ... ajax ... });
-    //     // Se necesita manejar la inicialización para filas nuevas si se añaden con JS.
-    // });
+document.addEventListener('DOMContentLoaded', function() {
+    const addRowBtn = document.getElementById('add-detalle-ingreso');
+    const formsetContainer = document.getElementById('detalle-ingreso-list');
+    const formTemplate = document.getElementById('detalle-ingreso-template');
+    const totalFormsInput = document.querySelector('[name="{{ formset.prefix }}-TOTAL_FORMS"]');
+    
+    // Verificación para evitar errores si los elementos no existen
+    if (!addRowBtn || !formsetContainer || !formTemplate || !totalFormsInput) {
+        console.error("No se encontraron los elementos necesarios para el formset dinámico.");
+        return;
+    }
+
+    addRowBtn.addEventListener('click', function() {
+        // Obtener el número actual de formularios
+        let formCount = parseInt(totalFormsInput.value);
+
+        // Clonar el contenido de la plantilla
+        const newForm = formTemplate.content.cloneNode(true);
+        
+        // Actualizar los atributos 'id', 'name', y 'for' en el clon
+        // reemplazando '__prefix__' con el nuevo índice
+        newForm.querySelectorAll('*').forEach(node => {
+            ['id', 'name', 'for'].forEach(attr => {
+                let value = node.getAttribute(attr);
+                if (value) {
+                    node.setAttribute(attr, value.replace(/__prefix__/g, formCount));
+                }
+            });
+        });
+
+        // Añadir la nueva fila al contenedor
+        formsetContainer.append(newForm);
+        
+        // Incrementar el contador de formularios en el management_form
+        totalFormsInput.value = formCount + 1;
+    });
+});
 </script>
 {% endblock extra_scripts %}

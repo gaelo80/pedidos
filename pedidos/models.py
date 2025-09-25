@@ -210,7 +210,7 @@ class Pedido(models.Model):
                 else:
                     self.numero_pedido_empresa = 1 
     
-            super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     @property
     def subtotal_base_bruto(self):

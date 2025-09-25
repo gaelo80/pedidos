@@ -159,7 +159,7 @@ def vista_crear_pedido_web(request):
                                 cantidad=detalle_data['cantidad'],
                                 precio_unitario=detalle_data['precio_unitario']
                             )
-                    messages.success(request, f"Pedido pedido.numero_pedido_empresa creado exitosamente desde la web.")
+                    messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado exitosamente desde la web.")
                     return redirect('lista_pedidos_bodega') # O a donde quieras ir
                 except Exception as e:
                     messages.error(request, f"Error inesperado al guardar el pedido: {e}")
@@ -177,7 +177,7 @@ def vista_crear_pedido_web(request):
 
 @login_required
 def vista_verificar_pedido(request, pk): # ... código completo ...
-    pedido = get_object_or_404(Pedido, pk=pk); detalles = pedido.detalles.all().order_by('producto__nombre'); context = {'pedido': pedido,'detalles_pedido': detalles, 'titulo': f'Verificar Pedido pedido.numero_pedido_empresa'}; return render(request, 'bodega/verificar_pedido.html', context) # Lógica POST omitida por brevedad, debe estar completa
+    pedido = get_object_or_404(Pedido, pk=pk); detalles = pedido.detalles.all().order_by('producto__nombre'); context = {'pedido': pedido,'detalles_pedido': detalles, 'titulo': f'Verificar Pedido #{pedido.numero_pedido_empresa}'}; return render(request, 'bodega/verificar_pedido.html', context) # Lógica POST omitida por brevedad, debe estar completa
 @login_required
 def vista_lista_pedidos_bodega(request): # ... código completo ...
     pedidos_pendientes = Pedido.objects.filter(estado__in=['PENDIENTE', 'PROCESANDO']).order_by('fecha_hora'); context = {'pedidos_list': pedidos_pendientes, 'titulo': 'Pedidos Pendientes Bodega'}; return render(request, 'bodega/lista_pedidos_bodega.html', context)

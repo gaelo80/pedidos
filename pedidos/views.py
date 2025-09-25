@@ -118,6 +118,7 @@ def vista_crear_pedido_web(request, pk=None):
         
     pedido_instance = None
     detalles_existentes = None
+    
     if pk is not None:
         query_params = {'pk': pk, 'estado': 'BORRADOR', 'empresa': empresa_actual}
         if vendedor and not (request.user.is_staff or es_administracion(request.user)):
@@ -237,13 +238,11 @@ def vista_crear_pedido_web(request, pk=None):
                                     producto=detalle_final_mov.producto,
                                     cantidad= -detalle_final_mov.cantidad,
                                     tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Creado)',
+                                    documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Creado)',
                                     usuario=request.user,
-                                    notas=f'Salida por creación de pedido pedido.numero_pedido_empresa (pendiente aprobación)'
+                                    notas=f'Salida por creación de pedido #{pedido.numero_pedido_empresa} (pendiente aprobación)'
                                 )
-                            print("DEBUG PEDIDO-STOCK: Bucle de MovInv terminado.") # <<<< PRINT 11
-                            
-                            messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
+                                messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
                             return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
                     except Exception as e:
                         print(f"DEBUG PEDIDO-STOCK: EXCEPCIÓN en transacción: {e}") # <<<< PRINT 12
@@ -252,6 +251,12 @@ def vista_crear_pedido_web(request, pk=None):
                         messages.error(request, f"Error inesperado al guardar el pedido definitivo: {e}")
                 else:
                      print("DEBUG PEDIDO-STOCK: NO SE CUMPLIÓ 'stock_suficiente_para_crear' o había 'errores_generales'.") # <<<< PRINT 13
+                     
+                     
+                     
+                     
+                     
+                     
 
             elif accion == 'guardar_borrador':
                 try:
@@ -279,7 +284,7 @@ def vista_crear_pedido_web(request, pk=None):
                             productos_guardados_ids.add(producto_obj.pk)
                         if form_instance:
                             DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
-                        messages.success(request, f"Pedido Borrador pedido.numero_pedido_empresa guardado exitosamente.")
+                        messages.success(request, f"Pedido Borrador #{pedido.numero_pedido_empresa} guardado exitosamente.")
                         return redirect('pedidos:editar_pedido_web', pk=pedido.pk)
                 except Exception as e:
                     messages.error(request, f"Error al guardar el borrador: {e}")
@@ -380,11 +385,11 @@ def aprobar_pedido_cartera(request, pk):
             if motivo:
                 pedido.motivo_cartera = motivo
             pedido.save()
-            print(f"DEBUG APROB-CARTERA: Pedido pedido.numero_pedido_empresa guardado con estado {pedido.estado}")
+            print(f"DEBUG APROB-CARTERA: Pedido #{pedido.numero_pedido_empresa} guardado con estado {pedido.estado}")
             messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} aprobado por Cartera y enviado a Administración.")
     except Exception as e:
         print(f"DEBUG APROB-CARTERA: Excepción al aprobar: {e}")
-        messages.error(request, f"Error al aprobar el pedido pedido.numero_pedido_empresa por Cartera: {e}")
+        messages.error(request, f"Error al aprobar el pedido #{pedido.numero_pedido_empresa} por Cartera: {e}")
         
     return redirect('pedidos:lista_aprobacion_cartera')
 
@@ -433,13 +438,13 @@ def rechazar_pedido_cartera(request, pk):
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_CARTERA',
-                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Rechazo Cartera)',
+                    documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Rechazo Cartera)',
                     usuario=request.user,
-                    notas=f'Reintegro por rechazo Cartera. Pedido pedido.numero_pedido_empresa. Motivo: {motivo}'
+                    notas=f'Reintegro por rechazo Cartera. Pedido #{pedido.numero_pedido_empresa}. Motivo: {motivo}'
                 )
             messages.warning(request, f"Pedido #{pedido.numero_pedido_empresa} rechazado por Cartera. Stock reintegrado.")
     except Exception as e:
-        messages.error(request, f"Error al rechazar el pedido pedido.numero_pedido_empresa por Cartera: {e}")
+        messages.error(request, f"Error al rechazar el pedido #{pedido.numero_pedido_empresa} por Cartera: {e}")
 
     return redirect('pedidos:lista_aprobacion_cartera')
 
@@ -507,7 +512,7 @@ def aprobar_pedido_admin(request, pk):
             # No hay movimiento de stock aquí según la nueva lógica
             messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} aprobado por Administración y enviado a Bodega.")
     except Exception as e:
-        messages.error(request, f"Error al aprobar el pedido pedido.numero_pedido_empresa por Administración: {e}")
+        messages.error(request, f"Error al aprobar el pedido #{pedido.numero_pedido_empresa} por Administración: {e}")
         
     return redirect('pedidos:lista_aprobacion_admin')
 
@@ -556,13 +561,14 @@ def rechazar_pedido_admin(request, pk):
                     producto=detalle_rechazado.producto,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_ADMIN',
-                    documento_referencia=f'Pedido pedido.numero_pedido_empresa (Rechazo Admin)',
+                    documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Rechazo Admin)',
                     usuario=request.user,
-                    notas=f'Reintegro por rechazo Admin. Pedido pedido.numero_pedido_empresa. Motivo: {motivo}'
+                    notas=f'Reintegro por rechazo Admin. Pedido #{pedido.numero_pedido_empresa}. Motivo: {motivo}'
                 )
             messages.warning(request, f"Pedido #{pedido.numero_pedido_empresa} rechazado por Administración. Stock reintegrado.")
     except Exception as e:
-        messages.error(request, f"Error al rechazar el pedido pedido.numero_pedido_empresa por Administración: {e}")
+        messages.error(request, f"Error al rechazar el pedido #{pedido.numero_pedido_empresa} por Administración: {e}")
+
         
     return redirect('pedidos:lista_aprobacion_admin')
 
@@ -691,7 +697,7 @@ def vista_pedido_exito(request, pk):
             if telefono_cliente_limpio:
                 mensaje_texto = (
                     f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''}, "
-                    f"te comparto el pedido pedido.numero_pedido_empresa. " 
+                    f"te comparto el pedido #{pedido.numero_pedido_empresa}. "
                     f"Adjunta el PDF descargado para confirmar. Gracias."
                 )
                 mensaje_encoded = quote(mensaje_texto)
@@ -850,21 +856,30 @@ def vista_detalle_pedido(request, pk):
 
     query = Pedido.objects.prefetch_related('detalles__producto', 'cliente', 'vendedor__user')
     pedido = get_object_or_404(query, pk=pk, empresa=empresa_actual)
+    
+    
+    
+    # --- Reglas de acceso MEJORADAS ---
+    es_admin_o_staff = request.user.is_superuser or es_administracion(request.user)
+    es_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
+    
+    # Lista de grupos que pueden ver CUALQUIER pedido que NO sea borrador
+    grupos_autorizados = ['Bodega', 'Cartera', 'Factura', 'Administracion']
+    pertenece_a_grupo_autorizado = request.user.groups.filter(name__in=grupos_autorizados).exists()
 
-    # --- Reglas de acceso (mantener igual) ---
-    es_superuser = request.user.is_superuser
-    es_admin = es_administracion(request.user)
-    es_vendedor_y_su_pedido = hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor
-    estado_borrador = pedido.estado == 'BORRADOR'
-
-    if estado_borrador:
-        if not es_vendedor_y_su_pedido and not es_superuser and not es_admin:
+    # Si el pedido es un borrador, solo el vendedor que lo creó o un admin pueden verlo.
+    if pedido.estado == 'BORRADOR':
+        if not (es_su_pedido or es_admin_o_staff):
             messages.error(request, "No tienes permisos para ver este pedido en estado borrador.")
             return redirect('pedidos:lista_pedidos_borrador')
+    
+    # Si NO es un borrador, el vendedor, un admin, o un miembro de un grupo autorizado pueden verlo.
     else:
-        if not es_superuser and not es_admin:
-            # Aquí permitimos que usuarios normales (ej. bodega) puedan ver pedidos NO borrador
-            pass  # Permitido
+        if not (es_su_pedido or es_admin_o_staff or pertenece_a_grupo_autorizado):
+            messages.error(request, "No tienes permiso para ver los detalles de este pedido.")
+            return redirect('core:acceso_denegado')
+
+
 
     # --- Cálculo del IVA (mantener igual) ---
     iva_porcentaje = Decimal('0.00')
@@ -931,7 +946,7 @@ def vista_detalle_pedido(request, pk):
     # --- FIN DE LA LÓGICA DE AGRUPAMIENTO DE PRODUCTOS PARA LA TABLA ---
 
     context = {
-        'titulo': f'Detalle del Pedido pedido.numero_pedido_empresa',
+        'titulo': f'Detalle del Pedido #{pedido.numero_pedido_empresa}',
         'pedido': pedido,
         # 'detalles_pedido': detalles_pedido, # Ya no necesitas esto para la tabla de productos
         'items_agrupados_para_tabla': items_para_tabla_html, # <-- NUEVOS DATOS PARA LA TABLA
@@ -961,7 +976,7 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
                         if foto.imagen and hasattr(foto.imagen, 'url') and foto.imagen.url not in urls_fotos_ya_agregadas:
                             fotos_del_pedido.append(foto)
                             urls_fotos_ya_agregadas.add(foto.imagen.url)
-        context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido pedido.numero_pedido_empresa"}
+        context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido #{pedido.numero_pedido_empresa}"}
         return render(request, self.template_name, context)
     
 @login_required
@@ -1054,6 +1069,6 @@ def generar_borrador_pdf(request, pk):
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador para pedido pedido.numero_pedido_empresa: {pisa_status.err}")
+       logger.error(f"Error al generar PDF de borrador para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response

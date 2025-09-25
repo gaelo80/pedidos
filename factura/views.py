@@ -420,7 +420,7 @@ class InformeDespachosPorPedidoView(TenantAwareMixin, LoginRequiredMixin, Permis
             pedido_id_query = form.cleaned_data['pedido_id']
             try:
                 pedido_obj = Pedido.objects.select_related('cliente').get(
-                    pk=pedido_id_query, 
+                    numero_pedido_empresa=pedido_id_query,
                     empresa=self.request.tenant # <-- FILTRO DE SEGURIDAD
                 )
                 

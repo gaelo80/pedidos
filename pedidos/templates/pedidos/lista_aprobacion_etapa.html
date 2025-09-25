@@ -31,14 +31,6 @@
         <a href="{% url 'core:index' %}" class="btn btn-outline-secondary">Volver al Panel Princial</a>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
 
     {% if pedidos_list %}
         <div class="card shadow-sm">
@@ -60,7 +52,7 @@
                             {% for pedido in pedidos_list %}
                             <tr>
                                 <td>
-                                    <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="fw-bold" title="Ver detalle del pedido">
+                                    <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="fw-bold" title="Ver detalle del pedido">
                                         #{{ pedido.numero_pedido_empresa }}
                                     </a>
                                 </td>
@@ -84,23 +76,23 @@
                                 <td class="text-center action-buttons">
                                     {% if etapa_actual == 'cartera' %}
                                         <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#aprobarPedidoModal" 
-                                                data-pedido-id="{{ pedido.numero_pedido_empresa }}" data-action-url="{% url 'pedidos:aprobar_pedido_cartera' pedido.numero_pedido_empresa %}"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:aprobar_pedido_cartera' pedido.pk %}"
                                                 data-modal-title="Aprobar Pedido #{{ pedido.numero_pedido_empresa }} (Cartera)">
                                             <i class="fas fa-check me-1"></i> Aprobar
                                         </button>
                                         <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rechazarPedidoModal"
-                                                data-pedido-id="{{ pedido.numero_pedido_empresa }}" data-action-url="{% url 'pedidos:rechazar_pedido_cartera' pedido.numero_pedido_empresa %}"
-                                                data-modal-title="Rechazar Pedido #{{ pedido.numero_pedido_empresak }} (Cartera)">
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:rechazar_pedido_cartera' pedido.pk %}"
+                                                data-modal-title="Rechazar Pedido #{{ pedido.numero_pedido_empresa }} (Cartera)">
                                             <i class="fas fa-times me-1"></i> Rechazar
                                         </button>
                                     {% elif etapa_actual == 'admin' %}
                                         <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#aprobarPedidoModal"
-                                                data-pedido-id="{{ pedido.numero_pedido_empresa }}" data-action-url="{% url 'pedidos:aprobar_pedido_admin' pedido.numero_pedido_empresa %}"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:aprobar_pedido_admin' pedido.pk %}"
                                                 data-modal-title="Aprobar Pedido #{{ pedido.numero_pedido_empresa }} (Admin)">
                                             <i class="fas fa-check-circle me-1"></i> Aprobar
                                         </button>
                                         <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#rechazarPedidoModal"
-                                                data-pedido-id="{{ pedido.numero_pedido_empresa }}" data-action-url="{% url 'pedidos:rechazar_pedido_admin' pedido.numero_pedido_empresa %}"
+                                                data-pedido-id="{{ pedido.pk }}" data-action-url="{% url 'pedidos:rechazar_pedido_admin' pedido.pk %}"
                                                 data-modal-title="Rechazar Pedido #{{ pedido.numero_pedido_empresa }} (Admin)">
                                             <i class="fas fa-ban me-1"></i> Rechazar
                                         </button>

@@ -62,7 +62,7 @@
                         <td>{{ comprobante.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
                         <td class="text-center">
                             {% if comprobante.pedido %}
-                                <a href="{% url 'pedidos:detalle_pedido' comprobante.pedido.pk %}" target="_blank">{{ comprobante.pedido.pk }}</a>
+                                <a href="{% url 'pedidos:detalle_pedido' comprobante.pedido.pk %}" target="_blank">{{ comprobante.pedido.numero_pedido_empresa }}</a>
                             {% else %}
                                 N/A
                             {% endif %}

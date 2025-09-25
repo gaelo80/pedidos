@@ -90,8 +90,8 @@
                             <td>{{ estado_factura.referencia_factura_externa|default:"N/A" }}</td>
                             <td class="text-center">
                                 {% if estado_factura.despacho.pedido %}
-                                    <a href="{% url 'pedidos:detalle_pedido' estado_factura.despacho.pedido.numero_pedido_empresa %}">
-                                        {{ estado_factura.despacho.pedido.pk }}
+                                    <a href="{% url 'pedidos:detalle_pedido' estado_factura.despacho.pedido.pk %}">
+                                        {{ estado_factura.despacho.pedido.numero_pedido_empresa }}
                                     </a>
                                 {% else %}
                                     N/A

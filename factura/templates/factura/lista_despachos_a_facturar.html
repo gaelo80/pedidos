@@ -65,7 +65,7 @@
                         <td>{{ despacho.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
                         <td>
                             {% if despacho.pedido %}
-                                <a href="{% url 'pedidos:detalle_pedido' despacho.pedido.pk %}">{{ despacho.pedido.pk }}</a>
+                                <a href="{% url 'pedidos:detalle_pedido' despacho.pedido.pk %}">{{ despacho.pedido.numero_pedido_empresa }}</a>
                             {% else %}
                                 N/A
                             {% endif %}

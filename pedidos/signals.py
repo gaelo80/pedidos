@@ -72,7 +72,7 @@ def crear_notificacion_cambio_estado_pedido(sender, instance, **kwargs):
     # Lógica para determinar a quién notificar, usando los nombres de TUS estados.
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA':
         grupo_destino = 'Cartera'
-        mensaje = f"El pedido #{instance.id} de {instance.destinatario.nombre_completo} requiere tu aprobación."
+        mensaje = f"El pedido #{instance.numero_pedido_empresa} de {instance.destinatario.nombre_completo} requiere tu aprobación."
         try:
             url_destino = reverse('pedidos:lista_aprobacion_cartera')
         except NoReverseMatch:
@@ -80,7 +80,7 @@ def crear_notificacion_cambio_estado_pedido(sender, instance, **kwargs):
 
     elif instance.estado == 'PENDIENTE_APROBACION_ADMIN':
         grupo_destino = 'Administracion'
-        mensaje = f"El pedido #{instance.id} fue aprobado por Cartera y requiere tu aprobación."
+        mensaje = f"El pedido #{instance.numero_pedido_empresa} fue aprobado por Cartera y requiere tu aprobación."
         try:
             url_destino = reverse('pedidos:lista_aprobacion_admin')
         except NoReverseMatch:
@@ -88,7 +88,7 @@ def crear_notificacion_cambio_estado_pedido(sender, instance, **kwargs):
         
     elif instance.estado == 'APROBADO_ADMIN':
         grupo_destino = 'Bodega'
-        mensaje = f"El pedido #{instance.id} fue aprobado y está listo para despacho en bodega."
+        mensaje = f"El pedido #{instance.numero_pedido_empresa} fue aprobado y está listo para despacho en bodega."
         try:
             url_destino = reverse('bodega:lista_pedidos_bodega')
         except NoReverseMatch:

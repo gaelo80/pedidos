@@ -10,7 +10,7 @@ from .models import Pedido, DetallePedido
 class DetallePedidoInline(admin.TabularInline):
     model = DetallePedido
     extra = 0 # No mostrar formularios extra por defecto
-    fields = ('producto', 'cantidad', 'precio_unitario', 'subtotal')
+    fields = ('producto', 'cantidad', 'cantidad_verificada', 'precio_unitario', 'subtotal')
     readonly_fields = ('subtotal',)
 
     autocomplete_fields = ['producto']
@@ -20,7 +20,7 @@ class DetallePedidoInline(admin.TabularInline):
 class PedidoAdmin(admin.ModelAdmin):
     
     # --- CONFIGURACIÓN VISUAL Y DE USABILIDAD (Se queda igual) ---
-    list_display = (
+    list_display = ('numero_pedido_empresa',
         'id', 'empresa', 'cliente', 'vendedor', 'fecha_hora', 'estado',
         'ver_total', 'enlace_pdf', 'enlace_descarga_fotos_lista',
     )

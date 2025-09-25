@@ -75,9 +75,9 @@
                             <td>{{ estado_factura_item.despacho.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
                             <td>
                                 {% if estado_factura_item.despacho.pedido %}
-                                    <a href="{% url 'pedidos:detalle_pedido' estado_factura_item.despacho.pedido.pk %}">
-                                        {{ estado_factura_item.despacho.pedido.pk }}
-                                    </a>
+                                <a href="{% url 'pedidos:detalle_pedido' estado_factura_item.despacho.pedido.pk %}">
+                                    {{ estado_factura_item.despacho.pedido.numero_pedido_empresa }}
+                                </a>
                                 {% else %}
                                     N/A
                                 {% endif %}

@@ -175,7 +175,7 @@ def reporte_ventas_vendedor(request):
     # Lógica de filtro por vendedor
     if es_administracion_rol_actual:
         vendedores_list_for_dropdown = Vendedor.objects.filter(
-            empresa=empresa_actual, 
+            user__empresa=empresa_actual,
             activo=True
         ).select_related('user').order_by('user__first_name', 'user__last_name')
         
@@ -185,7 +185,7 @@ def reporte_ventas_vendedor(request):
                 vendedor_id_int = int(vendedor_seleccionado_id_str)
                 # Aplicar el filtro de vendedor aquí mismo para que pedidos_filtrados_final_qs contenga solo los pedidos relevantes
                 pedidos_filtrados_final_qs = pedidos_base_qs.filter(vendedor_id=vendedor_id_int)
-                vendedor_objeto_contexto = Vendedor.objects.get(pk=vendedor_id_int, empresa=empresa_actual)
+                vendedor_objeto_contexto = Vendedor.objects.get(pk=vendedor_id_int, user__empresa=empresa_actual)
             except (ValueError, Vendedor.DoesNotExist):
                 messages.error(request, "El vendedor seleccionado no es válido o no pertenece a esta empresa.")
                 return redirect(f"{request.path}?fecha_inicio={fecha_inicio_dt_aware.strftime('%Y-%m-%d')}&fecha_fin={fecha_fin_dt_aware.strftime('%Y-%m-%d')}")
@@ -232,6 +232,8 @@ def reporte_ventas_vendedor(request):
         total_unidades_despachadas_pedido=Coalesce(total_unidades_despachadas_subquery, Value(0)) 
     )
 
+
+
     # Calcular agregados solicitados
     agregados_solicitados_vendedor = DetallePedido.objects.filter(
         pedido__in=pedidos_para_lista_y_agregados # Asegura que solo se consideran los pedidos ya filtrados
@@ -241,6 +243,10 @@ def reporte_ventas_vendedor(request):
     )
     total_unidades_solicitadas_vendedor = agregados_solicitados_vendedor['total_unidades']
     valor_total_ventas_solicitadas_vendedor = agregados_solicitados_vendedor['valor_total']
+    
+    
+    
+    
 
     # Agregados de unidades despachadas basados en DetalleComprobanteDespacho
     # Aquí sumamos las unidades despachadas SÓLO para los pedidos que YA ESTÁN en pedidos_para_lista_y_agregados

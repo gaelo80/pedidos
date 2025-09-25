@@ -131,13 +131,13 @@
                                     {% endwith %}
                                 </td>
                                 <td class="text-center text-nowrap"> {# text-nowrap para evitar que los botones salten de línea #}
-                                    <a href="{% url 'bodega:verificar_pedido' pedido.numero_pedido_empresa %}" class="btn btn-sm btn-success rounded-pill shadow-sm me-1" title="Verificar o despachar manualmente">
+                                    <a href="{% url 'bodega:verificar_pedido' pedido.pk %}" class="btn btn-sm btn-success rounded-pill shadow-sm me-1" title="Verificar o despachar manualmente">
                                         <i class="fas fa-check-circle me-1"></i> Verificar
                                     </a>
                                     <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary rounded-pill shadow-sm me-1" title="Despachar con Scanner">
                                         <i class="fas fa-barcode me-1"></i> Despachar
                                     </a>
-                                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.numero_pedido_empresa %}" class="btn btn-sm btn-info rounded-pill shadow-sm" target="_blank" title="Ver PDF del Pedido">
+                                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info rounded-pill shadow-sm" target="_blank" title="Ver PDF del Pedido">
                                         <i class="fas fa-file-pdf me-1"></i> PDF
                                     </a>
 

@@ -17,6 +17,7 @@
                 <i class="fas fa-file-excel me-2"></i> Exportar a Excel
             </a>
         </div>
+
     </div>
 
     <div class="row mb-4"> {# Espacio entre el título y las tarjetas #}
@@ -113,31 +114,52 @@
         </div>
     </div>
 
-    {% if productos.has_other_pages %}
-    <nav aria-label="Paginación de inventario" class="mt-4 d-flex justify-content-center"> {# Añadido d-flex justify-content-center #}
-        <ul class="pagination mb-0"> {# mb-0 #}
-            {% if productos.has_previous %}
-                <li class="page-item">
-                    <a class="page-link rounded-pill-start" href="?page=1&{{ filtros_activos.urlencode }}">« Primera</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ productos.previous_page_number }}&{{ filtros_activos.urlencode }}">Anterior</a>
-                </li>
-            {% endif %}
-
-            <li class="page-item disabled"><span class="page-link">Página {{ productos.number }} de {{ productos.paginator.num_pages }}</span></li>
-
-            {% if productos.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ productos.next_page_number }}&{{ filtros_activos.urlencode }}">Siguiente</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link rounded-pill-end" href="?page={{ productos.paginator.num_pages }}&{{ filtros_activos.urlencode }}">Última »</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+{% if productos.has_other_pages %}
+<nav aria-label="Paginación de inventario" class="mt-4 d-flex justify-content-center">
+  <ul class="pagination mb-0">
+    {% if productos.has_previous %}
+      <li class="page-item">
+        <a class="page-link rounded-pill rounded-start"
+           href="?{{ filtros_activos.urlencode }}&page=1"
+           aria-label="Primera página">
+          « Primera
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link"
+           href="?{{ filtros_activos.urlencode }}&page={{ productos.previous_page_number }}"
+           aria-label="Página anterior">
+          Anterior
+        </a>
+      </li>
     {% endif %}
+
+    <li class="page-item disabled" aria-disabled="true">
+      <span class="page-link">
+        Página {{ productos.number }} de {{ productos.paginator.num_pages }}
+      </span>
+    </li>
+
+    {% if productos.has_next %}
+      <li class="page-item">
+        <a class="page-link"
+           href="?{{ filtros_activos.urlencode }}&page={{ productos.next_page_number }}"
+           aria-label="Página siguiente">
+          Siguiente
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link rounded-pill rounded-end"
+           href="?{{ filtros_activos.urlencode }}&page={{ productos.paginator.num_pages }}"
+           aria-label="Última página">
+          Última »
+        </a>
+      </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
 
 </div>
 {% endblock content %}
