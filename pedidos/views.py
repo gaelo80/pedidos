@@ -696,9 +696,9 @@ def vista_pedido_exito(request, pk):
 
             if telefono_cliente_limpio:
                 mensaje_texto = (
-                    f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''}, "
-                    f"te comparto el pedido #{pedido.numero_pedido_empresa}. "
-                    f"Adjunta el PDF descargado para confirmar. Gracias."
+                    f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''},"
+                    f" te comparto el pedido #{pedido.numero_pedido_empresa}."
+                    f" Adjunta el PDF descargado para confirmar. Gracias."
                 )
                 mensaje_encoded = quote(mensaje_texto)
                 whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"
@@ -810,6 +810,7 @@ def vista_lista_pedidos_borrador(request):
 
 
 
+
 @login_required
 @require_POST
 @user_passes_test(lambda u: not es_bodega(u) or es_administracion(u), login_url='core:acceso_denegado')
@@ -844,6 +845,7 @@ def vista_eliminar_pedido_borrador(request, pk):
     messages.success(request, f"El pedido borrador #{pedido_id} ha sido eliminado exitosamente.")
 
     return redirect('pedidos:lista_pedidos_borrador')
+
 
 
 
