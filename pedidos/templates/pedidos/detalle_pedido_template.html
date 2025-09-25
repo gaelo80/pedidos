@@ -28,11 +28,11 @@
             <div class="row mb-4">
                 <div class="col-md-6">
                     <h5>Datos del Cliente</h5>
-                    <p><strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
-                    <p><strong>Identificación:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
-                    <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono|default:"N/A" }}</p>
-                    <p><strong>Email:</strong> {{ pedido.cliente.email|default:"N/A" }}</p>
-                    <p><strong>Dirección:</strong> {{ pedido.cliente.direccion|default:"" }}{% if pedido.cliente.ciudad %}, {{ pedido.cliente.ciudad.nombre }}{% endif %}</p>
+                    <p><strong>Cliente:</strong> {{ pedido.destinatario.nombre_completo|default:"N/A" }}</p>
+                    <p><strong>Identificación:</strong> {{ pedido.destinatario.identificacion|default:"N/A" }}</p>
+                    <p><strong>Teléfono:</strong> {{ pedido.destinatario.telefono|default:"N/A" }}</p>
+                    <p><strong>Email:</strong> {{ pedido.destinatario.email|default:"N/A" }}</p>
+                    <p><strong>Dirección:</strong> {{ pedido.destinatario.direccion|default:"" }}{% if pedido.destinatario.ciudad %}, {{ pedido.destinatario.ciudad.nombre }}{% endif %}</p>
                 </div>
                 <div class="col-md-6">
                     <h5>Datos del Pedido</h5>

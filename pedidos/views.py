@@ -242,7 +242,8 @@ def vista_crear_pedido_web(request, pk=None):
                                     usuario=request.user,
                                     notas=f'Salida por creación de pedido #{pedido.numero_pedido_empresa} (pendiente aprobación)'
                                 )
-                                messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
+                                
+                            messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
                             return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
                     except Exception as e:
                         print(f"DEBUG PEDIDO-STOCK: EXCEPCIÓN en transacción: {e}") # <<<< PRINT 12
