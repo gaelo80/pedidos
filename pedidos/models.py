@@ -289,14 +289,13 @@ class DetallePedido(models.Model):
     cantidad = models.IntegerField(default=1, verbose_name="Cantidad") 
     
     TIPO_DETALLE_CHOICES = [
-        ('VENTA', 'Venta Normal'),              # Para pedidos estándar y online
-        ('DEVOLUCION', 'Devolución en Cambio'), # Producto que el cliente devuelve
-        ('ENVIO', 'Envío en Cambio'),           # Producto nuevo que se envía
+        ('ENVIO', 'Producto Enviado'),
+        ('DEVOLUCION', 'Producto Devuelto'),
     ]
     tipo_detalle = models.CharField(
-        max_length=20,
+        max_length=10,
         choices=TIPO_DETALLE_CHOICES,
-        default='VENTA', # Importante: 'VENTA' es el default para no afectar pedidos existentes
+        default='ENVIO', # Por defecto, la mayoría de los detalles son envíos
         verbose_name="Tipo de Detalle"
     )
     
@@ -333,12 +332,10 @@ class DetallePedido(models.Model):
             return max(0, pendiente)
 
     def __str__(self):
-            # Actualizamos el método para que sea más descriptivo
+
             if self.tipo_detalle == 'DEVOLUCION':
-                return f"DEVOLUCIÓN: {self.cantidad} x {self.producto.referencia} (Pedido #{self.pedido.numero_pedido_empresa})"
-            elif self.tipo_detalle == 'ENVIO':
-                return f"ENVÍO CAMBIO: {self.cantidad} x {self.producto.referencia} (Pedido #{self.pedido.numero_pedido_empresa})"
-            return f"{self.cantidad} x {self.producto.referencia} (Pedido #{self.pedido.numero_pedido_empresa})"
+                return f"DEVOLUCIÓN: {self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido.pk})"
+            return f"{self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido.pk})"
 
     class Meta:
         verbose_name = "Detalle de Pedido"
