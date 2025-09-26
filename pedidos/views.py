@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from django.views import View
 from urllib.parse import quote
 from django.contrib.auth.models import User
+from .signals import sincronizar_reservas_borrador
 import json
 import re
 from collections import defaultdict
@@ -225,23 +226,8 @@ def vista_crear_pedido_web(request, pk=None):
                                 detalles_guardados_para_movimiento.append(detalle_obj)
 
                             if form_instance:
-                                DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
-                            
-                            print(f"DEBUG PEDIDO-STOCK: No. Detalles para movimiento = {len(detalles_guardados_para_movimiento)}") # <<<< PRINT 8
-                            if not detalles_guardados_para_movimiento:
-                                print("DEBUG PEDIDO-STOCK: ADVERTENCIA - No hay detalles para crear movimientos de inventario.") # <<<< PRINT 9
-
-                            for detalle_final_mov in detalles_guardados_para_movimiento:
-                                print(f"DEBUG PEDIDO-STOCK: Creando MovInv para Prod ID {detalle_final_mov.producto.id}, Cant: {-detalle_final_mov.cantidad}") # <<<< PRINT 10
-                                MovimientoInventario.objects.create(
-                                    empresa=empresa_actual,
-                                    producto=detalle_final_mov.producto,
-                                    cantidad= -detalle_final_mov.cantidad,
-                                    tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                                    documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Creado)',
-                                    usuario=request.user,
-                                    notas=f'Salida por creación de pedido #{pedido.numero_pedido_empresa} (pendiente aprobación)'
-                                )
+                                DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()                                
+                                                         
                                 
                             messages.success(request, f"Pedido #{pedido.numero_pedido_empresa} creado y enviado a aprobación. Stock descontado.")
                             return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
@@ -251,12 +237,7 @@ def vista_crear_pedido_web(request, pk=None):
                         traceback.print_exc() # Imprime el traceback completo en la consola
                         messages.error(request, f"Error inesperado al guardar el pedido definitivo: {e}")
                 else:
-                     print("DEBUG PEDIDO-STOCK: NO SE CUMPLIÓ 'stock_suficiente_para_crear' o había 'errores_generales'.") # <<<< PRINT 13
-                     
-                     
-                     
-                     
-                     
+                     print("DEBUG PEDIDO-STOCK: NO SE CUMPLIÓ 'stock_suficiente_para_crear' o había 'errores_generales'.") # <<<< PRINT 13           
                      
 
             elif accion == 'guardar_borrador':
@@ -285,6 +266,7 @@ def vista_crear_pedido_web(request, pk=None):
                             productos_guardados_ids.add(producto_obj.pk)
                         if form_instance:
                             DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
+                        sincronizar_reservas_borrador(pedido)
                         messages.success(request, f"Pedido Borrador #{pedido.numero_pedido_empresa} guardado exitosamente.")
                         return redirect('pedidos:editar_pedido_web', pk=pedido.pk)
                 except Exception as e:
@@ -622,10 +604,22 @@ def generar_pedido_pdf(request, pk):
     
     
     for detalle in detalles_originales:
-        # Asumiendo que el modelo Producto tiene un campo 'genero'
+        print(f"DEBUG PDF: Ref: {detalle.producto.referencia}, Talla: '{detalle.producto.talla}', Tipo: {type(detalle.producto.talla)}")
+        # NORMALIZACIÓN DE TALLAS: Convertir 16 a 13 para el PDF
+        if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
+            # Convertimos la talla a texto y quitamos espacios para una comparación segura
+            talla_como_texto = str(detalle.producto.talla).strip()
+            if talla_como_texto == '16':
+                detalle.producto.talla = '13'
+        
+        # El resto del bucle continúa igual
         genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
         if genero_producto == 'DAMA':
             items_dama.append(detalle)
+            
+            
+            
+            
         elif genero_producto == 'CABALLERO':
             items_caballero.append(detalle)
         else:
@@ -1031,6 +1025,14 @@ def generar_borrador_pdf(request, pk):
     TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
     
     for detalle in detalles_originales:
+        # NORMALIZACIÓN DE TALLAS: Convertir 16 a 13 para el PDF
+        if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
+            # Convertimos la talla a texto y quitamos espacios para una comparación segura
+            talla_como_texto = str(detalle.producto.talla).strip()
+            if talla_como_texto == '16':
+                detalle.producto.talla = '13'
+
+        # El resto del bucle continúa igual
         genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
         if genero_producto == 'DAMA':
             items_dama.append(detalle)
