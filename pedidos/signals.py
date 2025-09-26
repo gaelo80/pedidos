@@ -1,117 +1,121 @@
 # pedidos/signals.py
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse, NoReverseMatch
-from django.utils import timezone
+from .models import Pedido
 from bodega.models import MovimientoInventario
+from notificaciones.models import Notificacion
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 import logging
-from notificaciones.models import Notificacion
-from pedidos.models import Pedido
 
 User = get_user_model()
-
-# Configura un logger para este módulo
 logger = logging.getLogger(__name__)
 
-@receiver(post_save, sender='pedidos.Pedido')
-def registrar_salida_venta_pedido(sender, instance, created, **kwargs):
+# ✅ ESTA FUNCIÓN SE QUEDA IGUAL, PERO AHORA LA LLAMAREMOS DESDE LAS VISTAS
+def sincronizar_reservas_borrador(pedido):
     """
-    Señal que se activa después de guardar un Pedido.
-    Si el estado es 'ENVIADO', crea los movimientos de inventario correspondientes,
-    asegurándose de que pertenezcan a la misma empresa que el pedido.
+    Función experta para sincronizar el stock reservado con los detalles de un pedido en borrador.
     """
-    ESTADO_GATILLO_SALIDA = 'ENVIADO'
+    logger.info(f"Sincronizando reservas para borrador #{pedido.numero_pedido_empresa}...")
+    detalles_actuales = {detalle.producto_id: detalle for detalle in pedido.detalles.all()}
+    reservas_existentes = MovimientoInventario.objects.filter(
+        empresa=pedido.empresa,
+        tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+        documento_referencia__startswith=f'Pedido #{pedido.numero_pedido_empresa}'
+    )
+    reservas_actuales = {reserva.producto_id: reserva for reserva in reservas_existentes}
 
-    if instance.estado == ESTADO_GATILLO_SALIDA:
-        
-        # 1. --- CORRECCIÓN DE SEGURIDAD: Usar la empresa del pedido ---
-        empresa_del_pedido = instance.empresa
-        
-        # Si por alguna razón el pedido no tiene empresa, no podemos continuar.
-        if not empresa_del_pedido:
-            logger.error(f"Pedido #{instance.pk} no tiene una empresa asociada. No se puede crear movimiento de inventario.")
-            return
+    for producto_id, detalle in detalles_actuales.items():
+        reserva = reservas_actuales.get(producto_id)
+        cantidad_necesaria = -detalle.cantidad
+        if not reserva:
+            MovimientoInventario.objects.create(
+                empresa=pedido.empresa, producto=detalle.producto, cantidad=cantidad_necesaria,
+                tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+                documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Reserva por Borrador)',
+                usuario=pedido.vendedor.user if pedido.vendedor else None
+            )
+        elif reserva.cantidad != cantidad_necesaria:
+            reserva.cantidad = cantidad_necesaria
+            reserva.save()
 
-        # 2. --- CORRECCIÓN DE SEGURIDAD: Añadir filtro por empresa ---
-        existe_movimiento = MovimientoInventario.objects.filter(
-            empresa=empresa_del_pedido, 
-            tipo_movimiento='SALIDA_VENTA',
-            documento_referencia=f'PEDIDO_{instance.pk}'
-        ).exists()
+    for producto_id, reserva in reservas_actuales.items():
+        if producto_id not in detalles_actuales:
+            cantidad_a_liberar = abs(reserva.cantidad)
+            MovimientoInventario.objects.create(
+                empresa=pedido.empresa, producto=reserva.producto, cantidad=cantidad_a_liberar,
+                tipo_movimiento='ENTRADA_RECHAZO_PEDIDO',
+                documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Item Eliminado de Borrador)',
+                usuario=pedido.vendedor.user if pedido.vendedor else None
+            )
+            reserva.delete()
 
-        if not existe_movimiento:
-            logger.info(f"Registrando salida de inventario para Pedido #{instance.pk} de la empresa {empresa_del_pedido.nombre}.")
-            try:
-                for detalle in instance.detalles.all():
-                    # 3. --- CORRECCIÓN DE SEGURIDAD: Asignar la empresa al crear ---
-                    MovimientoInventario.objects.create(
-                        empresa=empresa_del_pedido,
-                        producto=detalle.producto,
-                        cantidad=-detalle.cantidad,
-                        tipo_movimiento='SALIDA_VENTA',
-                        fecha_hora=timezone.now(),
-                        usuario=instance.vendedor.user if instance.vendedor else None,
-                        documento_referencia=f'PEDIDO_{instance.pk}',
-                        notas=f"Salida automática por {ESTADO_GATILLO_SALIDA} de Pedido #{instance.pk}"
-                    )
-                logger.info(f"Movimientos de SALIDA_VENTA creados para Pedido #{instance.pk}")
-            except Exception as e:
-                logger.error(f"ERROR al crear movimientos para Pedido #{instance.pk}: {e}")
-        else:
-            logger.warning(f"Ya existen movimientos de SALIDA_VENTA para Pedido #{instance.pk}. No se crean nuevos.")
-            
 
 @receiver(post_save, sender=Pedido)
-def crear_notificacion_cambio_estado_pedido(sender, instance, **kwargs):
-    mensaje = None
-    grupo_destino = None
-    url_destino = None
+def gestionar_stock_y_notificaciones_pedido(sender, instance, created, **kwargs):
+    """
+    Señal que maneja los cambios de estado de un pedido DESPUÉS de que deja de ser un borrador.
+    """
+    empresa_del_pedido = instance.empresa
+    if not empresa_del_pedido:
+        return
 
-    # Lógica para determinar a quién notificar, usando los nombres de TUS estados.
+    # ✅ CORREGIDO: La señal ya NO se preocupa por el estado 'BORRADOR'.
+    # La sincronización de borradores ahora se llama explícitamente desde las vistas.
+    if instance.estado == 'BORRADOR':
+        return
+
+    # El resto de la lógica para convertir, liberar y notificar se mantiene igual.
+    estados_que_confirman_venta = ['PENDIENTE_APROBACION_CARTERA', 'LISTO_BODEGA_DIRECTO', 'APROBADO_ADMIN', 'PROCESANDO', 'ENVIADO']
+    # ... (el resto de la función se queda exactamente igual que en la versión anterior) ...
+    if instance.estado in estados_que_confirman_venta:
+        MovimientoInventario.objects.filter(
+            empresa=empresa_del_pedido, tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+            documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
+        ).update(
+            tipo_movimiento='SALIDA_VENTA_DIRECTA',
+            notas=f'Venta confirmada desde reserva. Estado: {instance.get_estado_display()}'
+        )
+
+    estados_que_liberan_stock = ['RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
+    if instance.estado in estados_que_liberan_stock:
+        ventas_a_revertir = MovimientoInventario.objects.filter(
+            empresa=empresa_del_pedido, tipo_movimiento__in=['SALIDA_VENTA_DIRECTA', 'SALIDA_VENTA_PENDIENTE'],
+            documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
+        )
+        if ventas_a_revertir.exists():
+            for venta in ventas_a_revertir:
+                MovimientoInventario.objects.create(
+                    empresa=empresa_del_pedido, producto=venta.producto, cantidad=abs(venta.cantidad),
+                    tipo_movimiento='ENTRADA_RECHAZO_PEDIDO',
+                    documento_referencia=f'Pedido #{instance.numero_pedido_empresa} ({instance.estado})',
+                    usuario=instance.vendedor.user if instance.vendedor else None
+                )
+            ventas_a_revertir.delete()
+    
+    # Lógica de notificaciones
+    mensaje, grupo_destino, url_destino = None, None, None
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA':
-        grupo_destino = 'Cartera'
-        mensaje = f"El pedido #{instance.numero_pedido_empresa} de {instance.destinatario.nombre_completo} requiere tu aprobación."
-        try:
-            url_destino = reverse('pedidos:lista_aprobacion_cartera')
-        except NoReverseMatch:
-            logger.warning("No se encontró la URL 'pedidos:lista_aprobacion_cartera'.")
-
+        grupo_destino, mensaje = 'Cartera', f"El pedido #{instance.numero_pedido_empresa} de {instance.destinatario.nombre_completo} requiere aprobación."
+        try: url_destino = reverse('pedidos:lista_aprobacion_cartera')
+        except NoReverseMatch: logger.warning("URL 'pedidos:lista_aprobacion_cartera' no encontrada.")
     elif instance.estado == 'PENDIENTE_APROBACION_ADMIN':
-        grupo_destino = 'Administracion'
-        mensaje = f"El pedido #{instance.numero_pedido_empresa} fue aprobado por Cartera y requiere tu aprobación."
-        try:
-            url_destino = reverse('pedidos:lista_aprobacion_admin')
-        except NoReverseMatch:
-            logger.warning("No se encontró la URL 'pedidos:lista_aprobacion_admin'.")
-        
+        grupo_destino, mensaje = 'Administracion', f"El pedido #{instance.numero_pedido_empresa} fue aprobado por Cartera."
+        try: url_destino = reverse('pedidos:lista_aprobacion_admin')
+        except NoReverseMatch: logger.warning("URL 'pedidos:lista_aprobacion_admin' no encontrada.")
     elif instance.estado == 'APROBADO_ADMIN':
-        grupo_destino = 'Bodega'
-        mensaje = f"El pedido #{instance.numero_pedido_empresa} fue aprobado y está listo para despacho en bodega."
-        try:
-            url_destino = reverse('bodega:lista_pedidos_bodega')
-        except NoReverseMatch:
-            logger.warning("No se encontró la URL 'bodega:lista_pedidos_bodega'.")
-
+        grupo_destino, mensaje = 'Bodega', f"El pedido #{instance.numero_pedido_empresa} fue aprobado y está listo para despacho."
+        try: url_destino = reverse('bodega:lista_pedidos_bodega')
+        except NoReverseMatch: logger.warning("URL 'bodega:lista_pedidos_bodega' no encontrada.")
     if mensaje and grupo_destino:
         try:
-            # La consulta ahora usa el modelo de usuario correcto (User = get_user_model())
-            usuarios_a_notificar = User.objects.filter(
-                groups__name=grupo_destino,
-                empresa=instance.empresa,
-                is_active=True
-            )
-            
+            usuarios_a_notificar = User.objects.filter(groups__name=grupo_destino, empresa=instance.empresa, is_active=True)
             for usuario in usuarios_a_notificar:
-                # Evitar duplicados: solo crear si no existe una notificación igual y no leída
                 if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
-                    Notificacion.objects.create(
-                        destinatario=usuario,
-                        mensaje=mensaje,
-                        url=url_destino
-                    )
+                    Notificacion.objects.create(destinatario=usuario, mensaje=mensaje, url=url_destino)
         except Group.DoesNotExist:
-            logger.warning(f"El grupo '{grupo_destino}' no existe. No se pudo notificar.")
+            logger.warning(f"El grupo '{grupo_destino}' no existe.")
         except Exception as e:
             logger.error(f"Error creando notificación para pedido #{instance.id}: {e}")

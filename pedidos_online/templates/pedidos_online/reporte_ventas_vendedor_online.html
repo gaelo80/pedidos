@@ -108,7 +108,7 @@
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
                                     <td><span class="badge bg-info text-dark">{{ pedido.get_estado_display|default:pedido.estado }}</span></td>
                                     <td>
-                                        <a href="{% url 'pedidos:generar_pedido_pdf' pedido.numero_pedido_empresa %}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                        <a href="{% url 'pedidos:generar_pedido_pdf' pk=pedido.pk %}" class="btn btn-sm btn-outline-primary" target="_blank">
                                             <i class="fas fa-file-pdf me-1"></i> Ver PDF del Pedido
                                         </a>
                                     </td>

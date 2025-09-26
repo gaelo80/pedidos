@@ -35,7 +35,7 @@
                             <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username }}</td>
                             <td class="text-end">${{ pedido.total_a_pagar|intcomma:0 }}</td>
                             <td class="text-center">
-                                <a href="{% url 'pedidos_online:editar_pedido_online' pedido.numero_pedido_empresa %}" class="btn btn-warning btn-sm" title="Editar Borrador">
+                                <a href="{% url 'pedidos_online:editar_pedido_online' pedido.pk %}" class="btn btn-warning btn-sm" title="Editar Borrador">
                                     <i class="fas fa-edit"></i>
                                 </a>
 
