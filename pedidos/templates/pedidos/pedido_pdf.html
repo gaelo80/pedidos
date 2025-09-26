@@ -61,7 +61,7 @@
         <tr>
             <td style="width: 50%; text-align: left; vertical-align: middle;">
                  {% if logo_base64 %}
-                    <img src="{{ logo_base64 }}" alt="Logo" style="max-height: 23px; max-width: 120px;">
+                    <img src="{{ logo_base64 }}" alt="Logo" style="max-height: 20px; max-width: 100px;">
                 {% endif %}
             </td>
             <td style="width: 50%; text-align: right; vertical-align: middle; font-size: 8pt; line-height: 1.2;">
@@ -143,8 +143,8 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -180,8 +180,8 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -218,8 +218,8 @@
                         <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
                     {% endfor %}
                     <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -231,7 +231,7 @@
             <p style="text-align: center; padding: 15px;">Este pedido no tiene detalles válidos para mostrar.</p> {# Mensaje ligeramente diferente #}
          {% endif %}
     
-    </div> {# Fin del div class="section" #}
+    </div>
 
     {# --- Sección de Totales --- #}
     <div class="totals-section">
@@ -239,35 +239,35 @@
             <tbody>
                 <tr>
                     <td class="label">Cantidad Total:</td>
-                    <td class="value">{{ pedido.total_cantidad_productos|intcomma }}</td>
+                    <td class="value">{{ pedido.total_cantidad_productos|floatformat:0|intcomma }}&nbsp;Und.</td>
                 </tr>
                 {% if incluir_vr_unit %} {# AQUI: CONDICION PARA MOSTRAR TOTALES FINANCIEROS #}
                 <tr>
                     <td class="label">Subtotal Bruto (Sin IVA):</td>
-                    <td class="value">${{ pedido.subtotal_base_bruto|intcomma }}</td>
+                    <td class="value">${{ pedido.subtotal_base_bruto|floatformat:0|intcomma }}</td>
                 </tr>
                 {% if pedido.valor_total_descuento > 0 %}
                 <tr>
                     <td class="label">Descuento ({{ pedido.porcentaje_descuento|floatformat:"-2"|default:"0" }}%):</td>
-                    <td class="value">- ${{ pedido.valor_total_descuento|intcomma }}</td>
+                    <td class="value">- ${{ pedido.valor_total_descuento|floatformat:0|intcomma }}</td>
                 </tr>
                 <tr>
                     <td class="label">Subtotal Neto (Sin IVA):</td>
-                    <td class="value">${{ pedido.subtotal_final_neto|intcomma }}</td>
+                    <td class="value">${{ pedido.subtotal_final_neto|floatformat:0|intcomma }}</td>
                 </tr>
                 {% endif %}
                 <tr>
                     <td class="label">IVA ({{ tasa_iva_pct|default:"?" }}%):</td>
-                    <td class="value">${{ pedido.valor_iva_final|intcomma }}</td>
+                    <td class="value">${{ pedido.valor_iva_final|floatformat:0|intcomma }}</td>
                 </tr>
                 <tr class="grand-total">
                     <td class="label">TOTAL A PAGAR:</td>
-                    <td class="value">${{ pedido.total_a_pagar|intcomma }}</td>
+                    <td class="value">${{ pedido.total_a_pagar|floatformat:0|intcomma }}</td>
                 </tr>
                 {% else %}
                 <tr class="grand-total">
                     <td class="label">TOTAL EN UNIDADES:</td>
-                    <td class="value">{{ pedido.total_cantidad_productos|intcomma }}</td>
+                    <td class="value">{{ pedido.total_cantidad_productos|floatformat:0|intcomma }}</td>
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align: center; font-style: italic; color: #888;">Precios no incluidos en este documento.</td>

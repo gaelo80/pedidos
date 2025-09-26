@@ -1,6 +1,6 @@
 # pedidos/signals.py
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.urls import reverse, NoReverseMatch
 from .models import Pedido
@@ -9,6 +9,8 @@ from notificaciones.models import Notificacion
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 import logging
+import uuid
+
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ def sincronizar_reservas_borrador(pedido):
     """
     Función experta para sincronizar el stock reservado con los detalles de un pedido en borrador.
     """
+   
     logger.info(f"Sincronizando reservas para borrador #{pedido.numero_pedido_empresa}...")
     detalles_actuales = {detalle.producto_id: detalle for detalle in pedido.detalles.all()}
     reservas_existentes = MovimientoInventario.objects.filter(
@@ -51,6 +54,29 @@ def sincronizar_reservas_borrador(pedido):
                 usuario=pedido.vendedor.user if pedido.vendedor else None
             )
             reserva.delete()
+            
+@receiver(pre_delete, sender=Pedido)
+def liberar_stock_al_eliminar_borrador(sender, instance, **kwargs):
+    """
+    Se activa justo antes de que se elimine un objeto Pedido.
+    Si el pedido es un Borrador, busca y elimina las reservas de stock asociadas.
+    """
+    print(f"--- SEÑAL PRE_DELETE DETECTADA para Pedido PK: {instance.pk}, Estado: {instance.estado} ---")
+    print("--- 1. EJECUTANDO SEÑAL PRE_DELETE ---")
+    if instance.estado == 'BORRADOR':
+        logger.info(f"Detectada eliminación del borrador #{instance.numero_pedido_empresa}. Liberando stock...")
+        
+        reservas_pendientes = MovimientoInventario.objects.filter(
+            empresa=instance.empresa,
+            tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+            documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
+        )
+        
+        if reservas_pendientes.exists():
+            # Simplemente eliminamos las reservas. Esto revierte el stock correctamente.
+            logger.info(f"Eliminando {reservas_pendientes.count()} reserva(s) de stock para el borrador.")
+            reservas_pendientes.delete()
+
 
 
 @receiver(post_save, sender=Pedido)
@@ -85,15 +111,18 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, created, **kwargs)
             empresa=empresa_del_pedido, tipo_movimiento__in=['SALIDA_VENTA_DIRECTA', 'SALIDA_VENTA_PENDIENTE'],
             documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
         )
+        
+        
         if ventas_a_revertir.exists():
+            # Transformamos el movimiento de salida en uno de entrada para no duplicar.
             for venta in ventas_a_revertir:
-                MovimientoInventario.objects.create(
-                    empresa=empresa_del_pedido, producto=venta.producto, cantidad=abs(venta.cantidad),
-                    tipo_movimiento='ENTRADA_RECHAZO_PEDIDO',
-                    documento_referencia=f'Pedido #{instance.numero_pedido_empresa} ({instance.estado})',
-                    usuario=instance.vendedor.user if instance.vendedor else None
-                )
-            ventas_a_revertir.delete()
+                venta.tipo_movimiento = 'ENTRADA_RECHAZO_PEDIDO'
+                venta.cantidad = abs(venta.cantidad) # Convertimos de -50 a +50
+                venta.notas = f"Stock reintegrado por cambio de estado a {instance.get_estado_display()}"
+                venta.usuario = instance.vendedor.user if instance.vendedor else None
+                venta.save()
+            
+            
     
     # Lógica de notificaciones
     mensaje, grupo_destino, url_destino = None, None, None

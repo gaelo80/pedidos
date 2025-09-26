@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from django.db.models import Subquery, OuterRef
 from django.contrib.auth.models import Group
 from pedidos.signals import sincronizar_reservas_borrador
+import uuid
 
 # Existing app imports
 from core.utils import get_logo_base_64_despacho
@@ -1121,3 +1122,38 @@ def generar_borrador_online_pdf(request, pk):
        logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response
+
+
+@login_required
+def eliminar_borrador_online(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    borrador = get_object_or_404(
+        Pedido, 
+        pk=pk, 
+        empresa=empresa_actual, 
+        estado='BORRADOR', 
+        tipo_pedido='ONLINE'
+    )
+
+    if request.method == 'POST':
+        try:
+            # Guardamos el número antes de que el objeto se elimine
+            numero_borrador = borrador.numero_pedido_empresa
+            
+            # La única acción necesaria. La señal se encargará del stock.
+            borrador.delete()
+            
+            messages.success(request, f"El borrador #{numero_borrador} ha sido eliminado y el stock liberado.")
+        
+        except Exception as e:
+            messages.error(request, f"Ocurrió un error durante la eliminación: {e}")
+
+        # Redirigir siempre fuera del bloque try/except
+        return redirect('pedidos_online:lista_pedidos_borrador_online')
+
+    # El contexto para la página de confirmación (GET request)
+    context = {
+        'borrador': borrador
+    }
+    return render(request, 'pedidos_online/borrador_confirm_delete.html', context)

@@ -1,0 +1,39 @@
+{% extends 'core/base.html' %}
+
+{% block page_title %}Confirmar Eliminación{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h3>Confirmar Eliminación de Borrador</h3>
+                </div>
+                <div class="card-body">
+                    <p class="fs-5">
+                        ¿Estás seguro de que quieres eliminar permanentemente el borrador 
+                        <strong>#{{ borrador.numero_pedido_empresa }}</strong> 
+                        para el cliente <strong>{{ borrador.destinatario.nombre_completo }}</strong>?
+                    </p>
+                    <p class="text-danger">
+                        <strong>Advertencia:</strong> Esta acción no se puede deshacer. Los productos reservados en este borrador volverán a estar disponibles en el inventario.
+                    </p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-end mt-4">
+                            <a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Sí, Eliminar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
