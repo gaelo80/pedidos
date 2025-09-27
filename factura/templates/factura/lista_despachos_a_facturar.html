@@ -54,10 +54,7 @@
                     {% for despacho in despachos_por_facturar %}
                     <tr>
                         <td>
-                            {# --- ENLACE ACTUALIZADO AQUÍ --- #}
-                            {# Asume que la URL en bodega se llama 'comprobante_despacho_pdf' #}
-                            {# y que toma el pk del ComprobanteDespacho como argumento 'comprobante_id'. #}
-                            {# Ajusta si tu URL o el nombre del argumento es diferente. #}
+
                         <a href="{% url 'bodega:imprimir_comprobante_especifico' pk_comprobante=despacho.pk %}" target="_blank" title="Ver Comprobante PDF">
                             {{ despacho.pk }} <i class="fas fa-file-pdf text-danger"></i>
                         </a>
@@ -71,12 +68,14 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if despacho.pedido.cliente %}
-                                {{ despacho.pedido.cliente.nombre_completo }}
-                                <small class="d-block text-muted">{{ despacho.pedido.cliente.identificacion }}</small>
-                            {% else %}
-                                N/A
-                            {% endif %}
+                            {% with cliente=despacho.pedido.destinatario %}
+                                {% if cliente %}
+                                    {{ cliente.nombre_completo }}
+                                    <small class="d-block text-muted">{{ cliente.identificacion }}</small>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            {% endwith %}
                         </td>
                         <td>{{ despacho.usuario_responsable.username|default:"N/A" }}</td>
                         <td>
