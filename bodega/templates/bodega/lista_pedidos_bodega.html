@@ -42,10 +42,11 @@
                         <label for="id_estado" class="form-label visually-hidden">Estado Pedido</label>
                         <select id="id_estado" name="estado" class="form-select rounded-pill">
                             <option value="">-- Estado Pedido --</option>
-                            <option value="PENDIENTE" {% if estado_query == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                            <option value="APROBADO_ADMIN" {% if estado_query == 'APROBADO_ADMIN' %}selected{% endif %}>Pendiente</option>
                             <option value="PROCESANDO" {% if estado_query == 'PROCESANDO' %}selected{% endif %}>Procesando</option>
                             <option value="COMPLETADO" {% if estado_query == 'COMPLETADO' %}selected{% endif %}>Completado</option>
-                            <option value="ENVIADO" {% if estado_query == 'ENVIADO' %}selected{% endif %}>Enviado</option> {# Añadir otros estados si existen #}
+                            <option value="ENVIADO" {% if estado_query == 'ENVIADO' %}selected{% endif %}>Enviado</option>
+                            <option value="ENVIADO_INCOMPLETO" {% if estado_query == 'ENVIADO_INCOMPLETO' %}selected{% endif %}>Enviado Incompleto</option>
                             <option value="ENTREGADO" {% if estado_query == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
                             <option value="CANCELADO" {% if estado_query == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
                         </select>
