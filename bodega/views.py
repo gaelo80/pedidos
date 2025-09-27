@@ -41,6 +41,12 @@ from django.db.models import Max, F
 from core.mixins import TenantAwareMixin
 from .resources import PlantillaConteoResource
 from factura.models import EstadoFacturaDespacho
+from .models import CambioProducto
+from django.db import transaction
+from .forms import CambioProductoForm
+from django.utils.safestring import mark_safe
+from django.core.paginator import Paginator
+from django.db.models import Q 
 
 
 def admin_permission_required(view_func):
@@ -1333,6 +1339,34 @@ def detalle_salida_interna(request, pk):
     }
     return render(request, 'bodega/detalle_salida_interna.html', context)
 
+
+@require_POST
+@login_required
+@permission_required('bodega.change_salidainternacabecera', login_url='core:acceso_denegado')
+def cerrar_salida_interna(request, pk):
+    """
+    Cambia el estado de una Salida Interna a 'CERRADA'.
+    Esto significa que los productos no serán devueltos y la operación se da por finalizada.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido.")
+        return redirect('core:index')
+
+    salida = get_object_or_404(SalidaInternaCabecera, pk=pk, empresa=empresa_actual)
+    
+    ESTADOS_PERMITIDOS_PARA_CERRAR = ['DESPACHADA', 'DEVUELTA_PARCIAL']
+
+    if salida.estado in ESTADOS_PERMITIDOS_PARA_CERRAR:        
+        salida.estado = 'CERRADA'
+        salida.save(update_fields=['estado'])
+        messages.success(request, f"La Salida Interna #{salida.pk} ha sido cerrada exitosamente. El stock ya fue descontado previamente.")
+    else:
+        messages.warning(request, f"La Salida Interna #{salida.pk} no se puede cerrar porque su estado actual es '{salida.get_estado_display()}'.")
+    
+    return redirect('bodega:detalle_salida_interna', pk=salida.pk)
+
+
 @login_required
 @permission_required('bodega.view_salidainternacabecera', login_url='core:acceso_denegado')
 def generar_pdf_salida_interna(request, pk):
@@ -1996,3 +2030,134 @@ class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
             return self.render_to_response(self.get_context_data(formset=formset))
+        
+@login_required
+@permission_required('bodega.can_manage_product_changes', login_url='core:acceso_denegado')
+def realizar_cambio_producto(request):
+    empresa_actual = request.tenant
+
+    if request.method == 'POST':
+        form = CambioProductoForm(request.POST, empresa=empresa_actual)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+
+                    cambio = form.save(commit=False)
+                    cambio.empresa = empresa_actual
+                    cambio.usuario = request.user
+                    cambio.save()
+
+
+                    MovimientoInventario.objects.create(
+                        empresa=empresa_actual,
+                        producto=cambio.producto_entrante,
+                        cantidad=cambio.cantidad_entrante,
+                        tipo_movimiento='ENTRADA_CAMBIO',
+                        documento_referencia=f"Cambio #{cambio.pk}",
+                        usuario=request.user
+                    )
+
+
+                    MovimientoInventario.objects.create(
+                        empresa=empresa_actual,
+                        producto=cambio.producto_saliente,
+                        cantidad=-abs(cambio.cantidad_saliente),
+                        tipo_movimiento='SALIDA_CAMBIO',
+                        documento_referencia=f"Cambio #{cambio.pk}",
+                        usuario=request.user
+                    )
+                
+
+                pdf_url = reverse('bodega:generar_pdf_cambio_producto', kwargs={'pk': cambio.pk})
+                
+
+                mensaje_exito = mark_safe(
+                    f"Cambio #{cambio.pk} realizado exitosamente. El stock ha sido actualizado. "
+                    f"<a href='{pdf_url}' class='alert-link' target='_blank'><strong>Imprimir Comprobante</strong></a>"
+                )
+                
+
+                messages.success(request, mensaje_exito)
+
+
+                return redirect('bodega:realizar_cambio_producto')
+
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error inesperado al procesar el cambio: {e}")
+    else:
+        form = CambioProductoForm(empresa=empresa_actual)
+
+    context = {
+        'form': form,
+        'titulo': 'Realizar Cambio de Producto'
+    }
+    return render(request, 'bodega/cambio_producto.html', context)
+
+@login_required
+@permission_required('bodega.can_manage_product_changes', login_url='core:acceso_denegado')
+def historial_cambios_producto(request):
+    empresa_actual = request.tenant
+    
+    # Query base optimizada para evitar consultas repetitivas en la plantilla
+    cambios_list = CambioProducto.objects.filter(
+        empresa=empresa_actual
+    ).select_related(
+        'usuario', 'producto_entrante', 'producto_saliente'
+    ).order_by('-fecha_hora')
+
+    # Aplicar filtros de búsqueda desde la URL (GET parameters)
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    producto_q = request.GET.get('producto_q', '').strip()
+
+    if fecha_inicio:
+        cambios_list = cambios_list.filter(fecha_hora__date__gte=fecha_inicio)
+    if fecha_fin:
+        cambios_list = cambios_list.filter(fecha_hora__date__lte=fecha_fin)
+    if producto_q:
+        # Busca la referencia en el producto entrante O en el saliente
+        cambios_list = cambios_list.filter(
+            Q(producto_entrante__referencia__icontains=producto_q) |
+            Q(producto_saliente__referencia__icontains=producto_q)
+        )
+
+    # Paginación para manejar grandes volúmenes de datos
+    paginator = Paginator(cambios_list, 20) # 20 cambios por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'cambios_page': page_obj,
+        'titulo': 'Historial de Cambios de Producto',
+        'filtros_activos': request.GET # Para mantener los valores en el formulario de filtro
+    }
+    return render(request, 'bodega/historial_cambios.html', context)
+
+
+
+@login_required
+@permission_required('bodega.can_manage_product_changes', login_url='core:acceso_denegado')
+def generar_pdf_cambio_producto(request, pk):
+    empresa_actual = request.tenant
+    cambio = get_object_or_404(
+        CambioProducto.objects.select_related(
+            'usuario', 'producto_entrante', 'producto_saliente'
+        ),
+        pk=pk,
+        empresa=empresa_actual
+    )
+
+    context_pdf = {
+        'cambio': cambio,
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
+        'fecha_generacion': timezone.now(),
+    }
+
+    filename = f"Comprobante_Cambio_{empresa_actual.pk}_{cambio.pk}"
+    
+    return render_pdf_weasyprint(
+        request,
+        'bodega/cambio_producto_pdf.html',
+        context_pdf,
+        filename_prefix=filename
+    )

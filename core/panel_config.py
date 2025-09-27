@@ -151,8 +151,31 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-danger',
         'rol_requerido': ['es_bodega', 'es_vendedor', 'es_administracion', 'es_cartera'],
         'order': 3,
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
+        'categoria': 'Bodega e Inventario',
     },
+    
+    {
+        'titulo': 'Cambio de Productos',
+        'descripcion': 'Registrar un cambio de un producto por otro.',
+        'url_nombre': 'bodega:realizar_cambio_producto',
+        'icono': 'fas fa-exchange-alt',
+        'icono_color_class': 'icon-info',
+        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura', 'es_bodega', 'es_online', 'es_diseno'],
+        'order': 4, 
+        'categoria': 'Bodega e Inventario',
+    },
+    
+    {
+        'titulo': 'Historial de Cambios',
+        'descripcion': 'Consultar todos los cambios de producto registrados.',
+        'url_nombre': 'bodega:historial_cambios_producto',
+        'icono': 'fas fa-history',
+        'icono_color_class': 'icon-dark',
+        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura', 'es_bodega', 'es_online', 'es_diseno'],
+        'order': 5, # Justo después del formulario de cambio
+        'categoria': 'Bodega e Inventario',
+    },
+    
     {
         'titulo': 'Pedidos Pendientes para Despacho',
         'descripcion': 'Ver y gestionar pedidos pendientes para despacho.',

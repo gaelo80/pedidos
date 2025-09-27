@@ -5,6 +5,7 @@ from .models import SalidaInternaCabecera, SalidaInternaDetalle
 from django.utils import timezone
 from django.forms import BaseInlineFormSet
 from django.forms import inlineformset_factory
+from .models import CambioProducto
 
 
 class IngresoBodegaForm(forms.ModelForm):
@@ -265,3 +266,46 @@ DetalleIngresoModificarFormSet = inlineformset_factory(
     min_num=1,
     validate_min=True,
 )
+
+
+class CambioProductoForm(forms.ModelForm):
+    class Meta:
+        model = CambioProducto
+        fields = [
+            'producto_entrante', 'cantidad_entrante',
+            'producto_saliente', 'cantidad_saliente',
+            'motivo', 'documento_referencia'
+        ]
+        widgets = {
+            'motivo': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        # Tomamos el 'tenant' (empresa) que pasaremos desde la vista
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        if not empresa:
+            # Si no hay empresa, no mostramos productos para evitar fugas de datos
+            self.fields['producto_entrante'].queryset = Producto.objects.none()
+            self.fields['producto_saliente'].queryset = Producto.objects.none()
+            return
+        
+        # Filtramos los QuerySets para mostrar solo productos de la empresa actual
+        productos_empresa = Producto.objects.filter(empresa=empresa, activo=True)
+        self.fields['producto_entrante'].queryset = productos_empresa
+        self.fields['producto_saliente'].queryset = productos_empresa
+
+    def clean(self):
+        cleaned_data = super().clean()
+        producto_saliente = cleaned_data.get('producto_saliente')
+        cantidad_saliente = cleaned_data.get('cantidad_saliente')
+
+        if producto_saliente and cantidad_saliente:
+            # Validación CRÍTICA: Asegurarse de que hay suficiente stock disponible
+            if producto_saliente.stock_actual < cantidad_saliente:
+                # Usamos un error de formulario para notificar al usuario
+                self.add_error('cantidad_saliente', forms.ValidationError(
+                    f"No hay stock suficiente para '{producto_saliente}'. "
+                    f"Stock actual: {producto_saliente.stock_actual}, se solicitan: {cantidad_saliente}."
+                ))
+        return cleaned_data

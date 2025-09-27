@@ -20,14 +20,6 @@
             </div>
         </div>
         <div class="card-body">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
 
             <h5>Información General</h5>
             <div class="row mb-3">
@@ -67,11 +59,20 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h5 class="mb-0">Productos Despachados</h5>
                 <div>
+                    {% if salida_interna.estado in 'DESPACHADA,DEVUELTA_PARCIAL' %}
+                        <form method="post" action="{% url 'bodega:cerrar_salida_interna' pk=salida_interna.pk %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas cerrar esta salida? Esta acción es definitiva y confirma que los productos NO serán devueltos.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-lock me-1"></i> Cerrar (No Devuelve)
+                            </button>
+                        </form>
+                    {% endif %}
                     {% if salida_interna.estado == 'DESPACHADA' or salida_interna.estado == 'DEVUELTA_PARCIAL' %}
                     <a href="{% url 'bodega:registrar_devolucion_salida_interna' salida_interna.pk %}" class="btn btn-warning btn-sm">
                         <i class="fas fa-undo-alt me-1"></i> Registrar Devolución
                     </a>
                     {% endif %}
+
                     {% if salida_interna.estado == 'DEVUELTA_PARCIAL' or salida_interna.estado == 'DEVUELTA_TOTALMENTE' %}
                     <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida_interna.pk %}" class="btn btn-success btn-sm" target="_blank">
                         <i class="fas fa-file-invoice me-1"></i> PDF Devolución

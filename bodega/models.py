@@ -124,6 +124,8 @@ class MovimientoInventario(models.Model):
         ('ENTRADA_DEV_TRASLADO', 'Devolución de Traslado Interno'), 
         ('ENTRADA_DEV_PRESTAMO', 'Devolución de Préstamo'),
         ('ENTRADA_DEV_INTERNA_OTRA', 'Devolución Interna (Otra)'),
+        ('ENTRADA_CAMBIO', 'Entrada por Cambio de Producto'),
+        ('SALIDA_CAMBIO', 'Salida por Cambio de Producto'),
         ('ENTRADA_CAMBIO', 'Entrada por Cambio de Cliente'),
         ('SALIDA_CAMBIO', 'Salida por Cambio de Cliente'),
         
@@ -450,3 +452,33 @@ class DetalleBorradorDespacho(models.Model):
 
     def __str__(self):
         return f"{self.producto.referencia} ({self.cantidad_escaneada_en_borrador}) en Borrador {self.borrador_despacho.pk}"
+
+
+class CambioProducto(models.Model):
+    """Registra una operación de cambio de un producto por otro."""
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='cambios_producto')
+    fecha_hora = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora del Cambio")
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Usuario Responsable")
+
+    # Producto que el cliente devuelve (entra a stock)
+    producto_entrante = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='cambios_recibidos', verbose_name="Producto que Entra")
+    cantidad_entrante = models.PositiveIntegerField(default=1, verbose_name="Cantidad que Entra")
+
+    # Producto que el cliente se lleva (sale de stock)
+    producto_saliente = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='cambios_entregados', verbose_name="Producto que Sale")
+    cantidad_saliente = models.PositiveIntegerField(default=1, verbose_name="Cantidad que Sale")
+
+    motivo = models.TextField(verbose_name="Motivo del Cambio", help_text="Ej: Cambio de talla, defecto de fábrica, etc.")
+    documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de Referencia (Opcional)")
+
+    class Meta:
+        verbose_name = "Cambio de Producto"
+        verbose_name_plural = "Cambios de Productos"
+        ordering = ['-fecha_hora']
+        # Permiso para acceder a esta funcionalidad
+        permissions = [
+            ("can_manage_product_changes", "Puede gestionar cambios de productos"),
+        ]
+
+    def __str__(self):
+        return f"Cambio #{self.pk} - {self.fecha_hora.strftime('%Y-%m-%d')}"

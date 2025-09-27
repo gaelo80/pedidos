@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Cambio #{{ cambio.pk }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 1.5cm;
+        }
+        body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .header img { max-width: 180px; max-height: 70px; }
+        .header-info { text-align: right; }
+        .header-info h2 { margin: 0; font-size: 18px; }
+        .header-info p { margin: 2px 0; }
+        .content { margin-top: 25px; }
+        .info-general { border: 1px solid #ccc; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .info-general p { margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-size: 12px; }
+        .producto-entrante { border-left: 5px solid #28a745; }
+        .producto-saliente { border-left: 5px solid #dc3545; }
+        h3 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+        .motivo { background-color: #f8f9fa; border: 1px solid #eee; padding: 10px; border-radius: 5px; min-height: 50px; }
+        .footer { margin-top: 40px; text-align: center; }
+        .footer .firma { display: inline-block; width: 45%; text-align: center; margin-top: 60px; border-top: 1px solid #000; padding-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_base64 %}
+            <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo Empresa">
+        {% endif %}
+        <div class="header-info">
+            <h2>Comprobante de Cambio</h2>
+            <p><strong>Número:</strong> #{{ cambio.pk }}</p>
+            <p><strong>Fecha:</strong> {{ cambio.fecha_hora|date:"d/m/Y H:i" }}</p>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="info-general">
+            <p><strong>Usuario Responsable:</strong> {{ cambio.usuario.get_full_name|default:cambio.usuario.username }}</p>
+            <p><strong>Documento de Referencia:</strong> {{ cambio.documento_referencia|default:"N/A" }}</p>
+        </div>
+
+        <h3 style="color: #28a745;">Producto Entrante (Devuelto por Cliente)</h3>
+        <table class="producto-entrante">
+            <thead>
+                <tr>
+                    <th>Referencia</th>
+                    <th>Producto</th>
+                    <th>Color</th>
+                    <th>Talla</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ cambio.producto_entrante.referencia }}</td>
+                    <td>{{ cambio.producto_entrante.nombre }}</td>
+                    <td>{{ cambio.producto_entrante.color|default:"-" }}</td>
+                    <td>{{ cambio.producto_entrante.talla|default:"-" }}</td>
+                    <td style="text-align:center;">{{ cambio.cantidad_entrante }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #dc3545;">Producto Saliente (Entregado a Cliente)</h3>
+        <table class="producto-saliente">
+            <thead>
+                <tr>
+                    <th>Referencia</th>
+                    <th>Producto</th>
+                    <th>Color</th>
+                    <th>Talla</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ cambio.producto_saliente.referencia }}</td>
+                    <td>{{ cambio.producto_saliente.nombre }}</td>
+                    <td>{{ cambio.producto_saliente.color|default:"-" }}</td>
+                    <td>{{ cambio.producto_saliente.talla|default:"-" }}</td>
+                    <td style="text-align:center;">{{ cambio.cantidad_saliente }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Motivo del Cambio</h3>
+        <div class="motivo">
+            <p>{{ cambio.motivo|linebreaksbr }}</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="firma">Firma Cliente</div>
+        <div class="firma">Firma Responsable</div>
+    </div>
+</body>
+</html>

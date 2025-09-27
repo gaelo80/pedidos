@@ -1,0 +1,102 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <h1 class="display-6 fw-bold mb-4 text-primary">
+        <i class="fas fa-history me-2"></i> {{ titulo }}
+    </h1>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtrar Historial</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'bodega:historial_cambios_producto' %}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="fecha_inicio" class="form-label">Desde:</label>
+                    <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ filtros_activos.fecha_inicio }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-4">
+                    <label for="fecha_fin" class="form-label">Hasta:</label>
+                    <input type="date" name="fecha_fin" id="fecha_fin" value="{{ filtros_activos.fecha_fin }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-4">
+                    <label for="producto_q" class="form-label">Referencia Producto:</label>
+                    <input type="text" name="producto_q" id="producto_q" value="{{ filtros_activos.producto_q }}" class="form-control form-control-sm" placeholder="Buscar en producto entrante o saliente...">
+                </div>
+                <div class="col-12 text-end mt-3">
+                    <a href="{% url 'bodega:historial_cambios_producto' %}" class="btn btn-outline-secondary btn-sm">Limpiar Filtros</a>
+                    <button type="submit" class="btn btn-primary btn-sm px-4">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha y Hora</th>
+                            <th>Usuario</th>
+                            <th class="text-success">Producto Entrante</th>
+                            <th class="text-danger">Producto Saliente</th>
+                            <th>Motivo</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cambio in cambios_page %}
+                        <tr>
+                            <td>#{{ cambio.pk }}</td>
+                            <td>{{ cambio.fecha_hora|date:"Y-m-d H:i" }}</td>
+                            <td>{{ cambio.usuario.username }}</td>
+                            <td class="text-success" title="{{ cambio.producto_entrante.nombre }}"><strong>+{{ cambio.cantidad_entrante }}</strong> {{ cambio.producto_entrante.referencia }}</td>
+                            <td class="text-danger" title="{{ cambio.producto_saliente.nombre }}"><strong>-{{ cambio.cantidad_saliente }}</strong> {{ cambio.producto_saliente.referencia }}</td>
+                            <td>{{ cambio.motivo|truncatechars:40 }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'bodega:generar_pdf_cambio_producto' pk=cambio.pk %}" class="btn btn-outline-danger btn-sm" target="_blank" title="Ver Comprobante PDF">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">No se encontraron registros de cambios.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if cambios_page.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Paginación">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if cambios_page.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1&{{ filtros_activos.urlencode }}">&laquo; Primera</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ cambios_page.previous_page_number }}&{{ filtros_activos.urlencode }}">Anterior</a></li>
+                    {% endif %}
+
+                    <li class="page-item active" aria-current="page">
+                        <span class="page-link">Página {{ cambios_page.number }} de {{ cambios_page.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if cambios_page.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ cambios_page.next_page_number }}&{{ filtros_activos.urlencode }}">Siguiente</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ cambios_page.paginator.num_pages }}&{{ filtros_activos.urlencode }}">Última &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

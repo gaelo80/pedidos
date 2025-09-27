@@ -1,0 +1,97 @@
+{% extends 'core/base.html' %}
+{% load static widget_tweaks %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="card shadow-lg border-0 rounded-3">
+                    <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                        <h4 class="mb-0 text-white"><i class="fas fa-exchange-alt me-2"></i>{{ titulo }}</h4>
+                    </div>
+                    <div class="card-body p-4">
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="row gx-5">
+                            <div class="col-md-6 border-end pe-4">
+                                <h5 class="text-success mb-3"><i class="fas fa-arrow-down me-2"></i>Producto que Entra</h5>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">{{ form.producto_entrante.label }}</label>
+                                    {% render_field form.producto_entrante class+="form-select select2-field" %}
+                                    {% if form.producto_entrante.errors %}<div class="invalid-feedback d-block">{{ form.producto_entrante.errors|join:", " }}</div>{% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">{{ form.cantidad_entrante.label }}</label>
+                                    {% render_field form.cantidad_entrante class+="form-control" %}
+                                    {% if form.cantidad_entrante.errors %}<div class="invalid-feedback d-block">{{ form.cantidad_entrante.errors|join:", " }}</div>{% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 ps-4">
+                                <h5 class="text-danger mb-3"><i class="fas fa-arrow-up me-2"></i>Producto que Sale</h5>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">{{ form.producto_saliente.label }}</label>
+                                    {% render_field form.producto_saliente class+="form-select select2-field" %}
+                                    {% if form.producto_saliente.errors %}<div class="invalid-feedback d-block">{{ form.producto_saliente.errors|join:", " }}</div>{% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">{{ form.cantidad_saliente.label }}</label>
+                                    {% render_field form.cantidad_saliente class+="form-control" %}
+                                    {% if form.cantidad_saliente.errors %}<div class="invalid-feedback d-block">{{ form.cantidad_saliente.errors|join:", " }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h5 class="mb-3">Detalles Adicionales</h5>
+                        <div class="row">
+                             <div class="col-md-8">
+                                <label class="form-label fw-semibold">{{ form.motivo.label }}</label>
+                                {% render_field form.motivo class+="form-control" %}
+                                {% if form.motivo.errors %}<div class="invalid-feedback d-block">{{ form.motivo.errors|join:", " }}</div>{% endif %}
+                            </div>
+                             <div class="col-md-4">
+                                <label class="form-label fw-semibold">{{ form.documento_referencia.label }}</label>
+                                {% render_field form.documento_referencia class+="form-control" %}
+                                {% if form.documento_referencia.errors %}<div class="invalid-feedback d-block">{{ form.documento_referencia.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center bg-light border-0 py-3">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm rounded-pill">
+                            <i class="fas fa-check-circle me-2"></i> Confirmar Cambio
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('.select2-field').select2({
+        theme: "bootstrap-5",
+        // Ajusta el placeholder si lo deseas
+        placeholder: "Seleccione un producto...",
+        // Permite limpiar la selección
+        allowClear: true
+    });
+});
+</script>
+{% endblock %}
