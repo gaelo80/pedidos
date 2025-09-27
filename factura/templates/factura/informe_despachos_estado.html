@@ -83,11 +83,13 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if estado_factura_item.despacho.pedido.cliente %}
-                                    {{ estado_factura_item.despacho.pedido.cliente.nombre_completo }}
-                                {% else %}
-                                    N/A
-                                {% endif %}
+                                {% with cliente=estado_factura_item.despacho.pedido.destinatario %}
+                                    {% if cliente %}
+                                        {{ cliente.nombre_completo }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                {% endwith %}
                             </td>
                             <td>{{ estado_factura_item.referencia_factura_externa|default:"N/A" }}</td>
                             <td>

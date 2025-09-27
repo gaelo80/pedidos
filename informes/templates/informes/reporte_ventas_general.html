@@ -96,7 +96,7 @@
                                 <tr>
                                     <td class="text-center"><a href="{% url 'pedidos:detalle_pedido' pedido.pk %} "title="Ver detalle de este pedido">{{ pedido.numero_pedido_empresa }}</a></td>
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
-                                    <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                                    <td>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</td>
                                     <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
                                     {# Usar la anotación correcta de la vista #}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>

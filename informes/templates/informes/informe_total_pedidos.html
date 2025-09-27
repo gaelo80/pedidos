@@ -91,7 +91,7 @@
                     <tr>
                         <td class="text-center">{{ pedido.numero_pedido_empresa }}</td>
                         <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
-                        <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                        <td>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</td>
                         <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
                         <td><span class="badge" style="background-color: #e3f2fd; color: #0d6efd;">{{ pedido.get_estado_display }}</span></td>
                         <td class="text-center">{{ pedido.total_cantidad_productos|intcomma }}</td>

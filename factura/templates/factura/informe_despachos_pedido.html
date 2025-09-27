@@ -62,7 +62,7 @@
             <div class="card-body">
                 <h5 class="card-title">Detalles del Pedido</h5>
                 <p class="card-text">
-                    <strong>Cliente:</strong> {{ pedido_obj.cliente.nombre_completo|default:"N/A" }} ({{ pedido_obj.cliente.identificacion|default:"N/A" }})<br>
+                    <strong>Cliente:</strong> {{ pedido_obj.destinatario.nombre_completo|default:"N/A" }} ({{ pedido_obj.destinatario.identificacion|default:"N/A" }})<br>
                     <strong>Fecha Pedido:</strong> {{ pedido_obj.fecha_hora|date:"d/m/Y H:i" }}<br>
                     <strong>Estado Actual del Pedido:</strong> <span class="badge bg-info">{{ pedido_obj.get_estado_display }}</span>
                 </p>

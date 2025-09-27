@@ -98,11 +98,13 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if estado_factura.despacho.pedido.cliente %}
-                                    {{ estado_factura.despacho.pedido.cliente.nombre_completo }}
-                                {% else %}
-                                    N/A
-                                {% endif %}
+                                {% with cliente=estado_factura.despacho.pedido.destinatario %}
+                                    {% if cliente %}
+                                        {{ cliente.nombre_completo }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                {% endwith %}
                             </td>
                             <td>{{ estado_factura.usuario_responsable.username|default:"N/A" }}</td>
                             <td>{{ estado_factura.notas_facturacion|default:""|truncatewords:15|linebreaksbr }}</td>

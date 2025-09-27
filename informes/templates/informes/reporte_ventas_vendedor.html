@@ -127,7 +127,7 @@
                                 <tr>
                                     <td>{{ pedido.numero_pedido_empresa }}</td>
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
-                                    <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                                    <td>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</td>
                                     {% if es_administracion %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>

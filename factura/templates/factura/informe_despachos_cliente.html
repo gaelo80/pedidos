@@ -52,8 +52,10 @@
         {% endfor %}
     {% endif %}
 
-    {% if cliente_seleccionado %}
-        <h3 class="mt-4 mb-3">Despachos para el Cliente: {{ cliente_seleccionado.nombre_completo }} ({{ cliente_seleccionado.identificacion }})</h3>
+    {% if despachos_cliente %}
+        {% with cliente_final=despachos_cliente.0.pedido.destinatario %}
+            <h3 class="mt-4 mb-3">Despachos para el Cliente: {{ cliente_final.nombre_completo }} ({{ cliente_final.identificacion }})</h3>
+    {% endwith %}
         {% if despachos_cliente %}
             <div class="table-responsive">
                 <table class="table table-striped table-hover">

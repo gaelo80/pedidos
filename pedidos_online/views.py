@@ -699,7 +699,7 @@ def reporte_ventas_general_online(request):
     pedidos_qs = Pedido.objects.filter(
         empresa=empresa_actual,
         tipo_pedido='ONLINE', 
-        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO']
+        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO', 'COMPLETADO']
     )
 
     if fecha_inicio:
@@ -752,14 +752,14 @@ def reporte_ventas_general_online(request):
 
     cantidad_pedidos = pedidos_qs.count()
 
-    ventas_por_producto = DetalleComprobanteDespacho.objects.filter(
-        comprobante_despacho__pedido__in=pedidos_qs.values('pk')
+    ventas_por_producto = DetallePedido.objects.filter(
+        pedido__in=pedidos_qs
     ).values(
-        'producto__referencia',
-        'producto__color',
-        'producto__nombre' 
+        'producto__referencia', 
+        'producto__color', 
+        'producto__nombre'
     ).annotate(
-        cantidad_total_vendida=Coalesce(Sum('cantidad_despachada'), 0)
+        cantidad_total_vendida=Coalesce(Sum('cantidad'), 0)
     ).order_by('producto__referencia', 'producto__color')
 
     pedidos_list = pedidos_qs.annotate(
