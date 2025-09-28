@@ -151,7 +151,7 @@ def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
                 url_notificacion = None
                 try:
  
-                    url_notificacion = reverse('bodega:informe_movimiento_inventario', args=[instance.pk]) 
+                    url_notificacion = reverse('bodega:informe_movimiento_inventario', args=[instance.producto.pk])
                 except NoReverseMatch:
                     logger.warning(f"No se encontró la URL 'bodega:informe_movimiento_inventario' para MovimientoInventario ID {instance.pk}.")
                     

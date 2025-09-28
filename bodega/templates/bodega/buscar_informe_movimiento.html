@@ -1,0 +1,48 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0 text-white"><i class="fas fa-search me-2"></i>{{ titulo }}</h4>
+                </div>
+                <div class="card-body p-4">
+                    <p class="lead">Por favor, selecciona un producto para ver su historial de movimientos de inventario.</p>
+                    <form method="get">
+                        <div class="mb-3">
+                            <label for="producto-select" class="form-label fw-semibold">Producto:</label>
+                            <select name="producto_id" id="producto-select" class="form-select select2-field" required>
+                                <option value="">--- Seleccionar un producto ---</option>
+                                {% for producto in productos %}
+                                    <option value="{{ producto.pk }}">{{ producto.referencia }} - {{ producto.nombre }} ({{ producto.color }} - Talla {{ producto.talla }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                <i class="fas fa-chart-line me-2"></i> Ver Informe
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('.select2-field').select2({
+        theme: "bootstrap-5"
+    });
+});
+</script>
+{% endblock %}

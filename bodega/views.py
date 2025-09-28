@@ -21,6 +21,7 @@ from .models import BorradorDespacho, DetalleBorradorDespacho, SalidaInternaCabe
 from .forms import DetalleIngresoModificarFormSet, SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
 from django.utils.decorators import method_decorator
+from django.contrib.auth import get_user_model
 import logging
 from django.conf import settings
 from django.db.models import Prefetch
@@ -1891,81 +1892,69 @@ def exportar_inventario_excel(request):
 
     return response
 
-class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = MovimientoInventario
     template_name = 'bodega/informe_movimiento_inventario.html'
-    context_object_name = 'movimiento'
-    
-    permission_required = 'bodega.view_movimientoinventario' 
+    context_object_name = 'movimientos_list'
+    permission_required = 'bodega.view_movimientoinventario'
     login_url = 'core:acceso_denegado'
-
-    def dispatch(self, request, *args, **kwargs):
-        logger.debug(f"--- Iniciando dispatch para InformeMovimientoInventarioView ---")
-        logger.debug(f"Usuario autenticado: {request.user.is_authenticated}")
-        logger.debug(f"Usuario: {request.user.username}")
-        logger.debug(f"Inquilino (request.tenant): {getattr(request, 'tenant', 'NO DISPONIBLE')}")
-        
-        # Verificar el permiso antes de llamar a super().dispatch()
-        # PermissionRequiredMixin hace su chequeo aquí.
-        # Puedes añadir un try-except para capturar PermissionDenied si quieres un manejo más específico.
-        
-        # Verifica si el usuario tiene el permiso requerido
-        if not request.user.has_perm(self.permission_required):
-            logger.warning(f"Permiso '{self.permission_required}' denegado para el usuario {request.user.username}")
-            # Aquí se ejecutará handle_no_permission
-            return self.handle_no_permission()
-
-        logger.debug(f"Permiso '{self.permission_required}' CONCEDIDO para el usuario {request.user.username}")
-        return super().dispatch(request, *args, **kwargs)
-
-    def handle_no_permission(self):
-        messages.error(self.request, "No tienes permiso para acceder a este informe de movimiento de inventario.")
-        logger.warning(f"Redirigiendo a 'core:index' por falta de permisos para {self.request.user.username}")
-        return redirect('core:index')
+    paginate_by = 50 # Aumentamos un poco la paginación
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        current_tenant = getattr(self.request, 'tenant', None)
-        logger.debug(f"get_queryset: Inquilino actual: {current_tenant}")
-        if current_tenant:
-            queryset = queryset.filter(empresa=current_tenant)
-            logger.debug(f"get_queryset: Filtrando por empresa: {current_tenant.nombre}")
-        else:
-            logger.error("get_queryset: request.tenant no está disponible. Esto podría ser un problema de middleware.")
-        return queryset.select_related('producto', 'usuario')
+        """
+        Filtra los movimientos según los parámetros GET del formulario.
+        """
+        empresa_actual = self.request.tenant
+        queryset = super().get_queryset().filter(empresa=empresa_actual).select_related('producto', 'usuario')
 
-    def get_object(self, queryset=None):
-        logger.debug(f"--- Iniciando get_object ---")
-        if queryset is None:
-            queryset = self.get_queryset()
-        
-        pk = self.kwargs.get(self.pk_url_kwarg)
-        logger.debug(f"get_object: PK de la URL: {pk}")
-        
-        obj = get_object_or_404(queryset, pk=pk)
-        logger.debug(f"get_object: Objeto encontrado: {obj}")
-        
-        # Una verificación adicional a nivel de objeto (si tu sistema de inquilinos lo requiere)
-        current_tenant = getattr(self.request, 'tenant', None)
-        if current_tenant and obj.empresa != current_tenant:
-            logger.error(f"get_object: Acceso denegado a objeto de otro inquilino. Objeto ID: {obj.pk}, Inquilino del objeto: {obj.empresa.nombre}, Inquilino actual: {current_tenant.nombre}")
-            raise Http404("No se encontró el objeto o no tienes permiso para acceder a él.") # O PermissionDenied
-        
-        return obj
+        # --- APLICAMOS LOS NUEVOS FILTROS ---
+        producto_id = self.request.GET.get('producto_id')
+        fecha_inicio = self.request.GET.get('fecha_inicio')
+        fecha_fin = self.request.GET.get('fecha_fin')
+        usuario_id = self.request.GET.get('usuario_id')
+
+        if not producto_id:
+            # Si no se ha seleccionado un producto, no mostramos ningún movimiento.
+            return queryset.none()
+
+        # Filtro principal por producto
+        queryset = queryset.filter(producto_id=producto_id)
+
+        # Filtros opcionales
+        if fecha_inicio:
+            queryset = queryset.filter(fecha_hora__date__gte=fecha_inicio)
+        if fecha_fin:
+            queryset = queryset.filter(fecha_hora__date__lte=fecha_fin)
+        if usuario_id:
+            queryset = queryset.filter(usuario_id=usuario_id)
+            
+        return queryset.order_by('-fecha_hora')
 
     def get_context_data(self, **kwargs):
+        """
+        Añade datos extra al contexto para el formulario de filtros y los resultados.
+        """
         context = super().get_context_data(**kwargs)
-        movimiento = context.get('movimiento')
-        if movimiento:
-            context['producto'] = movimiento.producto 
-            context['titulo'] = f'Detalles del Movimiento #{movimiento.pk} ({self.request.tenant.nombre})'
-            logger.debug(f"get_context_data: Contexto preparado para movimiento {movimiento.pk}")
-        else:
-            logger.error("get_context_data: No se encontró el objeto 'movimiento' en el contexto.")
+        empresa_actual = self.request.tenant
+        producto_id_seleccionado = self.request.GET.get('producto_id')
+        
+        # Pasamos la lista de productos y usuarios al template para los selectores del formulario
+        context['productos_list'] = Producto.objects.filter(empresa=empresa_actual, activo=True)
+        context['usuarios_list'] = get_user_model().objects.filter(empresa=empresa_actual, is_active=True).order_by('username')
+        
+        context['titulo'] = 'Informe de Movimientos de Inventario'
+        context['filtros_activos'] = self.request.GET # Para mantener los valores en el form
+
+        if producto_id_seleccionado:
+            producto_seleccionado = Producto.objects.filter(pk=producto_id_seleccionado).first()
+            context['producto_seleccionado'] = producto_seleccionado
+            if producto_seleccionado:
+                context['titulo'] = f'Movimientos de: {producto_seleccionado.referencia}'
+                # Calcular stock actual para el producto seleccionado
+                stock_calculado = producto_seleccionado.movimientos.aggregate(total=Sum('cantidad'))['total']
+                context['stock_actual_calculado'] = stock_calculado or 0
+
         return context
-    
-    
-logger = logging.getLogger(__name__)
 
 class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = IngresoBodega
@@ -2161,3 +2150,29 @@ def generar_pdf_cambio_producto(request, pk):
         context_pdf,
         filename_prefix=filename
     )
+    
+    
+@login_required
+# Asegúrate de que los usuarios con estos roles puedan acceder
+@permission_required('bodega.view_movimientoinventario', login_url='core:acceso_denegado') 
+def buscar_informe_movimiento(request):
+    """
+    Muestra un formulario para seleccionar un producto y luego redirige
+    al informe de movimientos de ese producto.
+    """
+    empresa_actual = request.tenant
+    
+    if 'producto_id' in request.GET:
+        producto_id = request.GET.get('producto_id')
+        if producto_id:
+            # Redirigimos a la vista de informe que ya tienes, pasándole el ID
+            return redirect(reverse('bodega:informe_movimiento_inventario', kwargs={'pk': producto_id}))
+
+    # Filtramos los productos por la empresa del usuario
+    productos = Producto.objects.filter(empresa=empresa_actual, activo=True)
+
+    context = {
+        'titulo': 'Buscar Informe de Movimientos',
+        'productos': productos,
+    }
+    return render(request, 'bodega/buscar_informe_movimiento.html', context)
