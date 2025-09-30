@@ -17,10 +17,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Subquery, OuterRef
 from django.contrib.auth.models import Group
-from pedidos.signals import sincronizar_reservas_borrador
 import uuid
-
-# Existing app imports
+from datetime import datetime, timezone, timedelta
 from core.utils import get_logo_base_64_despacho
 from pedidos.models import Pedido, DetallePedido
 from pedidos.utils import preparar_datos_seccion
@@ -107,10 +105,31 @@ def crear_pedido_online(request, pk=None):
                     # Lógica para procesar las acciones
                     if accion == 'crear_definitivo':
                         # Validar stock
+# Validar stock de forma inteligente
+                        cantidades_originales = {}
+                        if pedido_instance: # Si estamos editando un borrador existente
+                            # Guardamos las cantidades que el borrador ya tenía reservadas
+                            cantidades_originales = {d.producto_id: d.cantidad for d in pedido_instance.detalles.all()}
+
                         for detalle in detalles_para_crear:
-                            if detalle['cantidad'] > detalle['producto'].stock_actual:
-                                messages.error(request, f"Stock insuficiente para '{detalle['producto'].referencia}'. Solicitado: {detalle['cantidad']}, Disponible: {detalle['producto'].stock_actual}")
-                                raise ValidationError("Fallo de stock") # Forzamos un rollback
+                            producto = detalle['producto']
+                            cantidad_solicitada = detalle['cantidad']
+
+                            # Obtenemos la cantidad que este borrador ya tenía reservada para este producto
+                            cantidad_ya_reservada = cantidades_originales.get(producto.id, 0)
+
+                            # El stock real disponible para ESTE pedido es el stock actual + lo que ya habíamos reservado
+                            stock_disponible_para_este_pedido = producto.stock_actual + cantidad_ya_reservada
+
+                            if cantidad_solicitada > stock_disponible_para_este_pedido:
+                                messages.error(
+                                    request, 
+                                    f"Stock insuficiente para '{producto.referencia}'. "
+                                    f"Solicitado: {cantidad_solicitada}, "
+                                    f"Disponible en total: {stock_disponible_para_este_pedido} "
+                                    f"(Stock libre: {producto.stock_actual} + Reservado por este borrador: {cantidad_ya_reservada})"
+                                )
+                                raise ValidationError("Fallo de stock")
 
                         pedido.estado = 'LISTO_BODEGA_DIRECTO'
 
@@ -146,7 +165,7 @@ def crear_pedido_online(request, pk=None):
                         return redirect('pedidos:pedido_creado_exito', pk=pedido.pk)
                     
                     elif accion == 'guardar_borrador':
-                        sincronizar_reservas_borrador(pedido)
+                       
                         # ✅ CORREGIDO #3: Mensaje de éxito correcto
                         messages.success(request, f"Borrador de Pedido Online #{pedido.numero_pedido_empresa} guardado.")
                         return redirect('pedidos_online:editar_pedido_online', pk=pedido.pk)
@@ -541,10 +560,8 @@ def api_get_cliente_estandar_data(request, cliente_id):
     return Response(data)
 
 
-# --- NUEVAS VISTAS DE REPORTES PARA PEDIDOS ONLINE ---
-
 @login_required
-@permission_required('pedidos.view_pedido', login_url='core:acceso_denegado')
+@permission_required('pedidos.view_pedido', login_url='core:acceso_denied')
 def reporte_ventas_vendedor_online(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -553,27 +570,36 @@ def reporte_ventas_vendedor_online(request):
 
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
+    
+    # --- FIX #1: MANEJO CORRECTO DEL ID DEL VENDEDOR PARA EVITAR EL ERROR 500 ---
+    # Un string vacío '' no es lo mismo que None. Lo normalizamos.
     vendedor_id_seleccionado = request.GET.get('vendedor_id')
+    if not vendedor_id_seleccionado or vendedor_id_seleccionado == '':
+        vendedor_id_seleccionado = None
+    # --- FIN FIX #1 ---
 
+    # (El resto de la lógica para parsear fechas se mantiene igual)
     fecha_inicio = None
     if fecha_inicio_str:
         try:
-            fecha_inicio = timezone.datetime.strptime(fecha_inicio_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
         except ValueError:
             messages.error(request, "Formato de fecha de inicio inválido.")
 
     fecha_fin = None
     if fecha_fin_str:
         try:
-            fecha_fin = timezone.datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timezone.timedelta(days=1)
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timedelta(days=1)
         except ValueError:
             messages.error(request, "Formato de fecha de fin inválido.")
 
+    # --- FIX #2: AÑADIR EL ESTADO 'COMPLETADO' A LA LISTA ---
     pedidos_qs = Pedido.objects.filter(
         empresa=empresa_actual,
         tipo_pedido='ONLINE', 
-        estado__in=['LISTO_BODEGA_DIRECTO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO']
+        estado__in=['LISTO_BODEGA_DIRECTO', 'COMPLETADO', 'DESPACHADO', 'ENTREGADO', 'FACTURADO']
     ).select_related('cliente_online', 'vendedor__user')
+    # --- FIN FIX #2 ---
 
     if fecha_inicio:
         pedidos_qs = pedidos_qs.filter(fecha_hora__gte=fecha_inicio)
@@ -583,35 +609,40 @@ def reporte_ventas_vendedor_online(request):
     user = request.user
     es_admin = es_administracion(user) or user.is_superuser
     
-    # CAMBIO CLAVE AQUÍ: Buscar el grupo por su nombre correcto 'Online'
     try:
         online_group = Group.objects.get(name='Online') 
     except Group.DoesNotExist:
         messages.error(request, "El grupo 'Online' no existe en el sistema. Contacte al administrador.")
-        return redirect('core:acceso_denied') # O redirigir a una página de error más específica
+        return redirect('core:acceso_denied')
         
     vendedores_list_online_for_dropdown = Vendedor.objects.filter(
         user__empresa=empresa_actual, 
-        user__groups=online_group # FILTRO POR EL GRUPO 'Online'
+        user__groups=online_group
     ).select_related('user').order_by('user__first_name')
     
+    # --- FIX #3: CORREGIR LA LÓGICA DEL FILTRO PARA ADMINISTRADORES ---
     if es_admin:
         if vendedor_id_seleccionado:
+            # Si el admin selecciona un vendedor, filtra por él
             pedidos_qs = pedidos_qs.filter(vendedor__pk=vendedor_id_seleccionado)
-        pedidos_qs = pedidos_qs.filter(vendedor__user__groups=online_group) # Filtrar pedidos por vendedores 'Online'
+        else:
+            # Si el admin NO selecciona un vendedor, muestra los de TODO el grupo Online
+            pedidos_qs = pedidos_qs.filter(vendedor__user__groups=online_group)
         titulo = "Informe de Ventas Online por Vendedor"
-    elif user.groups.filter(name='Online').exists(): # Si el usuario logueado pertenece al grupo 'Online'
+    # --- FIN FIX #3 ---
+    elif user.groups.filter(name='Online').exists():
         try:
             vendedor_obj = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
             pedidos_qs = pedidos_qs.filter(vendedor=vendedor_obj)
             titulo = f"Mis Ventas Online ({user.get_full_name()})"
         except Vendedor.DoesNotExist:
-            messages.error(request, "No se encontró un perfil de vendedor online activo para su cuenta en esta empresa.")
+            messages.error(request, "No se encontró un perfil de vendedor online activo para su cuenta.")
             return redirect('core:acceso_denied')
     else: 
         messages.warning(request, "No tiene permisos para ver este informe.")
         return redirect('core:acceso_denied')
 
+    # (El resto de la vista para cálculos y contexto se mantiene exactamente igual)
     pedidos_list = pedidos_qs.annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), 0),
         total_unidades_despachadas_pedido=Coalesce(
@@ -647,13 +678,12 @@ def reporte_ventas_vendedor_online(request):
         porcentaje_despacho_vendedor = (total_unidades_despachadas_vendedor / total_unidades_solicitadas_vendedor) * 100
     porcentaje_despacho_vendedor = Decimal(porcentaje_despacho_vendedor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-
     context = {
         'titulo': titulo,
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'vendedores_list': vendedores_list_online_for_dropdown if es_admin else [], 
-        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado and vendedor_id_seleccionado.isdigit() else None,
+        'vendedor_id_seleccionado': int(vendedor_id_seleccionado) if vendedor_id_seleccionado else None,
         'es_administracion': es_admin,
         'pedidos_list': pedidos_list,
         'total_unidades_solicitadas_vendedor': total_unidades_solicitadas_vendedor,
