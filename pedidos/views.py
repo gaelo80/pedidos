@@ -14,6 +14,9 @@ from urllib.parse import quote
 from django.contrib.auth.models import User
 from .signals import sincronizar_reservas_borrador
 import json
+from django.http import JsonResponse
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 import re
 from collections import defaultdict
 from django.contrib.auth.decorators import login_required, permission_required
@@ -692,8 +695,8 @@ def vista_pedido_exito(request, pk):
             if telefono_cliente_limpio:
                 mensaje_texto = (
                     f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''},"
-                    f" te comparto el pedido #{pedido.numero_pedido_empresa}."
-                    f" Adjunta el PDF descargado para confirmar. Gracias."
+                    f" te comparto el pedido # {pedido.numero_pedido_empresa}."
+                    f" Gracias. LOUIS FERRY Paris"
                 )
                 mensaje_encoded = quote(mensaje_texto)
                 whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"
@@ -1077,3 +1080,79 @@ def generar_borrador_pdf(request, pk):
        logger.error(f"Error al generar PDF de borrador para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response
+
+
+@login_required
+@require_POST # Esta vista solo aceptará peticiones POST
+def autosave_pedido_borrador(request):
+    """
+    Vista AJAX para crear o actualizar un borrador de pedido automáticamente.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return JsonResponse({'status': 'error', 'message': 'Empresa no identificada.'}, status=403)
+
+    vendedor = Vendedor.objects.filter(user=request.user, user__empresa=empresa_actual).first()
+    if not vendedor and not (request.user.is_staff or es_administracion(request.user)):
+        return JsonResponse({'status': 'error', 'message': 'Perfil de vendedor no encontrado.'}, status=403)
+
+    pedido_id = request.POST.get('pedido_id_editado')
+    pedido_instance = None
+    if pedido_id:
+        # Buscamos un borrador existente que pertenezca al vendedor/empresa
+        pedido_instance = get_object_or_404(Pedido, pk=pedido_id, empresa=empresa_actual, estado='BORRADOR')
+        # Regla de seguridad: un vendedor solo puede autoguardar sus propios borradores
+        if vendedor and not request.user.is_staff and pedido_instance.vendedor != vendedor:
+             return JsonResponse({'status': 'error', 'message': 'No tienes permiso para editar este borrador.'}, status=403)
+
+
+    form = PedidoForm(request.POST, instance=pedido_instance, empresa=empresa_actual)
+
+    if form.is_valid():
+        try:
+            with transaction.atomic():
+                pedido = form.save(commit=False)
+                pedido.empresa = empresa_actual
+                if vendedor:
+                    pedido.vendedor = vendedor
+                
+                # Forzamos el estado a BORRADOR, que es el propósito de esta vista
+                pedido.estado = 'BORRADOR'
+                pedido.save()
+
+                # Lógica para procesar los detalles (similar a la vista principal)
+                productos_guardados_ids = set()
+                for key, value in request.POST.items():
+                    if key.startswith('cantidad_') and value and int(value) > 0:
+                        producto_id = int(key.split('_')[1])
+                        producto_obj = Producto.objects.get(pk=producto_id, empresa=empresa_actual)
+                        
+                        DetallePedido.objects.update_or_create(
+                            pedido=pedido, 
+                            producto=producto_obj,
+                            defaults={
+                                'cantidad': int(value), 
+                                'precio_unitario': producto_obj.precio_venta
+                            }
+                        )
+                        productos_guardados_ids.add(producto_id)
+                
+                # Eliminar detalles que ya no están en el formulario
+                DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
+
+                # Sincronizar las reservas de stock con la señal
+                sincronizar_reservas_borrador(pedido)
+
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Borrador guardado automáticamente.',
+                    'pedido_pk': pedido.pk,
+                    'numero_pedido_empresa': pedido.numero_pedido_empresa,
+                    'edit_url': reverse('pedidos:editar_pedido_web', kwargs={'pk': pedido.pk})
+                })
+
+        except Exception as e:
+            logger.error(f"Error en autosave: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors}, status=400)

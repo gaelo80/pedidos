@@ -856,21 +856,6 @@ def vista_registrar_ingreso(request):
                     formset.instance = ingreso_header
                     formset.save()
 
-                    print(f"Registrando entrada de stock para Ingreso #{ingreso_header.pk}...")
-                    detalles_guardados = ingreso_header.detalles.all()
-                    for detalle in detalles_guardados:
-                        if detalle.cantidad > 0:
-                            MovimientoInventario.objects.create(
-                                empresa=empresa_actual,
-                                producto=detalle.producto,
-                                cantidad=detalle.cantidad, 
-                                tipo_movimiento='ENTRADA_COMPRA', 
-                                documento_referencia=f"Ingreso #{ingreso_header.pk} ({ingreso_header.documento_referencia or ''})".strip(),
-                                usuario=request.user,
-                                notas=f'Entrada por Ingreso a Bodega #{ingreso_header.pk}'
-                            )
-                            print(f" + Stock actualizado para {detalle.producto}: +{detalle.cantidad}")
-
                     messages.success(request, f"Ingreso a Bodega #{ingreso_header.pk} registrado exitosamente.")
                     return redirect('bodega:vista_registrar_ingreso') # Nombre corregido
 

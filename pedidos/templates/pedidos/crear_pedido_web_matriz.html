@@ -457,7 +457,75 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentVariantes = []; // Array de {id, talla, stock_actual} de la Ref/Color seleccionada
     let ultimasCantidadesCopiables = {}; // { 'talla': cantidad } para la función "Copiar Cantidades"
     let clienteSeleccionadoId = null;
+    let currentDraftId = {% if pedido_instance %}{{ pedido_instance.pk }}{% else %}null{% endif %};
+    let autosaveTimeout; // Para gestionar el debounce
+    const AUTOSAVE_DELAY = 2500; // 2.5 segundos de espera
 
+    // Función Debounce: Evita que una función se ejecute demasiadas veces seguidas.
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
+    }
+
+    // Función principal que se encarga del autoguardado
+    function performAutosave() {
+        console.log("Activando autoguardado...");
+        
+        // Recolectar datos del formulario
+        const formData = new FormData(pedidoForm[0]);
+        if (currentDraftId) {
+            formData.append('pedido_id_editado', currentDraftId);
+        }
+
+        // Mostrar un indicador visual sutil
+        $('#detalle-titulo').html('Detalle del Pedido <span class="badge bg-info" id="autosave-indicator">Guardando...</span>');
+
+        fetch("{% url 'pedidos:autosave_pedido_borrador' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: new URLSearchParams(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log("Autoguardado exitoso:", data);
+                currentDraftId = data.pedido_pk; // MUY IMPORTANTE: Actualizar el ID del borrador
+
+                // Actualizar la URL del navegador sin recargar la página
+                if (window.history.replaceState) {
+                    window.history.replaceState(null, '', data.edit_url);
+                }
+                
+                // Actualizar el título principal si es la primera vez que se guarda
+                if ($('h1').text().includes('Crear')) {
+                    $('h1').text(`Editar Pedido Borrador #${data.numero_pedido_empresa}`);
+                }
+
+                $('#autosave-indicator').text('Guardado ✓').removeClass('bg-info').addClass('bg-success');
+            } else {
+                console.error("Error en autoguardado:", data.message);
+                $('#autosave-indicator').text('Error al guardar').removeClass('bg-info').addClass('bg-danger');
+            }
+            // Desvanecer el indicador después de un tiempo
+            setTimeout(() => { $('#autosave-indicator').fadeOut(500, function() { $(this).remove(); }); }, 2000);
+        })
+        .catch(error => {
+            console.error("Error de red en autoguardado:", error);
+            $('#autosave-indicator').text('Error de red').removeClass('bg-info').addClass('bg-danger');
+            setTimeout(() => { $('#autosave-indicator').fadeOut(500, function() { $(this).remove(); }); }, 2000);
+        });
+    }
+
+    // Crear una versión "debounced" de la función de autoguardado
+    const debouncedAutosave = debounce(performAutosave, AUTOSAVE_DELAY);
+
+
+    $('#id_cliente, #id_prospecto, #id_forma_pago, #id_porcentaje_descuento').on('change', debouncedAutosave);
+    $('#id_notas').on('keyup', debouncedAutosave);
 
     const IVA_RATE = 0.19; 
     const IVA_FACTOR = 1.0 + IVA_RATE;
@@ -1419,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  resetEditState();              // Salir del modo edición
                  resetCurrentSelectionInputs(); // Limpiar área de selección
                  updateGrandTotals();           // Recalcular totales generales
+                 debouncedAutosave();
 
             } else {
                  // --- Lógica de AÑADIR NUEVA LÍNEA ---
@@ -1488,6 +1557,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  console.log("Nueva línea añadida.");
                  resetCurrentSelectionInputs(); // Limpiar área de selección
                  updateGrandTotals();           // Recalcular totales generales
+                 debouncedAutosave();
                  filaVacia.hide();              // Asegurar que la fila vacía esté oculta
             }
         });
@@ -1531,6 +1601,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Eliminar fila de la tabla
                         rowToDelete.remove();
                         updateGrandTotals(); // Recalcular totales
+                        debouncedAutosave();
                         console.log(`Línea ${rowIdToDelete} eliminada.`);
                         // Mostrar fila vacía si ya no quedan filas
                          if (detalleTbody.find('tr:not(#fila-vacia)').length === 0) {
