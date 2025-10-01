@@ -5,5 +5,5 @@ class DevolucionesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'devoluciones'
 
-    def ready(self):
-        import devoluciones.signals
+    #def ready(self):
+     #   import devoluciones.signals
