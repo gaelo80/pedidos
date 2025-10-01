@@ -608,12 +608,28 @@ def generar_pedido_pdf(request, pk):
     
     for detalle in detalles_originales:
         print(f"DEBUG PDF: Ref: {detalle.producto.referencia}, Talla: '{detalle.producto.talla}', Tipo: {type(detalle.producto.talla)}")
-        # NORMALIZACIÓN DE TALLAS: Convertir 16 a 13 para el PDF
+        
+        
+        
+        
+# --- NORMALIZACIÓN DE TALLAS ---
+        # Mapeo de tallas numéricas a sus equivalentes para el PDF.
+        TALLAS_MAPEO = {
+            '6': '3',
+            '8': '5',
+            '10': '7',
+            '12': '9',
+            '14': '11',
+            '16': '13',
+        }
+
         if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
             # Convertimos la talla a texto y quitamos espacios para una comparación segura
             talla_como_texto = str(detalle.producto.talla).strip()
-            if talla_como_texto == '16':
-                detalle.producto.talla = '13'
+            
+            # Si la talla está en nuestro diccionario de mapeo, la reemplazamos.
+            if talla_como_texto in TALLAS_MAPEO:
+                detalle.producto.talla = TALLAS_MAPEO[talla_como_texto]
         
         # El resto del bucle continúa igual
         genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
@@ -1028,12 +1044,24 @@ def generar_borrador_pdf(request, pk):
     TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
     
     for detalle in detalles_originales:
-        # NORMALIZACIÓN DE TALLAS: Convertir 16 a 13 para el PDF
+        # --- NORMALIZACIÓN DE TALLAS ---
+        # Mapeo de tallas numéricas a sus equivalentes para el PDF.
+        TALLAS_MAPEO = {
+            '6': '3',
+            '8': '5',
+            '10': '7',
+            '12': '9',
+            '14': '11',
+            '16': '13',
+        }
+
         if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
             # Convertimos la talla a texto y quitamos espacios para una comparación segura
             talla_como_texto = str(detalle.producto.talla).strip()
-            if talla_como_texto == '16':
-                detalle.producto.talla = '13'
+            
+            # Si la talla está en nuestro diccionario de mapeo, la reemplazamos.
+            if talla_como_texto in TALLAS_MAPEO:
+                detalle.producto.talla = TALLAS_MAPEO[talla_como_texto]
 
         # El resto del bucle continúa igual
         genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
