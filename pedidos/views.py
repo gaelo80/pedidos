@@ -712,7 +712,7 @@ def vista_pedido_exito(request, pk):
                 mensaje_texto = (
                     f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''},"
                     f" te comparto el pedido # {pedido.numero_pedido_empresa}."
-                    f" Gracias. LOUIS FERRY Paris"
+                    f" Cualquier inquietud con gusto la atenderé."
                 )
                 mensaje_encoded = quote(mensaje_texto)
                 whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"
