@@ -715,14 +715,14 @@ def reporte_ventas_general_online(request):
     fecha_inicio = None
     if fecha_inicio_str:
         try:
-            fecha_inicio = timezone.datetime.strptime(fecha_inicio_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
         except ValueError:
             messages.error(request, "Formato de fecha de inicio inválido.")
 
     fecha_fin = None
     if fecha_fin_str:
         try:
-            fecha_fin = timezone.datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timezone.timedelta(days=1)
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timedelta(days=1)
         except ValueError:
             messages.error(request, "Formato de fecha de fin inválido.")
 
