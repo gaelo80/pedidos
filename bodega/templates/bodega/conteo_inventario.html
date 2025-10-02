@@ -274,7 +274,7 @@ $(document).ready(function() {
 
         $('#tabla-conteo tbody tr[data-item-pk]').each(function() {
             var $fila = $(this);
-            var refFila = $fila.data('referencia') || '';
+            var refFila = String($fila.data('referencia') || '');
             var colorFila = $fila.data('color') || '';
             var mostrarFila = true;
 
