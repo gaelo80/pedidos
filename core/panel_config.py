@@ -327,6 +327,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-chart-line',
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_administracion', 'es_cartera'],
+        'order': 2,
         'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
     },
     {
@@ -346,7 +347,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-chart-bar',
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_online', 'es_administracion'],
-        'order': 4,
+        'order': 3,
         'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
     },
     {
@@ -356,7 +357,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-chart-bar',
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_administracion'],
-        'order': 4,
+        'order': 5,
         'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
     },
     {
@@ -384,6 +385,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-undo-alt',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_bodega', 'es_administracion', 'es_vendedor', 'es_cartera', 'es_factura'], # Corregido error de sintaxis 'es_administracion' 'es_vendedor'
+        'order': 6,
         'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
     },
     {
@@ -401,8 +403,9 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'informes:informe_total_pedidos',
         'icono': 'fa-solid fa-list-ol',
         'icono_color_class': 'icon-dark',
-        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura'], # Corregido para usar nombres de funciones
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura'],
+        'order': 1,
+        'categoria': 'Informes Generales',
     },
     {
         'titulo': 'Informe de Movimiento de Inventario',

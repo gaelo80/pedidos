@@ -279,10 +279,17 @@ def reporte_ventas_vendedor(request):
          titulo_informe = f"Mis Unidades Vendidas ({vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username})"
     else: # Si no es admin y no es vendedor logueado o no se encontró perfil
         titulo_informe = "Informe de Ventas por Vendedor (Acceso Restringido)"
+        
+        
+    queryset_final_para_paginar = pedidos_para_lista_y_agregados 
+
+    paginator = Paginator(queryset_final_para_paginar, 25)  # Muestra 25 pedidos por página
+    page_number = request.GET.get('page')
+    pedidos_page_obj = paginator.get_page(page_number)
 
     context = {
         'titulo': titulo_informe,
-        'pedidos_list': pedidos_para_lista_y_agregados, # Contiene los pedidos con sus unidades despachadas anotadas
+        'pedidos_list': pedidos_page_obj,
         'total_unidades_solicitadas_vendedor': total_unidades_solicitadas_vendedor,
         'valor_total_ventas_solicitadas_vendedor': valor_total_ventas_solicitadas_vendedor,
         'total_unidades_despachadas_vendedor': total_unidades_despachadas_vendedor,
