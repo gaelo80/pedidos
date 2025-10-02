@@ -49,6 +49,8 @@
             <div class="card-body p-5">
                 {{ documentos_formset.management_form }}
 
+                <div id="documentos-ocultos-container" style="display: none;"></div>
+
                 <div id="documento-activo-container" class="mb-4"> {# Agregado mb-4 para espaciado #}
                     {% for doc_form in documentos_formset %}
                         {% if not doc_form.instance.pk %}
@@ -138,185 +140,121 @@
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- CONTENEDORES PRINCIPALES ---
+    const formContainer = document.querySelector('#solicitud-form');
     const addButton = document.querySelector('#add-document-btn');
     const totalFormsInput = document.querySelector('#id_documentos-TOTAL_FORMS');
-    const formContainer = document.querySelector('#solicitud-form');
-    const listaAdjuntados = document.querySelector('#documentos-adjuntados-lista');
     const activoContainer = document.querySelector('#documento-activo-container');
+    const listaAdjuntosVisual = document.querySelector('#documentos-adjuntados-lista');
     const listaAdjuntosTitulo = document.querySelector('#lista-adjuntos-titulo');
+    const emptyFormTemplate = document.querySelector('#empty-form');
 
-    // Mapeo para nombres de tipo de documento
-    const tipoDocumentoMap = {};
-    const firstTipoSelect = document.querySelector('#empty-form select[name$="tipo_documento"]');
-    if (firstTipoSelect) {
-        Array.from(firstTipoSelect.options).forEach(option => {
-            tipoDocumentoMap[option.value] = option.text;
-        });
-    }
-
-    function updateDocumentOptions() {
-        const selects = formContainer.querySelectorAll('select[name$="tipo_documento"]');
-        let selectedValues = [];
-        selects.forEach(select => {
-            const formRow = select.closest('.document-form-row');
-            // Solo considerar si el formulario no está marcado para eliminación y no es el empty_form
-            const isMarkedForDelete = formRow.querySelector('input[name$="-DELETE"]:checked');
-            if (select.value && formRow && formRow.style.display !== 'none' && !isMarkedForDelete) {
-                selectedValues.push(select.value);
-            }
-        });
-        selects.forEach(select => {
-            const currentSelectedValue = select.value;
-            for (const option of select.options) {
-                // Si la opción ya está seleccionada en el select actual, siempre mostrarla
-                // Si no está seleccionada, pero está en `selectedValues` (ya elegida en otro form), ocultarla
-                if (!selectedValues.includes(option.value) || option.value === currentSelectedValue) {
-                    option.style.display = '';
-                } else {
-                    option.style.display = 'none';
-                }
-            }
-        });
-    }
-
-    addButton.addEventListener('click', () => {
+    
+    /**
+     * Función principal que se ejecuta al hacer clic en "Añadir Documento".
+     * Valida el form actual, lo oculta y añade uno nuevo.
+     */
+    function procesarYAnadirDocumento() {
         const formActivo = activoContainer.querySelector('.document-form-row');
-        // Si no hay un formulario activo visible, significa que ya se ha procesado.
-        // O si ya está oculto (si aplica una lógica de ocultamiento en lugar de mover)
-        if (!formActivo || formActivo.style.display === 'none') {
-             // Este caso puede darse si ya se hizo clic en "Añadir Documento" sin recargar
-            // Se puede mostrar un mensaje o simplemente añadir un nuevo formulario
-            // console.warn("No hay formulario activo para procesar. Añadiendo uno nuevo.");
-            // Si el emptyForm no está en activoContainer, lo tomamos del template
-            const emptyFormTemplate = document.querySelector('#empty-form');
-            const newForm = emptyFormTemplate.cloneNode(true);
-            newForm.removeAttribute('id'); // Importante para que no duplique el ID
-            newForm.style.display = 'block';
-
-            let formNum = parseInt(totalFormsInput.value);
-            newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
-            
-            activoContainer.appendChild(newForm);
-            totalFormsInput.value = formNum + 1;
-            updateDocumentOptions();
-            return; // Salir de la función para no procesar como "existente"
-        }
-
-        const tipoSelect = formActivo.querySelector('select[name$="tipo_documento"]'); // Asegurarse de seleccionar el tipo de documento del form activo
-        const fileInput = formActivo.querySelector('input[type="file"]');
+        if (!formActivo) { return; }
         
-        // Validar que se haya seleccionado tipo y archivo
+        const tipoSelect = formActivo.querySelector('select[name$="tipo_documento"]');
+        const fileInput = formActivo.querySelector('input[type="file"]');
+
         if (!tipoSelect.value || !fileInput || fileInput.files.length === 0) {
-            alert('Por favor, seleccione un tipo de documento y adjunte el archivo correspondiente en el formulario actual.');
+            alert('Por favor, seleccione un tipo de documento y adjunte el archivo.');
             return;
         }
 
-        // Leer los valores ANTES de hacer cualquier cambio
-        const tipoValue = tipoSelect.value; // Valor para el campo oculto
-        const tipoText = tipoDocumentoMap[tipoValue] || tipoSelect.options[tipoSelect.selectedIndex].text;
-        const file = fileInput.files[0];
-        const fileText = file.name;
+        const tipoTexto = tipoSelect.options[tipoSelect.selectedIndex].text;
+        const nombreArchivo = fileInput.files[0].name;
+        const formIndexMatch = formActivo.querySelector('select[name$="tipo_documento"]').name.match(/(\d+)/);
+        const formIndex = formIndexMatch ? formIndexMatch[0] : (totalFormsInput.value - 1);
 
-        // 1. Ocultar los campos de formulario originales y crear la vista de solo lectura
-        const formRowElement = formActivo.querySelector('.row.g-3'); // El div row dentro de document-form-row
-        if (!formRowElement) return; // Asegurar que existe
-
-        // Eliminar los campos originales de crispy-forms para que no se vean
-        formRowElement.innerHTML = ''; // Limpiar el contenido original de la fila
-
-        // Crear los campos ocultos para enviar los datos con el formulario
-        const hiddenTipoInput = document.createElement('input');
-        hiddenTipoInput.type = 'hidden';
-        hiddenTipoInput.name = tipoSelect.name;
-        hiddenTipoInput.value = tipoValue;
-        formRowElement.appendChild(hiddenTipoInput);
-
-        // Clonar el FileInput original y añadirlo como campo oculto
-        const clonedFileInput = fileInput.cloneNode(true); // Clonar con los archivos
-        clonedFileInput.style.display = 'none';
-        formRowElement.appendChild(clonedFileInput);
-
-        // Crear la vista de solo lectura (como una fila más legible)
-        const vistaSoloLectura = document.createElement('div');
-        vistaSoloLectura.classList.add('col-12', 'd-flex', 'align-items-center');
-        vistaSoloLectura.innerHTML = `
-            <div class="col-5"><strong>${tipoText}</strong></div>
-            <div class="col-6 fst-italic text-muted">${fileText}</div>
+        const itemVisual = document.createElement('div');
+        itemVisual.className = 'list-group-item d-flex justify-content-between align-items-center';
+        itemVisual.setAttribute('data-form-ref-id', `documentos-${formIndex}-row`);
+        
+        itemVisual.innerHTML = `
+            <span>
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong>${tipoTexto}:</strong>
+                <em class="text-muted ms-2">${nombreArchivo}</em>
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-visual-btn">
+                <i class="fas fa-trash-alt"></i>
+            </button>
         `;
-        formRowElement.prepend(vistaSoloLectura); // Añadir al principio
-
-        // Mover el botón de eliminar al final de la fila de solo lectura
-        const removeButtonContainer = document.createElement('div');
-        removeButtonContainer.classList.add('col-1', 'text-end');
-        removeButtonContainer.appendChild(formActivo.querySelector('.remove-form-btn'));
-        formRowElement.appendChild(removeButtonContainer);
-
-        // 2. Mover el formulario completo (que ahora es de solo lectura) a la lista de adjuntados
-        formActivo.classList.remove('p-4', 'border', 'bg-light', 'mb-3'); // Quitar estilos de form activo
-        formActivo.classList.add('py-2', 'border-bottom', 'rounded-0'); // Añadir estilos de item de lista
-        listaAdjuntados.appendChild(formActivo);
+        listaAdjuntosVisual.appendChild(itemVisual);
         listaAdjuntosTitulo.style.display = 'block';
 
-        // 3. Añadir un nuevo formulario vacío para la siguiente carga
-        const emptyFormTemplate = document.querySelector('#empty-form');
-        const newForm = emptyFormTemplate.cloneNode(true);
-        newForm.removeAttribute('id');
-        newForm.style.display = 'block';
+        document.getElementById('documentos-ocultos-container').appendChild(formActivo);
+        formActivo.style.display = 'none';
+        formActivo.id = `documentos-${formIndex}-row`;
+
+        const nuevoForm = emptyFormTemplate.cloneNode(true);
+        nuevoForm.removeAttribute('id');
+        nuevoForm.style.display = 'block';
         
         let formNum = parseInt(totalFormsInput.value);
-        newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
+        nuevoForm.innerHTML = nuevoForm.innerHTML.replace(/__prefix__/g, formNum);
         
-        activoContainer.innerHTML = ''; // Limpiar el contenedor del form activo
-        activoContainer.appendChild(newForm);
-        
+        activoContainer.appendChild(nuevoForm);
         totalFormsInput.value = formNum + 1;
+
         updateDocumentOptions();
-    });
+    }
 
-    // Delegación de eventos para el botón de eliminar
-    formContainer.addEventListener('click', function(e) {
-        const removeButton = e.target.closest('.remove-form-btn');
-        if (removeButton) {
-            const formRow = removeButton.closest('.document-form-row');
-            // Encontrar el input DELETE asociado a este formulario
-            const deleteInput = formRow.querySelector('input[name$="-DELETE"]');
 
-            if (deleteInput) {
-                // Marcar el input DELETE para que el FormSet lo elimine en el backend
-                deleteInput.checked = true;
-                formRow.style.display = 'none'; // Ocultar el formulario visualmente
-                updateDocumentOptions(); // Actualizar las opciones de los selects
-                // Opcional: si la lista adjuntados queda vacía, ocultar el título
-                if (listaAdjuntados.children.length === 0) {
-                    listaAdjuntosTitulo.style.display = 'none';
+    /**
+     * Función para eliminar un documento añadido.
+     */
+    function eliminarDocumento(removeButton) {
+        const itemVisual = removeButton.closest('.list-group-item');
+        const formId = itemVisual.getAttribute('data-form-ref-id');
+        const formOculto = document.getElementById(formId);
+
+        if (formOculto) {
+            const deleteInput = formOculto.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) { deleteInput.checked = true; }
+        }
+        itemVisual.style.display = 'none';
+        
+        if (listaAdjuntosVisual.querySelectorAll('.list-group-item[style*="display: none;"]').length === listaAdjuntosVisual.children.length) {
+            listaAdjuntosTitulo.style.display = 'none';
+        }
+        updateDocumentOptions();
+    }
+
+
+    /**
+     * Actualiza los <select> para no permitir duplicados.
+     */
+    function updateDocumentOptions() {
+        const selects = formContainer.querySelectorAll('select[name$="tipo_documento"]');
+        let selectedValues = [];
+        
+        document.querySelectorAll('.document-form-row').forEach(formRow => {
+            const isMarkedForDelete = formRow.querySelector('input[name$="-DELETE"]:checked');
+            if (!isMarkedForDelete) {
+                const select = formRow.querySelector('select[name$="tipo_documento"]');
+                if (select && select.value) { selectedValues.push(select.value); }
+            }
+        });
+
+        const activeSelect = activoContainer.querySelector('select[name$="tipo_documento"]');
+        if (activeSelect) {
+            for (const option of activeSelect.options) {
+                if (option.value && selectedValues.includes(option.value)) {
+                    option.style.display = 'none';
+                } else {
+                    option.style.display = '';
                 }
-            } else {
-                // Si no hay input DELETE (es un formulario recién añadido no guardado aún), simplemente removerlo
-                formRow.remove();
-                // Si removemos el único formulario activo, añadir uno nuevo
-                if (activoContainer.children.length === 0) {
-                     const emptyFormTemplate = document.querySelector('#empty-form');
-                     const newForm = emptyFormTemplate.cloneNode(true);
-                     newForm.removeAttribute('id');
-                     newForm.style.display = 'block';
-                     let formNum = parseInt(totalFormsInput.value);
-                     newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formNum);
-                     activoContainer.appendChild(newForm);
-                }
-                updateDocumentOptions();
             }
         }
+    }
 
-        const cameraButton = e.target.closest('.btn-camara');
-        if (cameraButton) {
-            startCamera(cameraButton);
-        }
-    });
-    
-    // Inicializar opciones al cargar la página
-    updateDocumentOptions();
-
-    // Lógica de la cámara (sin cambios)
+    // --- LÓGICA DE LA CÁMARA (CÓDIGO ORIGINAL) ---
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
     const video = document.getElementById('camera-stream');
     const canvas = document.getElementById('camera-canvas');
@@ -325,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let targetFileInput = null;
 
     async function startCamera(button) {
-        targetFileInput = button.closest('.row.g-3 > div').querySelector('input[type="file"]');
+        targetFileInput = button.closest('.document-form-row').querySelector('input[type="file"]');
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -333,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cameraModal.show();
             } catch (err) {
                 console.error("Error al acceder a la cámara: ", err);
-                alert("No se pudo acceder a la cámara. Asegúrate de dar permisos y de estar en un sitio seguro (https).");
+                alert("No se pudo acceder a la cámara. Asegúrate de dar permisos.");
             }
         } else {
             alert("Tu navegador no soporta el acceso a la cámara.");
@@ -357,16 +295,57 @@ document.addEventListener('DOMContentLoaded', function() {
             
             canvas.toBlob(function(blob) {
                 const fileName = `captura-${new Date().toISOString()}.jpg`;
-                const capturedFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
+                const capturedFile = new File([blob], fileName, { type: 'image/jpeg' });
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(capturedFile);
                 targetFileInput.files = dataTransfer.files;
-                targetFileInput.dispatchEvent(new Event('change', { bubbles: true }));
                 cameraModal.hide();
             }, 'image/jpeg');
         }
     });
+
+    // --- ASIGNACIÓN DE EVENTOS ---
+    addButton.addEventListener('click', procesarYAnadirDocumento);
+
+    // Delegación de eventos para los botones de eliminar y cámara
+    formContainer.addEventListener('click', function(e) {
+        const removeBtn = e.target.closest('.remove-visual-btn');
+        const cameraBtn = e.target.closest('.btn-camara');
+
+        if (removeBtn) {
+            eliminarDocumento(removeBtn);
+        }
+        if (cameraBtn) {
+            startCamera(cameraBtn);
+        }
+    });
+    
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', stopCamera);
+
+
+
+        // --- INICIO DEL CÓDIGO AÑADIDO PARA LA SOLUCIÓN ---
+    // Se ejecuta justo antes de que el formulario se envíe al servidor.
+    formContainer.addEventListener('submit', function(e) {
+        const formActivo = activoContainer.querySelector('.document-form-row');
+        
+        // Revisa si existe una última fila activa de formulario
+        if (formActivo) {
+            const tipoSelect = formActivo.querySelector('select[name$="tipo_documento"]');
+            const fileInput = formActivo.querySelector('input[type="file"]');
+
+            // Si ambos campos de la última fila están vacíos...
+            if (!tipoSelect.value && (!fileInput || fileInput.files.length === 0)) {
+                // ...la eliminamos del DOM...
+                formActivo.remove();
+                // ...y actualizamos el contador TOTAL_FORMS para que Django no la espere.
+                totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+            }
+        }
+    });
+
+    // --- INICIALIZACIÓN ---
+    updateDocumentOptions();
 });
 </script>
 {% endblock extra_scripts %}

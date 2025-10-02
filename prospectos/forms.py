@@ -39,10 +39,14 @@ DocumentoFormSet = inlineformset_factory(
     Prospecto,
     DocumentoAdjunto,
     form=DocumentoAdjuntoForm,
-    extra=0,                # <-- LA SOLUCIÓN: Empezar con solo 1 formulario
-    can_delete=True,        # <-- LA SOLUCIÓN: Permitir que el botón de eliminar funcione
-    min_num=1,
-    validate_min=True,
+    # Muestra 1 formulario vacío por defecto. Es más consistente con el HTML.
+    extra=1,
+    # Permite que el formset sea válido incluso si no se adjunta ningún documento.
+    min_num=0,
+    # Desactiva la validación del número mínimo de formularios.
+    validate_min=False,
+    # Permitir la eliminación es correcto, lo mantenemos.
+    can_delete=True,
 )
 
 class RechazoForm(forms.Form):

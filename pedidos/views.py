@@ -179,10 +179,36 @@ def vista_crear_pedido_web(request, pk=None):
                     messages.error(request, "Debes agregar al menos un producto para crear el pedido.")
                     stock_suficiente_para_crear = False
                 else:
+                    
+
                     for detalle_data_check in detalles_para_crear:
-                        if detalle_data_check['cantidad'] > detalle_data_check['producto'].stock_actual:
+                        producto_obj = detalle_data_check['producto']
+                        cantidad_pedida = detalle_data_check['cantidad']
+                        stock_disponible_real = producto_obj.stock_actual
+                        
+                        cantidad_ya_reservada_por_este_borrador = 0
+                        # --- LÓGICA CLAVE AÑADIDA ---
+                        # Si estamos editando un borrador (pedido_instance existe), 
+                        # debemos considerar el stock que ya tiene reservado.
+                        if pedido_instance:
+                            try:
+                                reserva_existente = MovimientoInventario.objects.get(
+                                    empresa=empresa_actual,
+                                    producto=producto_obj,
+                                    tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+                                    documento_referencia__startswith=f'Pedido #{pedido_instance.numero_pedido_empresa}'
+                                )
+                                cantidad_ya_reservada_por_este_borrador = abs(reserva_existente.cantidad)
+                            except MovimientoInventario.DoesNotExist:
+                                # No había reserva para este producto, no hacemos nada.
+                                pass
+
+                        # El stock total disponible para ESTE pedido es el actual + lo que ya tenía reservado.
+                        stock_total_para_este_pedido = stock_disponible_real + cantidad_ya_reservada_por_este_borrador
+
+                        if cantidad_pedida > stock_total_para_este_pedido:
                             stock_suficiente_para_crear = False
-                            errores_stock.append(f"Stock insuficiente para '{detalle_data_check['producto']}'. Pedido: {detalle_data_check['cantidad']}, Disp: {detalle_data_check['producto'].stock_actual}")
+                            errores_stock.append(f"Stock insuficiente para '{producto_obj}'. Pedido: {cantidad_pedida}, Disp. Total: {stock_total_para_este_pedido}")
                 
                 if not stock_suficiente_para_crear:
                     for error in errores_stock: messages.error(request, error)
