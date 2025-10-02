@@ -167,3 +167,36 @@ FotoProductoFormSet = inlineformset_factory(
     fields=['imagen', 'descripcion_foto', 'orden'], # Campos que se manejarán por el formset
     # max_num=10,               # Límite máximo de fotos por agrupación (opcional)
 )
+
+
+class ProductoBaseForm(forms.ModelForm):
+    """
+    Formulario para la información común del producto.
+    """
+    class Meta:
+        model = Producto
+        fields = [
+            'referencia', 'nombre', 'descripcion', 'color', 
+            'genero', 'costo', 'precio_venta', 'unidad_medida', 
+            'ubicacion', 'activo'
+        ]
+        widgets = {
+            'descripcion': forms.Textarea(attrs={'rows': 2}),
+        }
+        # Excluimos 'talla' y 'codigo_barras' porque irán en el formset.
+
+class ProductoTallaForm(forms.Form):
+    """
+    Formulario para una única fila de talla y código de barras.
+    Añadimos widgets para un mejor control visual en la plantilla.
+    """
+    talla = forms.IntegerField(
+        label="Talla",
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Talla'})
+    )
+    codigo_barras = forms.CharField(
+        label="Código de Barras",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Código de Barras (Opcional)'})
+    )

@@ -24,6 +24,6 @@ urlpatterns = [
     path('importar/', views.producto_import_view, name='producto_importar'),
     path('exportar/<str:file_format>/', views.producto_export_view, name='producto_exportar'),
     path('subir-fotos-agrupadas/', views.subir_fotos_agrupadas_view, name='producto_subir_fotos_agrupadas'),
-    
+    path('crear-multi-talla/', views.crear_producto_multi_talla, name='producto_crear_multi_talla'),
     
 ]
