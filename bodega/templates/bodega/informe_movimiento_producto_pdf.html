@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { font-family: sans-serif; font-size: 9pt; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .header-table td { vertical-align: middle; }
+        .logo { max-height: 50px; max-width: 200px; }
+        h1 { text-align: right; color: #333; font-size: 18pt; margin: 0; }
+        h4 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .text-success { color: green; }
+        .text-danger { color: red; }
+        .fw-bold { font-weight: bold; }
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="footer">
+        Generado el {{ fecha_generacion|date:"Y-m-d H:i" }} por {{ request.user.username }} - Página <pdf:pagecount> de <pdf:totalPages>
+    </div>
+
+    <table class="header-table">
+        <tr>
+            <td>{% if logo_base64 %}<img src="{{ logo_base64 }}" class="logo">{% endif %}</td>
+            <td style="text-align: right;"><h1>{{ empresa_actual.nombre }}</h1></td>
+        </tr>
+    </table>
+
+    <h2 style="text-align: center;">{{ titulo }}</h2>
+
+    <h4>Información del Producto</h4>
+    <p>
+        <strong>Referencia:</strong> {{ producto.referencia }}<br>
+        <strong>Nombre:</strong> {{ producto.nombre }}<br>
+        <strong>Color:</strong> {{ producto.color|default:"N/A" }} &nbsp;&nbsp;&nbsp;
+        <strong>Talla:</strong> {{ producto.talla|default:"N/A" }}<br>
+        <strong style="font-size: 1.2em;">Stock Actual: {{ stock_actual_verificacion|intcomma }}</strong>
+    </p>
+
+    <h4>Detalle de Movimientos</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha y Hora</th>
+                <th>Tipo de Movimiento</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-center">Saldo Anterior</th>
+                <th class="text-center">Saldo Nuevo</th>
+                <th>Usuario</th>
+                <th>Documento Ref.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in movimientos_list %}
+            <tr>
+                <td>{{ item.movimiento.fecha_hora|date:"Y-m-d H:i" }}</td>
+                <td>{{ item.movimiento.get_tipo_movimiento_display }}</td>
+                <td class="text-center fw-bold {% if item.movimiento.cantidad > 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if item.movimiento.cantidad > 0 %}+{% endif %}{{ item.movimiento.cantidad|intcomma }}
+                </td>
+                <td class="text-center">{{ item.saldo_anterior|intcomma }}</td>
+                <td class="text-center fw-bold">{{ item.saldo_nuevo|intcomma }}</td>
+                <td>{{ item.movimiento.usuario.username|default:"Sistema" }}</td>
+                <td>{{ item.movimiento.documento_referencia|default:"" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">No se han registrado movimientos para este producto.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

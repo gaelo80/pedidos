@@ -1,0 +1,87 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock page_title %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-history me-2"></i> {{ titulo }}
+            </h1>
+            <p class="lead text-secondary mb-0">
+                Historial completo de entradas y salidas para el producto seleccionado.
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{{ request.path }}?format=pdf" class="btn btn-danger btn-lg rounded-pill shadow-sm me-2" target="_blank">
+                <i class="fas fa-file-pdf me-2"></i> Descargar PDF
+            </a>
+            <a href="{% url 'bodega:informe_inventario' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Inventario
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header bg-light py-3">
+            <h5 class="mb-0"><i class="fas fa-box me-2"></i>Información del Producto</h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="row">
+                <div class="col-md-4"><strong>Referencia:</strong> {{ producto.referencia }}</div>
+                <div class="col-md-8"><strong>Nombre:</strong> {{ producto.nombre }}</div>
+                <div class="col-md-4"><strong>Color:</strong> {{ producto.color|default:"N/A" }}</div>
+                <div class="col-md-4"><strong>Talla:</strong> {{ producto.talla|default:"N/A" }}</div>
+                <div class="col-md-4"><strong class="fs-5 text-success">Stock Actual: {{ producto.stock_actual|intcomma }}</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-stream me-2"></i>Detalle de Movimientos (Kardex)</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>Tipo de Movimiento</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-center">Saldo Anterior</th>
+                            <th class="text-center">Saldo Nuevo</th>
+                            <th>Usuario</th>
+                            <th>Documento Ref.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in movimientos_list %}
+                        <tr>
+                            <td>{{ item.movimiento.fecha_hora|date:"Y-m-d H:i" }}</td>
+                            <td>{{ item.movimiento.get_tipo_movimiento_display }}</td>
+                            <td class="text-center fw-bold {% if item.movimiento.cantidad > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if item.movimiento.cantidad > 0 %}+{% endif %}{{ item.movimiento.cantidad|intcomma }}
+                            </td>
+                            <td class="text-center text-muted">{{ item.saldo_anterior|intcomma }}</td>
+                            <td class="text-center fw-bold">{{ item.saldo_nuevo|intcomma }}</td>
+                            <td>{{ item.movimiento.usuario.username|default:"Sistema" }}</td>
+                            <td>{{ item.movimiento.documento_referencia|default:"N/A" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center fst-italic py-4">
+                                No se han registrado movimientos para este producto.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

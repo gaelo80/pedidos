@@ -41,5 +41,6 @@ urlpatterns = [
      path('cambio-producto/', views.realizar_cambio_producto, name='realizar_cambio_producto'),
      path('cambio-producto/<int:pk>/pdf/', views.generar_pdf_cambio_producto, name='generar_pdf_cambio_producto'),
      path('cambios-historial/', views.historial_cambios_producto, name='historial_cambios_producto'),
-     
+     path('informe/movimiento/producto/<int:pk>/', views.informe_movimiento_producto, name='informe_movimiento_producto'),
+     path('buscar-informe-movimiento/', views.buscar_informe_movimiento, name='buscar_informe_movimiento'),
 ]

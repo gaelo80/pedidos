@@ -2138,26 +2138,83 @@ def generar_pdf_cambio_producto(request, pk):
     
     
 @login_required
-# Asegúrate de que los usuarios con estos roles puedan acceder
-@permission_required('bodega.view_movimientoinventario', login_url='core:acceso_denegado') 
+@permission_required('bodega.view_movimientoinventario', login_url='core:acceso_denegado')
 def buscar_informe_movimiento(request):
     """
     Muestra un formulario para seleccionar un producto y luego redirige
-    al informe de movimientos de ese producto.
+    al nuevo informe de movimientos detallado (Kardex).
     """
     empresa_actual = request.tenant
-    
+
     if 'producto_id' in request.GET:
         producto_id = request.GET.get('producto_id')
         if producto_id:
-            # Redirigimos a la vista de informe que ya tienes, pasándole el ID
-            return redirect(reverse('bodega:informe_movimiento_inventario', kwargs={'pk': producto_id}))
+            return redirect('bodega:informe_movimiento_producto', pk=producto_id)
 
-    # Filtramos los productos por la empresa del usuario
-    productos = Producto.objects.filter(empresa=empresa_actual, activo=True)
+    # --- CORRECCIÓN CLAVE ---
+    # Buscamos todos los productos para pasarlos a la plantilla
+    productos_para_selector = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia')
 
     context = {
-        'titulo': 'Buscar Informe de Movimientos',
-        'productos': productos,
+        'titulo': 'Buscar Kardex de Producto',
+        'productos': productos_para_selector, # <-- Se los enviamos a la plantilla
     }
     return render(request, 'bodega/buscar_informe_movimiento.html', context)
+
+@login_required
+# Asegúrate que el permiso sea el adecuado, ej: 'bodega.view_movimientoinventario'
+@permission_required('bodega.view_movimientoinventario', login_url='core:acceso_denegado')
+def informe_movimiento_producto(request, pk):
+    """
+    Muestra el historial de movimientos (Kardex) para un único producto y
+    permite descargar el informe en PDF.
+    """
+    empresa_actual = request.tenant
+    producto = get_object_or_404(
+        Producto,
+        pk=pk,
+        empresa=empresa_actual
+    )
+
+    # Obtenemos todos los movimientos para este producto, ordenados del más reciente al más antiguo
+    movimientos_queryset = MovimientoInventario.objects.filter(
+        producto=producto
+    ).select_related('usuario').order_by('-fecha_hora')
+
+    # Calcular el saldo corriendo para cada movimiento (Kardex)
+    saldo = producto.stock_actual
+    movimientos_con_saldo = []
+    for movimiento in movimientos_queryset:
+        movimientos_con_saldo.append({
+            'movimiento': movimiento,
+            'saldo_anterior': saldo,
+            'saldo_nuevo': saldo - movimiento.cantidad
+        })
+        saldo -= movimiento.cantidad
+    
+    # Invertimos la lista para mostrar del más antiguo al más reciente en la plantilla
+    movimientos_con_saldo.reverse()
+
+
+    context = {
+        'producto': producto,
+        'movimientos_list': movimientos_con_saldo,
+        'stock_actual_verificacion': producto.stock_actual,
+        'titulo': f"Kardex de Movimientos - {producto.referencia}",
+        'empresa_actual': empresa_actual,
+        'fecha_generacion': timezone.now(),
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
+    }
+
+    # Decidir si generar PDF o renderizar HTML
+    if request.GET.get('format') == 'pdf':
+        filename = f"Kardex_{empresa_actual.pk}_{producto.referencia}_{timezone.now().strftime('%Y%m%d')}"
+        return render_pdf_weasyprint(
+            request,
+            'bodega/informe_movimiento_producto_pdf.html', # Plantilla para el PDF
+            context,
+            filename_prefix=filename
+        )
+
+    # Por defecto, mostrar la vista en pantalla
+    return render(request, 'bodega/informe_movimiento_producto.html', context)

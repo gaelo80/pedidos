@@ -143,6 +143,17 @@ PANEL_OPTIONS_CONFIG = [
     },
 
     # --- Bodega e Inventario ---
+    
+    {
+        'titulo': 'Consultar Kardex de Producto',
+        'descripcion': 'Ver el historial de movimientos (entradas/salidas) de un producto específico.',
+        'url_nombre': 'bodega:buscar_informe_movimiento',
+        'icono': 'fas fa-search-plus',
+        'icono_color_class': 'icon-primary',
+        #'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
+        'order': 6, # Ajusta el orden como prefieras
+        'categoria': 'Bodega e Inventario',
+    },
     {
         'titulo': 'Registrar Devolución',
         'descripcion': 'Crear una devolución de cliente.',

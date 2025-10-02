@@ -119,6 +119,8 @@ def vista_index(request):
     empresa_actual = getattr(request, 'tenant', None)
     user = request.user
     
+    print(f"DEBUG: Total de opciones cargadas desde panel_config.py: {len(PANEL_OPTIONS_CONFIG)}")
+    
     # Determinar el título de la página basado en el rol principal
     titulo_base = "Panel Principal" # Valor por defecto inicializado
     # Prioriza los roles más "generales" o de "mayor autoridad" para asignar el título
