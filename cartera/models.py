@@ -41,7 +41,7 @@ class DocumentoCartera(models.Model):
     class Meta:
         verbose_name = "Documento de Cartera"
         verbose_name_plural = "Documentos de Cartera"
-        unique_together = ('empresa', 'tipo_documento', 'numero_documento') 
+        #unique_together = ('empresa', 'tipo_documento', 'numero_documento') 
         ordering = ['empresa', 'cliente', 'fecha_vencimiento'] 
         constraints = [
             models.UniqueConstraint(
