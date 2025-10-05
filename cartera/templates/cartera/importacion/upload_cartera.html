@@ -87,6 +87,31 @@
         </div>
     </div>
 </div>
+
+<div class="card mt-5 border-danger">
+  <div class="card-header bg-danger text-white">
+    <i class="fas fa-exclamation-triangle"></i> Zona de Peligro
+  </div>
+  <div class="card-body">
+    <h5 class="card-title">Eliminar Cartera Completa</h5>
+    <p class="card-text">
+      Esta acción borrará de forma permanente <strong>todos</strong> los documentos de cartera 
+      (Facturas Oficiales y Remisiones) que han sido cargados para la empresa 
+      <strong>{{ request.tenant.nombre }}</strong>. Esta acción es irreversible.
+    </p>
+    
+    <form action="{% url 'cartera:eliminar_toda_la_cartera' %}" method="post" 
+          onsubmit="return confirm('ADVERTENCIA:\n\n¿Estás absolutamente seguro de que deseas eliminar TODA la cartera de la empresa?\n\nEsta acción no se puede deshacer.');">
+      
+      {% csrf_token %}
+      
+      <button type="submit" class="btn btn-danger">
+        <i class="fas fa-trash-alt"></i> Sí, eliminar toda la cartera
+      </button>
+    </form>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block extra_scripts %} {# Renombrado extra_js a extra_scripts para consistencia #}

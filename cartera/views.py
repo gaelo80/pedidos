@@ -9,7 +9,9 @@ from django.utils import timezone
 from django.db.models import Sum, Q
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
-
+from django.views.decorators.http import require_POST
+from functools import reduce
+import operator
 from clientes.models import Cliente # De la app clientes
 from core.auth_utils import es_administracion, es_vendedor, es_cartera, es_administracion
 from vendedores.models import Vendedor # De la app vendedores
@@ -118,9 +120,8 @@ def api_cartera_cliente(request, cliente_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff or es_administracion(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denigado')
+@user_passes_test(lambda u: u.is_staff or es_administracion(u) or es_cartera(u), login_url='core:acceso_denegado')
 def vista_importar_cartera(request):
-    
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
@@ -133,27 +134,22 @@ def vista_importar_cartera(request):
             perfil_seleccionado = form.cleaned_data['perfil_importacion']
             tipo_documento_seleccionado = form.cleaned_data['tipo_documento']
 
-            # --- CORRECCIÓN IMPORTANTE ---
-            # Inicializamos TODOS los contadores y listas aquí, al principio.
-            # Esto asegura que siempre existan, incluso si ocurre un error después.
-            filas_leidas = 0
-            filas_procesadas_ok = 0
+            # --- Inicializamos todos los contadores y listas ---
             filas_ignoradas_saldo_cero = 0
+            filas_ignoradas_por_prioridad = 0
             clientes_no_encontrados = set()
             documentos_para_crear = []
             condiciones_para_borrar = []
             count_borrados = 0
-            # --- FIN DE LA CORRECCIÓN ---
 
             try:
                 df = pd.read_excel(archivo_excel, header=perfil_seleccionado.fila_inicio_header - 1, dtype=str)
-                filas_leidas = len(df)
                 df.dropna(subset=[perfil_seleccionado.columna_id_cliente, perfil_seleccionado.columna_numero_documento], inplace=True)
 
                 for index, row in df.iterrows():
                     num_fila_excel = index + perfil_seleccionado.fila_inicio_header + 1
-                    
                     saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
+
                     if saldo_excel == 0:
                         filas_ignoradas_saldo_cero += 1
                         continue
@@ -171,15 +167,19 @@ def vista_importar_cartera(request):
                         continue
 
                     numero_doc_excel = str(row.get(perfil_seleccionado.columna_numero_documento, '')).strip()
+
+                    # Lógica de prioridad: Si estamos cargando una Remisión, verificamos si ya existe la Factura Oficial
+                    if tipo_documento_seleccionado == 'FYN':
+                        if DocumentoCartera.objects.filter(empresa=empresa_actual, cliente=cliente_obj, numero_documento=numero_doc_excel, tipo_documento='LF').exists():
+                            filas_ignoradas_por_prioridad += 1
+                            continue
                     
                     condiciones_para_borrar.append(Q(cliente=cliente_obj, numero_documento=numero_doc_excel))
-                    
+
                     fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
                     fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
                     nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
                     codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
-                    if codigo_vend_excel and '.' in codigo_vend_excel:
-                        codigo_vend_excel = codigo_vend_excel.split('.')[0]
 
                     documentos_para_crear.append(DocumentoCartera(
                         empresa=empresa_actual,
@@ -195,23 +195,22 @@ def vista_importar_cartera(request):
 
                 with transaction.atomic():
                     if condiciones_para_borrar:
-                        from functools import reduce
-                        import operator
                         query_final_borrado = reduce(operator.or_, condiciones_para_borrar)
                         documentos_a_borrar = DocumentoCartera.objects.filter(
-                            empresa=empresa_actual,
-                            tipo_documento=tipo_documento_seleccionado
+                            empresa=empresa_actual, tipo_documento=tipo_documento_seleccionado
                         ).filter(query_final_borrado)
                         count_borrados = documentos_a_borrar.count()
                         documentos_a_borrar.delete()
-
+                    
                     DocumentoCartera.objects.bulk_create(documentos_para_crear)
 
-                messages.success(request, f"Importación finalizada. Se procesaron {len(documentos_para_crear)} documentos de {filas_leidas} filas leídas.")
+                messages.success(request, f"Importación finalizada. Se procesaron {len(documentos_para_crear)} documentos.")
                 if count_borrados > 0:
                     messages.info(request, f"Se actualizaron {count_borrados} documentos existentes con la nueva información.")
                 if filas_ignoradas_saldo_cero > 0:
                     messages.info(request, f"Se ignoraron {filas_ignoradas_saldo_cero} registros porque su saldo era cero.")
+                if filas_ignoradas_por_prioridad > 0:
+                    messages.info(request, f"Se ignoraron {filas_ignoradas_por_prioridad} remisiones porque ya existía una Factura Oficial con el mismo número.")
                 if clientes_no_encontrados:
                     messages.warning(request, f"No se encontraron clientes para {len(clientes_no_encontrados)} IDs: {', '.join(sorted(list(clientes_no_encontrados)))}")
 
@@ -219,6 +218,7 @@ def vista_importar_cartera(request):
                 messages.error(request, f"Error crítico al procesar el archivo: {e}")
 
             return redirect('cartera:importar_cartera')
+        
         else:
             messages.error(request, "Error en el formulario. Por favor, completa todos los campos requeridos.")
     
@@ -343,3 +343,27 @@ def reporte_cartera_general(request):
         'app_name': 'Cartera' # Asumo que esta vista está en la app 'cartera'
     }
     return render(request, 'cartera/reporte_cartera.html', context)
+
+@require_POST  # Asegura que esta vista solo se pueda llamar con el método POST
+@login_required
+@user_passes_test(es_administracion) # ¡Importante! Solo los administradores pueden hacer esto
+def vista_eliminar_cartera(request):
+    """
+    Elimina TODOS los documentos de cartera para la empresa (tenant) actual.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    if not empresa_actual:
+        messages.error(request, "Error de seguridad: No se pudo identificar la empresa.")
+        return redirect('cartera:importar_cartera') # O a donde prefieras
+
+    try:
+        # Filtramos por empresa y borramos. El .delete() devuelve un conteo.
+        conteo_borrados, _ = DocumentoCartera.objects.filter(empresa=empresa_actual).delete()
+        
+        messages.success(request, f"¡Operación exitosa! Se eliminaron {conteo_borrados} documentos de la cartera de {empresa_actual.nombre}.")
+
+    except Exception as e:
+        messages.error(request, f"Ocurrió un error inesperado al intentar eliminar la cartera: {e}")
+
+    return redirect('cartera:importar_cartera') # Redirige de vuelta a la página de importación
