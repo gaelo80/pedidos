@@ -43,6 +43,12 @@ class DocumentoCartera(models.Model):
         verbose_name_plural = "Documentos de Cartera"
         unique_together = ('empresa', 'tipo_documento', 'numero_documento') 
         ordering = ['empresa', 'cliente', 'fecha_vencimiento'] 
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa', 'cliente', 'numero_documento', 'tipo_documento'], 
+                name='restriccion_factura_unica_por_cliente'
+            )
+        ]
 
     def __str__(self):
         return f"({self.empresa.nombre_corto if self.empresa else 'SIN EMPRESA'}) {self.get_tipo_documento_display()} {self.numero_documento} - Cliente: {self.cliente.nombre_completo if self.cliente else 'N/A'}"

@@ -131,128 +131,92 @@ def vista_importar_cartera(request):
         if form.is_valid():
             archivo_excel = request.FILES['archivo_excel']
             perfil_seleccionado = form.cleaned_data['perfil_importacion']
-            # --- CAMBIO CLAVE: OBTENEMOS EL TIPO DE DOCUMENTO DEL FORMULARIO ---
             tipo_documento_seleccionado = form.cleaned_data['tipo_documento']
-
-            filas_leidas = 0
-            filas_procesadas_ok = 0
-            nuevos_registros_creados = 0
-            filas_saltadas_concepto = 0
-            clientes_no_encontrados = set()
-            errores_fila_detalle = []
 
             try:
                 df = pd.read_excel(archivo_excel, header=perfil_seleccionado.fila_inicio_header - 1, dtype=str)
-                filas_leidas = len(df)
-                
-                with transaction.atomic():
-                    # --- CAMBIO CRÍTICO: BORRAMOS SOLO LOS DOCUMENTOS DEL TIPO SELECCIONADO ---
-                    DocumentoCartera.objects.filter(
+                df.dropna(subset=[perfil_seleccionado.columna_id_cliente, perfil_seleccionado.columna_numero_documento], inplace=True)
+
+                documentos_para_crear = []
+                clientes_no_encontrados = set()
+                condiciones_para_borrar = []
+
+                # --- LÓGICA DE REEMPLAZO INTELIGENTE ---
+                # 1. Preparamos los datos y las condiciones para el borrado
+                for index, row in df.iterrows():
+                    num_fila_excel = index + perfil_seleccionado.fila_inicio_header + 1
+                    
+                    codigo_cliente_excel = str(row.get(perfil_seleccionado.columna_id_cliente, '')).strip()
+                    if codigo_cliente_excel.endswith('.0'):
+                        codigo_cliente_excel = codigo_cliente_excel[:-2]
+
+                    if not codigo_cliente_excel:
+                        continue
+
+                    cliente_obj = Cliente.objects.filter(identificacion__startswith=codigo_cliente_excel, empresa=empresa_actual).first()
+
+                    if not cliente_obj:
+                        clientes_no_encontrados.add(codigo_cliente_excel)
+                        continue
+
+                    numero_doc_excel = str(row.get(perfil_seleccionado.columna_numero_documento, '')).strip()
+                    
+                    # Agregamos la condición para el borrado masivo
+                    condiciones_para_borrar.append(
+                        Q(cliente=cliente_obj, numero_documento=numero_doc_excel)
+                    )
+
+                    # Preparamos el objeto para la creación masiva
+                    fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
+                    fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
+                    saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
+                    nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
+                    codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
+                    if codigo_vend_excel and '.' in codigo_vend_excel:
+                        codigo_vend_excel = codigo_vend_excel.split('.')[0]
+
+                    documentos_para_crear.append(DocumentoCartera(
                         empresa=empresa_actual,
-                        tipo_documento=tipo_documento_seleccionado # <-- El filtro clave
-                    ).delete()
+                        cliente=cliente_obj,
+                        tipo_documento=tipo_documento_seleccionado,
+                        numero_documento=numero_doc_excel,
+                        fecha_documento=fecha_doc_excel,
+                        fecha_vencimiento=fecha_ven_excel,
+                        saldo_actual=saldo_excel,
+                        nombre_vendedor_cartera=nombre_vend_excel,
+                        codigo_vendedor_cartera=codigo_vend_excel,
+                    ))
 
-                    for index, row in df.iterrows():
-                        num_fila_excel = index + perfil_seleccionado.fila_inicio_header + 1 # Cálculo más robusto
+                with transaction.atomic():
+                    # 2. Borramos de forma masiva todos los documentos que vamos a reemplazar
+                    if condiciones_para_borrar:
+                        from functools import reduce
+                        import operator
+                        query_final_borrado = reduce(operator.or_, condiciones_para_borrar)
+                        
+                        documentos_a_borrar = DocumentoCartera.objects.filter(
+                            empresa=empresa_actual,
+                            tipo_documento=tipo_documento_seleccionado
+                        ).filter(query_final_borrado)
+                        
+                        count_borrados = documentos_a_borrar.count()
+                        documentos_a_borrar.delete()
+                    
+                    # 3. Creamos de forma masiva todos los nuevos documentos
+                    DocumentoCartera.objects.bulk_create(documentos_para_crear)
 
-                        try:
-                            # (La lógica de extracción de datos de la fila no cambia...)
-                            concepto = str(row.get('CONCEPTO', '')).strip()
-                            if concepto not in ['52', '89']: 
-                                filas_saltadas_concepto += 1
-                                continue
-                            
-                            codigo_cliente_excel = str(row.get(perfil_seleccionado.columna_id_cliente, '')).strip()
-                            numero_doc_excel = str(row.get(perfil_seleccionado.columna_numero_documento, '')).strip()
-
-                            if not codigo_cliente_excel or not numero_doc_excel:
-                                msg_error = f"Fila {num_fila_excel}: Falta Código de Cliente o Número de Documento."
-                                errores_fila_detalle.append(msg_error)
-                                continue
-                            
-                            # 1. Limpiamos el formato del número (elimina el ".0" si existe)
-                            if codigo_cliente_excel.endswith('.0'):
-                                codigo_cliente_excel = codigo_cliente_excel[:-2]
-                            
-                            # Validamos que el código no esté vacío después de limpiar
-                            if not codigo_cliente_excel:
-                                msg_error = f"Fila {num_fila_excel}: Falta Código de Cliente."
-                                errores_fila_detalle.append(msg_error)
-                                continue
-
-                            # 2. Buscamos al cliente usando 'startswith' para ignorar el dígito de verificación
-                            try:
-                                cliente_obj = Cliente.objects.get(
-                                    identificacion__startswith=codigo_cliente_excel,
-                                    empresa=empresa_actual
-                                )
-                            except Cliente.DoesNotExist:
-                                clientes_no_encontrados.add(codigo_cliente_excel)
-                                continue
-                            except Cliente.MultipleObjectsReturned:
-                                # Esto previene un error si hay IDs duplicados (ej: 800123 y 800123-4)
-                                print(f"ADVERTENCIA: Se encontraron múltiples clientes que comienzan con el ID '{codigo_cliente_excel}'. Se omite la fila {num_fila_excel}.")
-                                clientes_no_encontrados.add(f"{codigo_cliente_excel} (Duplicado)")
-                                continue
-
-                            fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
-                            fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
-                            saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
-                            nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
-                            codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
-                            if codigo_vend_excel and '.' in codigo_vend_excel:
-                                codigo_vend_excel = codigo_vend_excel.split('.')[0]
-
-                            # --- CAMBIO CLAVE: USAMOS EL TIPO DE DOCUMENTO SELECCIONADO AL CREAR ---
-                            DocumentoCartera.objects.create(
-                                empresa=empresa_actual,
-                                cliente=cliente_obj,
-                                tipo_documento=tipo_documento_seleccionado, # <-- Asignación clave
-                                numero_documento=numero_doc_excel,
-                                fecha_documento=fecha_doc_excel,
-                                fecha_vencimiento=fecha_ven_excel,
-                                saldo_actual=saldo_excel,
-                                nombre_vendedor_cartera=nombre_vend_excel,
-                                codigo_vendedor_cartera=codigo_vend_excel,
-                            )
-                            nuevos_registros_creados += 1
-                            filas_procesadas_ok +=1
-
-                        except Exception as e_row:
-                            msg_error_fila = f"Fila Excel {num_fila_excel}: {e_row}"
-                            errores_fila_detalle.append(msg_error_fila)
-                            print(f"ERROR EN FILA (EXCEPCIÓN): {msg_error_fila}")
-                            import traceback
-                            traceback.print_exc(limit=1)
-
-                # Obtenemos el nombre legible para el mensaje de éxito
-                nombre_tipo_doc = dict(DocumentoCartera.TIPO_DOCUMENTO_CHOICES).get(tipo_documento_seleccionado)
-                messages.success(request, f"Importación para '{nombre_tipo_doc}' finalizada desde el archivo '{archivo_excel.name}'.")
-                messages.info(request, f"Resumen: {filas_procesadas_ok} de {filas_leidas} filas del Excel procesadas y creadas exitosamente.")
-                
-                if filas_saltadas_concepto > 0:
-                    messages.info(request, f"{filas_saltadas_concepto} filas fueron ignoradas por concepto no válido.")
+                messages.success(request, f"Importación finalizada. Se procesaron {len(documentos_para_crear)} documentos.")
+                if 'count_borrados' in locals() and count_borrados > 0:
+                    messages.info(request, f"Se actualizaron {count_borrados} documentos existentes con la nueva información del archivo.")
                 if clientes_no_encontrados:
-                    messages.warning(request, f"{len(clientes_no_encontrados)} códigos de cliente no encontrados: {', '.join(sorted(list(clientes_no_encontrados)))}")
-                if errores_fila_detalle:
-                    messages.error(request, f"Se encontraron errores en {len(errores_fila_detalle)} filas. Revise la consola del servidor para más detalles.")
-                    for err_msg in errores_fila_detalle[:3]:
-                        messages.error(request, err_msg)
+                    messages.warning(request, f"No se encontraron clientes para {len(clientes_no_encontrados)} IDs: {', '.join(sorted(list(clientes_no_encontrados)))}")
 
-            except pd.errors.EmptyDataError:
-                 messages.error(request, f"El archivo Excel '{archivo_excel.name}' está vacío o no tiene datos en la hoja esperada después de la cabecera.")
-            except KeyError as e:
-                messages.error(request, f"Error al leer el archivo: Columna esperada '{e}' no encontrada. Verifica que el archivo Excel tenga las columnas correctas y que el perfil de importación seleccionado sea el correcto.")
             except Exception as e:
-                print(f"Error general durante la importación: {e}")
-                import traceback
-                traceback.print_exc()
-                messages.error(request, f"Error crítico al procesar el archivo Excel: {e}")
+                messages.error(request, f"Error crítico al procesar el archivo: {e}")
 
             return redirect('cartera:importar_cartera')
-
         else:
-            messages.error(request, "Error en el formulario. Por favor, completa todos los campos requeridos.")
+            messages.error(request, "Error en el formulario. Por favor, completa los campos requeridos.")
     
     else:
         form = UploadCarteraFileForm(empresa=empresa_actual)
