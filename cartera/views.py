@@ -170,6 +170,11 @@ def vista_importar_cartera(request):
                     fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
                     fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
                     saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
+                    
+                    if saldo_excel == 0:
+                        filas_ignoradas_saldo_cero += 1
+                        continue 
+                                          
                     nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
                     codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
                     if codigo_vend_excel and '.' in codigo_vend_excel:
