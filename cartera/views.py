@@ -27,9 +27,6 @@ def convertir_fecha_excel(valor_excel, num_fila=None, nombre_campo_para_error="F
 
         if len(valor_str) == 8 and valor_str.isdigit(): # Formato YYYYMMDD
             return datetime.strptime(valor_str, '%Y%m%d').date()
-        
-        elif '/' in valor_str and len(valor_str) == 10:
-            return datetime.strptime(valor_str, '%d/%m/%Y').date()
         # Podrías añadir más formatos aquí si es necesario
         # Ejemplo: elif '-' in valor_str: return datetime.strptime(valor_str, '%Y-%m-%d').date()
         else:
@@ -290,57 +287,46 @@ def reporte_cartera_general(request):
     # O usa la condición del decorador (excluyendo es_vendedor para el dropdown)
     puede_filtrar_por_vendedor_dropdown = es_administracion(user) or es_cartera(user) or user.is_superuser
 
-
+    codigo_vendedor_para_filtrar = None
+    vendedor_seleccionado_id_get = request.GET.get('vendedor_filtro_id') # Nuevo parámetro GET
 
     if not puede_filtrar_por_vendedor_dropdown and es_vendedor(user):
-        # Es un VENDEDOR viendo su propia cartera
+        # Si es un vendedor (y no admin/cartera con capacidad de elegir), filtra por su propio código
         try:
             vendedor_actual = Vendedor.objects.get(user=user, user__empresa=empresa_actual)
-            codigo_vendedor = str(vendedor_actual.codigo_interno) if vendedor_actual.codigo_interno else None
-            
-            titulo_dinamico = f"Cartera de: {vendedor_actual.user.get_full_name() or vendedor_actual.user.username}"
-
-            if codigo_vendedor:
-                # El vendedor tiene un código. Buscamos documentos que coincidan con su código
-                # O que no tengan código y el cliente le pertenezca.
-                queryset_documentos = queryset_documentos.filter(
-                    Q(codigo_vendedor_cartera=codigo_vendedor) |
-                    (Q(codigo_vendedor_cartera__isnull=True) | Q(codigo_vendedor_cartera='')) & Q(cliente__vendedor=vendedor_actual)
-                )
+            if vendedor_actual.codigo_interno:
+                codigo_vendedor_para_filtrar = str(vendedor_actual.codigo_interno)
+                titulo_dinamico = f"Cartera de: {vendedor_actual.user.get_full_name() or vendedor_actual.user.username}"
             else:
-                # El vendedor no tiene código, solo podemos filtrar por cliente asignado.
-                messages.warning(request, "Tu perfil no tiene código interno. Se mostrará la cartera solo por clientes asignados.")
-                queryset_documentos = queryset_documentos.filter(cliente__vendedor=vendedor_actual)
-
+                messages.error(request, "Tu perfil de vendedor no tiene un código interno asignado.")
+                queryset_documentos = DocumentoCartera.objects.none()
         except Vendedor.DoesNotExist:
             messages.error(request, "No se encontró tu perfil de vendedor asociado.")
             queryset_documentos = DocumentoCartera.objects.none()
             
-    elif puede_filtrar_por_vendedor_dropdown:
-        # Es un ADMIN/CARTERA que puede usar el dropdown para filtrar
-        vendedor_seleccionado_id_get = request.GET.get('vendedor_filtro_id')
-        if vendedor_seleccionado_id_get:
-            try:
-                vendedor_obj = Vendedor.objects.get(pk=int(vendedor_seleccionado_id_get), user__empresa=empresa_actual)
-                codigo_vendedor = str(vendedor_obj.codigo_interno) if vendedor_obj.codigo_interno else None
-                
-                titulo_dinamico = f"Cartera de Vendedor: {vendedor_obj.user.get_full_name() or vendedor_obj.user.username}"
-
-                if codigo_vendedor:
-                     queryset_documentos = queryset_documentos.filter(
-                        Q(codigo_vendedor_cartera=codigo_vendedor) |
-                        (Q(codigo_vendedor_cartera__isnull=True) | Q(codigo_vendedor_cartera='')) & Q(cliente__vendedor=vendedor_obj)
-                    )
-                else:
-                    messages.warning(request, f"El vendedor '{vendedor_obj.user.username}' no tiene código interno. Mostrando solo por clientes asignados a él.")
-                    queryset_documentos = queryset_documentos.filter(cliente__vendedor=vendedor_obj)
-
-            except (ValueError, Vendedor.DoesNotExist):
-                messages.error(request, "El vendedor seleccionado no es válido.")
-        else:
-            titulo_dinamico = f"Informe General de Cartera ({empresa_actual.nombre}) - Todos los Vendedores"
-
-
+    elif puede_filtrar_por_vendedor_dropdown and vendedor_seleccionado_id_get:
+        # Si es admin/cartera Y ha seleccionado un vendedor del dropdown
+        try:
+            vendedor_obj_seleccionado = Vendedor.objects.get(
+                pk=int(vendedor_seleccionado_id_get),
+                user__empresa=empresa_actual
+            ) 
+            if vendedor_obj_seleccionado.codigo_interno:
+                codigo_vendedor_para_filtrar = str(vendedor_obj_seleccionado.codigo_interno)
+                titulo_dinamico = f"Cartera de Vendedor: {vendedor_obj_seleccionado.user.get_full_name() or vendedor_obj_seleccionado.user.username}"
+            else:
+                messages.warning(request, f"El vendedor '{vendedor_obj_seleccionado.user.username}' no tiene código interno para filtrar.")
+                # Decide si mostrar todo o nada. Por ahora, no se aplica filtro de vendedor.
+        except (ValueError, Vendedor.DoesNotExist):
+            messages.error(request, "El vendedor seleccionado en el filtro no es válido.")
+            # Podrías no aplicar filtro o mostrar queryset vacío
+            # queryset_documentos = DocumentoCartera.objects.none() 
+    
+    # Aplicar el filtro de vendedor si se determinó un código
+    if codigo_vendedor_para_filtrar:
+        queryset_documentos = queryset_documentos.filter(codigo_vendedor_cartera=codigo_vendedor_para_filtrar)
+    elif puede_filtrar_por_vendedor_dropdown and not vendedor_seleccionado_id_get:
+        titulo_dinamico = f"Informe General de Cartera ({empresa_actual.nombre}) - Todos los Vendedores"
 
 
     # --- Tus filtros existentes por cliente y estado de vencimiento ---

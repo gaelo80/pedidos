@@ -84,21 +84,11 @@ class PerfilImportacionCartera(models.Model):
     # Guarda aquí el nombre EXACTO de la columna en el archivo Excel
     columna_id_cliente = models.CharField(max_length=50, default='CODIGO')
     columna_numero_documento = models.CharField(max_length=50, default='DOCUMENTO')
-    columna_fecha_documento = models.CharField(
-        max_length=50, 
-        default='FECHADOC',
-        blank=True,
-        help_text="(Opcional) Déjalo en blanco si el archivo no tiene esta columna."
-        )
+    columna_fecha_documento = models.CharField(max_length=50, default='FECHADOC')
     columna_fecha_vencimiento = models.CharField(max_length=50, default='FECHAVEN')
     columna_saldo = models.CharField(max_length=50, default='SALDOACT')
     columna_nombre_vendedor = models.CharField(max_length=50, default='NOMVENDEDOR')
-    columna_codigo_vendedor = models.CharField(
-        max_length=50, 
-        default='VENDEDOR',
-        blank=True,
-        help_text="(Opcional) Déjalo en blanco si el archivo no tiene esta columna."        
-        )
+    columna_codigo_vendedor = models.CharField(max_length=50, default='VENDEDOR')
     # Añade más campos si necesitas mapear más columnas (ej. concepto)
 
     def __str__(self):
