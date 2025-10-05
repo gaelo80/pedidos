@@ -118,7 +118,7 @@ def api_cartera_cliente(request, cliente_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff or es_administracion(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denegado')
+@user_passes_test(lambda u: u.is_staff or es_administracion(u) or es_cartera(u) or u.is_staff, login_url='core:acceso_denigado')
 def vista_importar_cartera(request):
     
     empresa_actual = getattr(request, 'tenant', None)
@@ -133,25 +133,36 @@ def vista_importar_cartera(request):
             perfil_seleccionado = form.cleaned_data['perfil_importacion']
             tipo_documento_seleccionado = form.cleaned_data['tipo_documento']
 
+            # --- CORRECCIÓN IMPORTANTE ---
+            # Inicializamos TODOS los contadores y listas aquí, al principio.
+            # Esto asegura que siempre existan, incluso si ocurre un error después.
+            filas_leidas = 0
+            filas_procesadas_ok = 0
+            filas_ignoradas_saldo_cero = 0
+            clientes_no_encontrados = set()
+            documentos_para_crear = []
+            condiciones_para_borrar = []
+            count_borrados = 0
+            # --- FIN DE LA CORRECCIÓN ---
+
             try:
                 df = pd.read_excel(archivo_excel, header=perfil_seleccionado.fila_inicio_header - 1, dtype=str)
+                filas_leidas = len(df)
                 df.dropna(subset=[perfil_seleccionado.columna_id_cliente, perfil_seleccionado.columna_numero_documento], inplace=True)
 
-                documentos_para_crear = []
-                clientes_no_encontrados = set()
-                condiciones_para_borrar = []
-
-                # --- LÓGICA DE REEMPLAZO INTELIGENTE ---
-                # 1. Preparamos los datos y las condiciones para el borrado
                 for index, row in df.iterrows():
                     num_fila_excel = index + perfil_seleccionado.fila_inicio_header + 1
                     
+                    saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
+                    if saldo_excel == 0:
+                        filas_ignoradas_saldo_cero += 1
+                        continue
+
                     codigo_cliente_excel = str(row.get(perfil_seleccionado.columna_id_cliente, '')).strip()
                     if codigo_cliente_excel.endswith('.0'):
                         codigo_cliente_excel = codigo_cliente_excel[:-2]
-
-                    if not codigo_cliente_excel:
-                        continue
+                    
+                    if not codigo_cliente_excel: continue
 
                     cliente_obj = Cliente.objects.filter(identificacion__startswith=codigo_cliente_excel, empresa=empresa_actual).first()
 
@@ -161,20 +172,10 @@ def vista_importar_cartera(request):
 
                     numero_doc_excel = str(row.get(perfil_seleccionado.columna_numero_documento, '')).strip()
                     
-                    # Agregamos la condición para el borrado masivo
-                    condiciones_para_borrar.append(
-                        Q(cliente=cliente_obj, numero_documento=numero_doc_excel)
-                    )
-
-                    # Preparamos el objeto para la creación masiva
+                    condiciones_para_borrar.append(Q(cliente=cliente_obj, numero_documento=numero_doc_excel))
+                    
                     fecha_doc_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_documento), num_fila_excel)
                     fecha_ven_excel = convertir_fecha_excel(row.get(perfil_seleccionado.columna_fecha_vencimiento), num_fila_excel)
-                    saldo_excel = convertir_saldo_excel(row.get(perfil_seleccionado.columna_saldo), num_fila_excel)
-                    
-                    if saldo_excel == 0:
-                        filas_ignoradas_saldo_cero += 1
-                        continue 
-                                          
                     nombre_vend_excel = str(row.get(perfil_seleccionado.columna_nombre_vendedor, '')).strip() or None
                     codigo_vend_excel = str(row.get(perfil_seleccionado.columna_codigo_vendedor, '')).strip() or None
                     if codigo_vend_excel and '.' in codigo_vend_excel:
@@ -193,26 +194,24 @@ def vista_importar_cartera(request):
                     ))
 
                 with transaction.atomic():
-                    # 2. Borramos de forma masiva todos los documentos que vamos a reemplazar
                     if condiciones_para_borrar:
                         from functools import reduce
                         import operator
                         query_final_borrado = reduce(operator.or_, condiciones_para_borrar)
-                        
                         documentos_a_borrar = DocumentoCartera.objects.filter(
                             empresa=empresa_actual,
                             tipo_documento=tipo_documento_seleccionado
                         ).filter(query_final_borrado)
-                        
                         count_borrados = documentos_a_borrar.count()
                         documentos_a_borrar.delete()
-                    
-                    # 3. Creamos de forma masiva todos los nuevos documentos
+
                     DocumentoCartera.objects.bulk_create(documentos_para_crear)
 
-                messages.success(request, f"Importación finalizada. Se procesaron {len(documentos_para_crear)} documentos.")
-                if 'count_borrados' in locals() and count_borrados > 0:
-                    messages.info(request, f"Se actualizaron {count_borrados} documentos existentes con la nueva información del archivo.")
+                messages.success(request, f"Importación finalizada. Se procesaron {len(documentos_para_crear)} documentos de {filas_leidas} filas leídas.")
+                if count_borrados > 0:
+                    messages.info(request, f"Se actualizaron {count_borrados} documentos existentes con la nueva información.")
+                if filas_ignoradas_saldo_cero > 0:
+                    messages.info(request, f"Se ignoraron {filas_ignoradas_saldo_cero} registros porque su saldo era cero.")
                 if clientes_no_encontrados:
                     messages.warning(request, f"No se encontraron clientes para {len(clientes_no_encontrados)} IDs: {', '.join(sorted(list(clientes_no_encontrados)))}")
 
@@ -221,7 +220,7 @@ def vista_importar_cartera(request):
 
             return redirect('cartera:importar_cartera')
         else:
-            messages.error(request, "Error en el formulario. Por favor, completa los campos requeridos.")
+            messages.error(request, "Error en el formulario. Por favor, completa todos los campos requeridos.")
     
     else:
         form = UploadCarteraFileForm(empresa=empresa_actual)
