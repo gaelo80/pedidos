@@ -412,6 +412,7 @@ def cliente_export_view(request, file_format='xlsx'):
     Gestiona la exportación de clientes a diferentes formatos de archivo.
     """
     cliente_resource = ClienteResource()
+    cliente_resource.request = request 
     dataset = cliente_resource.export()
 
     # Asigna el formato de archivo y el tipo de contenido correcto

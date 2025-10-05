@@ -76,3 +76,18 @@ class ClienteResource(resources.ModelResource):
         skip_unchanged = True
         report_skipped = False
         exclude = ('fecha_creacion',)
+        
+    def get_queryset(self):
+        # Si la vista no nos pasa la información del 'request', no devolvemos nada por seguridad.
+        if not hasattr(self, 'request') or not self.request:
+            return Cliente.objects.none()
+        
+        # Obtenemos la empresa (tenant) del usuario que está pidiendo la exportación.
+        empresa_actual = getattr(self.request, 'tenant', None)
+        
+        if empresa_actual:
+            # Filtramos el queryset para devolver solo los clientes de esa empresa.
+            return Cliente.objects.filter(empresa=empresa_actual)
+        
+        # Si por alguna razón no hay empresa, no se exporta nada.
+        return Cliente.objects.none()
