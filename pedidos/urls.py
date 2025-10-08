@@ -25,5 +25,6 @@ urlpatterns = [
     path('admin/rechazar/<int:pk>/', views.rechazar_pedido_admin, name='rechazar_pedido_admin'),
     path('borrador/<int:pk>/pdf/', views.generar_borrador_pdf, name='generar_borrador_pdf'),
     path('borrador/autosave/', views.autosave_pedido_borrador, name='autosave_pedido_borrador'),
+    path('reportes/ventas-por-referencia/', views.vista_reporte_referencias, name='reporte_ventas_referencia'),
 
 ]

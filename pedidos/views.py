@@ -17,6 +17,7 @@ import json
 from django.http import JsonResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from datetime import datetime
 import re
 from collections import defaultdict
 from django.contrib.auth.decorators import login_required, permission_required
@@ -1210,3 +1211,83 @@ def autosave_pedido_borrador(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     else:
         return JsonResponse({'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors}, status=400)
+    
+
+@login_required
+def vista_reporte_referencias(request):
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    # --- Captura de Filtros ---
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+    search_referencia = request.GET.get('search_referencia', '').strip()
+
+    fecha_inicio, fecha_fin = None, None
+    if fecha_inicio_str:
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+    if fecha_fin_str:
+        fecha_fin = datetime.strptime(f"{fecha_fin_str} 23:59:59", '%Y-%m-%d %H:%M:%S')
+
+    # --- Query Base ---
+    queryset = DetallePedido.objects.filter(
+        pedido__empresa=empresa_actual
+    ).exclude(
+        pedido__estado__in=['BORRADOR', 'RECHAZADO_CARTERA', 'RECHAZADO_ADMIN']
+    )
+
+    # --- Aplicación de Filtros ---
+    if fecha_inicio and fecha_fin:
+        queryset = queryset.filter(pedido__fecha_hora__range=[fecha_inicio, fecha_fin])
+    if search_referencia:
+        queryset = queryset.filter(producto__referencia__icontains=search_referencia)
+
+    # --- Agrupación por Referencia, Color y Talla ---
+    ventas_agrupadas = queryset.values(
+        'producto__referencia', 
+        'producto__color',
+        'producto__talla'
+    ).annotate(
+        total_unidades=Sum('cantidad')
+    ).order_by('producto__referencia', 'producto__color', 'producto__talla')
+
+    # --- Transformación de Datos a Formato Matriz ---
+    reporte_matriz = {}
+    todas_las_tallas = set()
+    gran_total_unidades = 0
+
+    for venta in ventas_agrupadas:
+        ref = venta['producto__referencia']
+        color = venta['producto__color'] or 'SIN COLOR'
+        talla = venta['producto__talla']
+        total = venta['total_unidades']
+
+        if not ref or not talla or not total:
+            continue
+
+        clave_grupo = (ref, color)
+        if clave_grupo not in reporte_matriz:
+            reporte_matriz[clave_grupo] = {
+                'referencia': ref,
+                'color': color,
+                'tallas': {},
+                'total_grupo': 0
+            }
+        
+        reporte_matriz[clave_grupo]['tallas'][talla] = total
+        reporte_matriz[clave_grupo]['total_grupo'] += total
+        todas_las_tallas.add(talla)
+        gran_total_unidades += total
+    
+    # Ordenar las tallas para usarlas como cabeceras de la tabla
+    tallas_ordenadas = sorted(list(todas_las_tallas), key=lambda t: (int(t) if str(t).isdigit() else float('inf'), str(t)))
+
+    context = {
+        'titulo': 'Reporte Profesional de Ventas por Referencia',
+        'reporte': reporte_matriz,
+        'tallas_cabecera': tallas_ordenadas,
+        'gran_total': gran_total_unidades,
+        'fecha_inicio': fecha_inicio_str,
+        'fecha_fin': fecha_fin_str,
+        'search_referencia': search_referencia,
+    }
+    return render(request, 'pedidos/reportes/ventas_por_referencia.html', context)

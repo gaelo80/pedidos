@@ -1,0 +1,92 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+{% load core_extras %}
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">{{ titulo }}</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="mb-4 p-3 border rounded bg-light">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <label for="fecha_inicio">Desde:</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio|default:'' }}" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecha_fin">Hasta:</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin|default:'' }}" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="search_referencia">Referencia:</label>
+                        <input type="text" name="search_referencia" id="search_referencia" value="{{ search_referencia|default:'' }}" class="form-control form-control-sm" placeholder="Buscar por referencia...">
+                    </div>
+                    <div class="col-md-2 mt-3 mt-md-0">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-filter"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="reporteTable" width="100%" cellspacing="0">
+                    <thead class="thead-dark text-center">
+                        <tr>
+                            <th style="min-width: 120px;">Referencia</th>
+                            <th style="min-width: 120px;">Color</th>
+                            {% for talla in tallas_cabecera %}
+                                <th>{{ talla }}</th>
+                            {% endfor %}
+                            <th class="bg-primary text-white" style="min-width: 100px;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for clave, data in reporte.items %}
+                        <tr class="text-center">
+                            <td class="font-weight-bold">{{ data.referencia }}</td>
+                            <td>{{ data.color }}</td>
+                            {% for talla_header in tallas_cabecera %}
+                                <td>{{ data.tallas|get_item:talla_header|default_if_none:""|intcomma }}</td>
+                            {% endfor %}
+                            <td class="bg-light font-weight-bold">{{ data.total_grupo|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ tallas_cabecera|length|add:3 }}" class="text-center py-5">
+                                <h5>No se encontraron resultados</h5>
+                                <p>Intenta ajustar los filtros de búsqueda.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if reporte %}
+                    <tfoot class="bg-dark text-white">
+                        <tr class="text-center">
+                            <td colspan="{{ tallas_cabecera|length|add:2 }}" class="text-right font-weight-bold"><h4>GRAN TOTAL DE UNIDADES</h4></td>
+                            <td class="font-weight-bold"><h4>{{ gran_total|intcomma }}</h4></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% comment %} 
+Filtro personalizado para diccionarios. Django por defecto no puede hacer `diccionario.talla_dinamica`.
+Esto lo soluciona. Debes registrarlo en un archivo de templatetags.
+Si no lo tienes, puedes añadirlo en `core/templatetags/custom_filters.py`
+y cargar `{% load custom_filters %}` al inicio de la plantilla.
+
+from django import template
+register = template.Library()
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)
+{% endcomment %}
+
+{% endblock %}

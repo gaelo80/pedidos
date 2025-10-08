@@ -371,6 +371,18 @@ PANEL_OPTIONS_CONFIG = [
         'order': 5,
         'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
     },
+    
+    {
+        'titulo': 'Informe de Ventas por Referencia',
+        'descripcion': 'Cantidad de unidades vendidas por referencia y talla.',
+        'url_nombre': 'pedidos:reporte_ventas_referencia',
+        'icono': 'fas fa-tshirt',
+        'icono_color_class': 'icon-info',
+        # Hacemos que todos los roles con acceso a informes puedan verlo
+        'rol_requerido': ['es_vendedor', 'es_cartera', 'es_bodega', 'es_administracion', 'es_factura'],
+        'order': 6,
+        'categoria': 'Informes Generales',
+    },
     {
         'titulo': 'Informe de pedidos APROBADOS por admin',
         'descripcion': 'Ver los pedidos APROBADOS.',
