@@ -2218,3 +2218,4 @@ def informe_movimiento_producto(request, pk):
 
     # Por defecto, mostrar la vista en pantalla
     return render(request, 'bodega/informe_movimiento_producto.html', context)
+

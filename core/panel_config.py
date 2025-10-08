@@ -233,6 +233,16 @@ PANEL_OPTIONS_CONFIG = [
         'rol_requerido': ['bodega.view_cabeceraconteo','es_administracion'], # Asumo que 'bodega.view_cabeceraconteo' es un permiso de Django
         'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
     },
+    
+    {
+        'titulo': 'Historial de Conteos',
+        'descripcion': 'Consultar y descargar informes de conteos de inventario realizados.',
+        'url_nombre': 'bodega:lista_informes_conteo',
+        'icono': 'fas fa-history',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': ['bodega.view_cabeceraconteo', 'es_administracion'], # <-- LÍNEA CORREGIDA
+        'categoria': 'Bodega e Inventario',
+    },
 
     # --- Facturación ---
     {
