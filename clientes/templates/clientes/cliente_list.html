@@ -19,23 +19,28 @@
             </p>
         </div>
         <div class="col-md-6 text-md-end">
-            <a href="{% url 'clientes:cliente_crear' %}" class="btn btn-primary btn-lg rounded-pill me-2 shadow-sm"> {# Añadimos shadow-sm #}
-                <i class="fas fa-plus me-2"></i> Nuevo Cliente
-            </a>
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-info btn-lg rounded-pill dropdown-toggle shadow-sm" type="button" id="dropdownMenuActions" data-bs-toggle="dropdown" aria-expanded="false"> {# Añadimos shadow-sm #}
-                    <i class="fas fa-file-export me-2"></i> Acciones
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="dropdownMenuActions"> {# shadow-lg para más prominencia #}
-                    <li><h6 class="dropdown-header">Importar/Exportar</h6></li> {# Nuevo encabezado en el dropdown #}
-                    <li><a class="dropdown-item" href="{% url 'clientes:cliente_importar' %}">
-                        <i class="fas fa-upload fa-fw me-2"></i> Importar Clientes {# fa-fw para ancho fijo del icono #}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'clientes:cliente_exportar' file_format='xlsx' %}">
-                        <i class="fas fa-download fa-fw me-2"></i> Exportar a Excel (XLSX) {# fa-fw #}
-                    </a></li>
-                </ul>
-            </div>
+            {% if es_administracion or es_cartera or es_factura %}
+                <a href="{% url 'clientes:cliente_crear' %}" class="btn btn-primary btn-lg rounded-pill me-2 shadow-sm"> {# Añadimos shadow-sm #}
+                    <i class="fas fa-plus me-2"></i> Nuevo Cliente
+                </a>
+            {% endif %}
+
+            {% if es_administracion %}
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-info btn-lg rounded-pill dropdown-toggle shadow-sm" type="button" id="dropdownMenuActions" data-bs-toggle="dropdown" aria-expanded="false"> {# Añadimos shadow-sm #}
+                        <i class="fas fa-file-export me-2"></i> Acciones
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="dropdownMenuActions"> {# shadow-lg para más prominencia #}
+                        <li><h6 class="dropdown-header">Importar/Exportar</h6></li> {# Nuevo encabezado en el dropdown #}
+                        <li><a class="dropdown-item" href="{% url 'clientes:cliente_importar' %}">
+                            <i class="fas fa-upload fa-fw me-2"></i> Importar Clientes {# fa-fw para ancho fijo del icono #}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'clientes:cliente_exportar' file_format='xlsx' %}">
+                            <i class="fas fa-download fa-fw me-2"></i> Exportar a Excel (XLSX) {# fa-fw #}
+                        </a></li>
+                    </ul>
+                </div>
+            {% endif %}
         </div>
     </div>
 
@@ -107,12 +112,16 @@
                                             <a href="{% url 'clientes:cliente_detalle' cliente.pk %}" class="btn btn-outline-info btn-sm rounded-pill me-1" title="Ver Detalles"> {# btn-outline-info #}
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            {% if es_administracion or es_cartera or es_factura %}
                                             <a href="{% url 'clientes:cliente_editar' cliente.pk %}" class="btn btn-outline-warning btn-sm rounded-pill me-1" title="Editar"> {# btn-outline-warning #}
                                                 <i class="fas fa-edit"></i>
                                             </a>
+                                            {% endif %}
+                                            {% if es_administracion %}
                                             <a href="{% url 'clientes:cliente_eliminar' cliente.pk %}" class="btn btn-outline-danger btn-sm rounded-pill" title="Eliminar"> {# btn-outline-danger #}
                                                 <i class="fas fa-trash-alt"></i>
                                             </a>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>
@@ -160,7 +169,10 @@
                     {% if search_query %}
                         No se encontraron clientes que coincidan con "<strong>{{ search_query }}</strong>".
                     {% else %}
-                        No hay clientes registrados. <a href="{% url 'clientes:cliente_crear' %}" class="alert-link">¿Deseas agregar el primero?</a>
+                        No hay clientes registrados. 
+                        
+                    {% if es_administracion or es_cartera or es_factura %}
+                    <a href="{% url 'clientes:cliente_crear' %}" class="alert-link">¿Deseas agregar el primero?</a>
                     {% endif %}
                 </div>
             {% endif %}
