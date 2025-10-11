@@ -88,7 +88,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'clientes:cliente_listado',
         'icono': ' fas fa-users-cog',
         'icono_color_class': 'icon-info',
-        'rol_requerido': ['es_factura', 'es_cartera'],
+        'rol_requerido': ['es_factura', 'es_cartera', 'es_administracion'],
         'categoria': 'Clientes y Prospectos', # <-- NUEVA CATEGORÍA
     },
 

@@ -171,8 +171,9 @@
                     {% else %}
                         No hay clientes registrados. 
                         
-                    {% if es_administracion or es_cartera or es_factura %}
-                    <a href="{% url 'clientes:cliente_crear' %}" class="alert-link">¿Deseas agregar el primero?</a>
+                        {% if es_administracion or es_cartera or es_factura %}
+                        <a href="{% url 'clientes:cliente_crear' %}" class="alert-link">¿Deseas agregar el primero?</a>
+                        {% endif %}
                     {% endif %}
                 </div>
             {% endif %}
