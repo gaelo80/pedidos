@@ -22,6 +22,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 import logging
 from django.forms import formset_factory
 from .forms import ProductoBaseForm, ProductoTallaForm
+from django.db import transaction, IntegrityError
 
 
 logger = logging.getLogger(__name__)
@@ -401,14 +402,13 @@ def subir_fotos_agrupadas_view(request):
 
 @login_required
 @permission_required('productos.add_producto', login_url=reverse_lazy('core:acceso_denegado'))
+@transaction.atomic # <--- 2. DECORADOR PARA TRANSACCIÓN ATÓMICA ("TODO O NADA")
 def crear_producto_multi_talla(request):
     """
     Vista para crear un producto con múltiples tallas a la vez.
+    Ahora con manejo de errores de duplicados y transacciones atómicas.
     """
     empresa_actual = request.tenant
-    
-    # Creamos un FormSet a partir de nuestro formulario de tallas.
-    # 'extra=6' mostrará 6 filas vacías por defecto.
     ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=6)
 
     if request.method == 'POST':
@@ -416,42 +416,46 @@ def crear_producto_multi_talla(request):
         talla_formset = ProductoTallaFormSet(request.POST, prefix='tallas')
 
         if base_form.is_valid() and talla_formset.is_valid():
-            # Guardamos los datos comunes para usarlos en cada producto
-            datos_comunes = base_form.cleaned_data
             
-            productos_creados = 0
-            for form in talla_formset:
-                # Solo procesamos las filas que el usuario llenó
-                if form.cleaned_data and form.cleaned_data.get('talla'):
-                    talla_data = form.cleaned_data
-                    
-                    # Creamos la nueva instancia del producto
-                    Producto.objects.create(
-                        empresa=empresa_actual,  # Regla de negocio: Multi-Tenant
-                        referencia=datos_comunes['referencia'],
-                        nombre=datos_comunes['nombre'],
-                        descripcion=datos_comunes.get('descripcion'),
-                        color=datos_comunes.get('color'),
-                        genero=datos_comunes.get('genero'),
-                        costo=datos_comunes.get('costo'),
-                        precio_venta=datos_comunes.get('precio_venta'),
-                        unidad_medida=datos_comunes.get('unidad_medida'),
-                        ubicacion=datos_comunes.get('ubicacion'),
-                        activo=datos_comunes.get('activo', True),
-                        # Datos específicos de esta talla
-                        talla=talla_data.get('talla'),
-                        codigo_barras=talla_data.get('codigo_barras')
-                    )
-                    productos_creados += 1
-            
-            if productos_creados > 0:
-                messages.success(request, f"¡Se crearon {productos_creados} variantes de producto exitosamente!")
-            else:
-                messages.warning(request, "No se especificó ninguna talla, no se creó ningún producto.")
+            # <--- 3. INICIA EL BLOQUE TRY...EXCEPT
+            try:
+                datos_comunes = base_form.cleaned_data
+                productos_creados = 0
+
+                for form in talla_formset:
+                    if form.cleaned_data and form.cleaned_data.get('talla'):
+                        talla_data = form.cleaned_data
+                        
+                        Producto.objects.create(
+                            empresa=empresa_actual,
+                            referencia=datos_comunes['referencia'],
+                            nombre=datos_comunes['nombre'],
+                            descripcion=datos_comunes.get('descripcion'),
+                            color=datos_comunes.get('color'),
+                            genero=datos_comunes.get('genero'),
+                            costo=datos_comunes.get('costo'),
+                            precio_venta=datos_comunes.get('precio_venta'),
+                            unidad_medida=datos_comunes.get('unidad_medida'),
+                            ubicacion=datos_comunes.get('ubicacion'),
+                            activo=datos_comunes.get('activo', True),
+                            talla=talla_data.get('talla'),
+                            codigo_barras=talla_data.get('codigo_barras')
+                        )
+                        productos_creados += 1
                 
-            return redirect('productos:producto_listado')
-        else:
-            messages.error(request, "Por favor, corrige los errores en el formulario.")
+                if productos_creados > 0:
+                    messages.success(request, f"¡Se crearon {productos_creados} variantes de producto exitosamente!")
+                else:
+                    messages.warning(request, "No se especificó ninguna talla, no se creó ningún producto.")
+                
+                return redirect('productos:producto_listado')
+
+            except IntegrityError:
+                # <--- 4. BLOQUE QUE MANEJA EL ERROR DE DUPLICADO
+                messages.error(request, 
+                    "Error: Uno de los productos que intentaste crear (con la misma referencia, talla y color) ya existe. No se ha guardado ningún producto para evitar inconsistencias."
+                )
+                # No necesitamos hacer nada más, la transacción atómica revierte los cambios.
 
     else: # Método GET
         base_form = ProductoBaseForm()
