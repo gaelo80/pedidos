@@ -198,6 +198,16 @@ PANEL_OPTIONS_CONFIG = [
         'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
     },
     {
+        'titulo': 'Ingreso desde Producción',
+        'descripcion': 'Registrar el stock de productos que llegan de producción.',
+        'url_nombre': 'bodega:ingreso_produccion',
+        'icono': 'fas fa-clipboard-check',
+        'icono_color_class': 'icon-success',
+        'rol_requerido': ['es_bodega', 'es_administracion', 'bodega.add_movimientoinventario'],
+        'order': 2, # Para que aparezca cerca del principio de la sección de bodega
+        'categoria': 'Bodega e Inventario',
+    },
+    {
         'titulo': 'Informe de Ingresos a Bodega',
         'descripcion': 'Ingresos de mercancía a bodega.',
         'url_nombre': 'informes:informe_ingresos_bodega',

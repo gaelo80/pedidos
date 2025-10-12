@@ -70,9 +70,10 @@ class ReferenciaColorAdmin(admin.ModelAdmin):
 
 @admin.register(Producto)
 class ProductoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
-    list_display = ('referencia', 'nombre', 'talla', 'color', 'get_articulo_color_fotos_display', 'activo', 'stock_actual', 'empresa')
+    list_display = ('referencia', 'nombre', 'talla', 'color', 'get_articulo_color_fotos_display', 'activo', 'stock_actual', 'permitir_preventa', 'empresa')
+    list_editable = ('activo', 'permitir_preventa',)
     search_fields = ('empresa__nombre', 'referencia', 'nombre', 'talla', 'color', 'codigo_barras', 'articulo_color_fotos__nombre_display')
-    list_filter = ('activo', 'genero', 'empresa')
+    list_filter = ('activo', 'genero', 'empresa', 'permitir_preventa')
     autocomplete_fields = ['articulo_color_fotos']
     readonly_fields = ('stock_actual', 'fecha_creacion')
 

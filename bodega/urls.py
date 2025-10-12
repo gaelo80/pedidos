@@ -43,4 +43,6 @@ urlpatterns = [
      path('cambios-historial/', views.historial_cambios_producto, name='historial_cambios_producto'),
      path('informe/movimiento/producto/<int:pk>/', views.informe_movimiento_producto, name='informe_movimiento_producto'),
      path('buscar-informe-movimiento/', views.buscar_informe_movimiento, name='buscar_informe_movimiento'),
+     path('ingreso-produccion/', views.vista_ingreso_produccion, name='ingreso_produccion'),
+     path('api/get-tallas-para-ingreso/', views.api_get_tallas_para_ingreso, name='api_get_tallas_para_ingreso'),
 ]

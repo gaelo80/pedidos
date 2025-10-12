@@ -12,7 +12,6 @@ from django.views.decorators.http import require_POST
 from django.views import View
 from urllib.parse import quote
 from django.contrib.auth.models import User
-from .signals import sincronizar_reservas_borrador
 import json
 from django.http import JsonResponse
 from django.urls import reverse
@@ -207,7 +206,8 @@ def vista_crear_pedido_web(request, pk=None):
                         # El stock total disponible para ESTE pedido es el actual + lo que ya tenía reservado.
                         stock_total_para_este_pedido = stock_disponible_real + cantidad_ya_reservada_por_este_borrador
 
-                        if cantidad_pedida > stock_total_para_este_pedido:
+                        # La validación de stock solo se aplica si el producto NO permite preventa.
+                        if not producto_obj.permitir_preventa and cantidad_pedida > stock_total_para_este_pedido:
                             stock_suficiente_para_crear = False
                             errores_stock.append(f"Stock insuficiente para '{producto_obj}'. Pedido: {cantidad_pedida}, Disp. Total: {stock_total_para_este_pedido}")
                 
@@ -296,7 +296,7 @@ def vista_crear_pedido_web(request, pk=None):
                             productos_guardados_ids.add(producto_obj.pk)
                         if form_instance:
                             DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
-                        sincronizar_reservas_borrador(pedido)
+                        
                         messages.success(request, f"Pedido Borrador #{pedido.numero_pedido_empresa} guardado exitosamente.")
                         return redirect('pedidos:editar_pedido_web', pk=pedido.pk)
                 except Exception as e:
@@ -1195,9 +1195,6 @@ def autosave_pedido_borrador(request):
                 # Eliminar detalles que ya no están en el formulario
                 DetallePedido.objects.filter(pedido=pedido).exclude(producto_id__in=productos_guardados_ids).delete()
 
-                # Sincronizar las reservas de stock con la señal
-                sincronizar_reservas_borrador(pedido)
-
                 return JsonResponse({
                     'status': 'success',
                     'message': 'Borrador guardado automáticamente.',
@@ -1291,3 +1288,4 @@ def vista_reporte_referencias(request):
         'search_referencia': search_referencia,
     }
     return render(request, 'pedidos/reportes/ventas_por_referencia.html', context)
+

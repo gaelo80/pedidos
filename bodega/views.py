@@ -2219,3 +2219,93 @@ def informe_movimiento_producto(request, pk):
     # Por defecto, mostrar la vista en pantalla
     return render(request, 'bodega/informe_movimiento_producto.html', context)
 
+@login_required
+@permission_required('bodega.add_movimientoinventario', raise_exception=True)
+def vista_ingreso_produccion(request):
+    """
+    Permite al personal de bodega ingresar stock por lotes de Referencia+Color.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    if request.method == 'POST':
+        with transaction.atomic(): # Usamos una transacción para asegurar que todo o nada se guarde
+            productos_actualizados = 0
+            # Buscamos todos los campos que empiezan con 'cantidad_'
+            for key, value in request.POST.items():
+                if key.startswith('cantidad_'):
+                    try:
+                        producto_id = int(key.split('_')[1])
+                        cantidad = int(value)
+                    except (ValueError, TypeError, IndexError):
+                        continue
+
+                    if cantidad > 0:
+                        producto = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
+                        
+                        MovimientoInventario.objects.create(
+                            empresa=empresa_actual,
+                            producto=producto,
+                            cantidad=cantidad,
+                            tipo_movimiento='ENTRADA_PRODUCCION',
+                            documento_referencia='Ingreso Producción Lote',
+                            usuario=request.user,
+                            notas=f'Se ingresaron {cantidad} unidades desde producción.'
+                        )
+                        
+                        producto.permitir_preventa = False
+                        producto.save(update_fields=['permitir_preventa'])
+                        productos_actualizados += 1
+            
+            if productos_actualizados > 0:
+                messages.success(request, f"Se actualizó el stock para {productos_actualizados} variante(s) de talla.")
+            else:
+                messages.warning(request, "No se ingresaron cantidades para ninguna talla.")
+        
+        return redirect('bodega:ingreso_produccion')
+
+    # Para el método GET, ahora pasamos las referencias y colores únicos
+    referencias_en_preventa = Producto.objects.filter(
+        empresa=empresa_actual,
+        permitir_preventa=True
+    ).values('referencia', 'color').distinct().order_by('referencia', 'color')
+
+    context = {
+        'titulo': 'Ingresar Stock de Producción (por Lote)',
+        'referencias_seleccionables': list(referencias_en_preventa),
+    }
+    return render(request, 'bodega/ingreso_produccion.html', context)
+
+@login_required
+def api_get_tallas_para_ingreso(request):
+    """
+    API que devuelve las tallas de una Referencia+Color que están
+    marcadas como 'permitir_preventa'.
+    """
+    referencia = request.GET.get('ref')
+    color = request.GET.get('color')
+    empresa_actual = getattr(request, 'tenant', None)
+
+    if not (referencia and color and empresa_actual):
+        return JsonResponse({'error': 'Faltan parámetros'}, status=400)
+
+    # El slug '-' representa los productos sin color asignado
+    color_filtro = None if color == '-' else color
+
+    productos = Producto.objects.filter(
+        empresa=empresa_actual,
+        referencia=referencia,
+        color=color_filtro,
+        permitir_preventa=True
+    ).order_by('talla')
+
+    # Preparamos los datos para enviarlos como JSON
+    tallas_data = [
+        {
+            'pk': p.id,
+            'talla': p.talla,
+            'stock_actual': p.stock_actual, # Útil para ver la demanda (ej: -5)
+        }
+        for p in productos
+    ]
+
+    return JsonResponse({'tallas': tallas_data})

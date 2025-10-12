@@ -1,0 +1,119 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}Ingresar Stock por Lote{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="mb-3">Ingresar Stock de Producción (por Lote)</h1>
+            <p class="lead">Busca una referencia y color para cargar todas sus tallas y registrar las cantidades de entrada.</p>
+        </div>
+        <div class="col-md-4 text-md-end mb-3">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+        </div>
+    </div>
+
+    <form method="post" id="form-ingreso-stock">
+        {% csrf_token %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="select_referencia_color" class="form-label fw-bold">1. Selecciona la Referencia y Color:</label>
+                        <select id="select_referencia_color" class="form-select">
+                            <option value="" selected disabled>-- Busca una referencia --</option>
+                            {% for item in referencias_seleccionables %}
+                                <option value="{{ item.referencia }}|{{ item.color|default:'-' }}">{{ item.referencia }} / {{ item.color|default:'Sin Color' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">2. Ingresa las Cantidades por Talla</h5>
+            </div>
+            <div class="card-body">
+                <div id="tallas-container" class="p-3">
+                    <p class="text-muted">Selecciona una referencia para cargar las tallas aquí.</p>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-end p-3">
+                    <button type="submit" id="btn-submit" class="btn btn-primary btn-lg" disabled>
+                        <i class="fas fa-plus-circle me-2"></i>Registrar Entradas de Stock
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    const selectRefColor = $('#select_referencia_color');
+    const tallasContainer = $('#tallas-container');
+    const btnSubmit = $('#btn-submit');
+    const apiUrl = "{% url 'bodega:api_get_tallas_para_ingreso' %}";
+
+    selectRefColor.select2({
+        placeholder: "-- Busca una referencia --",
+        theme: "bootstrap-5"
+    });
+
+    selectRefColor.on('change', function() {
+        const selectedValue = $(this).val();
+        if (!selectedValue) {
+            tallasContainer.html('<p class="text-muted">Selecciona una referencia para cargar las tallas aquí.</p>');
+            btnSubmit.prop('disabled', true);
+            return;
+        }
+
+        tallasContainer.html('<p class="text-info"><i class="fas fa-spinner fa-spin"></i> Cargando tallas...</p>');
+        const [ref, color] = selectedValue.split('|');
+
+        fetch(`${apiUrl}?ref=${ref}&color=${color}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.tallas && data.tallas.length > 0) {
+                    let html = '<div class="row g-3">';
+                    data.tallas.forEach(talla => {
+                        html += `
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <div class="input-group">
+                                    <span class="input-group-text fw-bold" style="width: 100px;">Talla: ${talla.talla}</span>
+                                    <input type="number" name="cantidad_${talla.pk}" class="form-control" min="0" placeholder="Cantidad" aria-label="Cantidad para talla ${talla.talla}">
+                                    <span class="input-group-text text-muted" title="Pedidos actuales en preventa">(${talla.stock_actual})</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    tallasContainer.html(html);
+                    btnSubmit.prop('disabled', false);
+                } else {
+                    tallasContainer.html('<p class="text-warning">No se encontraron tallas en preventa para esta selección.</p>');
+                    btnSubmit.prop('disabled', true);
+                }
+            })
+            .catch(error => {
+                console.error("Error cargando tallas:", error);
+                tallasContainer.html('<p class="text-danger">Error al cargar las tallas. Intenta de nuevo.</p>');
+                btnSubmit.prop('disabled', true);
+            });
+    });
+
+    // Evitar envío accidental con Enter en los inputs de cantidad
+    $('#form-ingreso-stock').on('keypress', 'input', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock extra_scripts %}

@@ -438,6 +438,7 @@ def crear_producto_multi_talla(request):
                             unidad_medida=datos_comunes.get('unidad_medida'),
                             ubicacion=datos_comunes.get('ubicacion'),
                             activo=datos_comunes.get('activo', True),
+                            permitir_preventa=datos_comunes.get('permitir_preventa', False),
                             talla=talla_data.get('talla'),
                             codigo_barras=talla_data.get('codigo_barras')
                         )

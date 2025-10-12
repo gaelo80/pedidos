@@ -142,6 +142,13 @@ class Producto(models.Model):
         verbose_name="Stock"
     )
     
+    permitir_preventa = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Venta Sin Stock (Preventa)",
+        help_text="Marcar esta opción si el producto está en producción y se puede vender sin tener stock físico."
+    
+    )
+    
     referencia = models.CharField(max_length=50, db_index=True, verbose_name="Referencia")
     nombre = models.CharField(max_length=200, verbose_name="Nombre del Producto")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")

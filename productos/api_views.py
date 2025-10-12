@@ -91,7 +91,10 @@ def get_tallas_por_ref_color(request, ref, color_slug):
             {
                 'id': v.id,
                 'talla': v.talla,
-                'stock_actual': v.stock_actual   
+                'stock_actual': v.stock_actual,
+                # --- LÍNEA AÑADIDA ---
+                # Enviamos el valor del nuevo campo al frontend.
+                'permitir_pedido_sin_stock': v.permitir_preventa
             } for v in variantes_ordenadas
         ]
     }

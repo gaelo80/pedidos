@@ -19,7 +19,8 @@ class ProductoForm(forms.ModelForm):
             'unidad_medida', 
             'codigo_barras', 
             'activo', 
-            'ubicacion'
+            'ubicacion',
+            'permitir_preventa',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 3}),
@@ -31,6 +32,7 @@ class ProductoForm(forms.ModelForm):
             'precio_venta': forms.NumberInput(attrs={'step': '0.01', 'placeholder': '0.00'}),
             'codigo_barras': forms.TextInput(attrs={'placeholder': 'Escanee o ingrese el código'}),
             'ubicacion': forms.TextInput(attrs={'placeholder': 'Ej: Estante A, Bodega 2'}),
+            
         }
         
         help_texts = {
@@ -178,7 +180,7 @@ class ProductoBaseForm(forms.ModelForm):
         fields = [
             'referencia', 'nombre', 'descripcion', 'color', 
             'genero', 'costo', 'precio_venta', 'unidad_medida', 
-            'ubicacion', 'activo'
+            'ubicacion', 'activo', 'permitir_preventa',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 2}),

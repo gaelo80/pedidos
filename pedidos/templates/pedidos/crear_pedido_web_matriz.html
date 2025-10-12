@@ -1162,26 +1162,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         currentVariantes.forEach(variante => {
                             const tallaActual = variante.talla;
-                            const stockBodega = variante.stock_actual !== undefined ? parseInt(variante.stock_actual, 10) : 0;
-                            const isAvailable = stockBodega > 0;
-                            let stockBadgeClass = !isAvailable ? 'bg-danger' : (stockBodega <= 5 ? 'bg-warning text-dark' : 'bg-success');
-                            let valorInicial = 0;
+                            
+                            
+                            
+                        const stockBodega = variante.stock_actual !== undefined ? parseInt(variante.stock_actual, 10) : 0;
+                        const esPreventa = variante.permitir_pedido_sin_stock === true;
 
-                            // Aplicar cantidad copiada si el checkbox está marcado y hay datos
-                            if (copiarActivado && hayCantidadesParaCopiar && ultimasCantidadesCopiables.hasOwnProperty(tallaActual)) {
-                                valorInicial = Math.min(ultimasCantidadesCopiables[tallaActual], stockBodega);
-                            }
+                        // Un producto está disponible si tiene stock O si es preventa.
+                        const isAvailable = stockBodega > 0 || esPreventa;
+                        let stockBadgeClass = 'bg-success';
+                        let stockBadgeText = `Stock: ${stockBodega}`;
+                        let inputMax = `max="${stockBodega}"`;
+                        let valorInicial = 0;
 
-                            gridHtml += `
-                                <div class="text-center mb-2">
-                                    <label for="temp_cant_producto_${variante.id}" class="form-label small fw-bold d-block">Talla: ${tallaActual}</label>
-                                    <span class="badge ${stockBadgeClass} mb-1">Stock: ${stockBodega}</span>
-                                    <input type="number" name="temp_cantidad_${variante.id}" id="temp_cant_producto_${variante.id}"
-                                           value="${valorInicial}" min="0" max="${stockBodega}" step="1" pattern="[0-9]*"
-                                           class="form-control form-control-sm input-cantidad-temp" style="width: 75px; display: inline-block;"
-                                           data-producto-id="${variante.id}" data-talla-display="${tallaActual}"
-                                           ${!isAvailable ? 'disabled title="Sin stock disponible"' : 'title="Ingrese cantidad"'} >
-                                </div>`;
+                        if (esPreventa) {
+                            stockBadgeClass = 'bg-info';
+                            // Si el stock ya es negativo, muestra la demanda actual. Si es 0, muestra "En Producción".
+                            stockBadgeText = stockBodega < 0 ? `Pedidos: ${Math.abs(stockBodega)}` : 'En Producción';
+                            inputMax = ''; // Sin límite de pedido para preventa
+                        } else if (stockBodega <= 0) {
+                            stockBadgeClass = 'bg-danger';
+                        } else if (stockBodega <= 5) {
+                            stockBadgeClass = 'bg-warning text-dark';
+                        }
+
+                        // Aplicar cantidad copiada si el checkbox está marcado y hay datos
+                        if (copiarActivado && hayCantidadesParaCopiar && ultimasCantidadesCopiables.hasOwnProperty(tallaActual)) {
+                            // Si no es preventa, la cantidad a copiar no puede superar el stock.
+                            valorInicial = esPreventa ? ultimasCantidadesCopiables[tallaActual] : Math.min(ultimasCantidadesCopiables[tallaActual], stockBodega);
+                        }
+
+                        gridHtml += `
+                            <div class="text-center mb-2">
+                                <label for="temp_cant_producto_${variante.id}" class="form-label small fw-bold d-block">Talla: ${tallaActual}</label>
+                                
+                                <span class="badge ${stockBadgeClass} mb-1">${stockBadgeText}</span>
+
+                                <input type="number" name="temp_cantidad_${variante.id}" id="temp_cant_producto_${variante.id}"
+                                    value="${valorInicial}" min="0" ${inputMax} step="1" pattern="[0-9]*"
+                                    class="form-control form-control-sm input-cantidad-temp" style="width: 75px; display: inline-block;"
+                                    data-producto-id="${variante.id}" data-talla-display="${tallaActual}"
+                                    data-es-preventa="${esPreventa}"
+                                    ${!isAvailable ? 'disabled title="Sin stock disponible"' : 'title="Ingrese cantidad"'} >
+                            </div>`;
+
                         });
                         gridHtml += '</div>';
                         tallasContainer.html(gridHtml).show(); // Mostrar inputs de talla
@@ -1306,24 +1330,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!validationOk) return false; // Salir del .each si ya hubo error
                     const input = $(this);
                     const cantidad = parseInt(input.val(), 10);
+                    const esPreventa = input.data('es-preventa') === true;
                     const stock = parseInt(input.attr('max') || '0', 10);
                     const productoId = input.data('producto-id');
                     const tallaDisplay = input.data('talla-display');
 
-                    if (isNaN(cantidad) || cantidad < 0) {
-                        console.error(`Error: Cantidad inválida o negativa para la talla ${tallaDisplay}.`);
-                        alert(`Error: Cantidad inválida o negativa para la talla ${tallaDisplay}.`); // Mantener alerta para validación directa
-                        input.trigger('focus').trigger('select'); validationOk = false; return false;
-                    }
-                    if (cantidad > stock) {
-                         console.error(`Error: La cantidad (${cantidad}) para la talla ${tallaDisplay} excede el stock disponible (${stock}).`);
-                         alert(`Error: La cantidad (${cantidad}) para la talla ${tallaDisplay} excede el stock disponible (${stock}).`);
-                         input.trigger('focus').trigger('select'); validationOk = false; return false;
-                    }
-                    if (cantidad > 0) {
-                        items.push({ productoId: productoId, cantidad: cantidad, talla: tallaDisplay });
-                        totalQtyLinea += cantidad;
-                    }
+                if (isNaN(cantidad) || cantidad < 0) {
+                    alert(`Error: Cantidad inválida o negativa para la talla ${tallaDisplay}.`);
+                    input.trigger('focus').trigger('select');
+                    validationOk = false;
+                    return false; // Sale del bucle .each
+                }
+
+                // La validación de stock solo se aplica si NO es un producto de preventa
+                if (!esPreventa && cantidad > stock) {
+                    alert(`Error: La cantidad (${cantidad}) para la talla ${tallaDisplay} excede el stock disponible (${stock}).`);
+                    input.trigger('focus').trigger('select');
+                    validationOk = false;
+                    return false; // Sale del bucle .each
+                }
+
+                if (cantidad > 0) {
+                    const productoId = input.data('producto-id');
+                    items.push({ productoId: productoId, cantidad: cantidad, talla: tallaDisplay });
+                    totalQtyLinea += cantidad;
+                }
                 });
             }
             console.log('DEBUG: Antes de check validationOk. validationOk =', validationOk);
@@ -1453,14 +1484,12 @@ document.addEventListener('DOMContentLoaded', function() {
                  rowToUpdate.data('iva-linea', datosCalculados.ivaLinea);
 
                  // 3. Actualizar data-* en el botón Editar de esa fila
-                 const editButton = rowToUpdate.find('.btn-editar-linea');
-                 if (editButton.length > 0) {
-                     editButton.data('ref', currentRef);
-                     editButton.data('color-slug', currentColor);
-                     editButton.data('quantities', quantitiesJson); // Guardar nuevas cantidades JSON
-                     // Alternativamente, usar .attr() para asegurar que se actualiza el atributo HTML si es necesario
-                     // editButton.attr('data-quantities', quantitiesJson);
-                 }
+                const editButton = rowToUpdate.find('.btn-editar-linea');
+                if (editButton.length > 0) {
+                    editButton.attr('data-ref', currentRef); // Usamos .attr()
+                    editButton.attr('data-color-slug', currentColor); // Usamos .attr()
+                    editButton.attr('data-quantities', quantitiesJson); // <-- Esto actualiza el HTML
+                }
 
                  // 4. Eliminar inputs ocultos VIEJOS y Añadir los NUEVOS
                  hiddenInputsContainer.find(`input[data-linea-id-ref="${editingRowId}"]`).remove();

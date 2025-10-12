@@ -109,6 +109,7 @@ class MovimientoInventario(models.Model):
         ('SALIDA_VENTA_PENDIENTE', 'Salida por Venta (Pendiente Aprob)'), 
         ('SALIDA_VENTA_APROBADA', 'Salida por Venta (Aprobada)'), 
         ('SALIDA_AJUSTE', 'Salida por Ajuste'),
+        ('ENTRADA_PRODUCCION', 'Entrada desde Producción'),
         ('SALIDA_OTRO', 'Salida por Otro Motivo'),
         ('ENTRADA_OTRO', 'Entrada por Otro Motivo'),
         ('ENTRADA_RECHAZO_CARTERA', 'Entrada por Rechazo Pedido Cartera'),
