@@ -110,8 +110,8 @@ class MovimientoInventarioAdmin(TenantAwareAdmin):
     readonly_fields = ('fecha_hora', 'usuario', 'empresa', 'producto', 'cantidad', 'tipo_movimiento')
     list_per_page = 30
     
-    def has_add_permission(self, request):
-        return False 
+    #def has_add_permission(self, request):
+        #return False 
 
 
 class DetalleComprobanteDespachoInline(admin.TabularInline):
