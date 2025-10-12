@@ -107,7 +107,8 @@ class MovimientoInventarioAdmin(TenantAwareAdmin):
     list_display = ('fecha_hora', 'empresa', 'producto', 'cantidad', 'tipo_movimiento', 'usuario', 'documento_referencia')
     list_filter = ('empresa', 'tipo_movimiento', 'fecha_hora', 'producto', 'usuario')
     search_fields = ('producto__nombre', 'producto__referencia', 'documento_referencia', 'usuario__username', 'notas')
-    readonly_fields = ('fecha_hora', 'usuario', 'empresa', 'producto', 'cantidad', 'tipo_movimiento')
+    #readonly_fields = ('fecha_hora', 'usuario', 'empresa', 'producto', 'cantidad', 'tipo_movimiento')
+    autocomplete_fields = ['producto', 'usuario']
     list_per_page = 30
     
     #def has_add_permission(self, request):
