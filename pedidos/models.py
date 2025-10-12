@@ -282,6 +282,11 @@ class Pedido(models.Model):
         ordering = ['-fecha_hora']
         unique_together = ('empresa', 'numero_pedido_empresa')
 
+
+
+        permissions = [
+            ("can_view_financial_reports", "Puede ver reportes financieros con subtotales"),
+        ]
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE, verbose_name="Pedido Asociado") 
     producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='detalles_pedido', verbose_name="Producto") 

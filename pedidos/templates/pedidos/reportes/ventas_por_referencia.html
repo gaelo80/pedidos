@@ -1,6 +1,7 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
 {% load core_extras %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="card shadow mb-4">
@@ -39,34 +40,48 @@
                             {% for talla in tallas_cabecera %}
                                 <th>{{ talla }}</th>
                             {% endfor %}
-                            <th class="bg-primary text-white" style="min-width: 100px;">Subtotal</th>
-                        </tr>
+
+                            <th style="min-width: 100px; cursor: pointer;">
+                                <a style="color: black;" href="?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&search_referencia={{ search_referencia|default:'' }}&ordenar_por={% if orden_actual == 'unidades_desc' %}unidades_asc{% else %}unidades_desc{% endif %}">
+                                    Total Unidades
+                                    {% if orden_actual == 'unidades_desc' %} ▼ {% elif orden_actual == 'unidades_asc' %} ▲ {% endif %}
+                                </a>
+                            </th>
+                            <th class="bg-primary text-white" style="min-width: 130px; cursor: pointer;">
+                                 <a class="text-white" href="?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&search_referencia={{ search_referencia|default:'' }}&ordenar_por={% if orden_actual == 'subtotal_desc' %}subtotal_asc{% else %}subtotal_desc{% endif %}">
+                                    Subtotal
+                                    {% if orden_actual == 'subtotal_desc' %} ▼ {% elif orden_actual == 'subtotal_asc' %} ▲ {% endif %}
+                                </a>
+                            </th>
+                            </tr>
                     </thead>
                     <tbody>
-                        {% for clave, data in reporte.items %}
+                        {% for fila in reporte %}
                         <tr class="text-center">
-                            <td class="font-weight-bold">{{ data.referencia }}</td>
-                            <td>{{ data.color }}</td>
+                            <td class="font-weight-bold">{{ fila.referencia }}</td>
+                            <td>{{ fila.color }}</td>
                             {% for talla_header in tallas_cabecera %}
-                                <td>{{ data.tallas|get_item:talla_header|default_if_none:""|intcomma }}</td>
+                                <td>{{ fila.tallas|get_item:talla_header|default_if_none:""|intcomma }}</td>
                             {% endfor %}
-                            <td class="bg-light font-weight-bold">{{ data.total_grupo|intcomma }}</td>
+                            <td class="font-weight-bold">{{ fila.total_grupo_unidades|intcomma }}</td>
+                            <td class="bg-light font-weight-bold">${{ fila.subtotal_grupo|intcomma:0 }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{{ tallas_cabecera|length|add:3 }}" class="text-center py-5">
+                            <td colspan="{{ tallas_cabecera|length|add:4 }}" class="text-center py-5">
                                 <h5>No se encontraron resultados</h5>
                                 <p>Intenta ajustar los filtros de búsqueda.</p>
                             </td>
                         </tr>
                         {% endfor %}
-                    </tbody>
+                        </tbody>
                     {% if reporte %}
                     <tfoot class="bg-dark text-white">
                         <tr class="text-center">
-                            <td colspan="{{ tallas_cabecera|length|add:2 }}" class="text-right font-weight-bold"><h4>GRAN TOTAL DE UNIDADES</h4></td>
-                            <td class="font-weight-bold"><h4>{{ gran_total|intcomma }}</h4></td>
-                        </tr>
+                            <td colspan="{{ tallas_cabecera|length|add:2 }}" class="text-right font-weight-bold"><h4>GRAN TOTALES</h4></td>
+                            <td class="font-weight-bold"><h4>{{ gran_total_unidades|intcomma }}</h4></td>
+                            <td class="font-weight-bold bg-primary"><h4>${{ gran_total_subtotal|intcomma:0 }}</h4></td>
+                            </tr>
                     </tfoot>
                     {% endif %}
                 </table>
@@ -74,19 +89,4 @@
         </div>
     </div>
 </div>
-
-{% comment %} 
-Filtro personalizado para diccionarios. Django por defecto no puede hacer `diccionario.talla_dinamica`.
-Esto lo soluciona. Debes registrarlo en un archivo de templatetags.
-Si no lo tienes, puedes añadirlo en `core/templatetags/custom_filters.py`
-y cargar `{% load custom_filters %}` al inicio de la plantilla.
-
-from django import template
-register = template.Library()
-
-@register.filter
-def get_item(dictionary, key):
-    return dictionary.get(key)
-{% endcomment %}
-
 {% endblock %}

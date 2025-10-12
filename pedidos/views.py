@@ -7,7 +7,7 @@ from django.db import transaction
 from django.template.loader import get_template
 from django.http import HttpResponse
 from django.utils import timezone
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F, DecimalField
 from django.views.decorators.http import require_POST
 from django.views import View
 from urllib.parse import quote
@@ -1276,10 +1276,13 @@ def autosave_pedido_borrador(request):
 def vista_reporte_referencias(request):
     empresa_actual = getattr(request, 'tenant', None)
     
-    # --- Captura de Filtros ---
+    # --- Captura de Filtros (sin cambios) ---
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
     search_referencia = request.GET.get('search_referencia', '').strip()
+    
+    # --- ¡NUEVO! Captura del parámetro de ordenamiento ---
+    ordenar_por = request.GET.get('ordenar_por', 'ref') # Por defecto ordena por referencia
 
     fecha_inicio, fecha_fin = None, None
     if fecha_inicio_str:
@@ -1287,67 +1290,94 @@ def vista_reporte_referencias(request):
     if fecha_fin_str:
         fecha_fin = datetime.strptime(f"{fecha_fin_str} 23:59:59", '%Y-%m-%d %H:%M:%S')
 
-    # --- Query Base ---
-    queryset = DetallePedido.objects.filter(
+    # --- Query Base (sin cambios) ---
+    base_queryset = DetallePedido.objects.filter(
         pedido__empresa=empresa_actual
     ).exclude(
         pedido__estado__in=['BORRADOR', 'RECHAZADO_CARTERA', 'RECHAZADO_ADMIN']
     )
 
-    # --- Aplicación de Filtros ---
+    # --- Aplicación de Filtros (sin cambios) ---
     if fecha_inicio and fecha_fin:
-        queryset = queryset.filter(pedido__fecha_hora__range=[fecha_inicio, fecha_fin])
+        base_queryset = base_queryset.filter(pedido__fecha_hora__range=[fecha_inicio, fecha_fin])
     if search_referencia:
-        queryset = queryset.filter(producto__referencia__icontains=search_referencia)
+        base_queryset = base_queryset.filter(producto__referencia__icontains=search_referencia)
 
-    # --- Agrupación por Referencia, Color y Talla ---
-    ventas_agrupadas = queryset.values(
+    # --- ¡NUEVO! Query principal agrupada por Referencia y Color con Subtotales ---
+    # Esta query nos dará los totales por grupo para poder ordenar por ellos.
+    ventas_por_grupo = base_queryset.values(
         'producto__referencia', 
-        'producto__color',
-        'producto__talla'
+        'producto__color'
     ).annotate(
-        total_unidades=Sum('cantidad')
-    ).order_by('producto__referencia', 'producto__color', 'producto__talla')
+        total_unidades=Sum('cantidad'),
+        # Calculamos el subtotal multiplicando cantidad por precio unitario para cada detalle
+        subtotal_grupo=Sum(F('cantidad') * F('precio_unitario'), output_field=DecimalField())
+    ).exclude(total_unidades=0) # Excluimos grupos sin ventas
 
-    # --- Transformación de Datos a Formato Matriz ---
-    reporte_matriz = {}
+    # --- ¡NUEVO! Aplicar el ordenamiento dinámico ---
+    if ordenar_por == 'subtotal_desc':
+        ventas_por_grupo = ventas_por_grupo.order_by('-subtotal_grupo')
+    elif ordenar_por == 'subtotal_asc':
+        ventas_por_grupo = ventas_por_grupo.order_by('subtotal_grupo')
+    elif ordenar_por == 'unidades_desc':
+        ventas_por_grupo = ventas_por_grupo.order_by('-total_unidades')
+    elif ordenar_por == 'unidades_asc':
+        ventas_por_grupo = ventas_por_grupo.order_by('total_unidades')
+    else: # Por defecto
+        ventas_por_grupo = ventas_por_grupo.order_by('producto__referencia', 'producto__color')
+
+    # --- ¡MODIFICADO! Transformación de datos a formato Matriz ---
+    # Ahora, primero obtenemos los detalles por talla y los guardamos en un diccionario para eficiencia.
+    detalles_por_talla_qs = base_queryset.values(
+        'producto__referencia', 'producto__color', 'producto__talla'
+    ).annotate(
+        total_talla=Sum('cantidad')
+    )
+
+    detalles_talla_dict = {}
     todas_las_tallas = set()
+    for detalle in detalles_por_talla_qs:
+        clave = (detalle['producto__referencia'], detalle['producto__color'])
+        if clave not in detalles_talla_dict:
+            detalles_talla_dict[clave] = {}
+        if detalle['producto__talla']:
+            detalles_talla_dict[clave][detalle['producto__talla']] = detalle['total_talla']
+            todas_las_tallas.add(detalle['producto__talla'])
+
+    # Construimos el reporte final iterando sobre el queryset ya ordenado
+    reporte_final = []
     gran_total_unidades = 0
+    gran_total_subtotal = Decimal('0.00')
 
-    for venta in ventas_agrupadas:
-        ref = venta['producto__referencia']
-        color = venta['producto__color'] or 'SIN COLOR'
-        talla = venta['producto__talla']
-        total = venta['total_unidades']
-
-        if not ref or not talla or not total:
-            continue
-
-        clave_grupo = (ref, color)
-        if clave_grupo not in reporte_matriz:
-            reporte_matriz[clave_grupo] = {
-                'referencia': ref,
-                'color': color,
-                'tallas': {},
-                'total_grupo': 0
-            }
+    for grupo in ventas_por_grupo:
+        ref = grupo['producto__referencia']
+        color = grupo['producto__color'] or 'SIN COLOR'
+        clave_grupo = (ref, grupo['producto__color'])
         
-        reporte_matriz[clave_grupo]['tallas'][talla] = total
-        reporte_matriz[clave_grupo]['total_grupo'] += total
-        todas_las_tallas.add(talla)
-        gran_total_unidades += total
+        reporte_final.append({
+            'referencia': ref,
+            'color': color,
+            'tallas': detalles_talla_dict.get(clave_grupo, {}),
+            'total_grupo_unidades': grupo['total_unidades'],
+            'subtotal_grupo': grupo['subtotal_grupo']
+        })
+        gran_total_unidades += grupo['total_unidades']
+        gran_total_subtotal += grupo['subtotal_grupo']
     
-    # Ordenar las tallas para usarlas como cabeceras de la tabla
+    # Ordenar las tallas para usarlas como cabeceras de la tabla (sin cambios)
     tallas_ordenadas = sorted(list(todas_las_tallas), key=lambda t: (int(t) if str(t).isdigit() else float('inf'), str(t)))
-
+    puede_ver_subtotal = request.user.has_perm('pedidos.can_view_financial_reports')
+    
     context = {
         'titulo': 'Reporte Profesional de Ventas por Referencia',
-        'reporte': reporte_matriz,
+        'reporte': reporte_final, # Usamos la nueva estructura
         'tallas_cabecera': tallas_ordenadas,
-        'gran_total': gran_total_unidades,
+        'gran_total_unidades': gran_total_unidades,
+        'gran_total_subtotal': gran_total_subtotal, # Pasamos el subtotal total
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'search_referencia': search_referencia,
+        'orden_actual': ordenar_por, # Pasamos el orden actual a la plantilla
+        'puede_ver_subtotal': puede_ver_subtotal,
     }
     return render(request, 'pedidos/reportes/ventas_por_referencia.html', context)
-
