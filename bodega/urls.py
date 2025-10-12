@@ -45,4 +45,6 @@ urlpatterns = [
      path('buscar-informe-movimiento/', views.buscar_informe_movimiento, name='buscar_informe_movimiento'),
      path('ingreso-produccion/', views.vista_ingreso_produccion, name='ingreso_produccion'),
      path('api/get-tallas-para-ingreso/', views.api_get_tallas_para_ingreso, name='api_get_tallas_para_ingreso'),
+     path('api/get-tallas-para-ajuste/', views.api_get_tallas_para_ajuste, name='api_get_tallas_para_ajuste'),
+     path('ajuste-masivo/', views.vista_ajuste_masivo_inventario, name='ajuste_masivo_inventario'),
 ]

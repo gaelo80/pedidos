@@ -1,0 +1,120 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}Ajuste Masivo de Inventario{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-3">Ajuste Masivo de Inventario</h1>
+    <p class="lead">Esta herramienta permite aplicar un ajuste de inventario a todas las tallas de una referencia a la vez.</p>
+
+    <form method="post" id="form-ajuste-stock">
+        {% csrf_token %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header"><h5 class="mb-0">1. Selecciona el Producto y el Tipo de Ajuste</h5></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="select_referencia_color" class="form-label fw-bold">Referencia / Color:</label>
+                        <select id="select_referencia_color" class="form-select">
+                            <option value="" selected disabled>-- Busca una referencia --</option>
+                            {% for item in referencias_seleccionables %}
+                                <option value="{{ item.referencia }}|{{ item.color|default:'-' }}">{{ item.referencia }} / {{ item.color|default:'Sin Color' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="select_tipo_movimiento" class="form-label fw-bold">Tipo de Movimiento:</label>
+                        <select name="tipo_movimiento" id="select_tipo_movimiento" class="form-select" required>
+                            <option value="" selected disabled>-- Selecciona --</option>
+                            {% for tipo, nombre in tipos_movimiento %}
+                                {% if 'AJUSTE' in tipo %}
+                                    <option value="{{ tipo }}">{{ nombre }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="input_documento_referencia" class="form-label fw-bold">Motivo / Documento:</label>
+                        <input type="text" name="documento_referencia" id="input_documento_referencia" class="form-control" placeholder="Ej: Corrección preventa" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">2. Ingresa las Cantidades a Ajustar</h5></div>
+            <div class="card-body">
+                <div class="mb-3 d-flex align-items-center">
+                    <input type="number" id="cantidad-masiva" class="form-control me-2" style="width: 150px;" placeholder="Ej: -1000">
+                    <button type="button" id="btn-aplicar-masivo" class="btn btn-outline-secondary">Aplicar a todo</button>
+                </div>
+                <div id="tallas-container" class="p-3 border rounded bg-light">
+                    <p class="text-muted mb-0">Selecciona una referencia para cargar las tallas aquí.</p>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-end p-3">
+                    <button type="submit" id="btn-submit" class="btn btn-success btn-lg" disabled>
+                        <i class="fas fa-save me-2"></i>Guardar Ajustes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    const selectRefColor = $('#select_referencia_color');
+    const tallasContainer = $('#tallas-container');
+    const btnSubmit = $('#btn-submit');
+    const btnAplicarMasivo = $('#btn-aplicar-masivo');
+    const inputCantidadMasiva = $('#cantidad-masiva');
+    const apiUrl = "{% url 'bodega:api_get_tallas_para_ajuste' %}";
+
+    selectRefColor.select2({ theme: "bootstrap-5" });
+
+    selectRefColor.on('change', function() {
+        const selectedValue = $(this).val();
+        if (!selectedValue) return;
+
+        tallasContainer.html('<p class="text-info"><i class="fas fa-spinner fa-spin"></i> Cargando tallas...</p>');
+        const [ref, color] = selectedValue.split('|');
+
+        fetch(`${apiUrl}?ref=${ref}&color=${color}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.tallas && data.tallas.length > 0) {
+                    let html = '<div class="row g-3">';
+                    data.tallas.forEach(talla => {
+                        html += `
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <div class="input-group">
+                                    <span class="input-group-text fw-bold" style="width: 100px;">Talla: ${talla.talla}</span>
+                                    <input type="number" name="cantidad_${talla.pk}" class="form-control cantidad-ajuste" placeholder="Ajuste">
+                                    <span class="input-group-text text-muted" title="Stock actual">(${talla.stock_actual})</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    tallasContainer.html(html);
+                    btnSubmit.prop('disabled', false);
+                } else {
+                    tallasContainer.html('<p class="text-warning">No se encontraron tallas para esta selección.</p>');
+                    btnSubmit.prop('disabled', true);
+                }
+            });
+    });
+
+    btnAplicarMasivo.on('click', function() {
+        const cantidad = inputCantidadMasiva.val();
+        if (cantidad) {
+            $('.cantidad-ajuste').val(cantidad);
+        }
+    });
+});
+</script>
+{% endblock extra_scripts %}

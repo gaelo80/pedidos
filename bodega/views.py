@@ -2309,3 +2309,97 @@ def api_get_tallas_para_ingreso(request):
     ]
 
     return JsonResponse({'tallas': tallas_data})
+
+@login_required
+def api_get_tallas_para_ajuste(request):
+    """
+    API que devuelve TODAS las tallas de una Referencia+Color para
+    realizar un ajuste masivo de inventario.
+    """
+    referencia = request.GET.get('ref')
+    color = request.GET.get('color')
+    empresa_actual = getattr(request, 'tenant', None)
+
+    if not (referencia and color and empresa_actual):
+        return JsonResponse({'error': 'Faltan parámetros'}, status=400)
+
+    color_filtro = None if color == '-' else color
+
+    # A diferencia de la otra API, aquí buscamos TODAS las tallas, no solo las de preventa
+    productos = Producto.objects.filter(
+        empresa=empresa_actual,
+        referencia=referencia,
+        color=color_filtro
+    ).order_by('talla')
+
+    tallas_data = [
+        {
+            'pk': p.id,
+            'talla': p.talla,
+            'stock_actual': p.stock_actual,
+        }
+        for p in productos
+    ]
+
+    return JsonResponse({'tallas': tallas_data})
+
+@login_required
+@permission_required('bodega.add_movimientoinventario', raise_exception=True)
+def vista_ajuste_masivo_inventario(request):
+    """
+    Permite realizar ajustes de inventario masivos para todas las tallas
+    de una referencia y color específicos.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+
+    if request.method == 'POST':
+        tipo_movimiento = request.POST.get('tipo_movimiento')
+        documento_referencia = request.POST.get('documento_referencia', 'Ajuste Masivo')
+
+        # Validamos que se haya seleccionado un tipo de movimiento válido
+        if not tipo_movimiento or tipo_movimiento not in [choice[0] for choice in MovimientoInventario.TIPO_MOVIMIENTO_CHOICES]:
+            messages.error(request, "Debes seleccionar un tipo de movimiento válido.")
+            return redirect('bodega:ajuste_masivo_inventario')
+
+        with transaction.atomic():
+            productos_ajustados = 0
+            for key, value in request.POST.items():
+                if key.startswith('cantidad_'):
+                    try:
+                        producto_id = int(key.split('_')[1])
+                        # Permitimos cantidades negativas y positivas
+                        cantidad = int(value) if value else 0
+                    except (ValueError, TypeError, IndexError):
+                        continue
+
+                    if cantidad != 0:
+                        producto = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
+                        
+                        MovimientoInventario.objects.create(
+                            empresa=empresa_actual,
+                            producto=producto,
+                            cantidad=cantidad,
+                            tipo_movimiento=tipo_movimiento,
+                            documento_referencia=documento_referencia,
+                            usuario=request.user
+                        )
+                        productos_ajustados += 1
+            
+            if productos_ajustados > 0:
+                messages.success(request, f"Se aplicó el ajuste de inventario para {productos_ajustados} variante(s) de talla.")
+            else:
+                messages.warning(request, "No se ingresaron cantidades para ajustar.")
+        
+        return redirect('bodega:ajuste_masivo_inventario')
+
+    # Para el método GET, pasamos las referencias/colores y los tipos de movimiento
+    referencias_unicas = Producto.objects.filter(
+        empresa=empresa_actual, activo=True
+    ).values('referencia', 'color').distinct().order_by('referencia', 'color')
+
+    context = {
+        'titulo': 'Ajuste Masivo de Inventario',
+        'referencias_seleccionables': list(referencias_unicas),
+        'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO_CHOICES,
+    }
+    return render(request, 'bodega/ajuste_masivo_inventario.html', context)

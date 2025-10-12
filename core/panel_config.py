@@ -207,6 +207,17 @@ PANEL_OPTIONS_CONFIG = [
         'order': 2, # Para que aparezca cerca del principio de la sección de bodega
         'categoria': 'Bodega e Inventario',
     },
+    
+    {
+        'titulo': 'Ajuste Masivo de Inventario',
+        'descripcion': 'Aplicar ajustes de entrada/salida a todas las tallas de una referencia.',
+        'url_nombre': 'bodega:ajuste_masivo_inventario',
+        'icono': 'fas fa-sliders-h',
+        'icono_color_class': 'icon-warning',
+        'rol_requerido': ['es_administracion', 'bodega.add_movimientoinventario'],
+        'order': 3, # Orden para que aparezca junto a las otras herramientas de inventario
+        'categoria': 'Bodega e Inventario',
+    },
     {
         'titulo': 'Informe de Ingresos a Bodega',
         'descripcion': 'Ingresos de mercancía a bodega.',
