@@ -585,12 +585,6 @@ def rechazar_pedido_admin(request, pk):
         
     return redirect('pedidos:lista_aprobacion_admin')
 
-
-
-
-
-
-
 @login_required
 def generar_pedido_pdf(request, pk):
     
@@ -707,6 +701,69 @@ def generar_pedido_pdf(request, pk):
        return HttpResponse('We had some errors <pre>' + html + '</pre>')
     return response
 
+
+
+def vista_publica_pedido_pdf(request, token):
+    """
+    Genera un PDF para un pedido específico usando un token seguro y lo muestra
+    en el navegador (inline), sin requerir que el usuario inicie sesión.
+    """
+    # Buscamos el pedido usando el token en lugar del pk
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
+        token_descarga_fotos=token
+    )
+
+    detalles_originales = pedido.detalles.select_related('producto').all()
+    items_dama, items_caballero, items_unisex = [], [], []
+    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13']
+    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38']
+    TALLAS_UNISEX = ['S', 'M', 'L', 'XL']
+    
+    for detalle in detalles_originales:
+        # Aquí va tu lógica de normalización de tallas si la tienes
+        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        if genero_producto == 'DAMA':
+            items_dama.append(detalle)
+        elif genero_producto == 'CABALLERO':
+            items_caballero.append(detalle)
+        else:
+            items_unisex.append(detalle)
+
+    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
+    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
+    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+
+    context = {
+        'pedido': pedido,
+        'empresa_actual': pedido.empresa, # <-- ¡ESTA ES LA LÍNEA QUE FALTABA!
+        'logo_base64': get_logo_base_64_despacho(pedido.empresa),
+        'tasa_iva_pct': int(pedido.IVA_RATE * 100),
+        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
+        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
+        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'incluir_color': True,
+        'incluir_vr_unit': pedido.mostrar_precios_pdf,
+        'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
+    }
+    
+    template = get_template('pedidos/pedido_pdf.html')
+    html = template.render(context)
+
+    response = HttpResponse(content_type='application/pdf')
+    # --- La Clave: Cambiamos 'attachment' por 'inline' ---
+    response['Content-Disposition'] = f'inline; filename="pedido_{pedido.numero_pedido_empresa}.pdf"'
+    
+    # Usamos la librería de conversión a PDF que ya tienes configurada
+    from xhtml2pdf import pisa
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+       return HttpResponse('Tuvimos un error generando el PDF.', status=500)
+    return response
+
+
+
+
 @login_required
 def vista_pedido_exito(request, pk):
     
@@ -736,10 +793,15 @@ def vista_pedido_exito(request, pk):
                 telefono_cliente_limpio = None # No se pudo normalizar
 
             if telefono_cliente_limpio:
+                # 1. Generar el enlace público y absoluto al PDF
+                enlace_pdf_publico = request.build_absolute_uri(
+                    reverse('pedidos:ver_pedido_pdf_publico', kwargs={'token': pedido.token_descarga_fotos})
+                )
+                # 2. Construir el nuevo mensaje de texto
                 mensaje_texto = (
-                    f"Hola {pedido.destinatario.nombre_completo if pedido.destinatario else ''},"
-                    f" te comparto el pedido # {pedido.numero_pedido_empresa}."
-                    f" Cualquier inquietud con gusto la atenderé."
+                    f"Hola {pedido.destinatario.nombre_completo}, te comparto el resumen de tu pedido #{pedido.numero_pedido_empresa}.\n\n"
+                    f"Puedes verlo y descargarlo aquí:\n{enlace_pdf_publico}\n\n"
+                    f"Cualquier inquietud, con gusto la atenderé."
                 )
                 mensaje_encoded = quote(mensaje_texto)
                 whatsapp_url = f"https://wa.me/{telefono_cliente_limpio}?text={mensaje_encoded}"

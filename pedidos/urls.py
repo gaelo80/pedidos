@@ -26,5 +26,6 @@ urlpatterns = [
     path('borrador/<int:pk>/pdf/', views.generar_borrador_pdf, name='generar_borrador_pdf'),
     path('borrador/autosave/', views.autosave_pedido_borrador, name='autosave_pedido_borrador'),
     path('reportes/ventas-por-referencia/', views.vista_reporte_referencias, name='reporte_ventas_referencia'),
+    path('ver-pdf/<uuid:token>/', views.vista_publica_pedido_pdf, name='ver_pedido_pdf_publico'),
 
 ]
