@@ -6,6 +6,7 @@ from django.contrib.auth.views import LogoutView
 from django.conf import settings
 from django.conf.urls.static import static
 from productos import api_views as productos_api_views
+from core import views as core_views
 
 
 urlpatterns = [
@@ -14,25 +15,17 @@ urlpatterns = [
     # Autenticación
     path('accounts/login/', CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', LogoutView.as_view(next_page='login'), name='logout'), # Redirigir a login después de logout
-    path('accounts/', include('django.contrib.auth.urls')), # Para password reset, etc.
-
-    # Aplicación Core (Panel principal)
-    # 'core:index' será la URL '/' (después de login)
+    path('accounts/', include('django.contrib.auth.urls')), 
     path('', include(('core.urls', 'core'), namespace='core')),
-
-    # APIs y otras aplicaciones con prefijos claros
     path('api/v1/catalogo/', include(('productos.urls', 'productos'), namespace='productos_v1')),
     path('api/v1/clientes/', include(('clientes.urls', 'clientes'), namespace='clientes_v1')),
     path('api/v1/pedidos/', include(('pedidos.urls', 'pedidos'), namespace='pedidos_v1')),
     path('api/v1/productos/buscar/', productos_api_views.buscar_productos_api, name='global_api_buscar_productos'),
     path('api/clientes/', include(('clientes.urls', 'clientes_api_ns'), namespace='clientes')),  # Las URLs de clientes ya tienen 'api/' adentro
-
-    # Aplicaciones con interfaz de usuario
     path('devoluciones/', include(('devoluciones.urls', 'devoluciones'), namespace='devoluciones')),
     path('bodega/', include(('bodega.urls', 'bodega'), namespace='bodega')),
     path('informes/', include(('informes.urls', 'informes'), namespace='informes')),
     path('cartera/', include(('cartera.urls', 'cartera'), namespace='cartera')),
-    #path('factura/', include(('factura.urls', 'factura'), namespace='factura')),
     path('pedidos/', include(('pedidos.urls', 'pedidos'), namespace='pedidos')),
     path('productos/', include('productos.urls', namespace='productos')),
     path('facturacion/', include('factura.urls', namespace='factura')),
@@ -43,6 +36,7 @@ urlpatterns = [
     path('recaudos/', include('recaudos.urls')),
     path('notificaciones/', include('notificaciones.urls', namespace='notificaciones')),
     path('pedidos-online/', include('pedidos_online.urls')),
+    path('serviceworker.js', core_views.service_worker_view, name='service_worker'),
 
     
 

@@ -1,4 +1,6 @@
 # core/views.py
+from django.http import HttpResponse
+from django.conf import settings
 import os
 import base64
 import pandas as pd # DESCOMENTA ESTO si tus funciones convertir_... lo usan. Asegúrate que pandas esté instalado.
@@ -6,7 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.urls import reverse, reverse_lazy, NoReverseMatch
-from django.conf import settings
 from django.contrib.auth.views import LoginView
 from django.shortcuts import render
 from decimal import Decimal, InvalidOperation
@@ -287,3 +288,17 @@ def vista_index(request):
 
 def offline_view(request):
     return render(request, 'core/offline.html')
+
+
+def service_worker_view(request):
+    """
+    Sirve el archivo serviceworker.js desde el sistema de archivos local
+    para cumplir con la política de mismo origen del navegador.
+    """
+    sw_path = os.path.join(settings.BASE_DIR, 'core', 'static', 'core', 'pwa', 'serviceworker.js')
+    try:
+        with open(sw_path, 'r') as f:
+            content = f.read()
+        return HttpResponse(content, content_type='application/javascript')
+    except FileNotFoundError:
+        return HttpResponse("Service worker not found.", status=404, content_type='text/plain')
