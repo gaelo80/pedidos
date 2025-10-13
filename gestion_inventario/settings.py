@@ -30,7 +30,7 @@ else:
     # TODO va a R2.
     STORAGES = {
         "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "BACKEND": "core.storages.PrivateMediaStorage",
         },
         "staticfiles": {
             "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
@@ -41,6 +41,7 @@ else:
 AWS_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME')
+AWS_QUERYSTRING_AUTH = False
 
 # --- ¡ESTA PARTE ES CRÍTICA PARA R2! ---
 # Le decimos a Boto3 que no vaya a Amazon, sino a Cloudflare.
