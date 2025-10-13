@@ -1,0 +1,26 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block page_title %}Sin Conexión{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-5">
+                    <i class="fas fa-wifi-slash fa-4x text-danger mb-4"></i>
+                    <h1 class="display-5 fw-bold">No tienes conexión a internet</h1>
+                    <p class="lead text-muted mt-3">
+                        Parece que estás sin conexión. No te preocupes, aún puedes acceder a las páginas que hayas visitado recientemente.
+                    </p>
+                    <a href="{% url 'core:index' %}" class="btn btn-primary btn-lg mt-4">
+                        <i class="fas fa-home me-2"></i>
+                        Ir a la página de inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

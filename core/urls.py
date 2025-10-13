@@ -13,5 +13,6 @@ urlpatterns = [
     
     path('', views.vista_index, name='index'),
     path('acceso-denegado/', views.acceso_denegado_view, name='acceso_denegado'),
+    path('offline/', views.offline_view, name='offline'),
 
 ]

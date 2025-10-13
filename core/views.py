@@ -283,3 +283,7 @@ def vista_index(request):
         'opciones_agrupadas': opciones_agrupadas_para_template, # <--- ¡NUEVA VARIABLE PARA LA PLANTILLA!
     }
     return render(request, 'core/index.html', context)
+
+
+def offline_view(request):
+    return render(request, 'core/offline.html')
