@@ -49,7 +49,7 @@ AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorag
 
 # Un dominio personalizado para servir los archivos (opcional pero muy recomendado)
 # Por ejemplo, si configuras 'media.tuapp.com' para apuntar a tu bucket.
-# AWS_S3_CUSTOM_DOMAIN = 'media.tuapp.com' 
+AWS_S3_CUSTOM_DOMAIN = 'pub-3189840290c243e499cc02ac48d3a787.r2.dev' 
 # Si no tienes dominio personalizado, puedes construir la URL manualmente en el modelo/vista.
 
 AWS_S3_OBJECT_PARAMETERS = {
