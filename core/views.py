@@ -302,3 +302,10 @@ def service_worker_view(request):
         return HttpResponse(content, content_type='application/javascript')
     except FileNotFoundError:
         return HttpResponse("Service worker not found.", status=404, content_type='text/plain')
+    
+def manifest_view(request):
+    """
+    Genera el manifest.json dinámicamente para asegurar que el start_url
+    coincida con el dominio actual de la petición.
+    """
+    return render(request, 'pwa/manifest.json.j2', content_type='application/manifest+json')

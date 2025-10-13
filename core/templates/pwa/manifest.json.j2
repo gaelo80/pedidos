@@ -1,0 +1,21 @@
+{
+    "name": "{{ nombre_empresa|default:'Sistema de Gestión' }} - Gestión",
+    "short_name": "{{ nombre_empresa|default:'Gestión' }}",
+    "description": "Sistema de gestión de pedidos, inventario y facturación para {{ nombre_empresa|default:'la empresa' }}.",
+    "start_url": "https://{{ request.get_host }}/",
+    "display": "standalone",
+    "background_color": "#dfe9e5",
+    "theme_color": "#3b5998",
+    "icons": [
+        {
+            "src": "https://pub-3189840290c243e499cc02ac48d3a787.r2.dev/core/pwa/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://pub-3189840290c243e499cc02ac48d3a787.r2.dev/core/pwa/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

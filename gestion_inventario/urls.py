@@ -37,6 +37,7 @@ urlpatterns = [
     path('notificaciones/', include('notificaciones.urls', namespace='notificaciones')),
     path('pedidos-online/', include('pedidos_online.urls')),
     path('serviceworker.js', core_views.service_worker_view, name='service_worker'),
+    path('manifest.json', core_views.manifest_view, name='manifest'),
 
     
 
