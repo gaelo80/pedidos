@@ -10,6 +10,7 @@ from django.db.models import Sum, Q
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from functools import reduce
 import operator
 from clientes.models import Cliente # De la app clientes
@@ -49,18 +50,34 @@ def convertir_fecha_excel(valor_excel, num_fila=None, nombre_campo_para_error="F
         return None
 
 def convertir_saldo_excel(valor_excel, num_fila=None, nombre_campo_para_error="Saldo"):
+    """
+    Convierte un valor de saldo de Excel a un objeto Decimal, manejando correctamente
+    los separadores de miles y decimales (punto o coma).
+    """
     if pd.isna(valor_excel) or valor_excel == '':
        return Decimal('0.00')
     try:
         valor_str = str(valor_excel).strip()
-        # Lógica para manejar comas como separadores decimales y puntos como miles o viceversa
-        # Esta es una implementación simple, podrías necesitar algo más robusto
-        # dependiendo de la consistencia de tus archivos Excel.
-        valor_limpio = valor_str.replace('.', '').replace(',', '.') # Asume , como decimal si hay . de miles
-        if valor_str.count(',') == 1 and valor_str.count('.') == 0: # Solo coma, es decimal
-             valor_limpio = valor_str.replace(',', '.')
         
+        # Lógica mejorada para interpretar el número:
+        # Si hay comas, asumimos que es el separador decimal y los puntos son de miles.
+        # Ejemplo: "1.329.000,01" se convierte en "1329000.01"
+        if ',' in valor_str and '.' in valor_str:
+            # Si la coma está después del último punto, es decimal
+            if valor_str.rfind(',') > valor_str.rfind('.'):
+                valor_limpio = valor_str.replace('.', '').replace(',', '.')
+            else: # Si el punto está después de la última coma, es decimal
+                valor_limpio = valor_str.replace(',', '')
+        elif ',' in valor_str:
+             # Si solo hay comas, es decimal
+            valor_limpio = valor_str.replace(',', '.')
+        else:
+            # Si no hay comas, el punto (si existe) es decimal. No se hace nada
+            # a los puntos, solo se quitan las comas (que no deberían existir).
+            valor_limpio = valor_str.replace(',', '')
+
         return Decimal(valor_limpio)
+        
     except (ValueError, TypeError, InvalidOperation) as e:
         print(f"Advertencia Fila {num_fila or '?'}: Error convirtiendo {nombre_campo_para_error} '{valor_excel}'. Error: {e}. Se usará 0.00.")
         return Decimal('0.00')
@@ -234,6 +251,7 @@ def vista_importar_cartera(request):
 
 @login_required
 @user_passes_test(lambda u: es_vendedor(u) or es_administracion(u) or es_cartera(u) or u.is_superuser, login_url='core:acceso_denegado')
+@never_cache
 def reporte_cartera_general(request):
     
     empresa_actual = getattr(request, 'tenant', None)
