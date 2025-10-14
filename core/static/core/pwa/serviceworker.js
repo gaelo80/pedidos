@@ -1,9 +1,10 @@
+// serviceworker.js
+
 // V5: A more resilient installation strategy.
 const CACHE_NAME = 'louis-ferry-cache-v5'; // ¡Importante! Nuevo nombre de caché.
 const OFFLINE_URL = '/offline/'; // La URL de nuestra página offline.
 
 // We will only cache the absolutely essential, local URLs during installation.
-// Other assets (like CDN files) will be cached on the first visit via the 'fetch' event handler.
 const urlsToCache = [
     '/',
     OFFLINE_URL
@@ -37,31 +38,36 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 'fetch' event: Intercepts network requests. Using async/await.
+// 'fetch' event: Intercepts network requests.
 self.addEventListener('fetch', event => {
+    const requestUrl = new URL(event.request.url);
+
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Si la petición es a la API (su URL empieza con /api/),
+    // siempre ve a la red. Nunca uses el caché para estos datos.
+    if (requestUrl.pathname.startsWith('/api/')) {
+        event.respondWith(fetch(event.request));
+        return; // Detiene la ejecución aquí para las peticiones de la API
+    }
+    
+
+
     // Handle navigation requests (HTML pages)
     if (event.request.mode === 'navigate') {
         event.respondWith((async () => {
             try {
-                // 1. Try the network first.
                 const networkResponse = await fetch(event.request);
-
-                // 2. If successful, clone it, cache it, and return it.
                 const cache = await caches.open(CACHE_NAME);
                 cache.put(event.request, networkResponse.clone());
                 return networkResponse;
-
             } catch (error) {
-                // 3. If the network fails, try to serve from the cache.
                 console.log('Network request failed for navigation. Trying cache.', error);
                 const cache = await caches.open(CACHE_NAME);
                 const cachedResponse = await cache.match(event.request);
-                
-                // If found in cache, return it. Otherwise, return the offline page.
                 return cachedResponse || await cache.match(OFFLINE_URL);
             }
         })());
-        return; // End execution for navigate requests
+        return;
     }
 
     // Handle non-navigation requests (CSS, JS, images, etc.) with a Cache-First strategy
@@ -69,19 +75,15 @@ self.addEventListener('fetch', event => {
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(event.request);
 
-        // If the resource is in the cache, return it.
         if (cachedResponse) {
             return cachedResponse;
         }
 
-        // If not, try to fetch it from the network.
         try {
             const networkResponse = await fetch(event.request);
-            // If successful, cache the new resource for future offline use and return it.
             cache.put(event.request, networkResponse.clone());
             return networkResponse;
         } catch (error) {
-            // If fetching from network also fails, the resource is unavailable.
             console.log('Failed to fetch non-navigation resource from network:', event.request.url);
         }
     })());
