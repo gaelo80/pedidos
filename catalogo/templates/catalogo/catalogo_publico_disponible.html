@@ -86,13 +86,18 @@
                             {% if item_catalogo.variantes_info %}
                                 <ul class="list-group list-group-flush flex-grow-1"> {# flex-grow-1 para empujar la paginación a la parte inferior #}
                                     {% for variante_info in item_catalogo.variantes_info %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-center py-2"> {# py-2 para padding vertical #}
-                                            <span><i class="bi bi-tag-fill me-2 text-info"></i>Talla: <strong>{{ variante_info.talla|default:"Única" }}</strong></span> {# Icono para la talla #}
-                                            {% if variante_info.disponible %}
-                                                <span class="badge bg-success rounded-pill px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i> Disponible</span> {# Badges más grandes y redondeados #}
-                                            {% else %}
-                                                <span class="badge bg-secondary rounded-pill px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i> Agotado</span>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <span><i class="bi bi-tag-fill me-2 text-info"></i>Talla: <strong>{{ variante_info.talla|default:"Única" }}</strong></span>
+                                        
+                                        {% if variante_info.disponible %}
+                                            {% if variante_info.stock > 0 %}
+                                                <span class="badge bg-success rounded-pill px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i> Disponible</span>
+                                            {% elif variante_info.en_produccion %}
+                                                <span class="badge bg-info text-dark rounded-pill px-3 py-2"><i class="bi bi-clock-history me-1"></i> Preventa</span>
                                             {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary rounded-pill px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i> Agotado</span>
+                                        {% endif %}
                                         </li>
                                     {% endfor %}
                                 </ul>
