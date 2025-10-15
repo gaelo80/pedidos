@@ -152,27 +152,22 @@ def ver_todas_fotos_referencia_view(request, referencia_str):
 
 def catalogo_publico_disponible(request):
     """
-    Muestra un catálogo público de ReferenciaColor que tienen al menos una variante
-    (Producto) activa y con stock. Detalla la disponibilidad por talla.
+    Muestra un catálogo público de ReferenciaColor si cumplen las condiciones de stock o preventa.
     """
     query = request.GET.get('q', '')
-    
     categoria_query = request.GET.get('categoria', '')
 
-    # 1. Obtener todas las ReferenciaColor.
-    #    Prefetch sus fotos y sus variantes (Productos activos).
     referencias_colores_qs = ReferenciaColor.objects.prefetch_related(
         Prefetch(
-            'fotos_agrupadas', # related_name desde FotoProducto a ReferenciaColor
+            'fotos_agrupadas',
             queryset=FotoProducto.objects.order_by('orden')
         ),
         Prefetch(
-            'variantes', # related_name desde Producto a ReferenciaColor
-            queryset=Producto.objects.filter(activo=True).order_by('talla') # Solo Productos (variantes) activos
+            'variantes',
+            queryset=Producto.objects.filter(activo=True).order_by('talla')
         )
-    ).order_by('referencia_base', 'color') #
+    ).order_by('referencia_base', 'color')
 
-    # 2. Aplicar filtro de búsqueda si existe (sobre campos de ReferenciaColor)
     if query:
         referencias_colores_qs = referencias_colores_qs.filter(
             Q(referencia_base__icontains=query) |
@@ -183,46 +178,45 @@ def catalogo_publico_disponible(request):
     if categoria_query:
         referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query).distinct()
         
-    
-
-    # 3. Procesar en Python para verificar stock (ya que stock_actual es una property)
-    #    y construir la lista final de ítems para el catálogo.
     items_catalogo_final = []
-    processed_rc_ids = set()
     for rc_item in referencias_colores_qs:
         variantes_con_info_stock = []
-        tiene_algun_stock_esta_rc = False
+        
+        # --- LÓGICA CLAVE CORREGIDA ---
+        # Variable para decidir si esta referencia (Ref+Color) se debe mostrar
+        mostrar_esta_referencia = False
+        
+        # Si no tiene variantes activas, no lo mostramos.
+        if not rc_item.variantes.all().exists():
+            continue
 
-        # rc_item.variantes ya contiene los Productos activos prefetcheados
-        for producto_variante in rc_item.variantes.all(): # Iterar sobre las variantes (Producto)
-            stock = producto_variante.stock_actual # Llama a la property
-            if stock > 0:
-                tiene_algun_stock_esta_rc = True
+        for producto_variante in rc_item.variantes.all():
+            stock = producto_variante.stock_actual
+            en_produccion = producto_variante.permitir_preventa
+
+            # Si CUALQUIER variante tiene stock O está en producción, marcamos la referencia para ser mostrada
+            if stock > 0 or en_produccion:
+                mostrar_esta_referencia = True
+
             variantes_con_info_stock.append({
-                'objeto': producto_variante, # El objeto Producto completo
-                'talla': producto_variante.talla, #
+                'objeto': producto_variante,
+                'talla': producto_variante.talla,
                 'stock': stock,
                 'disponible': stock > 0
             })
 
-        # Solo incluir esta ReferenciaColor si tiene al menos una variante con stock
-        if tiene_algun_stock_esta_rc:
+        # Solo añadimos la referencia al catálogo final si cumple la condición
+        if mostrar_esta_referencia:
             items_catalogo_final.append({
-                'referencia_color_obj': rc_item, # El objeto ReferenciaColor
-                'nombre_display_final': rc_item.nombre_display or f"{rc_item.referencia_base} - {rc_item.color or 'Sin Color'}", #
-                'fotos': list(rc_item.fotos_agrupadas.all()), # Lista de objetos FotoProducto
-                'variantes_info': variantes_con_info_stock, # Lista de dicts con info de stock por talla
+                'referencia_color_obj': rc_item,
+                'nombre_display_final': rc_item.nombre_display or f"{rc_item.referencia_base} - {rc_item.color or 'Sin Color'}",
+                'fotos': list(rc_item.fotos_agrupadas.all()),
+                'variantes_info': variantes_con_info_stock,
             })
 
-    # Paginación
-    paginator = Paginator(items_catalogo_final, 18) # Ajusta el número de ítems por página
+    paginator = Paginator(items_catalogo_final, 18)
     page_number = request.GET.get('page')
-    try:
-        pagina_items = paginator.page(page_number)
-    except PageNotAnInteger:
-        pagina_items = paginator.page(1)
-    except EmptyPage:
-        pagina_items = paginator.page(paginator.num_pages)
+    pagina_items = paginator.get_page(page_number)
 
     context = {
         'pagina_items': pagina_items,
@@ -236,7 +230,7 @@ def catalogo_publico_disponible(request):
 
 def catalogo_publico_temporal_view(request, token):
     """
-    Muestra un catálogo filtrado por la empresa asociada al token.
+    Muestra un catálogo filtrado por empresa si las referencias cumplen condiciones de stock o preventa.
     """
     try:
         enlace = EnlaceCatalogoTemporal.objects.select_related('empresa').get(token=token)
@@ -254,7 +248,6 @@ def catalogo_publico_temporal_view(request, token):
          return render(request, 'catalogo/enlace_mensaje.html', {'titulo_mensaje': 'Error de Configuración', 'mensaje': 'Este enlace no está asociado a ninguna empresa.'}, status=500)
 
     query = request.GET.get('q', '')
-    
     categoria_query = request.GET.get('categoria', '')
     
     referencias_colores_qs = ReferenciaColor.objects.filter(
@@ -270,19 +263,28 @@ def catalogo_publico_temporal_view(request, token):
         ).distinct()
        
     if categoria_query:
-        referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query)  
+        referencias_colores_qs = referencias_colores_qs.filter(variantes__genero=categoria_query).distinct()
 
     items_catalogo_final = []
-    for rc_item in referencias_colores_qs.distinct():
+    for rc_item in referencias_colores_qs:
         variantes_con_info_stock = []
-        tiene_algun_stock_esta_rc = False
+        
+        # --- LÓGICA CLAVE CORREGIDA ---
+        mostrar_esta_referencia = False
+        
+        if not rc_item.variantes.all().exists():
+            continue
+
         for producto_variante in rc_item.variantes.all():
             stock = producto_variante.stock_actual
-            if stock > 0:
-                tiene_algun_stock_esta_rc = True
+            en_produccion = producto_variante.permitir_preventa
+
+            if stock > 0 or en_produccion:
+                mostrar_esta_referencia = True
+            
             variantes_con_info_stock.append({'objeto': producto_variante, 'talla': producto_variante.talla, 'stock': stock, 'disponible': stock > 0})
         
-        if tiene_algun_stock_esta_rc:
+        if mostrar_esta_referencia:
             items_catalogo_final.append({
                 'referencia_color_obj': rc_item,
                 'nombre_display_final': rc_item.nombre_display or f"{rc_item.referencia_base} - {rc_item.color or 'Sin Color'}",
