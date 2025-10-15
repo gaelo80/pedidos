@@ -1,7 +1,7 @@
 # catalogo/views.py
 from django.shortcuts import render, redirect
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Sum
 from django.contrib import messages
 from django.utils import timezone
 from datetime import timedelta
@@ -156,11 +156,15 @@ def catalogo_publico_disponible(request):
     """
     query = request.GET.get('q', '')
     categoria_query = request.GET.get('categoria', '')
+    
+    
 
-    referencias_colores_qs = ReferenciaColor.objects.prefetch_related(
+    referencias_colores_qs = ReferenciaColor.objects.annotate(
+        stock_total=Sum('variantes__movimientos__cantidad')
+    ).order_by('-stock_total', '-referencia_base').prefetch_related(
         Prefetch('fotos_agrupadas', queryset=FotoProducto.objects.order_by('orden')),
         Prefetch('variantes', queryset=Producto.objects.filter(activo=True).order_by('talla'))
-    ).order_by('referencia_base', 'color')
+    )
 
     if query:
         referencias_colores_qs = referencias_colores_qs.filter(
@@ -237,14 +241,17 @@ def catalogo_publico_temporal_view(request, token):
     query = request.GET.get('q', '')
     categoria_query = request.GET.get('categoria', '')
     
+    
     referencias_colores_qs = ReferenciaColor.objects.filter(
         empresa=empresa_catalogo
-    ).prefetch_related(
+    ).annotate(
+        stock_total=Sum('variantes__movimientos__cantidad')
+    ).order_by('-stock_total', '-referencia_base').prefetch_related(
         Prefetch('fotos_agrupadas', queryset=FotoProducto.objects.order_by('orden')),
         Prefetch('variantes', queryset=Producto.objects.filter(activo=True, empresa=empresa_catalogo).order_by('talla'))
-    ).order_by('referencia_base', 'color')
-
-    # (El código de filtrado por query y categoría no cambia)
+    )
+    
+    
     if query:
         referencias_colores_qs = referencias_colores_qs.filter(
             Q(referencia_base__icontains=query) | Q(color__icontains=query) | Q(nombre_display__icontains=query)
