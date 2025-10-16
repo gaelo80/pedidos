@@ -1,7 +1,7 @@
 // serviceworker.js
 
 // V5: A more resilient installation strategy.
-const CACHE_NAME = 'louis-ferry-cache-v5'; // ¡Importante! Nuevo nombre de caché.
+const CACHE_NAME = 'pedidos-lges-v6'; // ¡Importante! Nuevo nombre de caché.
 const OFFLINE_URL = '/offline/'; // La URL de nuestra página offline.
 
 // We will only cache the absolutely essential, local URLs during installation.
@@ -42,9 +42,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const requestUrl = new URL(event.request.url);
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Si la petición es a la API (su URL empieza con /api/),
-    // siempre ve a la red. Nunca uses el caché para estos datos.
+
+    if (requestUrl.pathname.includes('/pdf/') || requestUrl.pathname.endsWith('.pdf')) {
+        return; // Al no llamar a event.respondWith, el navegador gestiona la descarga.
+    }
+
     if (requestUrl.pathname.startsWith('/api/')) {
         event.respondWith(fetch(event.request));
         return; // Detiene la ejecución aquí para las peticiones de la API
