@@ -97,10 +97,10 @@
                         <td class="text-center">{{ pedido.total_cantidad_productos|intcomma }}</td>
                         <td class="text-end">${{ pedido.total_a_pagar|intcomma:0 }}</td>
                         <td>
-                            <a class="text-end" href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-info btn-sm" target="_blank" title="Ver Detalle Pedido">
+                            <a class="text-end" href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-info btn-sm" title="Ver Detalle Pedido">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-danger btn-sm" target="_blank" title="Ver PDF Pedido">
+                            <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-danger btn-sm" title="Ver PDF Pedido">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
                         </td>

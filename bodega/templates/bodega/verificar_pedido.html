@@ -60,7 +60,7 @@
             <div class="card-header fw-bold d-flex justify-content-between align-items-center">
                 <span>Artículos a Despachar</span>
                 {# Enlace al PDF del pedido original #}
-                <a href="{% url 'pedidos:generar_pedido_pdf' pk=pedido.pk %}" class="btn btn-outline-info btn-sm" target="_blank" title="Ver PDF del Pedido Original">
+                <a href="{% url 'pedidos:generar_pedido_pdf' pk=pedido.pk %}" class="btn btn-outline-info btn-sm" title="Ver PDF del Pedido Original">
                     <i class="fas fa-file-pdf"></i> Ver PDF Original
                 </a>
             </div>
@@ -160,8 +160,7 @@
                             {# Mostrar solo si el pedido ha sido procesado o completado? Ajusta la condición según necesites #}
                     {% if pedido.estado == 'PROCESANDO' or pedido.estado == 'COMPLETADO' %}
                         <a href="{% url 'bodega:generar_comprobante_despacho' pk=pedido.pk %}" 
-                        class="btn btn-info ms-2" 
-                        target="_blank" {# <--- ESTO ABRE EN NUEVA PESTAÑA #}
+                        class="btn btn-info ms-2"                         
                         title="Ver/Descargar último Comprobante de Despacho en PDF">
                             <i class="fas fa-file-pdf"></i> Ver Comprobante PDF </a>
                     {% endif %}

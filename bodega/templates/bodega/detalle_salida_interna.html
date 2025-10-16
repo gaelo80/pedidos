@@ -13,7 +13,7 @@
                     <a href="{% url 'bodega:lista_salidas_internas' %}" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-list me-1"></i> Volver al Listado
                     </a>
-                    <a href="{% url 'bodega:generar_pdf_salida_interna' salida_interna.pk %}" class="btn btn-danger btn-sm" target="_blank">
+                    <a href="{% url 'bodega:generar_pdf_salida_interna' salida_interna.pk %}" class="btn btn-danger btn-sm">
                         <i class="fas fa-file-pdf me-1"></i> PDF Salida
                     </a>
                 </div>
@@ -74,7 +74,7 @@
                     {% endif %}
 
                     {% if salida_interna.estado == 'DEVUELTA_PARCIAL' or salida_interna.estado == 'DEVUELTA_TOTALMENTE' %}
-                    <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida_interna.pk %}" class="btn btn-success btn-sm" target="_blank">
+                    <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida_interna.pk %}" class="btn btn-success btn-sm">
                         <i class="fas fa-file-invoice me-1"></i> PDF Devolución
                     </a>
                     {% endif %}

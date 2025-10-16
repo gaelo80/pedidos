@@ -109,7 +109,7 @@
                                 <a href="{% url 'bodega:detalle_salida_interna' salida.pk %}" class="btn btn-outline-primary btn-sm rounded-pill shadow-sm me-1" title="Ver Detalle de la Salida">
                                     <i class="fas fa-eye"></i> Detalle
                                 </a>
-                                <a href="{% url 'bodega:generar_pdf_salida_interna' salida.pk %}" class="btn btn-outline-danger btn-sm rounded-pill shadow-sm me-1" title="Generar PDF de la Salida" target="_blank">
+                                <a href="{% url 'bodega:generar_pdf_salida_interna' salida.pk %}" class="btn btn-outline-danger btn-sm rounded-pill shadow-sm me-1" title="Generar PDF de la Salida">
                                     <i class="fas fa-file-pdf"></i> PDF Salida
                                 </a>
                                 {% if salida.estado == 'DESPACHADA' or salida.estado == 'DEVUELTA_PARCIAL' %}
@@ -118,7 +118,7 @@
                                 </a>
                                 {% endif %}
                                 {% if salida.estado == 'DEVUELTA_PARCIAL' or salida.estado == 'DEVUELTA_TOTALMENTE' %}
-                                <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida.pk %}" class="btn btn-outline-success btn-sm rounded-pill shadow-sm" title="Generar PDF de la Devolución" target="_blank">
+                                <a href="{% url 'bodega:generar_pdf_devolucion_salida_interna' salida.pk %}" class="btn btn-outline-success btn-sm rounded-pill shadow-sm" title="Generar PDF de la Devolución">
                                     <i class="fas fa-file-invoice"></i> PDF Devolución
                                 </a>
                                 {% endif %}

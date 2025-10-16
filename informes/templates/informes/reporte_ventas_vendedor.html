@@ -133,7 +133,7 @@
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
                                     <td><span class="badge {% if pedido.estado == 'COMPLETADO' or pedido.estado == 'ENVIADO' %}bg-success{% elif pedido.estado == 'CANCELADO' %}bg-danger{% else %}bg-secondary{% endif %}">{{ pedido.get_estado_display|default:pedido.estado }}</span></td> {# Badges con colores semánticos #}
                                     <td class="text-center">
-                                        <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" target="_blank" title="Ver Detalles del Pedido"> {# rounded-pill y shadow-sm #}
+                                        <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" title="Ver Detalles del Pedido"> {# rounded-pill y shadow-sm #}
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>

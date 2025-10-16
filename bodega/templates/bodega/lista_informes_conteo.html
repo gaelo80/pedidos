@@ -39,7 +39,7 @@
                             <td>{{ conteo.usuario_registro.username|default:"Sistema" }}</td>
                             <td>{{ conteo.fecha_hora_registro|date:"d M Y, h:i a" }}</td>
                             <td>
-                                <a href="{% url 'bodega:descargar_informe_conteo' cabecera_id=conteo.pk %}" class="btn btn-sm btn-info" title="Descargar Informe PDF" target="_blank">
+                                <a href="{% url 'bodega:descargar_informe_conteo' cabecera_id=conteo.pk %}" class="btn btn-sm btn-info" title="Descargar Informe PDF">
                                     <i class="fas fa-file-pdf"></i> PDF
                                 </a>
                             </td>

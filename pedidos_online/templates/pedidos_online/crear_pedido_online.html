@@ -274,7 +274,7 @@
                         {% endif %}
                         {% if form.instance.comprobante_pago %} {# Si ya hay un archivo adjunto #}
                             <p class="text-sm text-gray-500 mt-2">
-                                Archivo actual: <a href="{{ form.instance.comprobante_pago.url }}" target="_blank" class="text-blue-600 hover:underline">Ver Comprobante</a>
+                                Archivo actual: <a href="{{ form.instance.comprobante_pago.url }}" class="text-blue-600 hover:underline">Ver Comprobante</a>
                                 ({{ form.instance.comprobante_pago.name|truncatechars:30 }})
                             </p>
                         {% endif %}

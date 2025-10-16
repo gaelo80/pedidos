@@ -61,7 +61,7 @@
                             <td class="text-danger" title="{{ cambio.producto_saliente.nombre }}"><strong>-{{ cambio.cantidad_saliente }}</strong> {{ cambio.producto_saliente.referencia }}</td>
                             <td>{{ cambio.motivo|truncatechars:40 }}</td>
                             <td class="text-center">
-                                <a href="{% url 'bodega:generar_pdf_cambio_producto' pk=cambio.pk %}" class="btn btn-outline-danger btn-sm" target="_blank" title="Ver Comprobante PDF">
+                                <a href="{% url 'bodega:generar_pdf_cambio_producto' pk=cambio.pk %}" class="btn btn-outline-danger btn-sm" title="Ver Comprobante PDF">
                                     <i class="fas fa-file-pdf"></i>
                                 </a>
                             </td>

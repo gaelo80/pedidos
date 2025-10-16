@@ -62,7 +62,7 @@
                         <td>{{ comprobante.fecha_hora_despacho|date:"d/m/Y H:i" }}</td>
                         <td class="text-center">
                             {% if comprobante.pedido %}
-                                <a href="{% url 'pedidos:detalle_pedido' comprobante.pedido.pk %}" target="_blank">{{ comprobante.pedido.numero_pedido_empresa }}</a>
+                                <a href="{% url 'pedidos:detalle_pedido' comprobante.pedido.pk %}">{{ comprobante.pedido.numero_pedido_empresa }}</a>
                             {% else %}
                                 N/A
                             {% endif %}
@@ -75,7 +75,7 @@
                         <td>
                             {# Enlace al PDF del comprobante de despacho (si existe y está en app 'bodega') #}
                             {% if comprobante.pk %} {# Asumimos que la vista del PDF toma el PK del ComprobanteDespacho #}
-                            <a href="{% url 'bodega:imprimir_comprobante_especifico' pk_comprobante=comprobante.pk %}" class="btn btn-info btn-sm" target="_blank" title="Ver PDF Comprobante">
+                            <a href="{% url 'bodega:imprimir_comprobante_especifico' pk_comprobante=comprobante.pk %}" class="btn btn-info btn-sm" title="Ver PDF Comprobante">
                                 <i class="fas fa-file-pdf"></i> PDF
                             </a>
                             {% endif %}

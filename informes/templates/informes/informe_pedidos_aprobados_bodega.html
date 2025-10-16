@@ -50,7 +50,7 @@
                         <td>{{ pedido.usuario_decision_admin.username|default:"N/A" }}</td>
                         <td style="white-space: pre-wrap;">{{ pedido.motivo_admin|default:"" }}</td>
                         <td>
-                            <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm" target="_blank">Ver Pedido</a>
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm">Ver Pedido</a>
                         </td>
                     </tr>
                     {% endfor %}
