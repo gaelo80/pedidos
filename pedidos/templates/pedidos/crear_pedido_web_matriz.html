@@ -1140,8 +1140,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const urlTallas = `/productos/api/referencia/${currentRef}/color/${currentColor}/tallas/`; // Ajusta URL si es necesario
             console.log('URL para fetch Tallas:', urlTallas);
 
-            fetch(urlTallas, { headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }})
+            fetch(urlTallas, { 
+                headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken },
+                cache: 'no-cache' // <-- AÑADE ESTA LÍNEA
+            })
                 .then(response => {
+
                     if (!response.ok) {
                         console.error('Respuesta fetch Tallas NO FUE OK:', response);
                         throw new Error(`HTTP ${response.status} - ${response.statusText}`);
