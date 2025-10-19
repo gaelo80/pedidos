@@ -190,6 +190,7 @@ TEMPLATES = [
                     'core.context_processors.empresa_context',
                     'core.context_processors.notificaciones_context', 
                     'core.context_processors.user_roles_context',
+                    'core.context_processors.recordatorio_borradores_context',
                 ],
             },
         },

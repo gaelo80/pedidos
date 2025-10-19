@@ -6,7 +6,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    
     <title>{{ titulo_web|default:'Louis Ferry - Gestión de Pedidos' }}</title>
+    
     <link rel="shortcut icon" href="{% static 'core/img/favicon.ico' %}" type="image/x-icon">
     <link rel="manifest" href="{% url 'manifest' %}" crossorigin="anonymous">
     <meta name="theme-color" content="#3b5998">
@@ -20,6 +22,7 @@
     <script src="https://kit.fontawesome.com/5dda46da6f.js" crossorigin="anonymous"></script>
 
     <style>
+        /* ... (Todos tus estilos :root, body, .navbar, etc. van aquí - SIN CAMBIOS) ... */
         :root {
             /* Colores Base (Tonos tierra y azul suave) */
             --color-fondo-principal: #dfe9e5ff; /* Blanco roto / Gris muy claro - muy suave para la vista */
@@ -201,15 +204,7 @@
     </style>
 
     {% block extra_head %}
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const notificationCount = {{ unread_notifications_count|default:0 }};
-                if (notificationCount > 0) {
-                    document.title = `(${notificationCount}) ${document.title}`;
-                }
-            });
-        </script>
-    {% endblock extra_head %}
+        {% endblock extra_head %}
 </head>
 <body>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
@@ -455,7 +450,7 @@
                     <li class="nav-item">
                         <form method="post" action="{% url 'logout' %}" style="display: inline;">
                             {% csrf_token %}
-                            <button type="submit" class="nav-link btn btn-link" style="color: rgba(255,255,255,.75); text-decoration: none;">
+                            <button typetype="submit" class="nav-link btn btn-link" style="color: rgba(255,255,255,.75); text-decoration: none;">
                                 <i class="fas fa-sign-out-alt"></i> Salir
                             </button>
                         </form>
@@ -469,6 +464,54 @@
         </div>
     </nav>
   
+
+    <div class="modal fade" id="notificacionCarteraModal" tabindex="-1" aria-labelledby="notificacionCarteraModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-warning border-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="notificacionCarteraModalLabel">
+                        <i class="fas fa-exclamation-triangle me-2"></i> ¡Atención Requerida!
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body fs-5 text-center">
+                    <p>Tienes <strong id="modalNotificacionCount">1</strong> pedido(s) nuevo(s) que requieren tu aprobación en Cartera.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="btn btn-primary">
+                        <i class="fas fa-eye me-1"></i> Ir a Aprobar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if es_vendedor and borradores_pendientes_count > 0 %}
+    <div class="modal fade" id="notificacionBorradorModal" tabindex="-1" aria-labelledby="notificacionBorradorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-info border-3">
+                <div class="modal-header bg-info text-dark">
+                    <h5 class="modal-title" id="notificacionBorradorModalLabel">
+                        <i class="fas fa-edit me-2"></i> Tienes Trabajo Pendiente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body fs-5 text-center">
+                    <p>Tienes <strong id="modalBorradorCount">{{ borradores_pendientes_count }}</strong> pedido(s) en borrador sin finalizar.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="btn btn-primary">
+                        <i class="fas fa-eye me-1"></i> Ver Mis Borradores
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+
     <main class="container mt-4">
         {% include 'core/partials/messages.html' %} {# Si tienes este partial para mensajes #}
         {% block content %}
@@ -502,7 +545,7 @@
     // Este script se adjunta al 'documento' y espera por clics en cualquier
     // elemento que tenga la clase '.btn-descargar-pdf', en cualquier página.
     $(document).on('click', '.btn-descargar-pdf', function(e) {
-        // 1. Prevenir la acción por defecto del enlace (evitar la descarga silenciosa)
+        // ... (toda tu lógica de descarga de PDF existente va aquí) ...
         e.preventDefault();
 
         const $button = $(this);
@@ -567,6 +610,79 @@
             });
     });
     </script>
+
+
+    {% if user.is_authenticated and es_cartera %}
+    <script>
+    $(document).ready(function() {
+        // Guardamos el título original de la pestaña
+        const originalTitle = document.title;
+        
+        // Instancia del Modal de Bootstrap
+        var modalEl = document.getElementById('notificacionCarteraModal');
+        var notificacionModal = new bootstrap.Modal(modalEl);
+
+        // URL a consultar
+        const checkUrl = "{% url 'notificaciones:check_notificaciones_cartera_json' %}";
+        
+        function checkNotificacionesCartera() {
+            fetch(checkUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.count > 0) {
+                        // 1. Actualizar el título de la pestaña
+                        document.title = `(${data.count}) ${originalTitle}`;
+                        
+                        // 2. Mostrar el popup (solo si no está ya visible)
+                        if (!modalEl.classList.contains('show')) {
+                            $('#modalNotificacionCount').text(data.count);
+                            notificacionModal.show();
+                        }
+                    } else {
+                        // 3. Restaurar el título si no hay notificaciones
+                        if (document.title !== originalTitle) {
+                            document.title = originalTitle;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en polling de notificaciones:', error);
+                });
+        }
+
+        // 1. Comprobar inmediatamente al cargar la página
+        checkNotificacionesCartera();
+        
+        // 2. Comprobar cada 20 segundos
+        setInterval(checkNotificacionesCartera, 20000); // 20000 ms = 20 segundos
+    });
+    </script>
+    {% endif %}
+
+    {% if es_vendedor and borradores_pendientes_count > 0 %}
+    <script>
+    $(document).ready(function() {
+        // Usamos sessionStorage. Esto hace que el popup se muestre
+        // UNA VEZ cuando abres la app, pero no en cada recarga de página.
+        // Si cierras la pestaña y la vuelves a abrir, el popup reaparece.
+        
+        const storageKey = 'vistoModalBorradores';
+        const yaVisto = sessionStorage.getItem(storageKey);
+
+        if (!yaVisto) {
+            // Si no lo ha visto en esta sesión, mostramos el modal
+            var modalEl = document.getElementById('notificacionBorradorModal');
+            if (modalEl) {
+                var notificacionModal = new bootstrap.Modal(modalEl);
+                notificacionModal.show();
+                
+                // Marcamos como visto para esta sesión
+                sessionStorage.setItem(storageKey, 'true');
+            }
+        }
+    });
+    </script>
+    {% endif %}
     {% endblock extra_scripts %}
 </body>
 </html>

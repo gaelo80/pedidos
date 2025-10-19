@@ -115,10 +115,23 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
     
     if mensaje and grupo_destino:
         try:
-            usuarios_a_notificar = User.objects.filter(groups__name=grupo_destino, empresa=instance.empresa, is_active=True)
+            usuarios_a_notificar = User.objects.filter(groups__name__iexact=grupo_destino, empresa=instance.empresa, is_active=True)
             for usuario in usuarios_a_notificar:
-                if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
-                    Notificacion.objects.create(destinatario=usuario, mensaje=mensaje, url=url_destino)
+                # Comprobamos que no exista una notificación igual Y de la misma empresa
+                if not Notificacion.objects.filter(
+                    empresa=instance.empresa, # <--- Filtro añadido
+                    destinatario=usuario, 
+                    mensaje=mensaje, 
+                    leido=False
+                ).exists():
+                    
+                    # Añadimos la empresa en la creación
+                    Notificacion.objects.create(
+                        empresa=instance.empresa, # <--- Campo añadido
+                        destinatario=usuario, 
+                        mensaje=mensaje, 
+                        url=url_destino
+                    )
         except Group.DoesNotExist:
             logger.warning(f"El grupo '{grupo_destino}' no existe.")
         except Exception as e:

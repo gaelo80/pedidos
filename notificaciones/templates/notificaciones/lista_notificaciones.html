@@ -41,7 +41,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-10 offset-md-1">
-        <h2 style="color: white;" class="mb-4">Mis Notificaciones</h2>
+        <h2 style="color: black;" class="mb-4">Mis Notificaciones</h2>
         <div class="list-group">
             {% for notificacion in notificaciones %}
                 <a href="{{ notificacion.url|default:'#' }}" class="list-group-item list-group-item-action flex-column align-items-start notificacion-link {% if not notificacion.leido %}notificacion-no-leida{% endif %} mb-2 rounded">
@@ -51,8 +51,8 @@
                     </div>
                 </a>
             {% empty %}
-                <div class="list-group-item text-center" style="background-color: var(--color-fondo-tarjeta); border-color: #4a5a6a;">
-                    <p class="mb-1 text-light">No tienes notificaciones.</p>
+                <div class="list-group-item" style="background-color: var(--color-fondo-tarjeta); border-color: #4a5a6a;">
+                    <p class="mb-1 text-dark">No tienes notificaciones.</p>
                 </div>
             {% endfor %}
         </div>

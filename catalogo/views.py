@@ -78,7 +78,7 @@ def detalle_referencia_view(request, referencia_str):
         return redirect('core:index')
     
     # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
-    TALLAS_MAPEO = empresa_actual.talla_mapeo if empresa_actual else {}
+    TALLAS_MAPEO = (empresa_actual.talla_mapeo or {}) if empresa_actual else {}
     # --- FIN: Cargar Mapeo de Tallas ---
         
     if request.user.is_superuser:
@@ -196,7 +196,7 @@ def catalogo_publico_disponible(request):
         # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
         # Cada ReferenciaColor pertenece a una empresa, cargamos su mapeo
         empresa_obj = rc_item.empresa
-        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        TALLAS_MAPEO = (empresa_obj.talla_mapeo or {}) if empresa_obj else {}
         # --- FIN: Cargar Mapeo de Tallas ---
         
         variantes_con_info_stock = []

@@ -1,5 +1,7 @@
 # core/context_processors.py
 from notificaciones.models import Notificacion
+from pedidos.models import Pedido
+from vendedores.models import Vendedor
 from .auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_factura, es_diseno, es_online, es_administrador_app, puede_ver_panel_django_admin
 
 def empresa_context(request):
@@ -58,4 +60,34 @@ def user_roles_context(request): #
         'es_online': es_online(request.user), # 
         'puede_ver_panel_django_admin': puede_ver_panel_django_admin(request.user),
         
+    }
+    
+    
+def recordatorio_borradores_context(request):
+    """
+    Añade un contador de pedidos en estado BORRADOR que
+    pertenecen al vendedor actual.
+    """
+    if not request.user.is_authenticated or not es_vendedor(request.user):
+        return {'borradores_pendientes_count': 0}
+
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return {'borradores_pendientes_count': 0}
+
+    # Buscamos el perfil de vendedor (necesario para la consulta)
+    try:
+        vendedor_actual = Vendedor.objects.get(user=request.user, user__empresa=empresa_actual)
+    except Vendedor.DoesNotExist:
+        return {'borradores_pendientes_count': 0}
+
+    # Contamos los borradores de este vendedor en esta empresa
+    count = Pedido.objects.filter(
+        empresa=empresa_actual,
+        vendedor=vendedor_actual,
+        estado='BORRADOR'
+    ).count()
+    
+    return {
+        'borradores_pendientes_count': count
     }

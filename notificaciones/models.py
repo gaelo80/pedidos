@@ -2,11 +2,19 @@
 
 from django.db import models
 from django.conf import settings
+from clientes.models import Empresa
 
 class Notificacion(models.Model):
     """
     Representa una notificación para un usuario específico.
     """
+        
+    empresa = models.ForeignKey(
+        Empresa, 
+        on_delete=models.CASCADE,
+        related_name='notificaciones_empresa', # 'notificaciones' ya está usado por 'destinatario'
+
+    )
     # El usuario que recibirá la notificación.
     destinatario = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
