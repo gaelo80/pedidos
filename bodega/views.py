@@ -73,7 +73,11 @@ def vista_despacho_pedido(request, pk):
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.") 
         return redirect('core:index')
-
+    
+    # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
+    TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
+    # --- FIN: Cargar Mapeo de Tallas ---
+    
     pedido = get_object_or_404(
         Pedido.objects.prefetch_related('detalles__producto'), 
         pk=pk, 
@@ -145,9 +149,15 @@ def vista_despacho_pedido(request, pk):
             items_agrupados_dict[clave_agrupacion]['nombre'] = producto_obj.nombre
             items_agrupados_dict[clave_agrupacion]['color'] = producto_obj.color or ''
 
+# --- Aplicar Mapeo de Talla (Refactor) ---
+        talla_original = producto_obj.talla or ''
+        talla_como_texto = str(talla_original).strip()
+        talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+        # --- Fin Mapeo ---
+        
         items_agrupados_dict[clave_agrupacion]['tallas'].append({
-            'nombre': producto_obj.talla or '',
-            'detalle': { 
+            'nombre': talla_display, # <-- LÍNEA MODIFICADA
+            'detalle': {
                 'id': detalle.pk,
                 'codigo_barras': producto_obj.codigo_barras or '', 
                 'cantidad_pedida': detalle.cantidad,
@@ -471,10 +481,24 @@ def vista_verificar_pedido(request, pk):
     pedido = get_object_or_404(Pedido, pk=pk, empresa=empresa_actual)
 
     if request.method == 'GET':
-        detalles_para_mostrar = pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color', 'producto__talla')
+        # --- INICIO: Cargar Mapeo y Procesar Tallas (Refactor) ---
+        TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
+        
+        # Convertimos a lista para poder modificar las tallas
+        detalles_para_mostrar = list(
+            pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color', 'producto__talla')
+        )
+        
+        for detalle in detalles_para_mostrar:
+            talla_original = detalle.producto.talla or ''
+            talla_como_texto = str(talla_original).strip()
+            # Modificamos el atributo 'talla' del objeto producto en memoria
+            detalle.producto.talla = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+        # --- FIN: Cargar Mapeo y Procesar Tallas ---
+            
         context = {
             'pedido': pedido,
-            'detalles_pedido': detalles_para_mostrar,
+            'detalles_pedido': detalles_para_mostrar, # Ya tiene las tallas traducidas
             'titulo': f'Verificar Pedido #{pedido.numero_pedido_empresa}'
         }
         return render(request, 'bodega/verificar_pedido.html', context)
@@ -672,6 +696,10 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
         return redirect('factura:lista_despachos_a_facturar') 
 
     detalles_del_comprobante = comprobante.detalles.all()
+    
+    # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
+    TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
+    # --- FIN: Cargar Mapeo de Tallas ---
 
     if not detalles_del_comprobante:
         messages.warning(request, f"El Comprobante de Despacho #{comprobante.pk} no tiene ítems detallados.")
@@ -693,11 +721,16 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
             items_agrupados_dict[clave_agrupacion]['nombre_producto'] = producto_obj.nombre 
             items_agrupados_dict[clave_agrupacion]['color'] = producto_obj.color if producto_obj.color else "-"
 
+ # --- Aplicar Mapeo de Talla (Refactor) ---
+        talla_original = producto_obj.talla if producto_obj.talla else "-"
+        talla_como_texto = str(talla_original).strip()
+        talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+        # --- Fin Mapeo ---
+        
         items_agrupados_dict[clave_agrupacion]['tallas_cantidades'].append({
-            'talla': producto_obj.talla if producto_obj.talla else "-",
+            'talla': talla_display, # <-- LÍNEA MODIFICADA
             'cantidad': detalle_item.cantidad_despachada
         })
-        items_agrupados_dict[clave_agrupacion]['total_cantidad_referencia_color'] += detalle_item.cantidad_despachada
 
     items_agrupados_para_pdf = []
     for (referencia, color_agrupado), data in items_agrupados_dict.items():
@@ -772,6 +805,10 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
     if not detalles_del_comprobante:
         messages.warning(request, f"El Comprobante de Despacho #{comprobante.pk} (último para el Pedido #{pedido_obj.pk}) no tiene ítems detallados.")
         return redirect('bodega:despacho_pedido', pk=pedido_obj.pk)
+    
+    # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
+    TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
+    # --- FIN: Cargar Mapeo de Tallas ---
 
     items_agrupados_dict = defaultdict(lambda: {
         'nombre_producto': '', 
@@ -788,8 +825,14 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
             items_agrupados_dict[clave_agrupacion]['nombre_producto'] = producto_obj.nombre 
             items_agrupados_dict[clave_agrupacion]['color'] = producto_obj.color if producto_obj.color else "-"
 
+# --- Aplicar Mapeo de Talla (Refactor) ---
+        talla_original = producto_obj.talla if producto_obj.talla else "-"
+        talla_como_texto = str(talla_original).strip()
+        talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+        # --- Fin Mapeo ---
+
         items_agrupados_dict[clave_agrupacion]['tallas_cantidades'].append({
-            'talla': producto_obj.talla if producto_obj.talla else "-",
+            'talla': talla_display, # <-- LÍNEA MODIFICADA
             'cantidad': detalle_item.cantidad_despachada
         })
         items_agrupados_dict[clave_agrupacion]['total_cantidad_referencia_color'] += detalle_item.cantidad_despachada

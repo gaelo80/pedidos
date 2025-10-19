@@ -30,6 +30,22 @@ class Empresa(models.Model):
         verbose_name="Título para la Web",
         help_text="Ej: LOUIS FERRY Premiere, EXCLUSIVE. LA, etc."
     )
+    
+    talla_mapeo = models.JSONField(
+        null=True, 
+        blank=True, 
+        verbose_name="Mapeo de Tallas (Traducción)",
+        help_text="OPCIONAL. Traduce tallas internas a tallas de muestra. Ej: {\"6\": \"3\", \"8\": \"5\"}"
+    )
+    
+    categorias_tallas = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Configuración de Categorías y Tallas",
+        help_text="""Define las categorías de productos y sus tallas para los PDFs. 
+                     Formato: {"NOMBRE_CATEGORIA": ["talla1", "talla2"], ...}. 
+                     Ej: {"DAMA": ["3", "5", "7"], "NIÑO": ["2", "4", "6"]}"""
+    )
 
     def __str__(self):
         return self.nombre

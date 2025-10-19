@@ -496,6 +496,77 @@
         }
     </script>
 
-    {% block extra_scripts %}{% endblock extra_scripts %}
+    {% block extra_scripts %}
+    
+    <script>
+    // Este script se adjunta al 'documento' y espera por clics en cualquier
+    // elemento que tenga la clase '.btn-descargar-pdf', en cualquier página.
+    $(document).on('click', '.btn-descargar-pdf', function(e) {
+        // 1. Prevenir la acción por defecto del enlace (evitar la descarga silenciosa)
+        e.preventDefault();
+
+        const $button = $(this);
+        const url = $button.attr('href'); // Obtener la URL del PDF desde el enlace
+        const originalHtml = $button.html(); // Guardar el texto original (ej: "Descargar")
+
+        // 2. Deshabilitar el botón y mostrar un estado de "cargando"
+        $button.prop('disabled', true);
+        $button.html('<i class="fa fa-spinner fa-spin"></i> Generando...');
+
+        // 3. Usar fetch para descargar el archivo como un "blob"
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error de red al generar el PDF.');
+                }
+
+                // Intentar obtener el nombre del archivo desde la cabecera
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = 'documento.pdf'; // Nombre por defecto
+                
+                if (disposition && disposition.indexOf('attachment') !== -1) {
+                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                    const matches = filenameRegex.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                return response.blob().then(blob => ({ blob, filename }));
+            })
+            .then(({ blob, filename }) => {
+                // 4. Crear un enlace temporal en memoria
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                document.body.appendChild(a);
+
+                // Crear una ObjectURL para el blob
+                const objectUrl = window.URL.createObjectURL(blob);
+                a.href = objectUrl;
+                a.download = filename; // Asignar el nombre del archivo
+
+                // 5. Simular un clic en el enlace para abrir el diálogo "Guardar Como"
+                a.click();
+
+                // 6. Limpiar (revocar la URL y eliminar el enlace)
+                window.URL.revokeObjectURL(objectUrl);
+                document.body.removeChild(a);
+
+                // 7. ¡ÉXITO! Mostrar el mensaje al usuario (usando alert nativo)
+                alert('¡Descarga Iniciada! Revisa tu carpeta de descargas para abrir el pedido.');
+            })
+            .catch(err => {
+                console.error('Error al descargar PDF:', err);
+                // 8. Mostrar mensaje de error (usando alert nativo)
+                alert('Error: No se pudo completar la descarga del archivo.');
+            })
+            .finally(() => {
+                // 9. Restaurar el botón a su estado original
+                $button.prop('disabled', false);
+                $button.html(originalHtml);
+            });
+    });
+    </script>
+    {% endblock extra_scripts %}
 </body>
 </html>

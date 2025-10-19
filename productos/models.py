@@ -155,10 +155,13 @@ class Producto(models.Model):
     talla = models.IntegerField(blank=True, null=True, verbose_name="Talla")
     color = models.CharField(max_length=50, blank=True, null=True, db_index=True)
 
-    GENERO_CHOICES = [
-        ('DAMA', 'Dama'), ('CABALLERO', 'Caballero'), ('UNISEX', 'Unisex'),
-    ]
-    genero = models.CharField(max_length=10, choices=GENERO_CHOICES, db_index=True, default='UNISEX')
+    genero = models.CharField(
+        max_length=20, # Aumentamos el tamaño
+        default='UNISEX',
+        verbose_name="Categoría/Género",
+        help_text="Ej: DAMA, CABALLERO, NIÑO, PLUS. Debe coincidir con la configuración de la empresa."
+    )
+    #genero = models.CharField(max_length=10, choices=GENERO_CHOICES, db_index=True, default='UNISEX')
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     unidad_medida = models.CharField(max_length=20, default='UND')

@@ -22,6 +22,11 @@ class EmpresaAdmin(ImportExportModelAdmin):
         ('Personalización y Web', {
             'fields': ('logo', 'titulo_web') # <-- Aquí nos aseguramos de que el campo 'logo' se muestre.
         }),
+        ('Configuración de Pedidos y Tallas', {
+            'description': 'Aquí se configuran los mapeos y categorías de tallas para esta empresa.',
+            'fields': ('talla_mapeo', 'categorias_tallas')
+        }),    
+        
         ('Estado y Fiscal', { # Cambié el nombre del grupo para mayor claridad
             # Y el de IVA aquí
             'fields': ('activo', 'responsable_de_iva')

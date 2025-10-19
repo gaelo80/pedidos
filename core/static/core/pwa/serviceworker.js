@@ -1,7 +1,7 @@
 // serviceworker.js
 
-// V5: A more resilient installation strategy.
-const CACHE_NAME = 'pedidos-lges-v6'; // ¡Importante! Nuevo nombre de caché.
+// V7: Corregida la intercepción de la API
+const CACHE_NAME = 'pedidos-lges-v7'; // ¡Importante! Nuevo nombre de caché.
 const OFFLINE_URL = '/offline/'; // La URL de nuestra página offline.
 
 // We will only cache the absolutely essential, local URLs during installation.
@@ -47,7 +47,7 @@ self.addEventListener('fetch', event => {
         return; // Al no llamar a event.respondWith, el navegador gestiona la descarga.
     }
 
-    if (requestUrl.pathname.startsWith('/api/')) {
+    if (requestUrl.pathname.includes('/api/')) {
         event.respondWith(fetch(event.request));
         return; // Detiene la ejecución aquí para las peticiones de la API
     }

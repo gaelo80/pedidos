@@ -50,6 +50,15 @@
                 <p><strong>Vendedor:</strong> {{ pedido.vendedor }}</p>
                 <p><strong>Estado Actual:</strong> <span class="badge {% if pedido.estado == 'COMPLETADO' %}bg-success{% elif pedido.estado == 'PROCESANDO' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ pedido.get_estado_display }}</span></p> {# Colores de badge según estado #}
             </div>
+
+                {% if pedido.notas %}
+                <div class="col-12 mt-3">
+                    <strong>Observaciones del Vendedor:</strong><br>
+                    <div class="border rounded p-2 bg-light">
+                        {{ pedido.notas|linebreaksbr }}
+                    </div>
+                </div>
+                {% endif %}
         </div>
     </div>
 

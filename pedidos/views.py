@@ -588,6 +588,13 @@ def rechazar_pedido_admin(request, pk):
 @login_required
 def generar_pedido_pdf(request, pk):
     
+    # --- INICIO DE LA PRUEBA ---
+    print("\n\n***************************************")
+    print("LA VISTA generar_pedido_pdf FUE LLAMADA")
+    print(f"PIDIENDO PDF PARA EL PEDIDO PK: {pk}")
+    print("***************************************\n\n")
+    # --- FIN DE LA PRUEBA ---
+    
     """
     Genera un PDF para un pedido específico, asegurando que el pedido pertenezca
     al inquilino actual y que el usuario tenga permisos para verlo.
@@ -617,57 +624,92 @@ def generar_pedido_pdf(request, pk):
     if not (es_su_pedido or es_admin_o_staff or pertenece_a_grupo_autorizado):
         messages.error(request, "No tienes permiso para ver este pedido.")
         return redirect('core:acceso_denegado')
+    
+    
+# --- INICIO: LÓGICA DINÁMICA DE CATEGORÍAS Y TALLAS (PDF) ---
+    empresa_obj = pedido.empresa
+    
+    # 1. Cargar la configuración de categorías desde la BD.
+    categorias_config = empresa_obj.categorias_tallas or {
+        # Default por si la empresa no tiene nada configurado
+        'DAMA': ['6', '8', '10', '12', '14', '16'],
+        'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'UNISEX': ['S', 'M', 'L', 'XL']
+    }
+    
+    # 2. Cargar el mapeo de tallas (Ej: {"6": "3"})
+    TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
 
-    detalles_originales = pedido.detalles.select_related('producto').all()
-    items_dama, items_caballero, items_unisex = [], [], []
-    
-    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13'] # Ajusta si son diferentes
-    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38'] # Ajusta si son diferentes
-    TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
+    # 3. Agrupar detalles por su categoría (género)
+    # Usamos defaultdict para crear listas vacías automáticamente
+    from collections import defaultdict
+    detalles_por_categoria = defaultdict(list)
     
     
     
-    for detalle in detalles_originales:
-        print(f"DEBUG PDF: Ref: {detalle.producto.referencia}, Talla: '{detalle.producto.talla}', Tipo: {type(detalle.producto.talla)}")
+    
+    for detalle in pedido.detalles.select_related('producto').all():
         
-        
-        
-        
-# --- NORMALIZACIÓN DE TALLAS ---
-        # Mapeo de tallas numéricas a sus equivalentes para el PDF.
-        TALLAS_MAPEO = {
-            '6': '3',
-            '8': '5',
-            '10': '7',
-            '12': '9',
-            '14': '11',
-            '16': '13',
-        }
-
+        # --- INICIO: CORRECCIÓN DE TIPO DE DATO (Integer vs String) ---
+        talla_normalizada = ""
         if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
-            # Convertimos la talla a texto y quitamos espacios para una comparación segura
-            talla_como_texto = str(detalle.producto.talla).strip()
-            
-            # Si la talla está en nuestro diccionario de mapeo, la reemplazamos.
-            if talla_como_texto in TALLAS_MAPEO:
-                detalle.producto.talla = TALLAS_MAPEO[talla_como_texto]
-        
-        # El resto del bucle continúa igual
-        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
-        if genero_producto == 'DAMA':
-            items_dama.append(detalle)
-            
-            
-            
-            
-        elif genero_producto == 'CABALLERO':
-            items_caballero.append(detalle)
-        else:
-            items_unisex.append(detalle)       
+            # Normalización robusta: str -> strip -> split on . -> take first part
+            talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
 
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+            # Traduce la talla (ej: "6" -> "3")
+            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+        
+        else:
+            # NO hay mapeo (AMERICAN JEANS)
+            # Asignamos la talla normalizada (ej: "16.0" -> "16")
+            detalle.producto.talla = talla_normalizada
+        # --- FIN: CORRECCIÓN ---
+        
+        # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
+        categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        detalles_por_categoria[categoria_producto].append(detalle)
+        
+        
+        
+        
+        
+        
+        
+
+    # 4. Procesar cada sección definida en la configuración
+    secciones_procesadas = []
+    # Iteramos sobre la configuración de la empresa (ej: "DAMA", "NIÑO", etc.)
+    
+    
+    
+    for categoria, tallas_lista in categorias_config.items():
+        # Solo procesamos la categoría si hay productos de ese tipo en el pedido
+        if categoria in detalles_por_categoria:
+            items_de_categoria = detalles_por_categoria[categoria]
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Normalización robusta de la lista de columnas
+            tallas_columnas_normalizadas_y_mapeadas = []
+            for t in tallas_lista:
+                # 1. Normalizar la columna (ej: 16.0 -> "16")
+                col_normalizada = str(t).strip().split('.')[0].split(',')[0]
+                # 2. Mapear la columna normalizada (ej: "6" -> "3")
+                col_mapeada = TALLAS_MAPEO.get(col_normalizada, col_normalizada)
+                tallas_columnas_normalizadas_y_mapeadas.append(col_mapeada)
+
+            # Pasamos la lista de columnas YA NORMALIZADA Y MAPEADA a la utilidad
+            grupos, tallas_cols = preparar_datos_seccion(items_de_categoria, tallas_columnas_normalizadas_y_mapeadas)
+            # --- FIN DE LA CORRECCIÓN ---
+            
+            if grupos: # Solo añadir si hay productos
+                secciones_procesadas.append({
+                    'titulo': f"PEDIDO {categoria.replace('_', ' ')}",
+                    'grupos': grupos,
+                    'tallas_cols': tallas_cols
+                })
+    # --- FIN: LÓGICA DINÁMICA ---
 
 
     logo_para_pdf = None
@@ -681,9 +723,7 @@ def generar_pedido_pdf(request, pk):
         'empresa_actual': empresa_actual,
         'logo_base64': get_logo_base_64_despacho(empresa_actual),
         'tasa_iva_pct': int(pedido.IVA_RATE * 100),
-        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
-        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
-        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'secciones_procesadas': secciones_procesadas,
         'incluir_color': True,
         'incluir_vr_unit': pedido.mostrar_precios_pdf,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
@@ -713,35 +753,85 @@ def vista_publica_pedido_pdf(request, token):
         Pedido.objects.select_related('cliente', 'cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
         token_descarga_fotos=token
     )
-
-    detalles_originales = pedido.detalles.select_related('producto').all()
-    items_dama, items_caballero, items_unisex = [], [], []
-    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13']
-    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38']
-    TALLAS_UNISEX = ['S', 'M', 'L', 'XL']
+  
     
-    for detalle in detalles_originales:
-        # Aquí va tu lógica de normalización de tallas si la tienes
-        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
-        if genero_producto == 'DAMA':
-            items_dama.append(detalle)
-        elif genero_producto == 'CABALLERO':
-            items_caballero.append(detalle)
-        else:
-            items_unisex.append(detalle)
+# --- INICIO: LÓGICA DINÁMICA (COPIADA DE LAS OTRAS VISTAS PDF) ---
+    empresa_obj = pedido.empresa
+    
+    categorias_config = empresa_obj.categorias_tallas or {
+        'DAMA': ['6', '8', '10', '12', '14', '16'],
+        'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'UNISEX': ['S', 'M', 'L', 'XL']
+    }
+    
+    TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
 
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+    from collections import defaultdict
+    detalles_por_categoria = defaultdict(list)
+
+
+
+    for detalle in pedido.detalles.select_related('producto').all():
+        
+        # --- INICIO: CORRECCIÓN DE TIPO DE DATO (Integer vs String) ---
+        talla_normalizada = ""
+        if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
+            # Normalización robusta: str -> strip -> split on . -> take first part
+            talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
+
+        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+            # Traduce la talla (ej: "6" -> "3")
+            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+        
+        else:
+            # NO hay mapeo (AMERICAN JEANS)
+            # Asignamos la talla normalizada (ej: "16.0" -> "16")
+            detalle.producto.talla = talla_normalizada
+        # --- FIN: CORRECCIÓN ---
+        
+        # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
+        categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        detalles_por_categoria[categoria_producto].append(detalle)
+        
+        
+        
+        
+
+    secciones_procesadas = []
+    for categoria, tallas_lista in categorias_config.items():
+        # Solo procesamos la categoría si hay productos de ese tipo en el pedido
+        if categoria in detalles_por_categoria:
+            items_de_categoria = detalles_por_categoria[categoria]
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Normalización robusta de la lista de columnas
+            tallas_columnas_normalizadas_y_mapeadas = []
+            for t in tallas_lista:
+                # 1. Normalizar la columna (ej: 16.0 -> "16")
+                col_normalizada = str(t).strip().split('.')[0].split(',')[0]
+                # 2. Mapear la columna normalizada (ej: "6" -> "3")
+                col_mapeada = TALLAS_MAPEO.get(col_normalizada, col_normalizada)
+                tallas_columnas_normalizadas_y_mapeadas.append(col_mapeada)
+
+            # Pasamos la lista de columnas YA NORMALIZADA Y MAPEADA a la utilidad
+            grupos, tallas_cols = preparar_datos_seccion(items_de_categoria, tallas_columnas_normalizadas_y_mapeadas)
+            # --- FIN DE LA CORRECCIÓN ---
+            
+            if grupos: # Solo añadir si hay productos
+                secciones_procesadas.append({
+                    'titulo': f"PEDIDO {categoria.replace('_', ' ')}",
+                    'grupos': grupos,
+                    'tallas_cols': tallas_cols
+                })
+    # --- FIN: LÓGICA DINÁMICA ---
 
     context = {
         'pedido': pedido,
         'empresa_actual': pedido.empresa, # <-- ¡ESTA ES LA LÍNEA QUE FALTABA!
         'logo_base64': get_logo_base_64_despacho(pedido.empresa),
         'tasa_iva_pct': int(pedido.IVA_RATE * 100),
-        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
-        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
-        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'secciones_procesadas': secciones_procesadas,
         'incluir_color': True,
         'incluir_vr_unit': pedido.mostrar_precios_pdf,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
@@ -842,8 +932,11 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
     
     
     detalles_agrupados_json, linea_counter_init = None, 0
+    TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
+    
     if detalles_existentes:
         grupos, linea_counter_init = {}, 0
+        
         for detalle in detalles_existentes:
             producto = detalle.producto
             ref = producto.referencia
@@ -857,7 +950,16 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
                 grupos[grupo_key] = {'lineaId': f'linea-{linea_counter_init}', 'ref': ref, 'color_slug': color_slug,
                                      'color_display': color_display, 'precio_unitario': float(detalle.precio_unitario),
                                      'total_qty': 0, 'total_value': 0.0, 'variants': [], 'quantities_obj': {}}
-            grupos[grupo_key]['variants'].append({'id': producto.id, 'talla': producto.talla, 'cantidad': detalle.cantidad})
+            
+            # --- Aplicar Mapeo de Talla ---
+            talla_original = producto.talla or ""
+            talla_como_texto = str(talla_original).strip()
+            # Usamos .get() para traducir. Si no está en el mapa, usa el valor original.
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto) 
+            # --- Fin Mapeo ---
+
+            grupos[grupo_key]['variants'].append({'id': producto.id, 'talla': talla_display, 'cantidad': detalle.cantidad})
+            
             grupos[grupo_key]['quantities_obj'][producto.id] = detalle.cantidad
             grupos[grupo_key]['total_qty'] += detalle.cantidad
             try: grupos[grupo_key]['total_value'] += float(detalle.subtotal)
@@ -875,7 +977,8 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
         'titulo': f'Editar Pedido Borrador #{pedido_instance.numero_pedido_empresa}' if pedido_instance else 'Crear Nuevo Pedido',
         'pedido_instance': pedido_instance,
         'detalles_agrupados_json_data': detalles_agrupados_json,
-        'linea_counter_init': linea_counter_init
+        'linea_counter_init': linea_counter_init,
+        'tallas_mapeo_json_data': json.dumps(TALLAS_MAPEO)
     }
     return context
 
@@ -1009,13 +1112,17 @@ def vista_detalle_pedido(request, pk):
     })
 
     todas_las_tallas_pedidas = set() # Para los encabezados de columna de las tallas
+    TALLAS_MAPEO = empresa_actual.talla_mapeo or {}
 
     for detalle in detalles_pedido:
         producto_obj = detalle.producto
         referencia_str = producto_obj.referencia or ""
         color_str = producto_obj.color or ""
         # Asegura que la talla sea un string para usarla como clave de diccionario y en el set
-        talla_str = str(producto_obj.talla) if producto_obj.talla else "N/A"
+        # --- INICIO: CORRECCIÓN TALLAS (HTML) ---
+        talla_original = str(producto_obj.talla).strip() if producto_obj.talla is not None else "N/A"
+        talla_str = TALLAS_MAPEO.get(talla_original, talla_original)
+        # --- FIN: CORRECCIÓN TALLAS (HTML) ---
 
         clave_agrupacion = (referencia_str, color_str)
         grupo = items_agrupados_por_referencia_color[clave_agrupacion]
@@ -1084,6 +1191,7 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
         context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido #{pedido.numero_pedido_empresa}"}
         return render(request, self.template_name, context)
     
+    
 @login_required
 @permission_required('pedidos.view_pedido', login_url='core:acceso_denegado') # Se mantiene el permiso de ver pedido
 def generar_borrador_pdf(request, pk):
@@ -1120,50 +1228,84 @@ def generar_borrador_pdf(request, pk):
         **query_params
     )
 
-    # --- Los datos que se pasan a la plantilla PDF son los mismos que en generar_pedido_pdf ---
-    detalles_originales = pedido.detalles.select_related('producto').all()
-    items_dama, items_caballero, items_unisex = [], [], []
-    
-    # Asegúrate de que TALLAS_DAMA, TALLAS_CABALLERO, TALLAS_UNISEX y preparar_datos_seccion
-    # estén definidos o importados en este archivo (asumo que ya lo están).
-    # Estas variables y la función están en generar_pedido_pdf.
-    # Puedes definirlas globalmente en views.py o copiarlas si solo las usas aquí.
-    TALLAS_DAMA = ['3', '5', '7', '9', '11', '13'] # Ajusta si son diferentes
-    TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38'] # Ajusta si son diferentes
-    TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Ajusta si son diferentes
-    
-    for detalle in detalles_originales:
-        # --- NORMALIZACIÓN DE TALLAS ---
-        # Mapeo de tallas numéricas a sus equivalentes para el PDF.
-        TALLAS_MAPEO = {
-            '6': '3',
-            '8': '5',
-            '10': '7',
-            '12': '9',
-            '14': '11',
-            '16': '13',
-        }
 
+
+
+# --- INICIO: LÓGICA DINÁMICA DE CATEGORÍAS Y TALLAS (PDF) ---
+    empresa_obj = pedido.empresa
+    
+    # 1. Cargar la configuración de categorías desde la BD.
+    categorias_config = empresa_obj.categorias_tallas or {
+        # Default por si la empresa no tiene nada configurado
+        'DAMA': ['6', '8', '10', '12', '14', '16'],
+        'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'UNISEX': ['S', 'M', 'L', 'XL']
+    }
+    
+    # 2. Cargar el mapeo de tallas (Ej: {"6": "3"})
+    TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
+
+    # 3. Agrupar detalles por su categoría (género)
+    # Usamos defaultdict para crear listas vacías automáticamente
+    from collections import defaultdict
+    detalles_por_categoria = defaultdict(list)
+    
+    
+    
+
+    for detalle in pedido.detalles.select_related('producto').all():
+        
+        # --- INICIO: CORRECCIÓN DE TIPO DE DATO (Integer vs String) ---
+        talla_normalizada = ""
         if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
-            # Convertimos la talla a texto y quitamos espacios para una comparación segura
-            talla_como_texto = str(detalle.producto.talla).strip()
-            
-            # Si la talla está en nuestro diccionario de mapeo, la reemplazamos.
-            if talla_como_texto in TALLAS_MAPEO:
-                detalle.producto.talla = TALLAS_MAPEO[talla_como_texto]
+            # Normalización robusta: str -> strip -> split on . -> take first part
+            talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
 
-        # El resto del bucle continúa igual
-        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
-        if genero_producto == 'DAMA':
-            items_dama.append(detalle)
-        elif genero_producto == 'CABALLERO':
-            items_caballero.append(detalle)
+        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+            # Traduce la talla (ej: "6" -> "3")
+            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+        
         else:
-            items_unisex.append(detalle)       
+            # NO hay mapeo (AMERICAN JEANS)
+            # Asignamos la talla normalizada (ej: "16.0" -> "16")
+            detalle.producto.talla = talla_normalizada
+        # --- FIN: CORRECCIÓN ---
+        
+        # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
+        categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        detalles_por_categoria[categoria_producto].append(detalle)    
+        
 
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
+    # 4. Procesar cada sección definida en la configuración
+    secciones_procesadas = []
+    # Iteramos sobre la configuración de la empresa (ej: "DAMA", "NIÑO", etc.)
+    for categoria, tallas_lista in categorias_config.items():
+        # Solo procesamos la categoría si hay productos de ese tipo en el pedido
+        if categoria in detalles_por_categoria:
+            items_de_categoria = detalles_por_categoria[categoria]
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Normalización robusta de la lista de columnas
+            tallas_columnas_normalizadas_y_mapeadas = []
+            for t in tallas_lista:
+                # 1. Normalizar la columna (ej: 16.0 -> "16")
+                col_normalizada = str(t).strip().split('.')[0].split(',')[0]
+                # 2. Mapear la columna normalizada (ej: "6" -> "3")
+                col_mapeada = TALLAS_MAPEO.get(col_normalizada, col_normalizada)
+                tallas_columnas_normalizadas_y_mapeadas.append(col_mapeada)
+
+            # Pasamos la lista de columnas YA NORMALIZADA Y MAPEADA a la utilidad
+            grupos, tallas_cols = preparar_datos_seccion(items_de_categoria, tallas_columnas_normalizadas_y_mapeadas)
+            # --- FIN DE LA CORRECCIÓN ---
+            
+            if grupos: # Solo añadir si hay productos
+                secciones_procesadas.append({
+                    'titulo': f"PEDIDO {categoria.replace('_', ' ')}",
+                    'grupos': grupos,
+                    'tallas_cols': tallas_cols
+                })
+    # --- FIN: LÓGICA DINÁMICA ---
 
     logo_para_pdf = None
     try:
@@ -1176,9 +1318,7 @@ def generar_borrador_pdf(request, pk):
         'empresa_actual': empresa_actual,
         'logo_base64': logo_para_pdf, # Usar la variable logo_para_pdf
         'tasa_iva_pct': int(pedido.IVA_RATE * 100), # Puedes tomarlo del pedido mismo
-        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
-        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
-        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'secciones_procesadas': secciones_procesadas,
         'incluir_color': True,
         'incluir_vr_unit': pedido.mostrar_precios_pdf,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request), # Obtener el enlace de descarga de fotos

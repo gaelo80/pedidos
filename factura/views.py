@@ -126,22 +126,76 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
 
         form = self.form_class(instance=estado_factura_obj)
 
-        # --- INICIO: Lógica para agrupar ítems del despacho ---
+
+
+# --- INICIO: Lógica para agrupar ítems del despacho (Estilo PDF) ---
         items_despachados_originales = comprobante_despacho.detalles.select_related('producto').all()
-        items_agrupados = defaultdict(lambda: {'cantidad_total': 0, 'nombre': '', 'color': '', 'referencia': ''})
-
-        for detalle_cd in items_despachados_originales:
-            producto = detalle_cd.producto
-
-            clave_grupo = (producto.referencia, producto.nombre, producto.color)
-            
-            items_agrupados[clave_grupo]['referencia'] = producto.referencia
-            items_agrupados[clave_grupo]['nombre'] = producto.nombre
-            items_agrupados[clave_grupo]['color'] = producto.color if producto.color else "-" # Manejar color nulo
-            items_agrupados[clave_grupo]['cantidad_total'] += detalle_cd.cantidad_despachada
         
+        # --- INICIO: Cargar Mapeo de Tallas (PASO 8) ---
+        empresa_obj = self.request.tenant
+        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        # --- FIN: Cargar Mapeo de Tallas ---
+        
+        tallas_unicas_set = set()
+        for detalle in items_despachados_originales:
+            # --- Aplicar Mapeo de Talla (PASO 8) ---
+            talla_original = detalle.producto.talla or 'N/A'
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+            # --- Fin Mapeo ---
+            tallas_unicas_set.add(talla_display)
+        
+        # Intentamos un ordenado inteligente (primero números, luego texto)
+        try:
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=lambda x: (isinstance(x, str), x))
+        except ValueError:
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set)) # Fallback a ordenado simple
 
-        lista_items_agrupados = list(items_agrupados.values())
+        # 2. Agrupar ítems y crear un dict de tallas
+        items_agrupados_dict = defaultdict(lambda: {
+            'referencia': '',
+            'nombre': '',
+            'color': '',
+            'tallas_dict': defaultdict(int), # Usar un dict para conteo
+            'cantidad_total': 0
+        })
+
+        for detalle_item in items_despachados_originales:
+            producto_obj = detalle_item.producto
+            clave_agrupacion = (producto_obj.referencia, producto_obj.color or '-')
+            grupo = items_agrupados_dict[clave_agrupacion]
+
+            if not grupo['referencia']:
+                grupo['referencia'] = producto_obj.referencia
+                grupo['nombre'] = producto_obj.nombre
+                grupo['color'] = producto_obj.color or '-'
+
+# --- Aplicar Mapeo de Talla (PASO 8) ---
+            talla_original = producto_obj.talla or 'N/A'
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+            # --- Fin Mapeo ---
+
+            grupo['tallas_dict'][talla_display] += detalle_item.cantidad_despachada
+            grupo['cantidad_total'] += detalle_item.cantidad_despachada
+
+        # 3. Post-procesar: Convertir el tallas_dict en una lista ordenada que coincida con el header
+        lista_items_final = []
+        for grupo_dict in items_agrupados_dict.values():
+            tallas_ordenadas_para_template = []
+            for talla_header in tallas_header_ordenadas:
+                cantidad = grupo_dict['tallas_dict'].get(talla_header, 0) # 0 si no tiene esa talla
+                tallas_ordenadas_para_template.append(cantidad)
+            
+            grupo_dict['tallas_ordenadas'] = tallas_ordenadas_para_template
+            lista_items_final.append(grupo_dict)
+
+        # 4. Ordenar la lista final para la plantilla
+        lista_items_agrupados = sorted(
+            lista_items_final, 
+            key=lambda x: (x['referencia'], x['color'])
+        )
+        # --- FIN: Lógica para agrupar ítems ---
 
 
         context = {
@@ -153,6 +207,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             'cliente': comprobante_despacho.pedido.cliente,
             # 'detalles_comprobante': items_despachados_originales, # Ya no pasamos los originales directamente para la tabla principal
             'items_despachados_agrupados': lista_items_agrupados, # Pasamos los agrupados
+            'tallas_header': tallas_header_ordenadas,
         }
         return render(request, self.template_name, context)
 
@@ -210,17 +265,78 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
                         return redirect('factura:detalle_despacho_factura', pk_despacho=pk_despacho)
             except Exception as e:
                 messages.error(request, f"Error al procesar la facturación: {e}")
-        
+                
+                
+                
+# --- INICIO: Lógica para agrupar ítems del despacho (Estilo PDF) ---
         items_despachados_originales = comprobante_despacho.detalles.select_related('producto').all()
-        items_agrupados = defaultdict(lambda: {'cantidad_total': 0, 'nombre': '', 'color': '', 'referencia': ''})
-        for detalle_cd in items_despachados_originales:
-            producto = detalle_cd.producto
-            clave_grupo = (producto.referencia, producto.nombre, producto.color)
-            items_agrupados[clave_grupo]['referencia'] = producto.referencia
-            items_agrupados[clave_grupo]['nombre'] = producto.nombre
-            items_agrupados[clave_grupo]['color'] = producto.color if producto.color else "-"
-            items_agrupados[clave_grupo]['cantidad_total'] += detalle_cd.cantidad_despachada
-        lista_items_agrupados = list(items_agrupados.values())
+        
+        # --- INICIO: Cargar Mapeo de Tallas (PASO 8) ---
+        empresa_obj = self.request.tenant
+        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        # --- FIN: Cargar Mapeo de Tallas ---
+        
+        # 1. Obtener todas las tallas únicas de este despacho y ordenarlas
+        tallas_unicas_set = set()
+        for detalle in items_despachados_originales:
+            # --- Aplicar Mapeo de Talla (PASO 8) ---
+            talla_original = detalle.producto.talla or 'N/A'
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+            # --- Fin Mapeo ---
+            tallas_unicas_set.add(talla_display)
+        
+        try:
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=lambda x: (isinstance(x, str), x))
+        except ValueError:
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set))
+
+        # 2. Agrupar ítems y crear un dict de tallas
+        items_agrupados_dict = defaultdict(lambda: {
+            'referencia': '',
+            'nombre': '',
+            'color': '',
+            'tallas_dict': defaultdict(int),
+            'cantidad_total': 0
+        })
+
+        for detalle_item in items_despachados_originales:
+            producto_obj = detalle_item.producto
+            clave_agrupacion = (producto_obj.referencia, producto_obj.color or '-')
+            grupo = items_agrupados_dict[clave_agrupacion]
+
+            if not grupo['referencia']:
+                grupo['referencia'] = producto_obj.referencia
+                grupo['nombre'] = producto_obj.nombre
+                grupo['color'] = producto_obj.color or '-'
+
+# --- Aplicar Mapeo de Talla (PASO 8) ---
+            talla_original = producto_obj.talla or 'N/A'
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+            # --- Fin Mapeo ---
+
+            grupo['tallas_dict'][talla_display] += detalle_item.cantidad_despachada
+            grupo['cantidad_total'] += detalle_item.cantidad_despachada
+
+        # 3. Post-procesar
+        lista_items_final = []
+        for grupo_dict in items_agrupados_dict.values():
+            tallas_ordenadas_para_template = []
+            for talla_header in tallas_header_ordenadas:
+                cantidad = grupo_dict['tallas_dict'].get(talla_header, 0)
+                tallas_ordenadas_para_template.append(cantidad)
+            
+            grupo_dict['tallas_ordenadas'] = tallas_ordenadas_para_template
+            lista_items_final.append(grupo_dict)
+
+        # 4. Ordenar la lista final
+        lista_items_agrupados = sorted(
+            lista_items_final, 
+            key=lambda x: (x['referencia'], x['color'])
+        )
+        # --- FIN: Lógica para agrupar ítems ---
+
 
 
         context = {
@@ -231,6 +347,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             'pedido': comprobante_despacho.pedido,
             'cliente': comprobante_despacho.pedido.cliente,
             'items_despachados_agrupados': lista_items_agrupados, # Usar los agrupados también aquí
+            'tallas_header': tallas_header_ordenadas,
         }
         return render(request, self.template_name, context)
 

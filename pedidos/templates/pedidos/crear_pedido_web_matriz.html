@@ -341,6 +341,9 @@
 <script id="detalles_agrupados_json_data" type="application/json">
     {{ detalles_agrupados_json_data|safe|default:"null" }}
 </script>
+<script id="tallas_mapeo_json_data" type="application/json">
+    {{ tallas_mapeo_json_data|safe|default:"{}" }}
+</script>
 <script>
     const urlBaseDetalleCliente = "{% url 'clientes:api_detalle_cliente' cliente_id=0 %}";
 </script>
@@ -545,6 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
     const csrftoken = getCookie('csrftoken');
+    const TALLAS_MAPEO = JSON.parse(document.getElementById('tallas_mapeo_json_data').textContent || '{}');
 
     function formatCurrency(value) {
         const number = parseFloat(value);
@@ -1165,9 +1169,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hayCantidadesParaCopiar = ultimasCantidadesCopiables && Object.keys(ultimasCantidadesCopiables).length > 0;
 
                         currentVariantes.forEach(variante => {
-                            const tallaActual = variante.talla;
-                            
-                            
+                            const tallaNormalizada = String(variante.talla || "").trim().split('.')[0].split(',')[0];                           
+                            const tallaActual = TALLAS_MAPEO[tallaNormalizada] || tallaNormalizada;                                                      
                             
                         const stockBodega = variante.stock_actual !== undefined ? parseInt(variante.stock_actual, 10) : 0;
                         const esPreventa = variante.permitir_pedido_sin_stock === true;

@@ -51,7 +51,8 @@
     </style>
 </head>
 <body>
-    
+
+   
     <div id="footer-content" style="text-align: center; font-size: 8pt; color: #555;">
         Página <pdf:pagecount /> de <pdf:totalPages />
     </div>
@@ -110,128 +111,53 @@
     </table>
 
 
-    {# --- Tabla de Detalles --- #}
-    <div class="section"> {# Mantenemos la clase section si quieres #}
 
-        {# --- SECCIÓN DAMA --- #}
-    {% if grupos_dama %}
-        <h2>PEDIDO DAMA</h2>
+{# --- Tabla de Detalles --- #}
+
+    {# --- INICIO: BUCLE DINÁMICO DE SECCIONES --- #}
+    {% for seccion in secciones_procesadas %}
+        <h2>{{ seccion.titulo }}</h2>
         <table class="items-table">
             <thead>
                 <tr>
                     <th rowspan="2">Ref.</th>
                     {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-
-                    <th colspan="{{ tallas_cols_dama|length }}" class="text-center">Tallas</th>
-
-                    <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
-                </tr>
-                <tr>
-                    {% for talla in tallas_cols_dama %}
-                        <th class="text-center">{{ talla }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for grupo in grupos_dama %}
-                <tr>
-                    <td>{{ grupo.ref }}</td>
-                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                    {% for talla_col in tallas_cols_dama %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
-                    {% endfor %}
-                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
-
-    {% if grupos_caballero %}
-        <h2>PEDIDO CABALLERO</h2>
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">Ref.</th>
-                    {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-
-                    <th colspan="{{ tallas_cols_caballero|length }}" class="text-center">Tallas</th>
-
-                    <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
-                </tr>
-                <tr>
-                    {% for talla in tallas_cols_caballero %}
-                        <th class="text-center">{{ talla }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for grupo in grupos_caballero %}
-                <tr>
-                    <td>{{ grupo.ref }}</td>
-                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                    {% for talla_col in tallas_cols_caballero %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
-                    {% endfor %}
-                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
-
-        {# --- SECCIÓN UNISEX --- #}
-    {% if grupos_unisex %}
-        <h2>PEDIDO UNISEX</h2>
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">Ref.</th>
-                    {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-
-                    <th colspan="{{ tallas_cols_unisex|length }}" class="text-center">Tallas</th>
-
-                    <th rowspan="2" class="text-center">Total</th>
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %} {# AQUI #}
-                </tr>
-                <tr>
-                    {% for talla in tallas_cols_unisex %}
-                        <th class="text-center">{{ talla }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for grupo in grupos_unisex %}
-                <tr>
-                    <td>{{ grupo.ref }}</td>
-                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
-                    {% for talla_col in tallas_cols_unisex %}
-                        <td class="text-center">{{ grupo.tallas_cantidades|get_item:talla_col|default:"&nbsp;"|safe }}</td>
-                    {% endfor %}
-                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %} {# AQUI #}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
     
-        {# --- Mensaje si NINGUNA sección tuvo items --- #}
-         {% if not grupos_dama and not grupos_caballero and not grupos_unisex %}
-            <p style="text-align: center; padding: 15px;">Este pedido no tiene detalles válidos para mostrar.</p> {# Mensaje ligeramente diferente #}
-         {% endif %}
+                    <th colspan="{{ seccion.tallas_cols|length }}" class="text-center">Tallas</th>
     
-    </div>
+                    <th rowspan="2" class="text-center">Total</th>
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %}
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %}
+                </tr>
+                <tr>
+                    {% for talla in seccion.tallas_cols %}
+                        <th class="text-center">{{ talla }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in seccion.grupos %}
+                <tr>
+                    <td>{{ grupo.ref }}</td>
+                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
+                    {% for cantidad in grupo.tallas_cantidades %}
+                        <td class="text-center">{% if cantidad > 0 %}{{ cantidad|intcomma }}{% else %}&nbsp;{% endif %}</td>
+                    {% endfor %}
+                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %}
+                    {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endfor %}
+    {# --- FIN: BUCLE DINÁMICO DE SECCIONES --- #}
+    
+    {# --- Mensaje si NINGUNA sección tuvo items --- #}
+    {% if not secciones_procesadas %}
+        <p style="text-align: center; padding: 15px;">Este pedido no tiene detalles válidos para mostrar.</p>
+    {% endif %}
+
 
     {# --- Sección de Totales --- #}
     <div class="totals-section">

@@ -76,6 +76,10 @@ def detalle_referencia_view(request, referencia_str):
     if not empresa_actual and not request.user.is_superuser:
         messages.error(request, "Acceso no válido.")
         return redirect('core:index')
+    
+    # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
+    TALLAS_MAPEO = empresa_actual.talla_mapeo if empresa_actual else {}
+    # --- FIN: Cargar Mapeo de Tallas ---
         
     if request.user.is_superuser:
         base_qs = Producto.objects.all()
@@ -94,13 +98,23 @@ def detalle_referencia_view(request, referencia_str):
     if not variantes_producto.exists():
         messages.warning(request, f"No se encontraron productos para la referencia '{referencia_str}' en su empresa.")
         return redirect('catalogo:lista_referencias')
+    
+    # --- INICIO: Aplicar Mapeo de Tallas (Refactor) ---
+    # Convertimos a lista para poder modificar los objetos en memoria
+    variantes_list = list(variantes_producto)
+    for variante in variantes_list:
+        talla_original = variante.talla or ''
+        talla_como_texto = str(talla_original).strip()
+        # Modificamos el atributo 'talla' que verá la plantilla
+        variante.talla = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+    # --- FIN: Aplicar Mapeo de Tallas ---
 
     producto_representativo = variantes_producto.first()
     context = {
         'referencia_actual': referencia_str,
         'nombre_general_referencia': producto_representativo.nombre,
         'descripcion_general_referencia': producto_representativo.descripcion,
-        'variantes_list': variantes_producto,
+        'variantes_list': variantes_list,
         'titulo': f'Referencia: {referencia_str}',
     }
     return render(request, 'catalogo/detalle_referencia.html', context)
@@ -178,6 +192,13 @@ def catalogo_publico_disponible(request):
         
     items_catalogo_final = []
     for rc_item in referencias_colores_qs:
+        
+        # --- INICIO: Cargar Mapeo de Tallas (Refactor) ---
+        # Cada ReferenciaColor pertenece a una empresa, cargamos su mapeo
+        empresa_obj = rc_item.empresa
+        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        # --- FIN: Cargar Mapeo de Tallas ---
+        
         variantes_con_info_stock = []
         mostrar_esta_referencia = False
         
@@ -191,13 +212,20 @@ def catalogo_publico_disponible(request):
             if stock > 0 or en_produccion:
                 mostrar_esta_referencia = True
 
-            # --- CAMBIO CLAVE AQUÍ ---
+# --- CORRECCIÓN DE SINTAXIS (Refactor) ---
+            # 1. Calcular la talla mapeada ANTES de crear el diccionario
+            talla_original = producto_variante.talla or ''
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+            
+            # 2. Ahora sí, crear el diccionario y añadirlo a la lista
             variantes_con_info_stock.append({
-                'talla': producto_variante.talla,
+                'talla': talla_display, # <-- Talla Mapeada
                 'stock': stock,
                 'en_produccion': en_produccion,
-                'disponible': stock > 0 or en_produccion, # Ahora "disponible" incluye la preventa
+                'disponible': stock > 0 or en_produccion,
             })
+            # --- FIN DE LA CORRECCIÓN ---
 
         if mostrar_esta_referencia:
             items_catalogo_final.append({
@@ -236,7 +264,7 @@ def catalogo_publico_temporal_view(request, token):
     enlace.veces_usado += 1
     enlace.save(update_fields=['veces_usado'])
     empresa_catalogo = enlace.empresa
-    # ... (resto de validaciones) ...
+    TALLAS_MAPEO = empresa_catalogo.talla_mapeo or {}
 
     query = request.GET.get('q', '')
     categoria_query = request.GET.get('categoria', '')
@@ -275,13 +303,20 @@ def catalogo_publico_temporal_view(request, token):
             if stock > 0 or en_produccion:
                 mostrar_esta_referencia = True
             
-            # --- CAMBIO CLAVE AQUÍ ---
+# --- CORRECCIÓN DE SINTAXIS (Refactor) ---
+            # 1. Calcular la talla mapeada ANTES de crear el diccionario
+            talla_original = producto_variante.talla or ''
+            talla_como_texto = str(talla_original).strip()
+            talla_display = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+
+            # 2. Ahora sí, crear el diccionario y añadirlo a la lista
             variantes_con_info_stock.append({
-                'talla': producto_variante.talla, 
-                'stock': stock, 
+                'talla': talla_display, # <-- Talla Mapeada
+                'stock': stock,
                 'en_produccion': en_produccion,
                 'disponible': stock > 0 or en_produccion
             })
+            # --- FIN DE LA CORRECCIÓN ---
         
         if mostrar_esta_referencia:
             items_catalogo_final.append({

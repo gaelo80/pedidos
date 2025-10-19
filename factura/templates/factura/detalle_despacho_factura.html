@@ -89,21 +89,28 @@
         </div>
     </div>
 
-    {# --- SECCIÓN DE ÍTEMS MODIFICADA --- #}
+
+
+{# --- SECCIÓN DE ÍTEMS MODIFICADA (CON DESGLOSE DE TALLAS ESTILO PDF) --- #}
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">Ítems Incluidos en este Despacho (Agrupados por Referencia)</h5>
+            <h5 class="mb-0">Ítems Incluidos en este Despacho</h5>
         </div>
         <div class="card-body p-0">
             {% if items_despachados_agrupados %}
             <div class="table-responsive">
-                <table class="table table-sm table-striped mb-0">
+                <table class="table table-sm table-striped table-bordered mb-0" style="font-size: 0.9rem;">
                     <thead class="table-light">
-                        <tr>
-                            <th>Referencia</th>
-                            <th>Descripción (Nombre Producto)</th>
-                            <th>Color</th>
-                            <th class="text-end">Cantidad Total Despachada</th>
+                        <tr class="text-center">
+                            <th class="text-start">Referencia</th>
+                            <th class="text-start">Descripción</th>
+                            <th class="text-start">Color</th>
+                            
+                            {% for talla in tallas_header %}
+                                <th style="width: 45px;">{{ talla }}</th>
+                            {% endfor %}
+                            
+                            <th class="text-center" style="width: 80px;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -112,7 +119,18 @@
                             <td>{{ item_grupo.referencia }}</td>
                             <td>{{ item_grupo.nombre }}</td>
                             <td>{{ item_grupo.color|default:"-" }}</td>
-                            <td class="text-end fw-bold">{{ item_grupo.cantidad_total|intcomma }}</td>
+
+                            {% for cantidad in item_grupo.tallas_ordenadas %}
+                                <td class="text-center">
+                                    {% if cantidad > 0 %}
+                                        {{ cantidad|intcomma }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            
+                            <td class="text-center fw-bold">{{ item_grupo.cantidad_total|intcomma }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -124,6 +142,9 @@
         </div>
     </div>
     {# --- FIN SECCIÓN DE ÍTEMS MODIFICADA --- #}
+
+
+
 
     <div class="card mb-4">
         <div class="card-header">
