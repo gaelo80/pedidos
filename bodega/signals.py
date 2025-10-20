@@ -103,8 +103,10 @@ def crear_notificacion_despacho_listo(sender, instance, created, **kwargs):
         )
         
         for usuario in usuarios_a_notificar:
-            if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
+            # Añadimos 'empresa' al filtro para evitar duplicados
+            if not Notificacion.objects.filter(empresa=instance.empresa, destinatario=usuario, mensaje=mensaje, leido=False).exists():
                 Notificacion.objects.create(
+                    empresa=instance.empresa, # <--- ¡AÑADIR ESTA LÍNEA!
                     destinatario=usuario,
                     mensaje=mensaje,
                     url=url_destino

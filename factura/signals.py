@@ -48,9 +48,10 @@ def notificar_despacho_por_facturar(sender, instance, created, **kwargs):
                 return
 
             for usuario in usuarios_a_notificar:
-                # Evitar duplicados
-                if not Notificacion.objects.filter(destinatario=usuario, mensaje=mensaje, leido=False).exists():
+                # Evitar duplicados (añadimos 'empresa' al filtro)
+                if not Notificacion.objects.filter(empresa=instance.empresa, destinatario=usuario, mensaje=mensaje, leido=False).exists():
                     Notificacion.objects.create(
+                        empresa=instance.empresa, # <--- ¡AÑADIR ESTA LÍNEA!
                         destinatario=usuario,
                         mensaje=mensaje,
                         url=url_destino

@@ -613,30 +613,35 @@
 
 
     {% if user.is_authenticated and es_cartera %}
+
     <script>
     $(document).ready(function() {
-        // Guardamos el título original de la pestaña
         const originalTitle = document.title;
-        
-        // Instancia del Modal de Bootstrap
         var modalEl = document.getElementById('notificacionCarteraModal');
         var notificacionModal = new bootstrap.Modal(modalEl);
-
-        // URL a consultar
         const checkUrl = "{% url 'notificaciones:check_notificaciones_cartera_json' %}";
         
-        function checkNotificacionesCartera() {
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Definimos la clave para el sessionStorage
+        const storageKey = 'vistoModalCartera';
+        // --- FIN DE LA CORRECCIÓN ---
+
+        function checkNotificacionesCartera(mostrarPopup = false) {
             fetch(checkUrl)
                 .then(response => response.json())
                 .then(data => {
                     if (data.count > 0) {
-                        // 1. Actualizar el título de la pestaña
+                        // 1. Actualizar el título de la pestaña (esto siempre se hace)
                         document.title = `(${data.count}) ${originalTitle}`;
                         
-                        // 2. Mostrar el popup (solo si no está ya visible)
-                        if (!modalEl.classList.contains('show')) {
+                        // 2. Mostrar el popup (solo si se permite)
+                        // 'mostrarPopup' será true solo en la primera carga
+                        if (mostrarPopup && !modalEl.classList.contains('show')) {
                             $('#modalNotificacionCount').text(data.count);
                             notificacionModal.show();
+                            
+                            // Marcamos como visto para esta sesión
+                            sessionStorage.setItem(storageKey, 'true');
                         }
                     } else {
                         // 3. Restaurar el título si no hay notificaciones
@@ -650,11 +655,22 @@
                 });
         }
 
-        // 1. Comprobar inmediatamente al cargar la página
-        checkNotificacionesCartera();
+        // --- LÓGICA DE CARGA CORREGIDA ---
+        const yaVisto = sessionStorage.getItem(storageKey);
         
-        // 2. Comprobar cada 20 segundos
-        setInterval(checkNotificacionesCartera, 20000); // 20000 ms = 20 segundos
+        if (!yaVisto) {
+            // 1. Si NO lo ha visto, comprobamos y SÍ mostramos el popup
+            checkNotificacionesCartera(true);
+        } else {
+            // 2. Si YA lo vio, solo actualizamos el título de la pestaña (sin popup)
+            checkNotificacionesCartera(false);
+        }
+        
+        // 3. El polling sigue actualizando el título de la pestaña cada 20 seg
+        //    pero nunca mostrará el popup (mostrarPopup = false)
+        setInterval(function() {
+            checkNotificacionesCartera(false);
+        }, 20000); // 20000 ms = 20 segundos
     });
     </script>
     {% endif %}

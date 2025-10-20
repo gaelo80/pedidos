@@ -97,29 +97,55 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
             )
         # Eliminamos el movimiento original para no tener registros contradictorios.
         movimientos_a_revertir.delete()
-
-    # --- 3. LÓGICA DE NOTIFICACIONES (Se mantiene igual) ---
+        
+        
     mensaje, grupo_destino, url_destino = None, None, None
+    usuario_directo = None # Para notificaciones 1 a 1
+
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA':
         grupo_destino, mensaje = 'Cartera', f"El pedido #{instance.numero_pedido_empresa} de {instance.destinatario.nombre_completo} requiere aprobación."
-        try: url_destino = reverse('pedidos:lista_aprobacion_cartera')
+        try: url_destino = reverse('pedidos:lista_apROBACION_cartera')
         except NoReverseMatch: logger.warning("URL 'pedidos:lista_aprobacion_cartera' no encontrada.")
+    
     elif instance.estado == 'PENDIENTE_APROBACION_ADMIN':
         grupo_destino, mensaje = 'Administracion', f"El pedido #{instance.numero_pedido_empresa} fue aprobado por Cartera."
         try: url_destino = reverse('pedidos:lista_aprobacion_admin')
         except NoReverseMatch: logger.warning("URL 'pedidos:lista_aprobacion_admin' no encontrada.")
+    
     elif instance.estado == 'APROBADO_ADMIN':
         grupo_destino, mensaje = 'Bodega', f"El pedido #{instance.numero_pedido_empresa} fue aprobado y está listo para despacho."
         try: url_destino = reverse('bodega:lista_pedidos_bodega')
         except NoReverseMatch: logger.warning("URL 'bodega:lista_pedidos_bodega' no encontrada.")
     
-    if mensaje and grupo_destino:
+    elif instance.estado == 'RECHAZADO_CARTERA':
+        if instance.vendedor and instance.vendedor.user:
+            usuario_directo = instance.vendedor.user
+            mensaje = f"Pedido #{instance.numero_pedido_empresa} RECHAZADO por Cartera."
+            try: url_destino = reverse('pedidos:detalle_pedido', kwargs={'pk': instance.pk})
+            except NoReverseMatch: logger.warning(f"URL 'pedidos:detalle_pedido' para pk={instance.pk} no encontrada.")
+    
+    elif instance.estado == 'RECHAZADO_ADMIN':
+        if instance.vendedor and instance.vendedor.user:
+            usuario_directo = instance.vendedor.user
+            mensaje = f"Pedido #{instance.numero_pedido_empresa} RECHAZADO por Administración."
+            try: url_destino = reverse('pedidos:detalle_pedido', kwargs={'pk': instance.pk})
+            except NoReverseMatch: logger.warning(f"URL 'pedidos:detalle_pedido' para pk={instance.pk} no encontrada.")
+
+    # --- Lógica de envío de notificación (Modificada) ---
+    if mensaje:
         try:
-            usuarios_a_notificar = User.objects.filter(groups__name__iexact=grupo_destino, empresa=instance.empresa, is_active=True)
+            usuarios_a_notificar = []
+            if grupo_destino:
+                usuarios_a_notificar = list(User.objects.filter(groups__name__iexact=grupo_destino, empresa=instance.empresa, is_active=True))
+            elif usuario_directo:
+                # Asegurarnos que el usuario directo pertenezca a la empresa (aunque ya debería)
+                if usuario_directo.empresa == instance.empresa:
+                    usuarios_a_notificar = [usuario_directo]
+
             for usuario in usuarios_a_notificar:
                 # Comprobamos que no exista una notificación igual Y de la misma empresa
                 if not Notificacion.objects.filter(
-                    empresa=instance.empresa, # <--- Filtro añadido
+                    empresa=instance.empresa,
                     destinatario=usuario, 
                     mensaje=mensaje, 
                     leido=False
@@ -127,7 +153,7 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
                     
                     # Añadimos la empresa en la creación
                     Notificacion.objects.create(
-                        empresa=instance.empresa, # <--- Campo añadido
+                        empresa=instance.empresa,
                         destinatario=usuario, 
                         mensaje=mensaje, 
                         url=url_destino
