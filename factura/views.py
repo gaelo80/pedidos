@@ -147,9 +147,11 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
         
         # Intentamos un ordenado inteligente (primero números, luego texto)
         try:
-            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=lambda x: (isinstance(x, str), x))
+            # Forzamos la conversión a int para ordenar numéricamente
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=int)
         except ValueError:
-            tallas_header_ordenadas = sorted(list(tallas_unicas_set)) # Fallback a ordenado simple
+            # Si falla (ej. si una talla es 'N/A'), usa el ordenado alfabético
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set))
 
         # 2. Agrupar ítems y crear un dict de tallas
         items_agrupados_dict = defaultdict(lambda: {
@@ -287,8 +289,10 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             tallas_unicas_set.add(talla_display)
         
         try:
-            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=lambda x: (isinstance(x, str), x))
+            # Forzamos la conversión a int para ordenar numéricamente
+            tallas_header_ordenadas = sorted(list(tallas_unicas_set), key=int)
         except ValueError:
+            # Si falla (ej. si una talla es 'N/A'), usa el ordenado alfabético
             tallas_header_ordenadas = sorted(list(tallas_unicas_set))
 
         # 2. Agrupar ítems y crear un dict de tallas

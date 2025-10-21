@@ -464,28 +464,29 @@
         </div>
     </nav>
   
-
-    <div class="modal fade" id="notificacionCarteraModal" tabindex="-1" aria-labelledby="notificacionCarteraModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-warning border-3">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title" id="notificacionCarteraModalLabel">
-                        <i class="fas fa-exclamation-triangle me-2"></i> ¡Atención Requerida!
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body fs-5 text-center">
-                    <p>Tienes <strong id="modalNotificacionCount">1</strong> pedido(s) nuevo(s) que requieren tu aprobación en Cartera.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="btn btn-primary">
-                        <i class="fas fa-eye me-1"></i> Ir a Aprobar
-                    </a>
+            {% comment %} MODAL DE CARTERA DESHABILITADO TEMPORALMENTE
+            <div class="modal fade" id="notificacionCarteraModal" tabindex="-1" aria-labelledby="notificacionCarteraModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-warning border-3">
+                        <div class="modal-header bg-warning text-dark">
+                            <h5 class="modal-title" id="notificacionCarteraModalLabel">
+                                <i class="fas fa-exclamation-triangle me-2"></i> ¡Atención Requerida!
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body fs-5 text-center">
+                            <p>Tienes <strong id="modalNotificacionCount">1</strong> pedido(s) nuevo(s) que requieren tu aprobación en Cartera.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="btn btn-primary">
+                                <i class="fas fa-eye me-1"></i> Ir a Aprobar
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+            {% endcomment %}
 
     {% if es_vendedor and borradores_pendientes_count > 0 %}
     <div class="modal fade" id="notificacionBorradorModal" tabindex="-1" aria-labelledby="notificacionBorradorModalLabel" aria-hidden="true">
@@ -611,7 +612,7 @@
     });
     </script>
 
-
+    {% comment %} POPUP DE CARTERA DESHABILITADO TEMPORALMENTE
     {% if user.is_authenticated and es_cartera %}
 
     <script>
@@ -674,6 +675,7 @@
     });
     </script>
     {% endif %}
+    {% endcomment %}
 
     {% if es_vendedor and borradores_pendientes_count > 0 %}
     <script>

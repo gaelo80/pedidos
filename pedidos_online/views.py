@@ -156,8 +156,54 @@ def crear_pedido_online(request, pk=None):
                             }
                         )
 
-                    # ✅ CORREGIDO #2: El bloque de creación manual de MovimientoInventario ha sido ELIMINADO.
-                    # La señal se encargará del inventario.
+                    # ✅ CORRECCIÓN #2: RE-IMPLEMENTACIÓN DE LÓGICA DE INVENTARIO
+                    # La señal post_save en Pedido no funciona para este caso,
+                    # porque se ejecuta ANTES de que los DetallePedido se guarden.
+                    # La lógica debe vivir aquí, después de guardar los detalles.
+
+                    # 1. Eliminar todos los movimientos PENDIENTES anteriores para este pedido.
+                    # Esto es crucial para que al "actualizar" un borrador no se duplique el stock.
+                    # También limpia la reserva si un borrador se convierte en definitivo.
+                    movimientos_anteriores = MovimientoInventario.objects.filter(
+                        empresa=pedido.empresa,
+                        tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+                        documento_referencia__startswith=f'Pedido #{pedido.numero_pedido_empresa}'
+                    )
+                    if movimientos_anteriores.exists():
+                        movimientos_anteriores.delete()
+                        logger.info(f"Movimientos pendientes anteriores eliminados para Pedido #{pedido.numero_pedido_empresa}.")
+
+                    # 2. Determinar el nuevo tipo de movimiento
+                    tipo_mov_nuevo = None
+                    doc_ref_nuevo = ''
+
+                    if accion == 'guardar_borrador':
+                        # Estado 'BORRADOR'. Creamos una reserva PENDIENTE.
+                        tipo_mov_nuevo = 'SALIDA_VENTA_PENDIENTE'
+                        doc_ref_nuevo = f'Pedido #{pedido.numero_pedido_empresa} (Reserva Online)'
+                    
+                    elif accion == 'crear_definitivo':
+                        # Estado 'LISTO_BODEGA_DIRECTO'.
+                        # Esto también debe crear una reserva pendiente, que Bodega
+                        # luego convertirá en un despacho definitivo.
+                        tipo_mov_nuevo = 'SALIDA_VENTA_PENDIENTE'
+                        doc_ref_nuevo = f'Pedido #{pedido.numero_pedido_empresa} (Reserva Online Definitiva)'
+
+                    # 3. Crear los nuevos movimientos de inventario
+                    if tipo_mov_nuevo:
+                        for detalle in pedido.detalles.all():
+                            if detalle.cantidad > 0:
+                                MovimientoInventario.objects.create(
+                                    empresa=pedido.empresa,
+                                    producto=detalle.producto,
+                                    cantidad=-detalle.cantidad, # Salida
+                                    tipo_movimiento=tipo_mov_nuevo,
+                                    documento_referencia=doc_ref_nuevo,
+                                    usuario=pedido.vendedor.user if pedido.vendedor else None
+                                )
+                        logger.info(f"Creados {pedido.detalles.count()} movimientos '{tipo_mov_nuevo}' para Pedido #{pedido.numero_pedido_empresa} desde la vista.")
+                    
+                    # --- FIN DE LA LÓGICA DE INVENTARIO ---
 
                     if accion == 'crear_definitivo':
                         # ✅ CORREGIDO #3: Mensaje de éxito correcto
@@ -1123,6 +1169,8 @@ def generar_borrador_online_pdf(request, pk):
     except Exception as e: 
         logger.warning(f"Advertencia PDF Borrador Online: Excepción al llamar get_logo_base_64_despacho(): {e}")
 
+    TALLAS_MAPEO = (empresa_actual.talla_mapeo or {}) if empresa_actual else {}
+
     context = {
         'pedido': pedido,
         'empresa_actual': empresa_actual,
@@ -1134,6 +1182,7 @@ def generar_borrador_online_pdf(request, pk):
         'incluir_color': True,
         'incluir_vr_unit': True,
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
+        'tallas_mapeo': TALLAS_MAPEO,
     }
 
     template = get_template('pedidos/pedido_pdf.html') # Reutilizamos la misma plantilla PDF
