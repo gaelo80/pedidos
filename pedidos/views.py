@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from django.views import View
 from urllib.parse import quote
 from django.contrib.auth.models import User
+from collections import defaultdict
 import json
 from django.http import JsonResponse
 from django.urls import reverse
@@ -1178,7 +1179,10 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
             return HttpResponse("Acceso no válido.", status=404)
         
         pedido = get_object_or_404(Pedido, token_descarga_fotos=token_pedido, empresa=empresa_actual)
-        fotos_del_pedido, urls_fotos_ya_agregadas = [], set()
+        
+        
+# 1. Obtener la lista plana de fotos (como antes)
+        fotos_del_pedido_flat, urls_fotos_ya_agregadas = [], set()
         if hasattr(pedido, 'detalles'):
             detalles_del_pedido = pedido.detalles.select_related('producto__articulo_color_fotos') \
                                                .prefetch_related('producto__articulo_color_fotos__fotos_agrupadas')
@@ -1186,9 +1190,22 @@ class DescargarFotosPedidoView(TenantAwareMixin, View):
                 if detalle.producto and detalle.producto.articulo_color_fotos:
                     for foto in detalle.producto.articulo_color_fotos.fotos_agrupadas.all():
                         if foto.imagen and hasattr(foto.imagen, 'url') and foto.imagen.url not in urls_fotos_ya_agregadas:
-                            fotos_del_pedido.append(foto)
+                            # Añadimos la foto a la lista plana
+                            fotos_del_pedido_flat.append(foto)
                             urls_fotos_ya_agregadas.add(foto.imagen.url)
-        context = {'pedido': pedido, 'fotos_del_pedido': fotos_del_pedido, 'titulo': f"Fotos del Pedido #{pedido.numero_pedido_empresa}"}
+
+        # 2. Agrupar la lista plana por 'referencia_color'
+        fotos_agrupadas = defaultdict(list)
+        for foto in fotos_del_pedido_flat:
+            # 'referencia_color' es el campo @property que usas como título
+            fotos_agrupadas[foto.referencia_color].append(foto)
+            
+        context = {
+            'pedido': pedido, 
+            # Pasamos el diccionario agrupado en lugar de la lista plana
+            'fotos_agrupadas': dict(fotos_agrupadas), 
+            'titulo': f"Fotos del Pedido #{pedido.numero_pedido_empresa}"
+        }
         return render(request, self.template_name, context)
     
     

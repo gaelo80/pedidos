@@ -167,8 +167,10 @@ def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
                 with transaction.atomic(): # Asegurar que las notificaciones se creen juntas
                     for usuario_vendedor in vendedores_a_notificar:
 
-                        if not Notificacion.objects.filter(destinatario=usuario_vendedor, mensaje=mensaje_notificacion, leido=False).exists():
+                        # CORRECCIÓN: Añadido 'empresa=empresa' al filtro
+                        if not Notificacion.objects.filter(empresa=empresa, destinatario=usuario_vendedor, mensaje=mensaje_notificacion, leido=False).exists():
                             Notificacion.objects.create(
+                                empresa=empresa, # <--- ¡SOLUCIÓN AÑADIDA!
                                 destinatario=usuario_vendedor,
                                 mensaje=mensaje_notificacion,
                                 url=url_notificacion, # Opcional: URL para ir al detalle del producto

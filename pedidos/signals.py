@@ -37,34 +37,36 @@ def liberar_stock_al_eliminar_pedido(sender, instance, **kwargs):
         logger.info(f"Se eliminaron {count} movimientos de inventario asociados para liberar stock.")
 
 
+# pedidos/signals.py
+
 @receiver(post_save, sender=Pedido)
 def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
     """
     Gestiona el inventario y las notificaciones basado en el estado y tipo del pedido.
     - Pedidos ESTANDAR reservan stock al pasar a PENDIENTE_APROBACION_CARTERA.
-    - Pedidos ONLINE reservan stock inmediatamente al guardarse como BORRADOR.
+    - Pedidos ONLINE (Borrador y Definitivo) se manejan en su propia vista (crear_pedido_online).
     """
+    # --- LÓGICA DE GESTIÓN DE STOCK ---
+
+    # 1. Reserva para Pedidos ONLINE (Lógica movida a la vista, este bloque ya no es necesario)
+    # (Asegúrate que este bloque if/elif inicial sobre 'ONLINE' y 'BORRADOR' esté eliminado)
+    
 
     # 2. Reserva para Pedidos ESTANDAR al pasar a aprobación
+    # (Asegúrate que este sea el primer 'if' o 'elif' de la lógica de stock)
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA' and instance.tipo_pedido != 'ONLINE':
         # Evita duplicar si la señal se dispara varias veces.
-        # Busca cualquier movimiento (reserva o preventa) asociado a este pedido en este estado
         if MovimientoInventario.objects.filter(
             empresa=instance.empresa,
             documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
         ).exists():
-             # Ya existen movimientos para este pedido, no hacer nada para evitar duplicados.
-             # Podría ser una reserva pendiente o una salida directa si era preventa.
             logger.debug(f"Movimientos ya existen para Pedido #{instance.numero_pedido_empresa} en estado {instance.estado}. No se crearán nuevos.")
-            # Continuar con notificaciones si es necesario (no retornamos aquí)
         else:
             # Si no hay movimientos, creamos la reserva/salida inicial
             for detalle in instance.detalles.all():
                 producto = detalle.producto
                 cantidad_a_descontar = -detalle.cantidad
 
-                # Para pedidos estándar, siempre es reserva pendiente en esta etapa
-                # (La lógica de preventa directa se movió al despacho)
                 tipo_mov = 'SALIDA_VENTA_PENDIENTE'
                 doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva)'
 
@@ -79,47 +81,10 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
             logger.info(f"Creadas reservas para pedido estándar #{instance.numero_pedido_empresa}.")
 
 
-
-
-
-
-
     # 3. LÓGICA DE LIBERACIÓN DE STOCK (CANCELACIONES/RECHAZOS)
-    estados_que_liberan_stock = ['RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
-    if instance.estado in estados_que_liberan_stock:
-        # Busca CUALQUIER tipo de salida PENDIENTE (reserva estándar o reserva online) para revertirla.
-        movimientos_a_revertir = MovimientoInventario.objects.filter(
-            empresa=instance.empresa,
-            tipo_movimiento='SALIDA_VENTA_PENDIENTE', # Solo revertimos reservas pendientes
-            documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
-        )
-
-        for mov in movimientos_a_revertir:
-            # Creamos un movimiento opuesto de reingreso.
-            MovimientoInventario.objects.create(
-                empresa=mov.empresa,
-                producto=mov.producto,
-                cantidad=abs(mov.cantidad), # Convierte de -N a +N
-                # Usamos un tipo genérico de entrada por rechazo/cancelación
-                tipo_movimiento='ENTRADA_RECHAZO_PEDIDO',
-                documento_referencia=f'Reversión Pedido #{instance.numero_pedido_empresa}',
-                usuario=mov.usuario, # Usamos el usuario que hizo la reserva original si está disponible
-                notas=f"Stock reintegrado por cambio a estado {instance.get_estado_display()}"
-            )
-            logger.info(f"Creado movimiento de reingreso para {mov.producto} (+{abs(mov.cantidad)}) debido a estado {instance.estado}.")
-
-        # Eliminamos el movimiento de reserva original para limpiar.
-        if movimientos_a_revertir.exists():
-            count = movimientos_a_revertir.count()
-            movimientos_a_revertir.delete()
-            logger.info(f"Eliminados {count} movimientos de reserva pendientes para pedido #{instance.numero_pedido_empresa} por cambio a estado {instance.estado}. Stock revertido.")
-
-
-
-
-
-
-
+    # (Esta sección debe estar eliminada, como dijiste que hiciste,
+    # ya que esta lógica ahora vive en views.py)
+    
 
     # --- 4. LÓGICA DE NOTIFICACIONES ---
     mensaje, grupo_destino, url_destino = None, None, None
@@ -154,34 +119,50 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
             try: url_destino = reverse('pedidos:detalle_pedido', kwargs={'pk': instance.pk})
             except NoReverseMatch: logger.warning(f"URL 'pedidos:detalle_pedido' para pk={instance.pk} no encontrada.")
 
-    # --- Lógica de envío de notificación (Modificada) ---
+    # --- Lógica de envío de notificación (CORREGIDA) ---
     if mensaje:
         try:
             usuarios_a_notificar = []
+            
+            # 1. Notificación a un GRUPO (Cartera, Admin, Bodega)
             if grupo_destino:
-                usuarios_a_notificar = list(User.objects.filter(groups__name__iexact=grupo_destino, empresa=instance.empresa, is_active=True))
+                usuarios_a_notificar = list(User.objects.filter(
+                    groups__name__iexact=grupo_destino, 
+                    empresa=instance.empresa,
+                    is_active=True
+                ))
+            
+            # 2. Notificación a un USUARIO DIRECTO (Vendedor)
             elif usuario_directo:
-                # Asegurarnos que el usuario directo pertenezca a la empresa (aunque ya debería)
-                if hasattr(usuario_directo, 'empresa') and usuario_directo.empresa == instance.empresa:
+                if usuario_directo.is_active:
                     usuarios_a_notificar = [usuario_directo]
 
+            # 3. Crear la notificación
             for usuario in usuarios_a_notificar:
-                # Comprobamos que no exista una notificación igual Y de la misma empresa
+                
+                # ¡VERIFICACIÓN DE SEGURIDAD!
+                if not instance.empresa:
+                    logger.error(f"Error al notificar: El Pedido #{instance.id} (Estado: {instance.estado}) no tiene empresa asignada.")
+                    continue # Saltar si la empresa es Nula
+
+                # Comprobamos que no exista una notificación duplicada
                 if not Notificacion.objects.filter(
-                    empresa=instance.empresa,
+                    empresa=instance.empresa, # <-- Filtro con empresa
                     destinatario=usuario,
                     mensaje=mensaje,
                     leido=False
                 ).exists():
-
-                    # Añadimos la empresa en la creación
+                    
+                    # ¡LA LÍNEA QUE CAUSA TU ERROR ESTÁ AQUÍ!
+                    # Asegúrate de que tu código tenga 'empresa=instance.empresa'
                     Notificacion.objects.create(
-                        empresa=instance.empresa,
+                        empresa=instance.empresa, # <--- ESTA LÍNEA ES LA SOLUCIÓN
                         destinatario=usuario,
                         mensaje=mensaje,
                         url=url_destino
                     )
+                    
         except Group.DoesNotExist:
             logger.warning(f"El grupo '{grupo_destino}' no existe.")
         except Exception as e:
-            logger.error(f"Error creando notificación para pedido #{instance.id}: {e}")
+            logger.error(f"Error creando notificación para pedido #{instance.id} (Estado: {instance.estado}): {e}")
