@@ -35,9 +35,9 @@ from .forms import PedidoOnlineForm, ClienteOnlineForm
 
 logger = logging.getLogger(__name__)
 
-TALLAS_DAMA = ['3', '5', '7', '9', '11', '13']
-TALLAS_CABALLERO = ['28', '30', '32', '34', '36', '38']
-TALLAS_UNISEX = ['S', 'M', 'L', 'XL']
+TALLAS_DAMA = [3, 5, 7, 9, 11, 13]
+TALLAS_CABALLERO = [28, 30, 32, 34, 36, 38]
+TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Estas se quedan como texto
 
 
 @login_required

@@ -179,9 +179,9 @@
                                 <td>{{ item.nombre }}</td>
                                 <td class="text-muted">{{ item.color|default_if_none:"N/A" }}</td>
                                 <td class="text-muted">{{ item.talla|default_if_none:"N/A" }}</td>
-                                <td class="text-end fw-bold" id="stock_sistema_{{ item.pk }}">{{ item.stock_fisico_calculado }}</td>
+                                <td class="text-end fw-bold" id="stock_sistema_{{ item.pk }}">{{ item.stock_actual }}</td>
                                 <td>
-                                    <input type="number" name="cantidad_fisica_{{ item.pk }}" id="cantidad_fisica_{{ item.pk }}" class="form-control form-control-sm input-cantidad-fisica text-end rounded-pill" value="{{ item.stock_fisico_calculado }}" min="0" step="1"> {# rounded-pill #}
+                                    <input type="number" name="cantidad_fisica_{{ item.pk }}" id="cantidad_fisica_{{ item.pk }}" class="form-control form-control-sm input-cantidad-fisica text-end rounded-pill" value="{{ item.stock_actual }}" min="0" step="1"> {# rounded-pill #}
                                 </td>
                                 <td class="text-end fw-bold" id="diferencia_{{ item.pk }}">0</td>
                             </tr>

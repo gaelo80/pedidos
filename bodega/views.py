@@ -958,6 +958,8 @@ def exportar_plantilla_conteo(request, file_format='xlsx'): # Añadimos file_for
 
 logger = logging.getLogger(__name__)
 
+
+
 @transaction.atomic
 def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
     cabecera = CabeceraConteo.objects.create(
@@ -969,77 +971,31 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
         usuario_registro=request.user
     )
     stats = {'ajustados': 0, 'sin_cambio': 0}
-    
-    productos_a_contar = Producto.objects.filter(empresa=empresa, activo=True)
-
-    # --- INICIO DE LA CORRECCIÓN ---
-    
-    # 1. Obtenemos un diccionario de todas las reservas pendientes (SALIDA_VENTA_PENDIENTE)
-    #    Tu código usa este tipo de movimiento tanto para estándar como para online.
-    reservas_qs = MovimientoInventario.objects.filter(
-        empresa=empresa,
-        producto__in=productos_a_contar,
-        tipo_movimiento='SALIDA_VENTA_PENDIENTE'
-    ).values('producto_id').annotate(
-        total_reservado=Sum('cantidad') # Esto dará un valor negativo (ej: -10)
-    )
-    
-    # Convertimos el queryset a un diccionario {producto_id: -10} para acceso rápido
-    reservas_map = {r['producto_id']: r['total_reservado'] for r in reservas_qs}
-
-    # --- FIN DE LA CORRECCIÓN ---
-
-    for producto in productos_a_contar:
-        cantidad_fisica_contada = datos_conteo.get(producto.pk)
-        
-        if cantidad_fisica_contada is not None and cantidad_fisica_contada >= 0:
+    for producto in Producto.objects.filter(empresa=empresa, activo=True):
+        cantidad_fisica = datos_conteo.get(producto.pk)
+        if cantidad_fisica is not None and cantidad_fisica >= 0:
             
-            # --- LÓGICA DE CÁLCULO CORREGIDA ---
+            # Lógica original: Compara contra el Stock Disponible
+            stock_sistema = producto.stock_actual
+            diferencia = cantidad_fisica - stock_sistema
             
-            # stock_kardex_disponible es el stock "disponible para la venta"
-            # Ej: 90 (Tenías 100 físicos, pero 10 están reservados)
-            stock_kardex_disponible = producto.stock_actual 
-            
-            # Obtenemos la reserva para ESTE producto. Será un valor negativo (ej: -10) o 0.
-            reserva_pendiente = reservas_map.get(producto.pk, 0) 
-            
-            # Calculamos el stock físico que el sistema *debería* tener
-            # stock_sistema_fisico = 90 (disponible) - (-10) (reservado) = 100 (físico)
-            stock_sistema_fisico = stock_kardex_disponible - reserva_pendiente
-            
-            # Comparamos el conteo físico (lo que contó el bodeguero) 
-            # con el stock físico del sistema.
-            diferencia = cantidad_fisica_contada - stock_sistema_fisico # Ej: 100 - 100 = 0
-            
-            # --- FIN LÓGICA DE CÁLCULO CORREGIDA ---
-
             ConteoInventario.objects.create(
-                empresa=empresa, 
-                cabecera_conteo=cabecera, 
-                producto=producto,
-                cantidad_sistema_antes=stock_sistema_fisico, # Guardamos el físico del sistema
-                cantidad_fisica_contada=cantidad_fisica_contada,
-                usuario_conteo=request.user,
-                notas=f"Stock Kardex (Disp): {stock_kardex_disponible}, Reservas Pendientes: {abs(reserva_pendiente)}"
+                empresa=empresa, cabecera_conteo=cabecera, producto=producto,
+                cantidad_sistema_antes=stock_sistema, # <-- Guarda el stock disponible
+                cantidad_fisica_contada=cantidad_fisica,
+                usuario_conteo=request.user
             )
-            
             if diferencia != 0:
-                # Si hay una diferencia real, se crea el ajuste
                 tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
                 MovimientoInventario.objects.create(
-                    empresa=empresa, 
-                    producto=producto, 
-                    cantidad=diferencia,
-                    tipo_movimiento=tipo_movimiento, 
-                    usuario=request.user,
+                    empresa=empresa, producto=producto, cantidad=diferencia,
+                    tipo_movimiento=tipo_movimiento, usuario=request.user,
                     documento_referencia=f"Conteo ID {cabecera.pk}",
-                    notas=f"Ajuste por conteo. Sistema Físico: {stock_sistema_fisico}, Físico Contado: {cantidad_fisica_contada}"
+                    notas=f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
                 )
                 stats['ajustados'] += 1
-                logger.warning(f"Ajuste de Conteo para {producto.referencia}: Físico={cantidad_fisica_contada}, SistemaFísico={stock_sistema_fisico}, Diferencia={diferencia}")
             else:
                 stats['sin_cambio'] += 1
-                
     return cabecera, stats
 
 
@@ -1054,7 +1010,7 @@ def vista_conteo_inventario(request):
     user = request.user
     puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
 
-    # --- LÓGICA POST (Esta parte se queda igual que tu original) ---
+    # --- LÓGICA POST (Original de tu archivo views.py.save) ---
     if request.method == 'POST':
         if not puede_guardar:
             messages.error(request, "No tienes permiso para guardar conteos y ajustar el stock.")
@@ -1124,8 +1080,7 @@ def vista_conteo_inventario(request):
                 return redirect('bodega:vista_conteo_inventario')
             
             try:
-                # Esta es la función de guardado que ya habíamos corregido.
-                # No se toca, ya es correcta.
+                # Usamos la lógica de guardado original (Paso 2)
                 cabera, stats = _procesar_y_guardar_conteo(request, empresa_actual, info_form.cleaned_data, datos_conteo)
                 if stats['ajustados'] > 0:
                     messages.success(request, f"Conteo #{cabera.pk} guardado. Se ajustó el stock de {stats['ajustados']} producto(s).")
@@ -1139,44 +1094,15 @@ def vista_conteo_inventario(request):
         else:
             messages.error(request, "Por favor corrige los errores en la información general del conteo.")
 
-    # --- LÓGICA GET (AQUÍ ESTÁ LA CORRECCIÓN) ---
+    # --- LÓGICA GET (Esta es la original que coincide con tu plantilla) ---
     
-    # 1. Obtenemos los productos base
-    productos_qs = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+    items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
     
-    # 2. Obtenemos el mapa de reservas (igual que en la función de guardado)
-    reservas_qs = MovimientoInventario.objects.filter(
-        empresa=empresa_actual,
-        producto__in=productos_qs,
-        tipo_movimiento='SALIDA_VENTA_PENDIENTE'
-    ).values('producto_id').annotate(
-        total_reservado=Sum('cantidad') # Valor negativo (ej: -10)
-    )
-    reservas_map = {r['producto_id']: r['total_reservado'] for r in reservas_qs}
-
-    # 3. Construimos la lista para la plantilla, calculando el stock físico
-    #    PERO MANTENEMOS LA ESTRUCTURA ORIGINAL (lista de objetos Producto)
-    #    y añadimos el stock físico calculado como un atributo temporal.
-    
-    items_para_conteo_corregidos = []
-    for producto in productos_qs:
-        stock_disponible = producto.stock_actual # Ej: -6 (el disponible)
-        reserva_pendiente = reservas_map.get(producto.pk, 0) # Ej: 0
-        
-        # Calculamos el stock físico del sistema
-        # stock_fisico_sistema = -6 (disponible) - 0 (reservado) = -6
-        stock_fisico_sistema = stock_disponible - reserva_pendiente
-        
-        # Añadimos el valor calculado al objeto producto
-        producto.stock_fisico_calculado = stock_fisico_sistema
-        items_para_conteo_corregidos.append(producto)
-
-    # 4. Formularios
     info_form = InfoGeneralConteoForm()
     import_form = ImportarConteoForm()
 
     context = {
-        'items_para_conteo': items_para_conteo_corregidos, # <--- Pasamos la lista corregida
+        'items_para_conteo': items_a_contar, # <--- Pasamos los productos directamente
         'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",
         'info_form': info_form,
         'import_form': import_form,
