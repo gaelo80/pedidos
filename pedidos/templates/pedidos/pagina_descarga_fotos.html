@@ -1,30 +1,73 @@
-{# pedidos/templates/pedidos/pagina_descarga_fotos.html #}
-{% extends "core/base.html" %} {# O tu plantilla base principal #}
+{% extends "core/base.html" %}
 {% load static %}
 
-{% block titulo %}{{ titulo|default:"Fotos del Pedido" }} - Pedido #{{ pedido.id }}{% endblock %}
+{% block page_title %}{{ titulo|default:"Fotos del Pedido" }} - Pedido #{{ pedido.numero_pedido_empresa }}{% endblock page_title %}
+
+{% block extra_styles %}
+{# Estilos para el modal de la foto #}
+<style>
+    #fotoModal .modal-body img {
+        width: 100%;
+        height: auto;
+        max-height: 75vh; /* Altura máxima de la imagen (75% de la pantalla) */
+        object-fit: contain;
+    }
+    #fotoModal .modal-content {
+        background-color: #f8f9fa; /* Fondo claro para el modal */
+        color: #212529; /* Texto oscuro */
+    }
+    #fotoModal .btn-social {
+        font-size: 1.5rem; /* Iconos de compartir más grandes */
+    }
+    /* Estilos para el filtro (se ve mejor en fondo oscuro) */
+    .filtro-fotos {
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    .filtro-fotos::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+</style>
+{% endblock extra_styles %}
 
 {% block content %}
 <div class="container mt-4">
 
-    <p style="color: white;">¡Hola {{ pedido.cliente.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
-    <hr>
+    <p style="color: white;">¡Hola {{ pedido.destinatario.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
+    <hr style="color: white;">
 
     {% if fotos_del_pedido %}
-        <p style="color: white;">Haz clic en "Descargar" para guardar la foto.</p>
-        <div class="row">
+        <div class="mb-4">
+            <input type="text" id="filtroReferencia" class="form-control form-control-lg filtro-fotos" placeholder="Buscar por referencia...">
+        </div>
+        <div class="row" id="fotos-container">
             {% for foto in fotos_del_pedido %}
-                <div class="col-md-4 mb-3">
-                    <div class="card">
+                <div class="col-md-4 mb-3 foto-card">
+                    <div class="card h-100">
                         {% if foto.imagen and foto.imagen.url %}
-                            <img src="{{ foto.imagen.url }}" class="card-img-top" alt="{{ foto.descripcion_foto|default:'Foto del producto' }}" style="max-height: 200px; object-fit: contain; padding: 10px;">
-                            <div class="card-body">
-                                {# Muestra la ReferenciaColor a la que pertenece la foto #}
-                                <h5 class="card-title">{{ foto.referencia_color }}</h5>
+                            <img src="{{ foto.imagen.url }}" class="card-img-top" alt="{{ foto.descripcion_foto|default:'Foto del producto' }}" style="height: 250px; object-fit: contain; padding: 10px; cursor: pointer;"
+                                 data-bs-toggle="modal" 
+                                 data-bs-target="#fotoModal"
+                                 data-img-src="{{ foto.imagen.url }}"
+                                 data-referencia="{{ foto.referencia_color }}"
+                                 data-descripcion="{{ foto.descripcion_foto|default:'' }}"
+                            >
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title h5-referencia">{{ foto.referencia_color }}</h5>
                                 {% if foto.descripcion_foto %}
                                     <p class="card-text">{{ foto.descripcion_foto }}</p>
                                 {% endif %}
-                                <a href="{{ foto.imagen.url }}" class="btn btn-primary" download>Descargar</a>
+                                <div class="mt-auto">
+                                    <button type="button" class="btn btn-primary w-100" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#fotoModal"
+                                            data-img-src="{{ foto.imagen.url }}"
+                                            data-referencia="{{ foto.referencia_color }}"
+                                            data-descripcion="{{ foto.descripcion_foto|default:'' }}">
+                                        <i class="fas fa-search-plus me-2"></i>Ampliar y Compartir
+                                    </button>
+                                </div>
                             </div>
                         {% else %}
                             <div class="card-body">
@@ -34,18 +77,127 @@
                     </div>
                 </div>
                 {% if forloop.counter|divisibleby:3 and not forloop.last %}
-                    </div><div class="row"> {# Cierra y abre una nueva fila cada 3 elementos #}
+                    </div><div class="row" id="fotos-container-{{ forloop.counter }}"> {# Cierra y abre una nueva fila cada 3 elementos #}
                 {% endif %}
             {% endfor %}
         </div>
+        
+        <div id="no-resultados" class="alert alert-warning text-center" role="alert" style="display: none;">
+            No se encontraron fotos con esa referencia.
+        </div>
+        
     {% else %}
         <div class="alert alert-warning" role="alert">
-            No hay fotos disponibles para los productos de este pedido, o los productos no tienen imágenes asociadas a sus agrupaciones de referencia y color.
+            No hay fotos disponibles para los productos de este pedido.
         </div>
     {% endif %}
+</div>
 
-    {#<div class="mt-4">#}
-        {#<a href="{% url 'core:index' %}" class="btn btn-secondary">Volver al inicio</a> {# O a donde quieras redirigir #}
-    {#</div>#}
+<div class="modal fade" id="fotoModal" tabindex="-1" aria-labelledby="fotoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fotoModalLabel">Referencia: </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="" id="modal-img-src" class="img-fluid rounded" alt="Foto ampliada">
+                <p id="modal-descripcion" class="mt-2 text-muted"></p>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                
+                <div class="text-start">
+                    <span class="me-2">Compartir en:</span>
+                    <a href="#" id="share-whatsapp" class="btn btn-link btn-social text-success" target="_blank" title="Compartir en WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    <a href="#" id="share-facebook" class="btn btn-link btn-social text-primary" target="_blank" title="Compartir en Facebook"><i class="fab fa-facebook"></i></a>
+                    <button type="button" id="copy-link" class="btn btn-link btn-social text-secondary" title="Copiar enlace"><i class="fas fa-link"></i></button>
+                </div>
+
+                <a href="#" id="modal-download-link" class="btn btn-success" download>
+                    <i class="fas fa-download me-2"></i>Descargar Foto
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // --- LÓGICA DEL FILTRO DE BÚSQUEDA ---
+    const filtroInput = document.getElementById('filtroReferencia');
+    const container = document.getElementById('fotos-container');
+    const noResultados = document.getElementById('no-resultados');
+    const cards = container.querySelectorAll('.foto-card');
+
+    filtroInput.addEventListener('keyup', function(e) {
+        const busqueda = e.target.value.toUpperCase().trim();
+        let visibles = 0;
+
+        cards.forEach(function(card) {
+            const referencia = card.querySelector('.h5-referencia').textContent.toUpperCase();
+            
+            if (referencia.includes(busqueda)) {
+                card.style.display = 'block';
+                visibles++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Mostrar u ocultar mensaje de "no resultados"
+        noResultados.style.display = (visibles === 0 && cards.length > 0) ? 'block' : 'none';
+    });
+
+
+    // --- LÓGICA DEL MODAL (LIGHTBOX) ---
+    const fotoModal = document.getElementById('fotoModal');
+    if (fotoModal) {
+        fotoModal.addEventListener('show.bs.modal', function (event) {
+            // Botón que disparó el modal
+            const triggerButton = event.relatedTarget;
+
+            // Extraer datos de los atributos data-*
+            const imgSrc = triggerButton.getAttribute('data-img-src');
+            const referencia = triggerButton.getAttribute('data-referencia');
+            const descripcion = triggerButton.getAttribute('data-descripcion');
+
+            // URL absoluta de la imagen para compartir
+            const imageUrlAbsolute = new URL(imgSrc, window.location.origin).href;
+            
+            // Actualizar el contenido del modal
+            const modalTitle = fotoModal.querySelector('.modal-title');
+            const modalImg = fotoModal.querySelector('#modal-img-src');
+            const modalDesc = fotoModal.querySelector('#modal-descripcion');
+            const downloadLink = fotoModal.querySelector('#modal-download-link');
+            const shareWA = fotoModal.querySelector('#share-whatsapp');
+            const shareFB = fotoModal.querySelector('#share-facebook');
+            const copyBtn = fotoModal.querySelector('#copy-link');
+
+            modalTitle.textContent = `Referencia: ${referencia}`;
+            modalImg.src = imgSrc;
+            modalDesc.textContent = descripcion;
+            downloadLink.href = imgSrc;
+            
+            // Configurar enlaces de compartir
+            const shareText = encodeURIComponent(`Mira esta foto de Louis Ferry: ${referencia}`);
+            const shareUrl = encodeURIComponent(imageUrlAbsolute);
+
+            shareWA.href = `https://api.whatsapp.com/send?text=${shareText}%20${shareUrl}`;
+            shareFB.href = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`;
+
+            // Configurar botón de copiar enlace
+            copyBtn.onclick = function() {
+                navigator.clipboard.writeText(imageUrlAbsolute).then(function() {
+                    alert('¡Enlace de la foto copiado al portapapeles!');
+                }, function(err) {
+                    alert('No se pudo copiar el enlace.');
+                });
+            };
+        });
+    }
+});
+</script>
+{% endblock extra_scripts %}

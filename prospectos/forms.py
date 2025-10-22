@@ -11,7 +11,7 @@ class ProspectoForm(forms.ModelForm):
         model = Prospecto
         fields = [
             'nombre_completo', 'identificacion', 'ciudad',
-            'direccion', 'telefono', 'email'
+            'direccion', 'telefono', 'email', 'notas_vendedor'
         ]
         widgets = {
             'nombre_completo': forms.TextInput(attrs={'class': 'form-control'}),

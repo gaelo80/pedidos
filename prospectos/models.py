@@ -29,6 +29,12 @@ class Prospecto(models.Model):
     direccion = models.CharField(max_length=255, verbose_name="Dirección")
     telefono = models.CharField(max_length=30, verbose_name="Teléfono")
     email = models.EmailField(max_length=100, verbose_name="Correo Electrónico")
+    
+    notas_vendedor = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observaciones del Vendedor"
+    )
 
     # --- Campos de control del flujo de aprobación ---
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE')

@@ -732,6 +732,8 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
             'cantidad': detalle_item.cantidad_despachada
         })
 
+        items_agrupados_dict[clave_agrupacion]['total_cantidad_referencia_color'] += detalle_item.cantidad_despachada
+
     items_agrupados_para_pdf = []
     for (referencia, color_agrupado), data in items_agrupados_dict.items():
         data['tallas_cantidades'].sort(key=lambda x: x.get('talla', ''))
