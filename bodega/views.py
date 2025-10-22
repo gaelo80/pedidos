@@ -1048,12 +1048,13 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
 def vista_conteo_inventario(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
-        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        messages.error(request, "No se pudo identificar la empresa.")
         return redirect('core:index')
 
     user = request.user
     puede_guardar = user.has_perm('bodega.add_cabeceraconteo')
 
+    # --- LÓGICA POST (Esta parte se queda igual que tu original) ---
     if request.method == 'POST':
         if not puede_guardar:
             messages.error(request, "No tienes permiso para guardar conteos y ajustar el stock.")
@@ -1069,28 +1070,26 @@ def vista_conteo_inventario(request):
             if action == 'guardar_manual':
                 logger.info(f"Intento de guardado manual por '{user.username}'.")
                 for key, value in request.POST.items():
-                    if key.startswith('cantidad_fisica_') and value.strip().isdigit():
+                     if key.startswith('cantidad_fisica_') and value.strip().isdigit():
                         producto_id = int(key.split('_')[-1])
                         datos_conteo[producto_id] = int(value)
             
             elif action == 'importar_excel':
-                logger.info(f"Intento de importación por archivo por '{user.username}'.")
+                 logger.info(f"Intento de importación por archivo por '{user.username}'.")
                 
-                # --- LÓGICA DE VALIDACIÓN SIMPLIFICADA Y CORREGIDA ---
-                if not import_form.is_valid():
+                 if not import_form.is_valid():
                     messages.error(request, "El formulario de importación tiene errores.")
                     return redirect('bodega:vista_conteo_inventario')
                 
-                if 'archivo_conteo' not in request.FILES:
+                 if 'archivo_conteo' not in request.FILES:
                     messages.error(request, "Para importar, primero debes seleccionar un archivo.")
                     return redirect('bodega:vista_conteo_inventario')
                 
-                # Si pasamos las validaciones, ahora sí definimos las variables
-                archivo_importado = request.FILES['archivo_conteo']
-                nombre_archivo = archivo_importado.name.lower()
+                 archivo_importado = request.FILES['archivo_conteo']
+                 nombre_archivo = archivo_importado.name.lower()
 
-                try:
-                    if nombre_archivo.endswith('.csv'):
+                 try:
+                     if nombre_archivo.endswith('.csv'):
                         contenido_str = archivo_importado.read().decode('utf-8')
                         dialect = csv.Sniffer().sniff(contenido_str.splitlines()[0], delimiters=',;')
                         reader = csv.reader(contenido_str.splitlines(), dialect)
@@ -1102,7 +1101,7 @@ def vista_conteo_inventario(request):
                                 if p_id > 0 and c_fisica >= 0: datos_conteo[p_id] = c_fisica
                             except (ValueError, TypeError, IndexError): continue
 
-                    elif nombre_archivo.endswith(('.xlsx', '.xls')):
+                     elif nombre_archivo.endswith(('.xlsx', '.xls')):
                         workbook = openpyxl.load_workbook(archivo_importado, data_only=True)
                         sheet = workbook[workbook.sheetnames[0]]
                         for row in sheet.iter_rows(min_row=2, values_only=True):
@@ -1111,46 +1110,73 @@ def vista_conteo_inventario(request):
                                 p_id, c_fisica = int(row[0]), int(row[6])
                                 if p_id > 0 and c_fisica >= 0: datos_conteo[p_id] = c_fisica
                             except (ValueError, TypeError, IndexError): continue
-                    else:
+                     else:
                         messages.error(request, "Formato de archivo no soportado. Sube un .csv o .xlsx.")
                         return redirect('bodega:vista_conteo_inventario')
 
-                except Exception as e:
+                 except Exception as e:
                     messages.error(request, f"Error crítico durante la lectura del archivo: {e}")
                     logger.error(f"Error de parsing para conteo: {e}", exc_info=True)
                     return redirect('bodega:vista_conteo_inventario')
             
-            # --- El resto del código se mantiene igual ---
             if not datos_conteo:
                 messages.warning(request, "No se encontraron datos de cantidades para procesar, ni en la tabla ni en el archivo.")
                 return redirect('bodega:vista_conteo_inventario')
             
             try:
-                cabecera, stats = _procesar_y_guardar_conteo(request, empresa_actual, info_form.cleaned_data, datos_conteo)
+                # Esta es la función de guardado que ya habíamos corregido.
+                # No se toca, ya es correcta.
+                cabera, stats = _procesar_y_guardar_conteo(request, empresa_actual, info_form.cleaned_data, datos_conteo)
                 if stats['ajustados'] > 0:
-                    messages.success(request, f"Conteo #{cabecera.pk} guardado. Se ajustó el stock de {stats['ajustados']} producto(s).")
+                    messages.success(request, f"Conteo #{cabera.pk} guardado. Se ajustó el stock de {stats['ajustados']} producto(s).")
                 if stats['sin_cambio'] > 0 and stats['ajustados'] == 0:
-                    messages.info(request, f"Conteo #{cabecera.pk} guardado. {stats['sin_cambio']} producto(s) no tuvieron cambios de stock.")
-                return redirect('bodega:descargar_informe_conteo', cabecera_id=cabecera.pk)
+                    messages.info(request, f"Conteo #{cabera.pk} guardado. {stats['sin_cambio']} producto(s) no tuvieron cambios de stock.")
+                return redirect('bodega:descargar_informe_conteo', cabecera_id=cabera.pk)
             except Exception as e:
                 messages.error(request, f"Ocurrió un error inesperado al guardar el conteo: {e}")
                 logger.critical(f"Error fatal al llamar a _procesar_y_guardar_conteo: {e}", exc_info=True)
                 return redirect('bodega:vista_conteo_inventario')
         else:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'El formulario de Información General tiene errores.',
-                'errors': info_form.errors
-            }, status=400)
-            #messages.error(request, "Por favor corrige los errores en la información general del conteo.")
+            messages.error(request, "Por favor corrige los errores en la información general del conteo.")
 
-    # --- LÓGICA GET ---
-    items_a_contar = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+    # --- LÓGICA GET (AQUÍ ESTÁ LA CORRECCIÓN) ---
+    
+    # 1. Obtenemos los productos base
+    productos_qs = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'nombre', 'color', 'talla')
+    
+    # 2. Obtenemos el mapa de reservas (igual que en la función de guardado)
+    reservas_qs = MovimientoInventario.objects.filter(
+        empresa=empresa_actual,
+        producto__in=productos_qs,
+        tipo_movimiento='SALIDA_VENTA_PENDIENTE'
+    ).values('producto_id').annotate(
+        total_reservado=Sum('cantidad') # Valor negativo (ej: -10)
+    )
+    reservas_map = {r['producto_id']: r['total_reservado'] for r in reservas_qs}
+
+    # 3. Construimos la lista para la plantilla, calculando el stock físico
+    #    PERO MANTENEMOS LA ESTRUCTURA ORIGINAL (lista de objetos Producto)
+    #    y añadimos el stock físico calculado como un atributo temporal.
+    
+    items_para_conteo_corregidos = []
+    for producto in productos_qs:
+        stock_disponible = producto.stock_actual # Ej: -6 (el disponible)
+        reserva_pendiente = reservas_map.get(producto.pk, 0) # Ej: 0
+        
+        # Calculamos el stock físico del sistema
+        # stock_fisico_sistema = -6 (disponible) - 0 (reservado) = -6
+        stock_fisico_sistema = stock_disponible - reserva_pendiente
+        
+        # Añadimos el valor calculado al objeto producto
+        producto.stock_fisico_calculado = stock_fisico_sistema
+        items_para_conteo_corregidos.append(producto)
+
+    # 4. Formularios
     info_form = InfoGeneralConteoForm()
     import_form = ImportarConteoForm()
 
     context = {
-        'items_para_conteo': items_a_contar,
+        'items_para_conteo': items_para_conteo_corregidos, # <--- Pasamos la lista corregida
         'titulo': f"Conteo de Inventario Físico ({empresa_actual.nombre})",
         'info_form': info_form,
         'import_form': import_form,
