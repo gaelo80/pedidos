@@ -1451,7 +1451,7 @@ def vista_reporte_referencias(request):
     base_queryset = DetallePedido.objects.filter(
         pedido__empresa=empresa_actual
     ).exclude(
-        pedido__estado__in=['BORRADOR', 'RECHAZADO_CARTERA', 'RECHAZADO_ADMIN']
+        pedido__estado__in=['BORRADOR', 'RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
     )
 
     # --- Aplicación de Filtros (sin cambios) ---

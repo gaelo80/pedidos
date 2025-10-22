@@ -958,7 +958,6 @@ def exportar_plantilla_conteo(request, file_format='xlsx'): # Añadimos file_for
 
 logger = logging.getLogger(__name__)
 
-# La función auxiliar _procesar_y_guardar_conteo está bien, no necesita cambios.
 @transaction.atomic
 def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
     cabecera = CabeceraConteo.objects.create(
@@ -970,27 +969,77 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
         usuario_registro=request.user
     )
     stats = {'ajustados': 0, 'sin_cambio': 0}
-    for producto in Producto.objects.filter(empresa=empresa, activo=True):
-        cantidad_fisica = datos_conteo.get(producto.pk)
-        if cantidad_fisica is not None and cantidad_fisica >= 0:
-            stock_sistema = producto.stock_actual
-            diferencia = cantidad_fisica - stock_sistema
+    
+    productos_a_contar = Producto.objects.filter(empresa=empresa, activo=True)
+
+    # --- INICIO DE LA CORRECCIÓN ---
+    
+    # 1. Obtenemos un diccionario de todas las reservas pendientes (SALIDA_VENTA_PENDIENTE)
+    #    Tu código usa este tipo de movimiento tanto para estándar como para online.
+    reservas_qs = MovimientoInventario.objects.filter(
+        empresa=empresa,
+        producto__in=productos_a_contar,
+        tipo_movimiento='SALIDA_VENTA_PENDIENTE'
+    ).values('producto_id').annotate(
+        total_reservado=Sum('cantidad') # Esto dará un valor negativo (ej: -10)
+    )
+    
+    # Convertimos el queryset a un diccionario {producto_id: -10} para acceso rápido
+    reservas_map = {r['producto_id']: r['total_reservado'] for r in reservas_qs}
+
+    # --- FIN DE LA CORRECCIÓN ---
+
+    for producto in productos_a_contar:
+        cantidad_fisica_contada = datos_conteo.get(producto.pk)
+        
+        if cantidad_fisica_contada is not None and cantidad_fisica_contada >= 0:
+            
+            # --- LÓGICA DE CÁLCULO CORREGIDA ---
+            
+            # stock_kardex_disponible es el stock "disponible para la venta"
+            # Ej: 90 (Tenías 100 físicos, pero 10 están reservados)
+            stock_kardex_disponible = producto.stock_actual 
+            
+            # Obtenemos la reserva para ESTE producto. Será un valor negativo (ej: -10) o 0.
+            reserva_pendiente = reservas_map.get(producto.pk, 0) 
+            
+            # Calculamos el stock físico que el sistema *debería* tener
+            # stock_sistema_fisico = 90 (disponible) - (-10) (reservado) = 100 (físico)
+            stock_sistema_fisico = stock_kardex_disponible - reserva_pendiente
+            
+            # Comparamos el conteo físico (lo que contó el bodeguero) 
+            # con el stock físico del sistema.
+            diferencia = cantidad_fisica_contada - stock_sistema_fisico # Ej: 100 - 100 = 0
+            
+            # --- FIN LÓGICA DE CÁLCULO CORREGIDA ---
+
             ConteoInventario.objects.create(
-                empresa=empresa, cabecera_conteo=cabecera, producto=producto,
-                cantidad_sistema_antes=stock_sistema, cantidad_fisica_contada=cantidad_fisica,
-                usuario_conteo=request.user
+                empresa=empresa, 
+                cabecera_conteo=cabecera, 
+                producto=producto,
+                cantidad_sistema_antes=stock_sistema_fisico, # Guardamos el físico del sistema
+                cantidad_fisica_contada=cantidad_fisica_contada,
+                usuario_conteo=request.user,
+                notas=f"Stock Kardex (Disp): {stock_kardex_disponible}, Reservas Pendientes: {abs(reserva_pendiente)}"
             )
+            
             if diferencia != 0:
+                # Si hay una diferencia real, se crea el ajuste
                 tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
                 MovimientoInventario.objects.create(
-                    empresa=empresa, producto=producto, cantidad=diferencia,
-                    tipo_movimiento=tipo_movimiento, usuario=request.user,
+                    empresa=empresa, 
+                    producto=producto, 
+                    cantidad=diferencia,
+                    tipo_movimiento=tipo_movimiento, 
+                    usuario=request.user,
                     documento_referencia=f"Conteo ID {cabecera.pk}",
-                    notas=f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
+                    notas=f"Ajuste por conteo. Sistema Físico: {stock_sistema_fisico}, Físico Contado: {cantidad_fisica_contada}"
                 )
                 stats['ajustados'] += 1
+                logger.warning(f"Ajuste de Conteo para {producto.referencia}: Físico={cantidad_fisica_contada}, SistemaFísico={stock_sistema_fisico}, Diferencia={diferencia}")
             else:
                 stats['sin_cambio'] += 1
+                
     return cabecera, stats
 
 
