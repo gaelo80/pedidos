@@ -54,9 +54,9 @@
 {% block content %}
 <div class="container mt-4">
 
-    <p style="color: white;">¡Hola {{ pedido.destinatario.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
-    <p style="color: white;">Haz clic en "Ver Galería" para ver todas las fotos de esa referencia.</p>
-    <hr style="color: white;">
+    <p style="color: black;">¡Hola {{ pedido.destinatario.nombre_completo|default:"N/A" }}!, estas son las fotos de tu pedido.</p>
+    <p style="color: black;">Haz clic en "Ver Galería" para ver todas las fotos de esa referencia.</p>
+    <hr style="color: black;">
 
     {% if fotos_agrupadas %}
         <div class="mb-4">
