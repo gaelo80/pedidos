@@ -35,11 +35,6 @@ from .forms import PedidoOnlineForm, ClienteOnlineForm
 
 logger = logging.getLogger(__name__)
 
-TALLAS_DAMA = [3, 5, 7, 9, 11, 13]
-TALLAS_CABALLERO = [28, 30, 32, 34, 36, 38]
-TALLAS_UNISEX = ['S', 'M', 'L', 'XL'] # Estas se quedan como texto
-
-
 @login_required
 # El permiso debería ser para pedidos_online, o un permiso más genérico si aplica
 @permission_required('pedidos.add_pedido', login_url='core:acceso_denegado')
@@ -1143,25 +1138,6 @@ def generar_borrador_online_pdf(request, pk):
         **query_params
     )
 
-    # --- Reutilizamos la lógica de preparación de datos de secciones (dama, caballero, unisex) ---
-    # Si estas funciones no están globalmente disponibles, tendrás que copiarlas aquí
-    # o importarlas de pedidos.views si están allí.
-    detalles_originales = pedido.detalles.select_related('producto').all()
-    items_dama, items_caballero, items_unisex = [], [], []
-
-    for detalle in detalles_originales:
-        genero_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
-        if genero_producto == 'DAMA':
-            items_dama.append(detalle)
-        elif genero_producto == 'CABALLERO':
-            items_caballero.append(detalle)
-        else:
-            items_unisex.append(detalle)       
-
-    grupos_dama, cols_dama = preparar_datos_seccion(items_dama, TALLAS_DAMA)
-    grupos_caballero, cols_caballero = preparar_datos_seccion(items_caballero, TALLAS_CABALLERO)
-    grupos_unisex, cols_unisex = preparar_datos_seccion(items_unisex, TALLAS_UNISEX)
-
     # --- Obtener logo de la empresa ---
     logo_para_pdf = None
     try:
@@ -1169,21 +1145,99 @@ def generar_borrador_online_pdf(request, pk):
     except Exception as e: 
         logger.warning(f"Advertencia PDF Borrador Online: Excepción al llamar get_logo_base_64_despacho(): {e}")
 
-    TALLAS_MAPEO = (empresa_actual.talla_mapeo or {}) if empresa_actual else {}
+    # --- INICIO: LÓGICA DINÁMICA DE CATEGORÍAS Y TALLAS (PDF) ---
+    # Esta lógica es idéntica a la de pedidos/views.py
+    
+    empresa_obj = pedido.empresa
+    
+    # 1. Cargar la configuración de categorías desde la BD.
+    categorias_config = empresa_obj.categorias_tallas or {
+        # Default por si la empresa no tiene nada configurado
+        'DAMA': ['6', '8', '10', '12', '14', '16'],
+        'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'UNISEX': ['S', 'M', 'L', 'XL']
+    }
+    
+    # 2. Cargar el mapeo de tallas (Ej: {"6": "3"})
+    TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
 
+    # 3. Agrupar detalles por su categoría (género)
+    # Usamos defaultdict para crear listas vacías automáticamente
+    from collections import defaultdict
+    detalles_por_categoria = defaultdict(list)
+    
+    for detalle in pedido.detalles.select_related('producto').all():
+        
+        # --- INICIO: CORRECCIÓN DE TIPO DE DATO (Integer vs String) ---
+        talla_normalizada = ""
+        # 
+        # ESTE ES EL IF IMPORTANTE
+        #
+        if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
+            # Normalización robusta: str -> strip -> split on . -> take first part
+            talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
+
+            # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+            if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+                # Traduce la talla (ej: "6" -> "3")
+                detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            
+            else:
+                # NO hay mapeo (AMERICAN JEANS)
+                # Asignamos la talla normalizada (ej: "16.0" -> "16")
+                detalle.producto.talla = talla_normalizada
+            # --- FIN: CORRECCIÓN ---
+        
+        # 
+        # ESTAS LÍNEAS ESTÁN FUERA DEL IF (¡Correcto!)
+        #
+        # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
+        categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        detalles_por_categoria[categoria_producto].append(detalle) 
+    
+    # 4. Procesar cada sección definida en la configuración
+    secciones_procesadas = []
+    # Iteramos sobre la configuración de la empresa (ej: "DAMA", "NIÑO", etc.)
+    for categoria, tallas_lista in categorias_config.items():
+        # Solo procesamos la categoría si hay productos de ese tipo en el pedido
+        if categoria in detalles_por_categoria:
+            items_de_categoria = detalles_por_categoria[categoria]
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Normalización robusta de la lista de columnas
+            tallas_columnas_normalizadas_y_mapeadas = []
+            for t in tallas_lista:
+                # 1. Normalizar la columna (ej: 16.0 -> "16")
+                col_normalizada = str(t).strip().split('.')[0].split(',')[0]
+                # 2. Mapear la columna normalizada (ej: "6" -> "3")
+                col_mapeada = TALLAS_MAPEO.get(col_normalizada, col_normalizada)
+                tallas_columnas_normalizadas_y_mapeadas.append(col_mapeada)
+
+            # Pasamos la lista de columnas YA NORMALIZADA Y MAPEADA a la utilidad
+            grupos, tallas_cols = preparar_datos_seccion(items_de_categoria, tallas_columnas_normalizadas_y_mapeadas)
+            # --- FIN DE LA CORRECCIÓN ---
+            
+            if grupos: # Solo añadir si hay productos
+                secciones_procesadas.append({
+                    'titulo': f"PEDIDO {categoria.replace('_', ' ')}",
+                    'grupos': grupos,
+                    'tallas_cols': tallas_cols
+                })
+    # --- FIN: LÓGICA DINÁMICA ---
+
+
+    # --- INICIO: DICCIONARIO DE CONTEXTO CORREGIDO ---
     context = {
         'pedido': pedido,
         'empresa_actual': empresa_actual,
         'logo_base64': logo_para_pdf,
         'tasa_iva_pct': int(pedido.IVA_RATE * 100),
-        'grupos_dama': grupos_dama, 'tallas_cols_dama': cols_dama,
-        'grupos_caballero': grupos_caballero, 'tallas_cols_caballero': cols_caballero,
-        'grupos_unisex': grupos_unisex, 'tallas_cols_unisex': cols_unisex,
+        'secciones_procesadas': secciones_procesadas,  # <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
         'incluir_color': True,
-        'incluir_vr_unit': True,
+        'incluir_vr_unit': pedido.mostrar_precios_pdf, # <-- ¡AQUÍ ESTÁ LA OTRA CORRECCIÓN!
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request),
-        'tallas_mapeo': TALLAS_MAPEO,
     }
+    # --- FIN: DICCIONARIO DE CONTEXTO CORREGIDO ---
 
     template = get_template('pedidos/pedido_pdf.html') # Reutilizamos la misma plantilla PDF
     html = template.render(context)
@@ -1191,17 +1245,13 @@ def generar_borrador_online_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="pedido_borrador_online_{pedido.pk}.pdf"'
 
-    # Uso de xhtml2pdf o WeasyPrint
-    # Si usas WeasyPrint:
-    # HTML(string=html).write_pdf(response)
-    # Si usas xhtml2pdf:
+    # Uso de xhtml2pdf
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
-       return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
+        logger.error(f"Error al generar PDF de borrador ONLINE para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
+        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response
-
 
 @login_required
 def eliminar_borrador_online(request, pk):

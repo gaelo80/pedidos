@@ -657,16 +657,16 @@ def generar_pedido_pdf(request, pk):
             # Normalización robusta: str -> strip -> split on . -> take first part
             talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
 
-        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
-        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
-            # Traduce la talla (ej: "6" -> "3")
-            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
-        
-        else:
-            # NO hay mapeo (AMERICAN JEANS)
-            # Asignamos la talla normalizada (ej: "16.0" -> "16")
-            detalle.producto.talla = talla_normalizada
-        # --- FIN: CORRECCIÓN ---
+            # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+            if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+                # Traduce la talla (ej: "6" -> "3")
+                detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            
+            else:
+                # NO hay mapeo (AMERICAN JEANS)
+                # Asignamos la talla normalizada (ej: "16.0" -> "16")
+                detalle.producto.talla = talla_normalizada
+            # --- FIN: CORRECCIÓN ---
         
         # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
         categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
@@ -780,16 +780,16 @@ def vista_publica_pedido_pdf(request, token):
             # Normalización robusta: str -> strip -> split on . -> take first part
             talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
 
-        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
-        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
-            # Traduce la talla (ej: "6" -> "3")
-            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
-        
-        else:
-            # NO hay mapeo (AMERICAN JEANS)
-            # Asignamos la talla normalizada (ej: "16.0" -> "16")
-            detalle.producto.talla = talla_normalizada
-        # --- FIN: CORRECCIÓN ---
+            # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+            if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+                # Traduce la talla (ej: "6" -> "3")
+                detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            
+            else:
+                # NO hay mapeo (AMERICAN JEANS)
+                # Asignamos la talla normalizada (ej: "16.0" -> "16")
+                detalle.producto.talla = talla_normalizada
+            # --- FIN: CORRECCIÓN ---
         
         # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
         categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
@@ -1245,10 +1245,7 @@ def generar_borrador_pdf(request, pk):
         **query_params
     )
 
-
-
-
-# --- INICIO: LÓGICA DINÁMICA DE CATEGORÍAS Y TALLAS (PDF) ---
+    # --- INICIO: LÓGICA DINÁMICA DE CATEGORÍAS Y TALLAS (PDF) ---
     empresa_obj = pedido.empresa
     
     # 1. Cargar la configuración de categorías desde la BD.
@@ -1267,33 +1264,35 @@ def generar_borrador_pdf(request, pk):
     from collections import defaultdict
     detalles_por_categoria = defaultdict(list)
     
-    
-    
-
     for detalle in pedido.detalles.select_related('producto').all():
         
         # --- INICIO: CORRECCIÓN DE TIPO DE DATO (Integer vs String) ---
         talla_normalizada = ""
+        # 
+        # ESTE ES EL IF IMPORTANTE
+        #
         if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
             # Normalización robusta: str -> strip -> split on . -> take first part
             talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
 
-        # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
-        if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
-            # Traduce la talla (ej: "6" -> "3")
-            detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            # Aplicar el mapeo de tallas SI EXISTE (para Louis Ferry)
+            if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+                # Traduce la talla (ej: "6" -> "3")
+                detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            
+            else:
+                # NO hay mapeo (AMERICAN JEANS)
+                # Asignamos la talla normalizada (ej: "16.0" -> "16")
+                detalle.producto.talla = talla_normalizada
+            # --- FIN: CORRECCIÓN ---
         
-        else:
-            # NO hay mapeo (AMERICAN JEANS)
-            # Asignamos la talla normalizada (ej: "16.0" -> "16")
-            detalle.producto.talla = talla_normalizada
-        # --- FIN: CORRECCIÓN ---
-        
-        # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
+            # 
+            # ESTAS LÍNEAS AHORA ESTÁN DENTRO DEL IF
+            #
+            # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
         categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
-        detalles_por_categoria[categoria_producto].append(detalle)    
-        
-
+        detalles_por_categoria[categoria_producto].append(detalle) 
+    
     # 4. Procesar cada sección definida en la configuración
     secciones_procesadas = []
     # Iteramos sobre la configuración de la empresa (ej: "DAMA", "NIÑO", etc.)
@@ -1338,6 +1337,9 @@ def generar_borrador_pdf(request, pk):
         'secciones_procesadas': secciones_procesadas,
         'incluir_color': True,
         'incluir_vr_unit': pedido.mostrar_precios_pdf,
+        # 
+        # AQUÍ ESTABA EL DOBLE ERROR (SINTAXIS Y CARÁCTER INVÁLIDO)
+        #
         'enlace_descarga_fotos_pdf': pedido.get_enlace_descarga_fotos(request), # Obtener el enlace de descarga de fotos
     }
     
@@ -1351,10 +1353,9 @@ def generar_borrador_pdf(request, pk):
     from xhtml2pdf import pisa
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
-       logger.error(f"Error al generar PDF de borrador para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
-       return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
+        logger.error(f"Error al generar PDF de borrador para pedido #{pedido.numero_pedido_empresa}: {pisa_status.err}")
+        return HttpResponse('Ocurrió un error al generar el PDF.', status=500)
     return response
-
 
 @login_required
 @require_POST # Esta vista solo aceptará peticiones POST
