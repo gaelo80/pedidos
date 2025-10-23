@@ -261,14 +261,29 @@ def lista_pedidos_borrador_online(request):
         tipo_pedido='ONLINE' # Filter specifically for ONLINE orders
     )
 
-    # Filter by seller if the user is a seller and not an admin/superuser
-    if es_vendedor(user) and not (user.is_staff or es_administracion(user)):
+    # --- INICIO DE LA CORRECCIÓN DE SEGURIDAD ---
+
+    # Comprobamos si el usuario es Admin o Staff
+    es_admin = user.is_staff or es_administracion(user)
+    
+    # Comprobamos si el usuario pertenece al grupo 'es_online'
+    es_vendedor_online = es_online(user)
+
+    # Aplicamos la lógica de filtrado
+    if es_vendedor_online and not es_admin:
+        # Si es un vendedor ONLINE y NO es admin, filtra solo por su usuario
         queryset = base_queryset.filter(vendedor__user=user)
         titulo = 'Mis Pedidos Borrador Online'
-    else:
-        # Admins and superusers see all online draft orders for their company
+    elif es_admin:
+        # Si es Admin, ve todos los borradores ONLINE de la empresa
         queryset = base_queryset
         titulo = 'Todos los Pedidos Borrador Online'
+    else:
+        # Si no es ni Admin ni Vendedor Online (ej. un vendedor estándar), no ve nada.
+        queryset = base_queryset.none()
+        titulo = 'Mis Pedidos Borrador Online'
+        
+    # --- FIN DE LA CORRECCIÓN DE SEGURIDAD ---
 
     if search_query:
         queryset = queryset.filter(
@@ -285,7 +300,6 @@ def lista_pedidos_borrador_online(request):
         'search_query': search_query
     }
     return render(request, 'pedidos_online/lista_pedidos_borrador_online.html', context)
-
 
 # --- NEW API VIEW: Get Client Summary ---
 @api_view(['GET'])
