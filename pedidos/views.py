@@ -1466,11 +1466,11 @@ def vista_reporte_referencias(request):
     # --- Query Base MODIFICADA ---
     # Estados que NUNCA se cuentan
     estados_excluidos_siempre = [
-        'RECHAZADO_CARTERA', 
-        'RECHAZADO_ADMIN', 
+        'RECHAZADO_CARTERA',
+        'RECHAZADO_ADMIN',
         'CANCELADO'
     ]
-    
+
     # Filtramos por empresa y excluimos los estados malos
     base_queryset = DetallePedido.objects.filter(
         pedido__empresa=empresa_actual
@@ -1487,19 +1487,19 @@ def vista_reporte_referencias(request):
          base_queryset = base_queryset.filter(pedido__fecha_hora__gte=fecha_inicio)
     elif fecha_fin: # Filtro solo por fecha fin
          base_queryset = base_queryset.filter(pedido__fecha_hora__lte=fecha_fin)
-         
+
     if search_referencia:
         base_queryset = base_queryset.filter(producto__referencia__icontains=search_referencia)
 
     # --- Query principal AGRUPADA con SUMAS CONDICIONALES ---
     ventas_por_grupo = base_queryset.values(
-        'producto__referencia', 
+        'producto__referencia',
         'producto__color'
     ).annotate(
-        # Cantidad "A Bodega": Suma si NO es Borrador Estándar
+        # Cantidad "A Bodega": Suma si NO es Borrador (de ningún tipo)
         qty_bodega=Sum(
             Case(
-                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(0)),
+                When(pedido__estado='BORRADOR', then=Value(0)), # Excluye TODOS los borradores
                 default=F('cantidad'),
                 output_field=IntegerField()
             )
@@ -1512,10 +1512,10 @@ def vista_reporte_referencias(request):
                 output_field=IntegerField()
             )
         ),
-        # Subtotal "A Bodega": Suma subtotal si NO es Borrador Estándar
+        # Subtotal "A Bodega": Suma subtotal si NO es Borrador (de ningún tipo)
         subtotal_bodega=Sum(
             Case(
-                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(Decimal('0.0'))),
+                When(pedido__estado='BORRADOR', then=Value(Decimal('0.0'))), # Excluye TODOS los borradores
                 default=F('cantidad') * F('precio_unitario'),
                 output_field=DecimalField()
             )
@@ -1530,7 +1530,7 @@ def vista_reporte_referencias(request):
         )
     ).exclude(
         # Excluimos filas donde AMBAS cantidades sean 0
-        qty_bodega=0, 
+        qty_bodega=0,
         qty_borrador_online=0
     )
 
@@ -1559,10 +1559,10 @@ def vista_reporte_referencias(request):
 
     # --- Transformación de datos a formato Matriz (MODIFICADO para incluir ambos tipos) ---
     # Necesitamos obtener el desglose por tallas para AMBOS tipos de pedidos (bodega y borrador online)
-    
+
     # Query para obtener tallas de pedidos "A Bodega"
     detalles_talla_bodega_qs = base_queryset.exclude(
-        pedido__estado='BORRADOR', pedido__tipo_pedido='ESTANDAR' # Excluir Borrador Estándar
+        pedido__estado='BORRADOR' # Excluir TODOS los borradores
     ).values(
         'producto__referencia', 'producto__color', 'producto__talla'
     ).annotate(
@@ -1613,10 +1613,10 @@ def vista_reporte_referencias(request):
         ref = grupo['producto__referencia']
         color = grupo['producto__color'] or 'SIN COLOR'
         clave_grupo = (ref, grupo['producto__color']) # Usar color original (puede ser None)
-        
+
         # Obtenemos el desglose de tallas para este grupo
         tallas_grupo = detalles_talla_dict.get(clave_grupo, {})
-        
+
         reporte_final.append({
             'referencia': ref,
             'color': color,
@@ -1626,25 +1626,25 @@ def vista_reporte_referencias(request):
             'subtotal_bodega': grupo['subtotal_bodega'],
             'subtotal_borrador_online': grupo['subtotal_borrador_online'],
             # Añadimos un identificador único para el JS
-            'row_id': f"ref-{ref}-color-{grupo['producto__color'] or 'none'}" 
+            'row_id': f"ref-{ref}-color-{grupo['producto__color'] or 'none'}"
         })
         gran_total_bodega_qty += grupo['qty_bodega']
         gran_total_borrador_qty += grupo['qty_borrador_online']
         gran_total_bodega_subtotal += grupo['subtotal_bodega']
         gran_total_borrador_subtotal += grupo['subtotal_borrador_online']
-    
+
     # --- Ordenar tallas y contexto ---
     # Aseguramos que las tallas sean strings antes de ordenar
     tallas_ordenadas = sorted(
         [t for t in todas_las_tallas if t], # Filtrar None o vacíos
         key=lambda t: (int(t) if t.isdigit() else float('inf'), t)
     )
-    
+
     puede_ver_subtotal = request.user.has_perm('pedidos.can_view_financial_reports')
-    
+
     context = {
-        'titulo': 'Reporte de Demanda por Referencia',
-        'reporte': reporte_final, 
+        'titulo': 'Reporte de Demanda por Referencia (Bodega + Borrador Online)',
+        'reporte': reporte_final,
         'tallas_cabecera': tallas_ordenadas,
         'gran_total_bodega_qty': gran_total_bodega_qty,
         'gran_total_borrador_qty': gran_total_borrador_qty,
@@ -1653,7 +1653,7 @@ def vista_reporte_referencias(request):
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'search_referencia': search_referencia,
-        'orden_actual': ordenar_por, 
+        'orden_actual': ordenar_por,
         'puede_ver_subtotal': puede_ver_subtotal,
     }
     # Asegúrate que el nombre del template sea el correcto
@@ -1677,7 +1677,7 @@ def detalle_referencia_reporte_ajax(request):
     # --- Query Base ---
     # Estados excluidos siempre
     estados_excluidos_siempre = ['RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
-    
+
     # Filtramos por empresa, referencia y excluimos estados malos
     base_detalle_qs = DetallePedido.objects.filter(
         pedido__empresa=empresa_actual,
@@ -1695,10 +1695,10 @@ def detalle_referencia_reporte_ajax(request):
     detalles_agrupados = base_detalle_qs.values(
         'pedido__vendedor__user__username' # Agrupar por nombre de usuario del vendedor
     ).annotate(
-        # Cantidad "A Bodega" por vendedor
+        # Cantidad "A Bodega" por vendedor - CORREGIDO
         qty_bodega_vendedor=Sum(
             Case(
-                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(0)),
+                When(pedido__estado='BORRADOR', then=Value(0)), # Excluye TODOS los borradores
                 default=F('cantidad'),
                 output_field=IntegerField()
             )
@@ -1715,7 +1715,7 @@ def detalle_referencia_reporte_ajax(request):
 
     # Filtrar resultados donde ambas cantidades sean 0 para un vendedor
     resultados_finales = [
-        item for item in detalles_agrupados 
+        item for item in detalles_agrupados
         if item['qty_bodega_vendedor'] > 0 or item['qty_borrador_vendedor'] > 0
     ]
 
