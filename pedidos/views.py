@@ -13,6 +13,7 @@ from django.views import View
 from urllib.parse import quote
 from django.contrib.auth.models import User
 from collections import defaultdict
+from django.db.models import Q, Sum, F, DecimalField, Case, When, Value, IntegerField 
 import json
 from django.http import JsonResponse
 from django.urls import reverse
@@ -1432,110 +1433,294 @@ def autosave_pedido_borrador(request):
 
 @login_required
 def vista_reporte_referencias(request):
+    """
+    Genera un reporte de demanda total (Ventas a Bodega + Borradores Online)
+    agrupado por referencia y color, con desglose por tallas.
+    """
     empresa_actual = getattr(request, 'tenant', None)
-    
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido.")
+        return redirect('core:index') # O a donde prefieras
+
     # --- Captura de Filtros (sin cambios) ---
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
     search_referencia = request.GET.get('search_referencia', '').strip()
-    
-    # --- ¡NUEVO! Captura del parámetro de ordenamiento ---
     ordenar_por = request.GET.get('ordenar_por', 'ref') # Por defecto ordena por referencia
 
     fecha_inicio, fecha_fin = None, None
     if fecha_inicio_str:
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+        except ValueError:
+            messages.error(request, "Formato de fecha de inicio inválido. Use AAAA-MM-DD.")
+            fecha_inicio_str = None # Resetear para no mostrar fecha inválida en el form
     if fecha_fin_str:
-        fecha_fin = datetime.strptime(f"{fecha_fin_str} 23:59:59", '%Y-%m-%d %H:%M:%S')
+        try:
+            # Incluir todo el día final
+            fecha_fin = datetime.strptime(f"{fecha_fin_str} 23:59:59", '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            messages.error(request, "Formato de fecha de fin inválido. Use AAAA-MM-DD.")
+            fecha_fin_str = None # Resetear
 
-    # --- Query Base (sin cambios) ---
+    # --- Query Base MODIFICADA ---
+    # Estados que NUNCA se cuentan
+    estados_excluidos_siempre = [
+        'RECHAZADO_CARTERA', 
+        'RECHAZADO_ADMIN', 
+        'CANCELADO'
+    ]
+    
+    # Filtramos por empresa y excluimos los estados malos
     base_queryset = DetallePedido.objects.filter(
         pedido__empresa=empresa_actual
     ).exclude(
-        pedido__estado__in=['BORRADOR', 'RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
+        pedido__estado__in=estados_excluidos_siempre
     )
+
+    # NO excluimos los borradores aquí, lo haremos en la agregación condicional.
 
     # --- Aplicación de Filtros (sin cambios) ---
     if fecha_inicio and fecha_fin:
         base_queryset = base_queryset.filter(pedido__fecha_hora__range=[fecha_inicio, fecha_fin])
+    elif fecha_inicio: # Filtro solo por fecha inicio
+         base_queryset = base_queryset.filter(pedido__fecha_hora__gte=fecha_inicio)
+    elif fecha_fin: # Filtro solo por fecha fin
+         base_queryset = base_queryset.filter(pedido__fecha_hora__lte=fecha_fin)
+         
     if search_referencia:
         base_queryset = base_queryset.filter(producto__referencia__icontains=search_referencia)
 
-    # --- ¡NUEVO! Query principal agrupada por Referencia y Color con Subtotales ---
-    # Esta query nos dará los totales por grupo para poder ordenar por ellos.
+    # --- Query principal AGRUPADA con SUMAS CONDICIONALES ---
     ventas_por_grupo = base_queryset.values(
         'producto__referencia', 
         'producto__color'
     ).annotate(
-        total_unidades=Sum('cantidad'),
-        # Calculamos el subtotal multiplicando cantidad por precio unitario para cada detalle
-        subtotal_grupo=Sum(F('cantidad') * F('precio_unitario'), output_field=DecimalField())
-    ).exclude(total_unidades=0) # Excluimos grupos sin ventas
+        # Cantidad "A Bodega": Suma si NO es Borrador Estándar
+        qty_bodega=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(0)),
+                default=F('cantidad'),
+                output_field=IntegerField()
+            )
+        ),
+        # Cantidad "Borrador Online": Suma SOLO si es Borrador y Online
+        qty_borrador_online=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ONLINE'), then=F('cantidad')),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        ),
+        # Subtotal "A Bodega": Suma subtotal si NO es Borrador Estándar
+        subtotal_bodega=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(Decimal('0.0'))),
+                default=F('cantidad') * F('precio_unitario'),
+                output_field=DecimalField()
+            )
+        ),
+         # Subtotal "Borrador Online": Suma subtotal SOLO si es Borrador y Online
+        subtotal_borrador_online=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ONLINE'), then=F('cantidad') * F('precio_unitario')),
+                default=Value(Decimal('0.0')),
+                output_field=DecimalField()
+            )
+        )
+    ).exclude(
+        # Excluimos filas donde AMBAS cantidades sean 0
+        qty_bodega=0, 
+        qty_borrador_online=0
+    )
 
-    # --- ¡NUEVO! Aplicar el ordenamiento dinámico ---
+    # --- Aplicar el ordenamiento dinámico ---
+    # Adaptado para usar las nuevas métricas o totales
     if ordenar_por == 'subtotal_desc':
-        ventas_por_grupo = ventas_por_grupo.order_by('-subtotal_grupo')
+        # Ordenar por la suma de ambos subtotales, descendente
+        ventas_por_grupo = ventas_por_grupo.annotate(
+            subtotal_total_orden=F('subtotal_bodega') + F('subtotal_borrador_online')
+        ).order_by('-subtotal_total_orden')
     elif ordenar_por == 'subtotal_asc':
-        ventas_por_grupo = ventas_por_grupo.order_by('subtotal_grupo')
+         ventas_por_grupo = ventas_por_grupo.annotate(
+            subtotal_total_orden=F('subtotal_bodega') + F('subtotal_borrador_online')
+        ).order_by('subtotal_total_orden')
     elif ordenar_por == 'unidades_desc':
-        ventas_por_grupo = ventas_por_grupo.order_by('-total_unidades')
+        # Ordenar por la suma de ambas cantidades, descendente
+        ventas_por_grupo = ventas_por_grupo.annotate(
+            total_unidades_orden=F('qty_bodega') + F('qty_borrador_online')
+        ).order_by('-total_unidades_orden')
     elif ordenar_por == 'unidades_asc':
-        ventas_por_grupo = ventas_por_grupo.order_by('total_unidades')
-    else: # Por defecto
+        ventas_por_grupo = ventas_por_grupo.annotate(
+            total_unidades_orden=F('qty_bodega') + F('qty_borrador_online')
+        ).order_by('total_unidades_orden')
+    else: # Por defecto: referencia, color
         ventas_por_grupo = ventas_por_grupo.order_by('producto__referencia', 'producto__color')
 
-    # --- ¡MODIFICADO! Transformación de datos a formato Matriz ---
-    # Ahora, primero obtenemos los detalles por talla y los guardamos en un diccionario para eficiencia.
-    detalles_por_talla_qs = base_queryset.values(
+    # --- Transformación de datos a formato Matriz (MODIFICADO para incluir ambos tipos) ---
+    # Necesitamos obtener el desglose por tallas para AMBOS tipos de pedidos (bodega y borrador online)
+    
+    # Query para obtener tallas de pedidos "A Bodega"
+    detalles_talla_bodega_qs = base_queryset.exclude(
+        pedido__estado='BORRADOR', pedido__tipo_pedido='ESTANDAR' # Excluir Borrador Estándar
+    ).values(
         'producto__referencia', 'producto__color', 'producto__talla'
     ).annotate(
         total_talla=Sum('cantidad')
-    )
+    ).filter(total_talla__gt=0) # Solo tallas con cantidad > 0
 
-    detalles_talla_dict = {}
+    # Query para obtener tallas de pedidos "Borrador Online"
+    detalles_talla_borrador_qs = base_queryset.filter(
+        pedido__estado='BORRADOR', pedido__tipo_pedido='ONLINE' # Solo Borrador Online
+    ).values(
+        'producto__referencia', 'producto__color', 'producto__talla'
+    ).annotate(
+        total_talla=Sum('cantidad')
+    ).filter(total_talla__gt=0) # Solo tallas con cantidad > 0
+
+    detalles_talla_dict = defaultdict(lambda: defaultdict(lambda: {'bodega': 0, 'borrador': 0}))
     todas_las_tallas = set()
-    for detalle in detalles_por_talla_qs:
-        clave = (detalle['producto__referencia'], detalle['producto__color'])
-        if clave not in detalles_talla_dict:
-            detalles_talla_dict[clave] = {}
-        if detalle['producto__talla']:
-            detalles_talla_dict[clave][detalle['producto__talla']] = detalle['total_talla']
-            todas_las_tallas.add(detalle['producto__talla'])
 
-    # Construimos el reporte final iterando sobre el queryset ya ordenado
+    # Procesar tallas "A Bodega"
+    for detalle in detalles_talla_bodega_qs:
+        ref = detalle['producto__referencia']
+        color = detalle['producto__color']
+        talla = detalle['producto__talla']
+        if ref is not None and talla is not None:
+            talla_normalizada = str(talla).strip().split('.')[0].split(',')[0]
+            detalles_talla_dict[(ref, color)][talla_normalizada]['bodega'] += detalle['total_talla']
+            todas_las_tallas.add(talla_normalizada)
+
+    # Procesar tallas "Borrador Online"
+    for detalle in detalles_talla_borrador_qs:
+        ref = detalle['producto__referencia']
+        color = detalle['producto__color']
+        talla = detalle['producto__talla']
+        if ref is not None and talla is not None:
+            talla_normalizada = str(talla).strip().split('.')[0].split(',')[0]
+            detalles_talla_dict[(ref, color)][talla_normalizada]['borrador'] += detalle['total_talla']
+            todas_las_tallas.add(talla_normalizada)
+
+
+    # --- Construcción del reporte final ---
     reporte_final = []
-    gran_total_unidades = 0
-    gran_total_subtotal = Decimal('0.00')
+    gran_total_bodega_qty = 0
+    gran_total_borrador_qty = 0
+    gran_total_bodega_subtotal = Decimal('0.00')
+    gran_total_borrador_subtotal = Decimal('0.00')
 
     for grupo in ventas_por_grupo:
         ref = grupo['producto__referencia']
         color = grupo['producto__color'] or 'SIN COLOR'
-        clave_grupo = (ref, grupo['producto__color'])
+        clave_grupo = (ref, grupo['producto__color']) # Usar color original (puede ser None)
+        
+        # Obtenemos el desglose de tallas para este grupo
+        tallas_grupo = detalles_talla_dict.get(clave_grupo, {})
         
         reporte_final.append({
             'referencia': ref,
             'color': color,
-            'tallas': detalles_talla_dict.get(clave_grupo, {}),
-            'total_grupo_unidades': grupo['total_unidades'],
-            'subtotal_grupo': grupo['subtotal_grupo']
+            'tallas': tallas_grupo, # Pasamos el dict de tallas {'talla': {'bodega': x, 'borrador': y}}
+            'total_bodega_unidades': grupo['qty_bodega'],
+            'total_borrador_unidades': grupo['qty_borrador_online'],
+            'subtotal_bodega': grupo['subtotal_bodega'],
+            'subtotal_borrador_online': grupo['subtotal_borrador_online'],
+            # Añadimos un identificador único para el JS
+            'row_id': f"ref-{ref}-color-{grupo['producto__color'] or 'none'}" 
         })
-        gran_total_unidades += grupo['total_unidades']
-        gran_total_subtotal += grupo['subtotal_grupo']
+        gran_total_bodega_qty += grupo['qty_bodega']
+        gran_total_borrador_qty += grupo['qty_borrador_online']
+        gran_total_bodega_subtotal += grupo['subtotal_bodega']
+        gran_total_borrador_subtotal += grupo['subtotal_borrador_online']
     
-    # Ordenar las tallas para usarlas como cabeceras de la tabla (sin cambios)
-    tallas_ordenadas = sorted(list(todas_las_tallas), key=lambda t: (int(t) if str(t).isdigit() else float('inf'), str(t)))
+    # --- Ordenar tallas y contexto ---
+    # Aseguramos que las tallas sean strings antes de ordenar
+    tallas_ordenadas = sorted(
+        [t for t in todas_las_tallas if t], # Filtrar None o vacíos
+        key=lambda t: (int(t) if t.isdigit() else float('inf'), t)
+    )
+    
     puede_ver_subtotal = request.user.has_perm('pedidos.can_view_financial_reports')
     
     context = {
-        'titulo': 'Reporte Profesional de Ventas por Referencia',
-        'reporte': reporte_final, # Usamos la nueva estructura
+        'titulo': 'Reporte de Demanda por Referencia',
+        'reporte': reporte_final, 
         'tallas_cabecera': tallas_ordenadas,
-        'gran_total_unidades': gran_total_unidades,
-        'gran_total_subtotal': gran_total_subtotal, # Pasamos el subtotal total
+        'gran_total_bodega_qty': gran_total_bodega_qty,
+        'gran_total_borrador_qty': gran_total_borrador_qty,
+        'gran_total_bodega_subtotal': gran_total_bodega_subtotal,
+        'gran_total_borrador_subtotal': gran_total_borrador_subtotal,
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
         'search_referencia': search_referencia,
-        'orden_actual': ordenar_por, # Pasamos el orden actual a la plantilla
+        'orden_actual': ordenar_por, 
         'puede_ver_subtotal': puede_ver_subtotal,
     }
+    # Asegúrate que el nombre del template sea el correcto
     return render(request, 'pedidos/reportes/ventas_por_referencia.html', context)
+
+
+# --- NUEVA VISTA AJAX PARA EL DETALLE ---
+@login_required
+def detalle_referencia_reporte_ajax(request):
+    """
+    Vista AJAX que devuelve los detalles de ventas (Bodega y Borrador Online)
+    para una referencia y color específicos, agrupados por vendedor.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    referencia = request.GET.get('referencia')
+    color = request.GET.get('color') # Puede ser 'SIN COLOR' o el valor real
+
+    if not empresa_actual or not referencia:
+        return JsonResponse({'error': 'Parámetros inválidos'}, status=400)
+
+    # --- Query Base ---
+    # Estados excluidos siempre
+    estados_excluidos_siempre = ['RECHAZADO_CARTERA', 'RECHAZADO_ADMIN', 'CANCELADO']
+    
+    # Filtramos por empresa, referencia y excluimos estados malos
+    base_detalle_qs = DetallePedido.objects.filter(
+        pedido__empresa=empresa_actual,
+        producto__referencia=referencia
+    ).exclude(pedido__estado__in=estados_excluidos_siempre)
+
+    # Manejar el color (si viene 'SIN COLOR', buscar producto__color=None)
+    if color == 'SIN COLOR':
+        base_detalle_qs = base_detalle_qs.filter(producto__color__isnull=True)
+    elif color: # Si viene un color específico
+        base_detalle_qs = base_detalle_qs.filter(producto__color=color)
+    # Si 'color' está vacío o no se proporciona, no filtramos por color (mostramos todos los colores de la ref)
+
+    # --- Agregación Condicional por Vendedor y Tipo ---
+    detalles_agrupados = base_detalle_qs.values(
+        'pedido__vendedor__user__username' # Agrupar por nombre de usuario del vendedor
+    ).annotate(
+        # Cantidad "A Bodega" por vendedor
+        qty_bodega_vendedor=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ESTANDAR'), then=Value(0)),
+                default=F('cantidad'),
+                output_field=IntegerField()
+            )
+        ),
+        # Cantidad "Borrador Online" por vendedor
+        qty_borrador_vendedor=Sum(
+            Case(
+                When(Q(pedido__estado='BORRADOR') & Q(pedido__tipo_pedido='ONLINE'), then=F('cantidad')),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        )
+    ).order_by('pedido__vendedor__user__username') # Ordenar por nombre de vendedor
+
+    # Filtrar resultados donde ambas cantidades sean 0 para un vendedor
+    resultados_finales = [
+        item for item in detalles_agrupados 
+        if item['qty_bodega_vendedor'] > 0 or item['qty_borrador_vendedor'] > 0
+    ]
+
+    # Renombrar 'pedido__vendedor__user__username' a 'vendedor' para claridad
+    for item in resultados_finales:
+        item['vendedor'] = item.pop('pedido__vendedor__user__username', 'N/A')
+
+    return JsonResponse({'detalles': resultados_finales})

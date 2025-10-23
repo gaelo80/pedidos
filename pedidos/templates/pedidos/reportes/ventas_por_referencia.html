@@ -1,92 +1,289 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
-{% load core_extras %}
+{% load static %} {# Asegúrate de cargar static si usas JS externo #}
+{% load core_extras %} {# O donde tengas definido query_transform #}
+
+
+{% block page_title %}{{ titulo|default:"Reporte de Demanda" }}{% endblock page_title %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">{{ titulo }}</h6>
-        </div>
-        <div class="card-body">
-            <form method="get" class="mb-4 p-3 border rounded bg-light">
-                <div class="row align-items-end">
-                    <div class="col-md-3">
-                        <label for="fecha_inicio">Desde:</label>
-                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio|default:'' }}" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="fecha_fin">Hasta:</label>
-                        <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin|default:'' }}" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-md-4">
-                        <label for="search_referencia">Referencia:</label>
-                        <input type="text" name="search_referencia" id="search_referencia" value="{{ search_referencia|default:'' }}" class="form-control form-control-sm" placeholder="Buscar por referencia...">
-                    </div>
-                    <div class="col-md-2 mt-3 mt-md-0">
-                        <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-filter"></i> Filtrar
-                        </button>
-                    </div>
-                </div>
-            </form>
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">{{ titulo }}</h1>
 
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="reporteTable" width="100%" cellspacing="0">
-                    <thead class="thead-dark text-center">
-                        <tr>
-                            <th style="min-width: 120px;">Referencia</th>
-                            <th style="min-width: 120px;">Color</th>
-                            {% for talla in tallas_cabecera %}
-                                <th>{{ talla }}</th>
-                            {% endfor %}
-
-                            <th style="min-width: 100px; cursor: pointer;">
-                                <a style="color: black;" href="?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&search_referencia={{ search_referencia|default:'' }}&ordenar_por={% if orden_actual == 'unidades_desc' %}unidades_asc{% else %}unidades_desc{% endif %}">
-                                    Total Unidades
-                                    {% if orden_actual == 'unidades_desc' %} ▼ {% elif orden_actual == 'unidades_asc' %} ▲ {% endif %}
-                                </a>
-                            </th>
-                            <th class="bg-primary text-white" style="min-width: 130px; cursor: pointer;">
-                                 <a class="text-white" href="?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&search_referencia={{ search_referencia|default:'' }}&ordenar_por={% if orden_actual == 'subtotal_desc' %}subtotal_asc{% else %}subtotal_desc{% endif %}">
-                                    Subtotal
-                                    {% if orden_actual == 'subtotal_desc' %} ▼ {% elif orden_actual == 'subtotal_asc' %} ▲ {% endif %}
-                                </a>
-                            </th>
-                            </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in reporte %}
-                        <tr class="text-center">
-                            <td class="font-weight-bold">{{ fila.referencia }}</td>
-                            <td>{{ fila.color }}</td>
-                            {% for talla_header in tallas_cabecera %}
-                                <td>{{ fila.tallas|get_item:talla_header|default_if_none:""|intcomma }}</td>
-                            {% endfor %}
-                            <td class="font-weight-bold">{{ fila.total_grupo_unidades|intcomma }}</td>
-                            <td class="bg-light font-weight-bold">${{ fila.subtotal_grupo|intcomma:0 }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="{{ tallas_cabecera|length|add:4 }}" class="text-center py-5">
-                                <h5>No se encontraron resultados</h5>
-                                <p>Intenta ajustar los filtros de búsqueda.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        </tbody>
-                    {% if reporte %}
-                    <tfoot class="bg-dark text-white">
-                        <tr class="text-center">
-                            <td colspan="{{ tallas_cabecera|length|add:2 }}" class="text-right font-weight-bold"><h4>GRAN TOTALES</h4></td>
-                            <td class="font-weight-bold"><h4>{{ gran_total_unidades|intcomma }}</h4></td>
-                            <td class="font-weight-bold bg-primary"><h4>${{ gran_total_subtotal|intcomma:0 }}</h4></td>
-                            </tr>
-                    </tfoot>
-                    {% endif %}
-                </table>
+    {# --- Formulario de Filtros --- #}
+    <form method="get" class="mb-4 p-3 border rounded bg-light">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="id_fecha_inicio" class="form-label">Fecha Inicio:</label>
+                <input type="date" name="fecha_inicio" id="id_fecha_inicio" value="{{ fecha_inicio|default:'' }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3">
+                <label for="id_fecha_fin" class="form-label">Fecha Fin:</label>
+                <input type="date" name="fecha_fin" id="id_fecha_fin" value="{{ fecha_fin|default:'' }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3">
+                <label for="id_search_referencia" class="form-label">Buscar Referencia:</label>
+                <input type="text" name="search_referencia" id="id_search_referencia" value="{{ search_referencia|default:'' }}" class="form-control form-control-sm" placeholder="Ej: 3617">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                 <button type="submit" class="btn btn-primary btn-sm me-2 flex-grow-1">
+                     <i class="fas fa-filter me-1"></i>Filtrar
+                 </button>
+                 {# --- CORRECCIÓN: Usar el nombre de URL correcto --- #}
+                 <a href="{% url 'pedidos:reporte_ventas_referencia' %}" class="btn btn-secondary btn-sm flex-grow-1">
+                     <i class="fas fa-times me-1"></i>Limpiar
+                 </a>
             </div>
         </div>
+    </form>
+
+    {# --- Tabla de Resultados --- #}
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered table-hover" id="reporte-referencias-tabla">
+            <thead class="table-light">
+                <tr>
+                    {# --- Columna Referencia (Clickable) --- #}
+                    <th rowspan="2" class="align-middle">
+                        <a href="?{% query_transform ordenar_por='ref' %}">Ref.</a>
+                        {% if orden_actual == 'ref' %}<i class="fas fa-sort-alpha-down ms-1"></i>{% endif %}
+                    </th>
+                    <th rowspan="2" class="align-middle">Color</th>
+                    <th colspan="{{ tallas_cabecera|length }}" class="text-center">Tallas (Bodega / Borr. Online)</th> {# Título ajustado #}
+                    {# --- NUEVAS COLUMNAS DE TOTALES POR TIPO --- #}
+                    <th rowspan="2" class="text-center align-middle">
+                        <a href="?{% query_transform ordenar_por='unidades_desc' %}">Total Unidades Vendidas</a>
+                        {% if orden_actual == 'unidades_desc' %}<i class="fas fa-sort-amount-down ms-1"></i>
+                        {% elif orden_actual == 'unidades_asc' %}<i class="fas fa-sort-amount-up ms-1"></i>{% endif %}
+                    </th>
+                    <th rowspan="2" class="text-center align-middle">Total Borr. Online</th>
+                    {# --- FIN NUEVAS COLUMNAS --- #}
+                    {% if puede_ver_subtotal %}
+                    <th rowspan="2" class="text-end align-middle">
+                        <a href="?{% query_transform ordenar_por='subtotal_desc' %}">Subtotal Bodega</a>
+                        {% if orden_actual == 'subtotal_desc' %}<i class="fas fa-sort-amount-down ms-1"></i>
+                        {% elif orden_actual == 'subtotal_asc' %}<i class="fas fa-sort-amount-up ms-1"></i>{% endif %}
+                    </th>
+                    <th rowspan="2" class="text-end align-middle">Subtotal Borr. Online</th>
+                    {% endif %}
+                </tr>
+                <tr>
+                    {# Encabezados dinámicos para cada talla #}
+                    {% for talla in tallas_cabecera %}
+                        <th class="text-center">{{ talla }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in reporte %}
+                {# Añadimos data-ref y data-color para el JS #}
+                <tr class="fila-referencia" data-row-id="{{ item.row_id }}" data-ref="{{ item.referencia }}" data-color="{{ item.color }}">
+                    {# --- Celda Referencia Clickable --- #}
+                    <td class="referencia-clickable" style="cursor: pointer; text-decoration: underline; color: blue;">
+                        {{ item.referencia }}
+                        {# Icono para indicar que se puede expandir #}
+                        <i class="fas fa-chevron-down ms-1 expand-icon" style="font-size: 0.7em;"></i>
+                    </td>
+                    <td>{{ item.color }}</td>
+                    {# Celdas de Tallas (Ahora muestran Bodega / Borrador) #}
+                    {% for talla_head in tallas_cabecera %}
+                        <td class="text-center">
+                            {% with talla_data=item.tallas|get_item:talla_head %}
+                                {# --- CORRECCIÓN: Simplificado el IF --- #}
+                                {% if talla_data and talla_data.bodega > 0 or talla_data and talla_data.borrador > 0 %}
+                                    <span title="Bodega">{{ talla_data.bodega|default:0|intcomma }}</span> /
+                                    <span class="text-muted" title="Borrador Online">{{ talla_data.borrador|default:0|intcomma }}</span>
+                                {% else %}
+                                    0 / <span class="text-muted">0</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    {% endfor %}
+                    {# --- Celdas de Totales por Tipo --- #}
+                    <td class="text-center fw-bold">{{ item.total_bodega_unidades|intcomma }}</td>
+                    <td class="text-center text-muted">{{ item.total_borrador_unidades|intcomma }}</td>
+                    {# --- Celdas de Subtotales por Tipo --- #}
+                    {% if puede_ver_subtotal %}
+                    <td class="text-end fw-bold">${{ item.subtotal_bodega|intcomma:0 }}</td>
+                    <td class="text-end text-muted">${{ item.subtotal_borrador_online|intcomma:0 }}</td>
+                    {% endif %}
+                </tr>
+                {# --- Fila Oculta para Detalles (Se llenará con JS) --- #}
+                <tr class="detalle-vendedor-fila" id="detalle-{{ item.row_id }}" style="display: none;">
+                    {# Calculamos el colspan dinámicamente - Simplificado #}
+                    {% with base_cols=2 tallas_cols=tallas_cabecera|length total_cols=2 %}
+                        {# --- CORRECCIÓN: Cálculo de colspan simplificado --- #}
+                        {% if puede_ver_subtotal %}
+                            <td colspan="{{ base_cols|add:tallas_cols|add:total_cols|add:2 }}" class="p-3 bg-light border"> {# Añadimos +2 directamente #}
+                        {% else %}
+                             <td colspan="{{ base_cols|add:tallas_cols|add:total_cols }}" class="p-3 bg-light border">
+                        {% endif %}
+                            <div class="detalle-contenido">
+                                <p class="text-muted small">Cargando detalles del vendedor...</p>
+                            </div>
+                        </td>
+                    {% endwith %}
+                </tr>
+                {% empty %}
+                <tr>
+                    {# Calculamos el colspan dinámicamente para la fila vacía - Simplificado #}
+                     {% with base_cols=2 tallas_cols=tallas_cabecera|length total_cols=2 %}
+                        {# --- CORRECCIÓN: Cálculo de colspan simplificado --- #}
+                        {% if puede_ver_subtotal %}
+                             <td colspan="{{ base_cols|add:tallas_cols|add:total_cols|add:2 }}" class="text-center text-muted fst-italic py-3"> {# Añadimos +2 directamente #}
+                        {% else %}
+                              <td colspan="{{ base_cols|add:tallas_cols|add:total_cols }}" class="text-center text-muted fst-italic py-3">
+                        {% endif %}
+                            No se encontraron ventas para los filtros seleccionados.
+                        </td>
+                     {% endwith %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            {# --- Pie de Tabla con Totales Generales --- #}
+            <tfoot class="table-light fw-bold">
+                <tr>
+                    {# Calculamos el colspan para el pie - Simplificado #}
+                    {% with base_cols=2 tallas_cols=tallas_cabecera|length %}
+                        <td colspan="{{ base_cols|add:tallas_cols }}" class="text-end">TOTALES GENERALES:</td>
+                    {% endwith %}
+                    <td class="text-center">{{ gran_total_bodega_qty|intcomma }}</td>
+                    <td class="text-center">{{ gran_total_borrador_qty|intcomma }}</td>
+                    {% if puede_ver_subtotal %}
+                    <td class="text-end">${{ gran_total_bodega_subtotal|intcomma:0 }}</td>
+                    <td class="text-end">${{ gran_total_borrador_subtotal|intcomma:0 }}</td>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
     </div>
-</div>
-{% endblock %}
+
+</div> {# Fin container-fluid #}
+
+{% endblock content %}
+
+
+{% block extra_scripts %}
+{# Template tag para actualizar contexto dentro de with #}
+{% comment %}
+Necesitas definir este template tag simple en uno de tus archivos templatetags,
+por ejemplo, en core/templatetags/core_extras.py:
+
+from django import template
+register = template.Library()
+
+@register.simple_tag(takes_context=True)
+def update_context(context, **kwargs):
+    context.update(kwargs)
+    return ""
+{% endcomment %}
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tablaReporte = document.getElementById('reporte-referencias-tabla');
+
+    if (tablaReporte) {
+        tablaReporte.addEventListener('click', function(event) {
+            // Buscamos si el clic fue en una celda de referencia
+            const celdaReferencia = event.target.closest('.referencia-clickable');
+            
+            if (celdaReferencia) {
+                event.preventDefault(); // Prevenir cualquier comportamiento por defecto del clic
+                
+                const filaPrincipal = celdaReferencia.closest('.fila-referencia');
+                const referencia = filaPrincipal.dataset.ref;
+                // --- CORRECCIÓN: Usar el valor original del dataset ---
+                const colorOriginal = filaPrincipal.dataset.color; // Puede ser 'SIN COLOR' o el valor real
+                const rowId = filaPrincipal.dataset.rowId;
+                const filaDetalle = document.getElementById(`detalle-${rowId}`);
+                const contenidoDetalle = filaDetalle.querySelector('.detalle-contenido');
+                const iconoExpandir = celdaReferencia.querySelector('.expand-icon');
+
+                if (!filaDetalle || !contenidoDetalle) {
+                    console.error("No se encontraron elementos de detalle para:", rowId);
+                    return;
+                }
+
+                // --- Lógica para Mostrar/Ocultar y Cargar Datos ---
+                if (filaDetalle.style.display === 'none') {
+                    // Si está oculto, lo mostramos y cargamos datos (si no se han cargado ya)
+                    filaDetalle.style.display = 'table-row'; // Mostrar fila
+                    iconoExpandir.classList.remove('fa-chevron-down');
+                    iconoExpandir.classList.add('fa-chevron-up');
+
+
+                    // Solo cargar datos si es la primera vez (o si el contenido es el de "Cargando...")
+                    if (!filaDetalle.dataset.loaded || contenidoDetalle.textContent.includes('Cargando')) {
+                        contenidoDetalle.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Cargando detalles...</p>';
+                        
+                        // Construir URL para la vista AJAX
+                        const url = new URL("{% url 'pedidos:detalle_referencia_reporte_ajax' %}", window.location.origin);
+                        url.searchParams.append('referencia', referencia);
+                        // --- CORRECCIÓN: Pasar el valor original del color ---
+                        // La vista AJAX manejará 'SIN COLOR' o el valor real.
+                        url.searchParams.append('color', colorOriginal); 
+                        
+                        console.log("Fetching:", url.toString());
+
+                        fetch(url)
+                            .then(response => {
+                                if (!response.ok) {
+                                    // Intentar leer el cuerpo del error si es JSON
+                                    return response.json().then(errData => {
+                                        throw new Error(`Error ${response.status}: ${errData.error || response.statusText}`);
+                                    }).catch(() => {
+                                        // Si el cuerpo no es JSON o hay otro error
+                                        throw new Error(`Error ${response.status}: ${response.statusText}`);
+                                    });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                console.log("Datos recibidos:", data);
+                                if (data.detalles && data.detalles.length > 0) {
+                                    // Mostrar el color correctamente en el título
+                                    let tituloDetalle = `Detalle por Vendedor para ${referencia}`;
+                                    if (colorOriginal !== 'SIN COLOR') {
+                                        tituloDetalle += ` / ${colorOriginal}`;
+                                    }
+                                    tituloDetalle += ':';
+
+                                    let html = `<h6 class="mb-2">${tituloDetalle}</h6>`;
+                                    html += '<table class="table table-sm table-bordered mb-0" style="font-size: 0.8em;">';
+                                    html += '<thead class="table-light"><tr><th>Vendedor</th><th class="text-center">Ventas</th><th class="text-center">Borrador Online</th></tr></thead><tbody>';
+                                    data.detalles.forEach(detalle => {
+                                        html += `<tr>
+                                                    <td>${detalle.vendedor || 'N/A'}</td>
+                                                    <td class="text-center">${detalle.qty_bodega_vendedor || 0}</td>
+                                                    <td class="text-center">${detalle.qty_borrador_vendedor || 0}</td>
+                                                 </tr>`;
+                                    });
+                                    html += '</tbody></table>';
+                                    contenidoDetalle.innerHTML = html;
+                                    filaDetalle.dataset.loaded = 'true'; // Marcar como cargado
+                                } else {
+                                    contenidoDetalle.innerHTML = '<p class="text-muted small">No se encontraron detalles por vendedor para esta referencia/color.</p>';
+                                    filaDetalle.dataset.loaded = 'true'; // Marcar como cargado aunque esté vacío
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching detalle:', error);
+                                contenidoDetalle.innerHTML = `<p class="text-danger small">Error al cargar detalles: ${error.message}</p>`;
+                                // No marcamos como cargado para reintentar si se vuelve a hacer clic
+                                delete filaDetalle.dataset.loaded; 
+                            });
+                    }
+                } else {
+                    // Si ya está visible, simplemente lo ocultamos
+                    filaDetalle.style.display = 'none';
+                    iconoExpandir.classList.remove('fa-chevron-up');
+                    iconoExpandir.classList.add('fa-chevron-down');
+                }
+            }
+        });
+    } else {
+        console.warn("Tabla con ID 'reporte-referencias-tabla' no encontrada.");
+    }
+});
+</script>
+{% endblock extra_scripts %}
