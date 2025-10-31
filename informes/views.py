@@ -27,7 +27,11 @@ ESTADOS_PEDIDO_REPORTEABLES = [
     'COMPLETADO',
     'ENVIADO',
     'ENVIADO_INCOMPLETO',
-    'ENTREGADO'
+    'ENTREGADO',
+    'RECHAZADO_CARTERA',
+    'ENTRADA_RECHAZO_CARTERA',
+    'RECHAZADO_ADMIN',
+    'ENTRADA_RECHAZO_ADMIN'
 ]
 
 # Función auxiliar para parsear rango de fechas (asumo que está completa y funciona bien)
@@ -225,8 +229,8 @@ def reporte_ventas_vendedor(request):
 
     # Filtrar por estados de venta solicitada y anotar
     # pedidos_para_lista_y_agregados contendrá solo los pedidos que cumplen todos los filtros (empresa, fecha, vendedor)
-    pedidos_para_lista_y_agregados = pedidos_filtrados_final_qs.filter(
-        estado__in=ESTADOS_PEDIDO_REPORTEABLES
+    pedidos_para_lista_y_agregados = pedidos_filtrados_final_qs.exclude(
+        estado='BORRADOR'
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
         # La subconsulta ya está relacionada con el pedido a través de OuterRef('pk')
