@@ -133,7 +133,8 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
         
         # --- INICIO: Cargar Mapeo de Tallas (PASO 8) ---
         empresa_obj = self.request.tenant
-        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        # Usamos 'or {}' al final para asegurar que si talla_mapeo es None, use un diccionario vacío
+        TALLAS_MAPEO = (empresa_obj.talla_mapeo if empresa_obj else {}) or {}
         # --- FIN: Cargar Mapeo de Tallas ---
         
         tallas_unicas_set = set()
@@ -275,7 +276,8 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
         
         # --- INICIO: Cargar Mapeo de Tallas (PASO 8) ---
         empresa_obj = self.request.tenant
-        TALLAS_MAPEO = empresa_obj.talla_mapeo if empresa_obj else {}
+        # Usamos 'or {}' al final para asegurar que si talla_mapeo es None, use un diccionario vacío
+        TALLAS_MAPEO = (empresa_obj.talla_mapeo if empresa_obj else {}) or {}
         # --- FIN: Cargar Mapeo de Tallas ---
         
         # 1. Obtener todas las tallas únicas de este despacho y ordenarlas
