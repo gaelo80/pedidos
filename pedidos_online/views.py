@@ -1169,6 +1169,7 @@ def generar_borrador_online_pdf(request, pk):
         # Default por si la empresa no tiene nada configurado
         'DAMA': ['6', '8', '10', '12', '14', '16'],
         'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'NIÑO': ['4', '6', '8', '10', '12', '14', '16'],
         'UNISEX': ['S', 'M', 'L', 'XL']
     }
     
@@ -1206,7 +1207,7 @@ def generar_borrador_online_pdf(request, pk):
         # ESTAS LÍNEAS ESTÁN FUERA DEL IF (¡Correcto!)
         #
         # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
-        categoria_producto = getattr(detalle.producto, 'genero', 'UNISEX').upper()
+        categoria_producto = getattr(detalle.producto, 'genero', 'NIÑO').upper()
         detalles_por_categoria[categoria_producto].append(detalle) 
     
     # 4. Procesar cada sección definida en la configuración

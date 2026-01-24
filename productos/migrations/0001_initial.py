@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
                 ('descripcion', models.TextField(blank=True, null=True, verbose_name='Descripción')),
                 ('talla', models.IntegerField(blank=True, null=True, verbose_name='Talla')),
                 ('color', models.CharField(blank=True, db_index=True, max_length=50, null=True)),
-                ('genero', models.CharField(choices=[('DAMA', 'Dama'), ('CABALLERO', 'Caballero'), ('UNISEX', 'Unisex')], db_index=True, default='UNISEX', max_length=10)),
+                ('genero', models.CharField(choices=[('DAMA', 'Dama'), ('CABALLERO', 'Caballero'), ('NIÑO', 'Niño'), ('UNISEX', 'Unisex')], db_index=True, default='UNISEX', max_length=10)),
                 ('costo', models.DecimalField(decimal_places=2, default=0.0, max_digits=10)),
                 ('precio_venta', models.DecimalField(decimal_places=2, default=0.0, max_digits=10)),
                 ('unidad_medida', models.CharField(default='UND', max_length=20)),

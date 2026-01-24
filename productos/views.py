@@ -409,7 +409,7 @@ def crear_producto_multi_talla(request):
     Ahora con manejo de errores de duplicados y transacciones atómicas.
     """
     empresa_actual = request.tenant
-    ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=6)
+    ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=7)
 
     if request.method == 'POST':
         base_form = ProductoBaseForm(request.POST)
