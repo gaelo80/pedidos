@@ -672,7 +672,7 @@ def informe_total_pedidos(request):
         'vendedor__user'
     ).order_by('-fecha_hora')
     
-    pedidos_qs = pedidos_qs.exclude(estado='BORRADOR')
+    pedidos_qs = pedidos_qs.exclude(estado__in=['BORRADOR', 'CAMBIO_REGISTRADO'])
 
     # Filtros
     fecha_inicio_str = request.GET.get('fecha_inicio')
@@ -752,7 +752,10 @@ def informe_total_pedidos(request):
         user__empresa=empresa_actual,
         activo=True
     ).select_related('user').order_by('user__first_name')
-    lista_estados_filtrada = [estado for estado in Pedido.ESTADO_PEDIDO_CHOICES if estado[0] != 'BORRADOR']
+    lista_estados_filtrada = [
+    estado for estado in Pedido.ESTADO_PEDIDO_CHOICES 
+    if estado[0] not in ['BORRADOR', 'CAMBIO_REGISTRADO']
+    ]
 
     context = {
         'pedidos_list': pedidos_page_obj,
