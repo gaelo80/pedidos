@@ -288,7 +288,7 @@ def reporte_ventas_vendedor(request):
         
     queryset_final_para_paginar = pedidos_para_lista_y_agregados 
 
-    paginator = Paginator(queryset_final_para_paginar, 25)  # Muestra 25 pedidos por página
+    paginator = Paginator(queryset_final_para_paginar, 2000) # muestra 2000 pedidos por página (ajusta según tus necesidades)
     page_number = request.GET.get('page')
     pedidos_page_obj = paginator.get_page(page_number)
 
