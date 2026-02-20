@@ -32,6 +32,7 @@ ESTADOS_PEDIDO_REPORTEABLES = [
     'ENTRADA_RECHAZO_CARTERA',
     'RECHAZADO_ADMIN',
     'ENTRADA_RECHAZO_ADMIN'
+    'LISTO_BODEGA_DIRECTO',
 ]
 
 # Función auxiliar para parsear rango de fechas (asumo que está completa y funciona bien)
