@@ -231,7 +231,7 @@ def reporte_ventas_vendedor(request):
     # Filtrar por estados de venta solicitada y anotar
     # pedidos_para_lista_y_agregados contendrá solo los pedidos que cumplen todos los filtros (empresa, fecha, vendedor)
     pedidos_para_lista_y_agregados = pedidos_filtrados_final_qs.exclude(
-        estado='BORRADOR'
+        estado__in=['BORRADOR', 'CAMBIO_REGISTRADO']
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
         # La subconsulta ya está relacionada con el pedido a través de OuterRef('pk')
