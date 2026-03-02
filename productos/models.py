@@ -159,7 +159,7 @@ class Producto(models.Model):
         max_length=20, # Aumentamos el tamaño
         default='UNISEX',
         verbose_name="Categoría/Género",
-        help_text="Ej: DAMA, CABALLERO, NIÑO, PLUS. Debe coincidir con la configuración de la empresa."
+        help_text="Ej: DAMA, CABALLERO, NIÑO,  NIÑA, PLUS. Debe coincidir con la configuración de la empresa."
     )
     #genero = models.CharField(max_length=10, choices=GENERO_CHOICES, db_index=True, default='UNISEX')
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

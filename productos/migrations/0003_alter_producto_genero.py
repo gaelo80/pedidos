@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='producto',
             name='genero',
-            field=models.CharField(default='UNISEX', help_text='Ej: DAMA, CABALLERO, NIÑO, PLUS. Debe coincidir con la configuración de la empresa.', max_length=20, verbose_name='Categoría/Género'),
+            field=models.CharField(default='UNISEX', help_text='Ej: DAMA, CABALLERO, NIÑO,  NIÑA, PLUS. Debe coincidir con la configuración de la empresa.', max_length=20, verbose_name='Categoría/Género'),
         ),
     ]

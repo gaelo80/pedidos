@@ -637,6 +637,7 @@ def generar_pedido_pdf(request, pk):
         'DAMA': ['6', '8', '10', '12', '14', '16'],
         'CABALLERO': ['28', '30', '32', '34', '36', '38'],
         'NIÑO': ['4', '6', '8', '10', '12', '14', '16'],
+        'NIÑA': ['4', '6', '8', '10', '12', '14', '16'],
         'UNISEX': ['S', 'M', 'L', 'XL']
     }
     
@@ -672,6 +673,7 @@ def generar_pedido_pdf(request, pk):
         
         # Asignar a la categoría correcta (ej: "DAMA", "NIÑO", etc.)
         categoria_producto = getattr(detalle.producto, 'genero', 'NIÑO').upper()
+        
         detalles_por_categoria[categoria_producto].append(detalle)
         
         
@@ -765,6 +767,7 @@ def vista_publica_pedido_pdf(request, token):
         'DAMA': ['6', '8', '10', '12', '14', '16'],
         'CABALLERO': ['28', '30', '32', '34', '36', '38'],
         'NIÑO': ['4', '6', '8', '10', '12', '14', '16'],
+        'NIÑA': ['4', '6', '8', '10', '12', '14', '16'],
     }
     
     TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
@@ -1256,6 +1259,7 @@ def generar_borrador_pdf(request, pk):
         'DAMA': ['6', '8', '10', '12', '14', '16'],
         'CABALLERO': ['28', '30', '32', '34', '36', '38'],
         'NIÑO': ['4', '6', '8', '10', '12', '14', '16'],
+        'NIÑA': ['4', '6', '8', '10', '12', '14', '16'],
         'UNISEX': ['S', 'M', 'L', 'XL']
     }
     
