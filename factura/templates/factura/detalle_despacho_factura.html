@@ -134,6 +134,18 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    
+                    <tfoot>
+                        <tr class="table-secondary">
+                            <td colspan="{{ tallas_header|length|add:'3' }}" class="text-end fw-bold pe-3">
+                                TOTAL DE PRENDAS DESPACHADAS:
+                            </td>
+                            <td class="text-center fw-bold" style="font-size: 1.1rem;">
+                                {{ total_general_prendas|intcomma }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                    
                 </table>
             </div>
             {% else %}

@@ -198,6 +198,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             lista_items_final, 
             key=lambda x: (x['referencia'], x['color'])
         )
+        total_general_prendas = sum(item['cantidad_total'] for item in lista_items_agrupados)
         # --- FIN: Lógica para agrupar ítems ---
 
 
@@ -211,6 +212,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             # 'detalles_comprobante': items_despachados_originales, # Ya no pasamos los originales directamente para la tabla principal
             'items_despachados_agrupados': lista_items_agrupados, # Pasamos los agrupados
             'tallas_header': tallas_header_ordenadas,
+            'total_general_prendas': total_general_prendas,
         }
         return render(request, self.template_name, context)
 
@@ -342,7 +344,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             key=lambda x: (x['referencia'], x['color'])
         )
         # --- FIN: Lógica para agrupar ítems ---
-
+        total_general_prendas = sum(item['cantidad_total'] for item in lista_items_agrupados)
 
 
         context = {
@@ -354,6 +356,7 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
             'cliente': comprobante_despacho.pedido.cliente,
             'items_despachados_agrupados': lista_items_agrupados, # Usar los agrupados también aquí
             'tallas_header': tallas_header_ordenadas,
+            'total_general_prendas': total_general_prendas,
         }
         return render(request, self.template_name, context)
 
