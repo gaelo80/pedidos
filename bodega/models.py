@@ -105,33 +105,32 @@ class MovimientoInventario(models.Model):
         TIPO_MOVIMIENTO_CHOICES = [
         ('ENTRADA_COMPRA', 'Entrada por Compra'),
         ('ENTRADA_AJUSTE', 'Entrada por Ajuste'),
-        ('ENTRADA_DEVOLUCION_CLIENTE', 'Entrada por Devolución de Cliente'), 
-        ('SALIDA_VENTA_PENDIENTE', 'Salida por Venta (Pendiente Aprob)'), 
-        ('SALIDA_VENTA_APROBADA', 'Salida por Venta (Aprobada)'), 
+        ('ENTRADA_DEVOLUCION_CLIENTE', 'Entrada por Devolución de Cliente'),
+        ('ENTRADA_CANCELACION', 'Entrada por Cancelación de Pedido'),
+        ('ENTRADA_CANCELACION_INGRESO', 'Entrada por Cancelación de Ingreso'),
+        ('SALIDA_VENTA_PENDIENTE', 'Salida por Venta (Pendiente Aprob)'),
+        ('SALIDA_VENTA_APROBADA', 'Salida por Venta (Aprobada)'),
+        ('SALIDA_VENTA_ALMACEN', 'Salida por Venta en Almacén (Desktop)'),
         ('SALIDA_AJUSTE', 'Salida por Ajuste'),
+        ('SALIDA_CANCELACION', 'Salida por Cancelación'),
         ('ENTRADA_PRODUCCION', 'Entrada desde Producción'),
         ('SALIDA_OTRO', 'Salida por Otro Motivo'),
         ('ENTRADA_OTRO', 'Entrada por Otro Motivo'),
         ('ENTRADA_RECHAZO_CARTERA', 'Entrada por Rechazo Pedido Cartera'),
-        ('ENTRADA_RECHAZO_ADMIN', 'Entrada por Rechazo Pedido Admin'),     
+        ('ENTRADA_RECHAZO_ADMIN', 'Entrada por Rechazo Pedido Admin'),
         ('SALIDA_MUESTRARIO', 'Salida para Muestrario'),
         ('SALIDA_EXHIBIDOR', 'Salida para Exhibidor'),
         ('SALIDA_TRASLADO', 'Salida por Traslado Interno'),
         ('SALIDA_PRESTAMO', 'Salida por Préstamo'),
         ('SALIDA_DONACION_BAJA', 'Salida por Donación/Baja'),
-        ('SALIDA_INTERNA_OTRA', 'Salida Interna (Otra)'),        
+        ('SALIDA_INTERNA_OTRA', 'Salida Interna (Otra)'),
         ('ENTRADA_DEV_MUESTRARIO', 'Devolución de Muestrario'),
         ('ENTRADA_DEV_EXHIBIDOR', 'Devolución de Exhibidor'),
-        ('ENTRADA_DEV_TRASLADO', 'Devolución de Traslado Interno'), 
+        ('ENTRADA_DEV_TRASLADO', 'Devolución de Traslado Interno'),
         ('ENTRADA_DEV_PRESTAMO', 'Devolución de Préstamo'),
         ('ENTRADA_DEV_INTERNA_OTRA', 'Devolución Interna (Otra)'),
         ('ENTRADA_CAMBIO', 'Entrada por Cambio de Producto'),
         ('SALIDA_CAMBIO', 'Salida por Cambio de Producto'),
-        ('ENTRADA_CAMBIO', 'Entrada por Cambio de Cliente'),
-        ('SALIDA_CAMBIO', 'Salida por Cambio de Cliente'),
-        
-        
-        
         ]
         producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='movimientos', verbose_name="Producto")
         cantidad = models.IntegerField(verbose_name="Cantidad Movida")
@@ -154,6 +153,7 @@ class MovimientoInventario(models.Model):
             verbose_name = "Movimiento de Inventario"
             verbose_name_plural = "Movimientos de Inventario"
             ordering = ['-fecha_hora', 'producto__nombre']
+            unique_together = ('empresa', 'documento_referencia', 'tipo_movimiento')
             
             
 class CabeceraConteo(models.Model):

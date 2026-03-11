@@ -987,11 +987,16 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
             )
             if diferencia != 0:
                 tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
-                MovimientoInventario.objects.create(
-                    empresa=empresa, producto=producto, cantidad=diferencia,
-                    tipo_movimiento=tipo_movimiento, usuario=request.user,
-                    documento_referencia=f"Conteo ID {cabecera.pk}",
-                    notas=f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
+                # Prevenir duplicados: usar get_or_create con documento_referencia que incluya producto y conteo
+                MovimientoInventario.objects.get_or_create(
+                    empresa=empresa, producto=producto,
+                    tipo_movimiento=tipo_movimiento,
+                    documento_referencia=f"Conteo ID {cabecera.pk} - Prod #{producto.pk}",
+                    defaults={
+                        'cantidad': diferencia,
+                        'usuario': request.user,
+                        'notas': f"Ajuste por conteo. Sistema: {stock_sistema}, Físico: {cantidad_fisica}"
+                    }
                 )
                 stats['ajustados'] += 1
             else:
@@ -1534,14 +1539,17 @@ def registrar_devolucion_salida_interna(request, pk_cabecera):
                         tipo_mov_str = tipo_mov_devolucion_map.get(salida_interna.tipo_salida, 'ENTRADA_DEV_INTERNA_OTRA')
 
 
-                        MovimientoInventario.objects.create(
+                        # Prevenir duplicados: usar get_or_create con documento_referencia que incluya producto y salida
+                        MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=detalle_salida.producto,
-                            cantidad=cantidad_a_devolver_ahora, 
                             tipo_movimiento=tipo_mov_str,
-                            documento_referencia=f"Dev SalidaInt #{salida_interna.pk}", # Abreviado para claridad
-                            usuario=request.user,
-                            notas=f"Devolución de {detalle_salida.producto} de Salida Interna #{salida_interna.pk}"
+                            documento_referencia=f"Dev SalidaInt #{salida_interna.pk} - Prod #{detalle_salida.producto.pk}",
+                            defaults={
+                                'cantidad': cantidad_a_devolver_ahora,
+                                'usuario': request.user,
+                                'notas': f"Devolución de {detalle_salida.producto} de Salida Interna #{salida_interna.pk}"
+                            }
                         )
                         algo_devuelto_en_esta_transaccion = True
                         total_items_con_devolucion_valida_esta_vez +=1
@@ -2013,39 +2021,35 @@ class IngresoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         formset = DetalleIngresoModificarFormSet(request.POST, instance=self.object)
-        
+
         if formset.is_valid():
             with transaction.atomic():
                 # 1. Obtener los detalles de ingreso originales
                 detalles_originales = {
-                    detalle.pk: detalle.cantidad 
+                    detalle.pk: detalle.cantidad
                     for detalle in self.object.detalles.all()
                 }
 
-                # 2. Guardar los nuevos valores del formset
-                formset.save()
-
-                # 3. Calcular la diferencia y registrar el movimiento
+                # 2. Validar que NO se cambien cantidades (evita inflado de inventario)
+                hay_cambios_cantidad = False
                 for form in formset:
-                    # Comprobar que el formulario representa un objeto existente
                     if form.instance.pk:
                         nuevo_detalle = form.instance
                         cantidad_antigua = detalles_originales.get(nuevo_detalle.pk, 0)
-                        
+
                         if nuevo_detalle.cantidad != cantidad_antigua:
-                            diferencia = nuevo_detalle.cantidad - cantidad_antigua
-                            producto = nuevo_detalle.producto
-                            
-                            # Crear un nuevo movimiento de inventario
-                            MovimientoInventario.objects.create(
-                                producto=producto,
-                                cantidad=diferencia,
-                                tipo_movimiento='MODIFICACION',
-                                usuario=request.user,
-                                empresa=self.object.empresa
-                            )
-            
-            messages.success(request, "Los detalles del ingreso y el stock han sido actualizados exitosamente.")
+                            # Revertir a la cantidad original
+                            form.instance.cantidad = cantidad_antigua
+                            hay_cambios_cantidad = True
+
+                if hay_cambios_cantidad:
+                    messages.warning(request, "⚠️ No se pueden modificar las cantidades de un ingreso ya registrado. "
+                                   "Si necesitas cambiar cantidades, cancela el ingreso y crea uno nuevo.")
+
+                # 3. Guardar los nuevos valores (pero las cantidades son las originales)
+                formset.save()
+
+            messages.success(request, "Los detalles del ingreso han sido actualizados exitosamente.")
             return redirect('bodega:detalle_ingreso', pk=self.object.pk)
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
@@ -2068,23 +2072,28 @@ def realizar_cambio_producto(request):
                     cambio.save()
 
 
-                    MovimientoInventario.objects.create(
+                    # Prevenir duplicados: usar get_or_create para movimientos de cambio
+                    mov_entrada, _ = MovimientoInventario.objects.get_or_create(
                         empresa=empresa_actual,
                         producto=cambio.producto_entrante,
-                        cantidad=cambio.cantidad_entrante,
                         tipo_movimiento='ENTRADA_CAMBIO',
                         documento_referencia=f"Cambio #{cambio.pk}",
-                        usuario=request.user
+                        defaults={
+                            'cantidad': cambio.cantidad_entrante,
+                            'usuario': request.user
+                        }
                     )
 
-
-                    MovimientoInventario.objects.create(
+                    # Prevenir duplicados: usar get_or_create para movimientos de salida
+                    mov_salida, _ = MovimientoInventario.objects.get_or_create(
                         empresa=empresa_actual,
                         producto=cambio.producto_saliente,
-                        cantidad=-abs(cambio.cantidad_saliente),
                         tipo_movimiento='SALIDA_CAMBIO',
                         documento_referencia=f"Cambio #{cambio.pk}",
-                        usuario=request.user
+                        defaults={
+                            'cantidad': -abs(cambio.cantidad_saliente),
+                            'usuario': request.user
+                        }
                     )
                 
 

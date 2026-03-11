@@ -51,9 +51,11 @@ class PersonalBodegaAdmin(admin.ModelAdmin):
 
 class DetalleIngresoBodegaInline(admin.TabularInline):
     model = DetalleIngresoBodega
-    extra = 1
+    extra = 0  # NO permitir agregar nuevas líneas desde admin
     autocomplete_fields = ['producto']
-    
+    readonly_fields = ('cantidad', 'producto')  # Cantidad y producto NO se pueden editar
+    can_delete = False  # NO permitir eliminar detalles (evita re-añadirlos)
+
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
         if obj: # obj es la instancia de IngresoBodega
