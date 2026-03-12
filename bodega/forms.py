@@ -211,6 +211,7 @@ DetalleSalidaInternaFormSet = forms.inlineformset_factory(
     SalidaInternaDetalle,
     form=SalidaInternaDetalleForm,
     formset=BaseDetalleSalidaInternaFormSet, # Aquí se usa la nueva clase
+    fk_name='cabecera_salida',  # Especificar explícitamente el nombre del FK
     extra=1,
     can_delete=True,
     min_num=1,
