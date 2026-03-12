@@ -55,30 +55,32 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
     # 2. Reserva para Pedidos ESTANDAR al pasar a aprobación
     # (Asegúrate que este sea el primer 'if' o 'elif' de la lógica de stock)
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA' and instance.tipo_pedido != 'ONLINE':
-        # Evita duplicar si la señal se dispara varias veces.
-        if MovimientoInventario.objects.filter(
-            empresa=instance.empresa,
-            documento_referencia__startswith=f'Pedido #{instance.numero_pedido_empresa}'
-        ).exists():
-            logger.debug(f"Movimientos ya existen para Pedido #{instance.numero_pedido_empresa} en estado {instance.estado}. No se crearán nuevos.")
-        else:
-            # Si no hay movimientos, creamos la reserva/salida inicial
-            for detalle in instance.detalles.all():
-                producto = detalle.producto
-                cantidad_a_descontar = -detalle.cantidad
+        # Si no hay movimientos, creamos la reserva/salida inicial
+        for detalle in instance.detalles.all():
+            producto = detalle.producto
+            cantidad_a_descontar = -detalle.cantidad
 
-                tipo_mov = 'SALIDA_VENTA_PENDIENTE'
-                doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva)'
+            tipo_mov = 'SALIDA_VENTA_PENDIENTE'
+            # Incluir producto en documento_referencia para hacer único por producto
+            doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva) - {producto.referencia}'
 
-                MovimientoInventario.objects.create(
-                    empresa=instance.empresa,
-                    producto=producto,
-                    cantidad=cantidad_a_descontar,
-                    tipo_movimiento=tipo_mov,
-                    documento_referencia=doc_ref,
-                    usuario=instance.vendedor.user if instance.vendedor else None
-                )
-            logger.info(f"Creadas reservas para pedido estándar #{instance.numero_pedido_empresa}.")
+            # Usa get_or_create para evitar duplicados si el signal se dispara múltiples veces
+            mov, created = MovimientoInventario.objects.get_or_create(
+                empresa=instance.empresa,
+                tipo_movimiento=tipo_mov,
+                documento_referencia=doc_ref,
+                defaults={
+                    'producto': producto,
+                    'cantidad': cantidad_a_descontar,
+                    'usuario': instance.vendedor.user if instance.vendedor else None
+                }
+            )
+            if created:
+                logger.info(f"Creado movimiento de reserva para {producto.referencia} en pedido #{instance.numero_pedido_empresa}.")
+            else:
+                logger.debug(f"Movimiento de reserva ya existe para {producto.referencia} en pedido #{instance.numero_pedido_empresa}.")
+
+        logger.info(f"Procesadas reservas para pedido estándar #{instance.numero_pedido_empresa}.")
 
 
     # 3. LÓGICA DE LIBERACIÓN DE STOCK (CANCELACIONES/RECHAZOS)

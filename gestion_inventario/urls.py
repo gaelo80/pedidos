@@ -50,11 +50,14 @@ urlpatterns = [
     # 1. Rutas para iniciar sesión desde el .exe
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+
     # 2. Rutas para consultar datos
     path('api/almacen/', include(router.urls)),
 
-   
+# --- RUTAS PARA BODEGA DESKTOP (despacho) ---
+    path('api/bodega/', include(('bodega.api_urls', 'bodega_api'), namespace='bodega_api')),
+
+
 ]
 
 if settings.DEBUG:
