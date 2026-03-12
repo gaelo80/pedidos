@@ -1,4 +1,3 @@
-# gestion_inventario/settings.py
 import os
 from pathlib import Path
 from decouple import config
@@ -49,7 +48,7 @@ AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorag
 
 # Un dominio personalizado para servir los archivos (opcional pero muy recomendado)
 # Por ejemplo, si configuras 'media.tuapp.com' para apuntar a tu bucket.
-AWS_S3_CUSTOM_DOMAIN = 'pub-3189840290c243e499cc02ac48d3a787.r2.dev' 
+AWS_S3_CUSTOM_DOMAIN = 'pub-3189840290c243e499cc02ac48d3a787.r2.dev'
 # Si no tienes dominio personalizado, puedes construir la URL manualmente en el modelo/vista.
 
 AWS_S3_OBJECT_PARAMETERS = {
@@ -70,52 +69,59 @@ SITE_ID = 1
     # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
 
-# CONFIGURACIONES DE COOKIES SEGURAS PARA HTTPS EN PRODUCCIÓN
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY' # O 'SAMEORIGIN' si usas iframes en tu propio sitio
-SECURE_SSL_REDIRECT = True # Si quieres forzar todas las peticiones a HTTPS
-SECURE_HSTS_SECONDS = 31536000 # Opcional: HSTS para un año
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Opcional: HSTS para subdominios
-SECURE_HSTS_PRELOAD = True # Opcional: HSTS para precarga
-
-#ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'pedidoslouisferry.localhost']
-ALLOWED_HOSTS = [
-                'pedidoslouisferry.online', 
-                'www.pedidoslouisferry.online',
-                'pedidoswhite.online',
-                'www.pedidoswhite.online',
-                'pedidosharmony.online',
-                'www.pedidosharmony.online',
-                'pedidosamerican.online',
-                'www.pedidosamerican.online',
-                'pedidosexclusive.online',
-                'www.pedidosexclusive.online',               
-                
+# ✅ CONFIGURACIONES DE SEGURIDAD - CONDICIONALES SEGÚN DEBUG
+if DEBUG:
+    # 🔓 DESARROLLO: Sin SSL/HTTPS requerido
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+    CSRF_TRUSTED_ORIGINS = []
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+else:
+    # 🔒 PRODUCCIÓN: SSL/HTTPS requerido
+    ALLOWED_HOSTS = [
+                    'pedidoslouisferry.online',
+                    'www.pedidoslouisferry.online',
+                    'pedidoswhite.online',
+                    'www.pedidoswhite.online',
+                    'pedidosharmony.online',
+                    'www.pedidosharmony.online',
+                    'pedidosamerican.online',
+                    'www.pedidosamerican.online',
+                    'pedidosexclusive.online',
+                    'www.pedidosexclusive.online',
                 ]
-                 #pedidosluisferry.store', 'www.pedidosluisferry.store', '168.231.93.109']
+    CSRF_TRUSTED_ORIGINS = [
+                    'https://pedidoslouisferry.online',
+                    'https://www.pedidoslouisferry.online',
+                    'https://pedidoswhite.online',
+                    'https://www.pedidoswhite.online',
+                    'https://pedidosharmony.online',
+                    'https://www.pedidosharmony.online',
+                    'https://pedidosamerican.online',
+                    'https://www.pedidosamerican.online',
+                    'https://pedidosexclusive.online',
+                    'https://www.pedidosexclusive.online',
+                ]
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
-CSRF_TRUSTED_ORIGINS = [
-                'https://pedidoslouisferry.online',
-                'https://www.pedidoslouisferry.online',
-                'https://pedidoswhite.online',
-                'https://www.pedidoswhite.online',
-                'https://pedidosharmony.online',
-                'https://www.pedidosharmony.online',
-                'https://pedidosamerican.online',
-                'https://www.pedidosamerican.online',
-                'https://pedidosexclusive.online',
-                'https://www.pedidosexclusive.online',
-                # Si en algún momento necesitas HTTP para localhost en DEBUG=False, añádelo:
-                # 'http://localhost:8000',
-                # 'http://127.0.0.1:8000',
-            ]
 
-
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5" 
-CRISPY_TEMPLATE_PACK = "bootstrap5"          
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 INSTALLED_APPS = [
         'django.contrib.admin',
@@ -126,9 +132,9 @@ INSTALLED_APPS = [
         'django.contrib.staticfiles',
         'django.contrib.humanize',
         'django.contrib.sites',
-        
-    
-        
+
+
+
         # MIS APPS
         'core.apps.CoreConfig',
         'productos',
@@ -147,19 +153,20 @@ INSTALLED_APPS = [
         'recaudos',
         'notificaciones',
         'pedidos_online',
-        
-        
+        'almacen.apps.AlmacenConfig',  # ✅ CRÍTICO: Carga signals automáticamente
+
+
         # APLICACIONES DE TERCERO
         'rest_framework',
         'rest_framework.authtoken',
         'rest_framework_simplejwt',
         'django_extensions',
-        'import_export',      
-        'crispy_forms',  
+        'import_export',
+        'crispy_forms',
         'crispy_bootstrap5',
         'widget_tweaks',
         'bootstrap4',
-       
+
     ]
 
 MIDDLEWARE = [
@@ -188,7 +195,7 @@ TEMPLATES = [
                     'django.contrib.auth.context_processors.auth',
                     'django.contrib.messages.context_processors.messages',
                     'core.context_processors.empresa_context',
-                    'core.context_processors.notificaciones_context', 
+                    'core.context_processors.notificaciones_context',
                     'core.context_processors.user_roles_context',
                     'core.context_processors.recordatorio_borradores_context',
                 ],
@@ -203,8 +210,8 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
     # Database
     # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-   
-   
+
+
 DATABASES = {
     'default': {
         'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
@@ -213,6 +220,7 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD', default=''),
         'HOST': config('DB_HOST', default=''),
         'PORT': config('DB_PORT', default=''),
+        'ATOMIC_REQUESTS': False,  # ✅ Necesario para transaction.atomic() explícito en vistas
     }
 }
 
@@ -285,19 +293,45 @@ REST_FRAMEWORK = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
-            'level': 'ERROR',
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': False,
         },
-        '': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
+        'bodega.models': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'almacen.signals': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }
