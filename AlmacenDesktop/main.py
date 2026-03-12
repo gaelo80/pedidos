@@ -628,11 +628,23 @@ class AppAlmacen(ctk.CTk):
             messagebox.showwarning("Sin sesión",
                                    "Inicia sesión para sincronizar.")
             return
+
+        # Cargar URL desde BD
+        try:
+            conn = sqlite3.connect("almacen_local.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+            resultado = cursor.fetchone()
+            api_url = resultado[0] if resultado else self.API_BASE_URL
+            conn.close()
+        except:
+            api_url = self.API_BASE_URL
+
         headers = {"Authorization": f"Bearer {self.token}"}
         try:
             res = requests.get(
-                f"{API_BASE_URL}/almacen/inventario/",
-                headers=headers, timeout=10)
+                f"{api_url}/almacen/inventario/",
+                headers=headers, timeout=10, verify=False)
 
             if res.status_code == 200:
                 productos = res.json()
@@ -667,12 +679,23 @@ class AppAlmacen(ctk.CTk):
             time.sleep(60)
 
     def _sync_silenciosa(self):
+        # Cargar URL desde BD (no usar variable global)
+        try:
+            conn = sqlite3.connect("almacen_local.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+            resultado = cursor.fetchone()
+            api_url = resultado[0] if resultado else self.API_BASE_URL
+            conn.close()
+        except:
+            api_url = self.API_BASE_URL
+
         headers = {"Authorization": f"Bearer {self.token}"}
         try:
             # Descargar catálogo
             res = requests.get(
-                f"{API_BASE_URL}/almacen/inventario/",
-                headers=headers, timeout=10)
+                f"{api_url}/almacen/inventario/",
+                headers=headers, timeout=10, verify=False)
 
             if res.status_code == 200:
                 productos = res.json()
@@ -725,10 +748,11 @@ class AppAlmacen(ctk.CTk):
                     }
 
                     res = requests.post(
-                        f"{API_BASE_URL}/almacen/facturas/",
+                        f"{api_url}/almacen/facturas/",
                         json=payload,
                         headers=headers,
-                        timeout=10
+                        timeout=10,
+                        verify=False
                     )
 
                     if res.status_code == 201:
