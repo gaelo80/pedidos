@@ -10,6 +10,10 @@ import customtkinter as ctk
 import requests
 from PIL import Image
 
+# Desactivar advertencias de SSL (para certificados auto-firmados)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 from database import inicializar_db, DB_PATH
 from modulos.ventas import PanelPOS
 from modulos.inventario import PanelInventario
@@ -276,9 +280,21 @@ class AppAlmacen(ctk.CTk):
         self._lbl_login_msg.configure(text="", text_color=C["warning"])
         self.update()
 
+        # Cargar URL desde BD (importante: no usar la variable global)
+        import sqlite3
+        try:
+            conn = sqlite3.connect("almacen_local.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+            resultado = cursor.fetchone()
+            api_url = resultado[0] if resultado else API_BASE_URL
+            conn.close()
+        except:
+            api_url = API_BASE_URL
+
         try:
             res = requests.post(
-                f"{API_BASE_URL}/token/",
+                f"{api_url}/token/",
                 json={"username": usr, "password": pwd},
                 timeout=5,
             )
@@ -316,12 +332,34 @@ class AppAlmacen(ctk.CTk):
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
 
-        except requests.exceptions.ConnectionError:
-            # No hay conexión de red - Ofrecer modo offline
-            self._lbl_login_msg.configure(
-                text="Sin conexión: Verifica URL, red e internet.",
-                text_color=C["danger"])
-            self._btn_login.configure(text="INGRESAR", state="normal")
+        except requests.exceptions.ConnectionError as e:
+            # No hay conexión de red - Intentar sin verificar SSL
+            try:
+                res = requests.post(
+                    f"{api_url}/token/",
+                    json={"username": usr, "password": pwd},
+                    timeout=5,
+                    verify=False  # Desactivar verificación SSL (fallback)
+                )
+
+                if res.status_code == 200:
+                    self.token          = res.json().get("access")
+                    self.usuario_actual = usr.capitalize()
+                    self._btn_login.configure(text="INGRESAR", state="normal")
+                    self._mostrar_dashboard()
+                    threading.Thread(target=self._loop_sync,
+                                     daemon=True).start()
+                else:
+                    self._lbl_login_msg.configure(
+                        text="Usuario o contraseña incorrectos.",
+                        text_color=C["danger"])
+                    self._btn_login.configure(text="INGRESAR", state="normal")
+
+            except Exception:
+                self._lbl_login_msg.configure(
+                    text="Sin conexión: Verifica URL, red e internet.",
+                    text_color=C["danger"])
+                self._btn_login.configure(text="INGRESAR", state="normal")
 
         except Exception as e:
             # Error inesperado
