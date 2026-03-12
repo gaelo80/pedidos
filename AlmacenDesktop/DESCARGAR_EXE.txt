@@ -1,0 +1,120 @@
+================================================================================
+                    DESCARGAR / COMPILAR AlmacenDesktop.exe
+================================================================================
+
+3 OPCIONES DISPONIBLES:
+
+1. EJECUTAR DESDE CÓDIGO (Desarrollo)
+   - NO necesita compilar
+   - Requiere Python 3.10+
+   - Comando: python main.py
+   - Ubicación: C:\Pedidos\Pedidos-main\sieslo\AlmacenDesktop\
+
+2. COMPILAR TU PROPIO .exe (Recomendado)
+   - Requiere Python 3.10+
+   - Windows: Doble clic en compilar_exe.bat
+   - Mac/Linux: ./compilar_exe.sh
+   - Genera: dist\AlmacenDesktop\AlmacenDesktop.exe
+   - Tamaño: ~250 MB
+
+3. DESCARGAR .exe PRECOMPILADO (Próximamente)
+   - Disponible en: GitHub / Google Drive / Servidor interno
+   - No requiere Python
+   - Tamaño: ~100-250 MB
+
+================================================================================
+ARCHIVOS CREADOS PARA TI:
+================================================================================
+
+✅ compilar_exe.bat          - Script de compilación (Windows)
+✅ compilar_exe.sh           - Script de compilación (Mac/Linux)
+✅ build_exe.spec            - Configuración PyInstaller
+✅ requirements.txt          - Dependencias Python
+✅ .env.example              - Archivo de configuración
+✅ COMPILAR_EXE.md           - Guía detallada de compilación
+✅ README_DISTRIBUCION.md    - Guía de instalación/distribución
+✅ PRODUCCION_CHECKLIST.md   - Checklist de producción
+
+Ubicación: C:\Pedidos\Pedidos-main\sieslo\AlmacenDesktop\
+
+================================================================================
+PASOS RÁPIDOS PARA COMPILAR:
+================================================================================
+
+PASO 1: Asegurar Python instalado
+   → python --version  (debe ser 3.10+)
+   → Si no: https://www.python.org/downloads/
+
+PASO 2: Navegar a la carpeta
+   → cd C:\Pedidos\Pedidos-main\sieslo\AlmacenDesktop
+
+PASO 3: Ejecutar compilación (Windows)
+   → compilar_exe.bat
+   → Esperar 2-3 minutos...
+
+PASO 4: Encontrar el ejecutable
+   → dist\AlmacenDesktop\AlmacenDesktop.exe ✅
+
+================================================================================
+CONFIGURACIÓN ANTES DE USAR:
+================================================================================
+
+1. Crear archivo .env
+   → copy .env.example .env
+
+2. Editar .env con la URL del servidor
+   Desarrollo:  ALMACEN_API_URL=http://127.0.0.1:8000/api
+   Producción:  ALMACEN_API_URL=https://midominio.com/api
+
+3. Verificar Django está corriendo
+   → python manage.py runserver
+
+4. Ejecutar AlmacenDesktop.exe
+   → Login con usuario de Django
+
+================================================================================
+DISTRIBUCIÓN A OTROS PCs:
+================================================================================
+
+OPCIÓN A: Carpeta portátil
+   → Copiar: dist\AlmacenDesktop\ → USB/nube
+   → Otros PCs: ejecutar AlmacenDesktop.exe
+
+OPCIÓN B: Instalador (Avanzado)
+   → Usar InnoSetup + PyInstaller
+   → Crear archivo .msi o .exe
+
+OPCIÓN C: GitHub Releases
+   → Publicar versiones en GitHub
+   → Descargas automáticas
+
+OPCIÓN D: Google Drive / OneDrive
+   → Compartir carpeta compilada
+   → Acceso de cualquier lugar
+
+================================================================================
+PREGUNTAS FRECUENTES:
+================================================================================
+
+Q: ¿Necesito Python si uso el .exe?
+A: NO. El .exe incluye Python embebido.
+
+Q: ¿Puedo compartir el .exe con otros?
+A: SÍ. Solo copia la carpeta dist\AlmacenDesktop\
+
+Q: ¿Cómo actualizo a nuevas versiones?
+A: Recompila o descarga la nueva versión del .exe
+
+Q: ¿Qué pasa si Django no está disponible?
+A: Funciona en modo offline, sincroniza cuando vuelva la conexión
+
+================================================================================
+SOPORTE:
+================================================================================
+
+Lee estos archivos para más información:
+   → COMPILAR_EXE.md (para compilar)
+   → README_DISTRIBUCION.md (para instalar en otros PCs)
+   → PRODUCCION_CHECKLIST.md (para poner en producción)
+
+================================================================================

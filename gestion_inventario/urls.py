@@ -7,7 +7,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from productos import api_views as productos_api_views
 from core import views as core_views
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from almacen.views import InventarioAlmacenViewSet, FacturaAlmacenViewSet
 
+
+router = DefaultRouter()
+router.register(r'inventario', InventarioAlmacenViewSet, basename='inventario-almacen')
+router.register(r'facturas', FacturaAlmacenViewSet, basename='factura-almacen')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -39,7 +46,13 @@ urlpatterns = [
     path('serviceworker.js', core_views.service_worker_view, name='service_worker'),
     path('manifest.json', core_views.manifest_view, name='manifest'),
 
+# --- RUTAS PARA EL EJECUTABLE DEL ALMACÉN ---
+    # 1. Rutas para iniciar sesión desde el .exe
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
+    # 2. Rutas para consultar datos
+    path('api/almacen/', include(router.urls)),
 
    
 ]
