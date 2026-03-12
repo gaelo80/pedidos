@@ -267,18 +267,21 @@ class AppAlmacen(ctk.CTk):
 
         except requests.exceptions.Timeout:
             self._lbl_login_msg.configure(
-                text="Servidor no responde. Revisa la conexión.",
+                text="Servidor no responde (timeout). Revisa la URL.",
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
 
-        except Exception:
+        except requests.exceptions.ConnectionError:
             self._lbl_login_msg.configure(
-                text="No se pudo conectar. Usando modo local.",
-                text_color=C["warning"])
-            # Permite entrar en modo offline
-            self.usuario_actual = usr.capitalize()
+                text="No hay conexión al servidor. Revisa URL y red.",
+                text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
-            self._mostrar_dashboard()
+
+        except Exception as e:
+            self._lbl_login_msg.configure(
+                text=f"Error: {str(e)[:50]}...",
+                text_color=C["danger"])
+            self._btn_login.configure(text="INGRESAR", state="normal")
 
     # ══════════════════════════════════════════════════════════════════════════
     # PANTALLA PRINCIPAL

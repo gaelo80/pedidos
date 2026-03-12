@@ -245,23 +245,49 @@ class PanelConfiguracion(ctk.CTkFrame):
         body = ctk.CTkScrollableFrame(self._tab_sync, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=8, pady=8)
 
-        api_url = getattr(self.controller, "API_BASE_URL", "http://127.0.0.1:8000/api")
+        # Cargar URL guardada o usar la del controller
+        self._api_url = self._cargar_url_servidor()
+
+        # ── Configuración del Servidor ──
+        card = _seccion(body, "Configuración del Servidor")
+
+        # URL del servidor (campo editable)
+        url_row = ctk.CTkFrame(card, fg_color="transparent")
+        url_row.pack(fill="x", padx=20, pady=14)
+        ctk.CTkLabel(url_row, text="URL API:", font=FONT["body"],
+                     text_color=C["muted"]).pack(side="left", padx=(0, 10))
+        self._url_entrada = ctk.CTkEntry(
+            url_row,
+            placeholder_text="http://127.0.0.1:8000/api",
+            font=("Consolas", 12),
+            fg_color=C["card_alt"],
+            border_color=C["border"],
+            border_width=1,
+            text_color=C["text"],
+            corner_radius=8,
+            width=300,
+            height=38,
+        )
+        self._url_entrada.insert(0, self._api_url)
+        self._url_entrada.pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            url_row,
+            text="💾  Guardar",
+            font=FONT["body"], width=100, height=38,
+            fg_color=C["success"], hover_color=C["success_h"],
+            corner_radius=8,
+            command=self._guardar_url_servidor,
+        ).pack(side="left")
+
+        ctk.CTkFrame(card, height=1, fg_color=C["border"]).pack(fill="x", padx=20)
 
         # ── Estado de conexión ──
-        card = _seccion(body, "Estado de Conexión con Django")
-
-        # URL del servidor
-        url_row = ctk.CTkFrame(card, fg_color="transparent")
-        url_row.pack(fill="x", padx=20, pady=(14, 4))
-        ctk.CTkLabel(url_row, text="Servidor:", font=FONT["body"],
-                     text_color=C["muted"]).pack(side="left")
-        ctk.CTkLabel(url_row, text=api_url,
-                     font=("Consolas", 13),
-                     text_color=C["primary"]).pack(side="left", padx=10)
+        card2 = _seccion(body, "Estado de Conexión")
 
         # Indicador y botón
-        status_row = ctk.CTkFrame(card, fg_color="transparent")
-        status_row.pack(fill="x", padx=20, pady=(4, 14))
+        status_row = ctk.CTkFrame(card2, fg_color="transparent")
+        status_row.pack(fill="x", padx=20, pady=14)
 
         self._lbl_estado = ctk.CTkLabel(
             status_row,
@@ -273,7 +299,7 @@ class PanelConfiguracion(ctk.CTkFrame):
 
         ctk.CTkButton(
             status_row,
-            text="Probar Conexión",
+            text="🧪  Probar Conexión",
             font=FONT["body"], width=160, height=38,
             fg_color=C["primary"], hover_color=C["primary_h"],
             corner_radius=8,
@@ -283,9 +309,9 @@ class PanelConfiguracion(ctk.CTkFrame):
         ctk.CTkFrame(card, height=1, fg_color=C["border"]).pack(fill="x", padx=20)
 
         # ── Sincronización ──
-        card2 = _seccion(body, "Sincronización de Catálogo")
+        card3 = _seccion(body, "Sincronización de Catálogo")
 
-        row = _fila(card2, "Descargar catálogo desde la nube",
+        row = _fila(card3, "Descargar catálogo desde la nube",
                     "Sobreescribe el inventario local con los datos del servidor.")
         ctk.CTkButton(
             row,
@@ -297,7 +323,7 @@ class PanelConfiguracion(ctk.CTkFrame):
         ).pack(side="right")
 
         # Log de estado de sync
-        log_frame = ctk.CTkFrame(card2, fg_color=C["surface"], corner_radius=8)
+        log_frame = ctk.CTkFrame(card3, fg_color=C["surface"], corner_radius=8)
         log_frame.pack(fill="x", padx=20, pady=(4, 14))
         self._lbl_sync_log = ctk.CTkLabel(
             log_frame,
@@ -308,10 +334,68 @@ class PanelConfiguracion(ctk.CTkFrame):
         )
         self._lbl_sync_log.pack(anchor="w", padx=14, pady=10)
 
+    def _cargar_url_servidor(self) -> str:
+        """Cargar URL guardada de la base de datos o variable de entorno."""
+        import os
+        try:
+            with _db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS configuracion (
+                        id INTEGER PRIMARY KEY,
+                        clave TEXT UNIQUE,
+                        valor TEXT
+                    )
+                """)
+                cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+                resultado = cursor.fetchone()
+                if resultado:
+                    return resultado[0]
+        except Exception:
+            pass
+
+        # Fallback a variable de entorno o controlador
+        return os.getenv('ALMACEN_API_URL', getattr(self.controller, "API_BASE_URL", "http://127.0.0.1:8000/api"))
+
+    def _guardar_url_servidor(self):
+        """Guardar URL en la base de datos."""
+        nueva_url = self._url_entrada.get().strip()
+
+        if not nueva_url:
+            messagebox.showwarning("Validación", "Ingresa una URL válida.")
+            return
+
+        if not (nueva_url.startswith("http://") or nueva_url.startswith("https://")):
+            messagebox.showwarning("Validación", "La URL debe comenzar con http:// o https://")
+            return
+
+        try:
+            with _db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS configuracion (
+                        id INTEGER PRIMARY KEY,
+                        clave TEXT UNIQUE,
+                        valor TEXT
+                    )
+                """)
+                cursor.execute(
+                    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                    ("api_url", nueva_url)
+                )
+
+            # Actualizar en memoria
+            self._api_url = nueva_url
+            self.controller.API_BASE_URL = nueva_url
+
+            messagebox.showinfo("Éxito", f"URL guardada:\n{nueva_url}")
+        except Exception as exc:
+            messagebox.showerror("Error", f"Error al guardar: {exc}")
+
     def _probar_conexion(self):
         self._lbl_estado.configure(text="◌  Probando...", text_color=C["warning"])
         self.update()
-        api_url = getattr(self.controller, "API_BASE_URL", "http://127.0.0.1:8000/api")
+        api_url = self._api_url
         try:
             res = requests.get(f"{api_url}/almacen/inventario/", timeout=4)
             # 401 también significa que el servidor responde
