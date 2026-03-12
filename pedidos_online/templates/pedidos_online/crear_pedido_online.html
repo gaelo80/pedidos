@@ -505,7 +505,59 @@
                 </div>
             </div>
             <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
+                <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300" id="btn-editar-cliente-online" style="display:none;">
+                    <i class="fas fa-edit mr-2"></i> Editar
+                </button>
                 <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Cliente Online -->
+<div class="modal fade" id="modalEditarClienteOnline" tabindex="-1" aria-labelledby="modalEditarClienteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content rounded-xl shadow-xl">
+            <div class="modal-header bg-blue-600 text-white p-4 rounded-t-xl">
+                <h5 class="modal-title text-xl font-semibold" id="modalEditarClienteLabel">Editar Cliente Online</h5>
+                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-6">
+                <form id="form-editar-cliente">
+                    {% csrf_token %}
+                    <input type="hidden" id="edit-cliente-id" name="cliente_id" value="">
+
+                    <div class="mb-4">
+                        <label for="edit-cliente-nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                        <input type="text" id="edit-cliente-nombre" class="form-control" readonly>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="edit-cliente-identificacion" class="block text-sm font-medium text-gray-700 mb-1">Identificación</label>
+                        <input type="text" id="edit-cliente-identificacion" class="form-control" readonly>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="edit-cliente-telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="text" id="edit-cliente-telefono" name="telefono" class="form-control">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="edit-cliente-email" class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                        <input type="email" id="edit-cliente-email" name="email" class="form-control">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="edit-cliente-direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <input type="text" id="edit-cliente-direccion" name="direccion" class="form-control">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
+                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300" id="btn-guardar-cambios-cliente">
+                    <i class="fas fa-save mr-2"></i> Guardar Cambios
+                </button>
             </div>
         </div>
     </div>
@@ -973,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', function() {
             summaryContent.show(); 
 
             // Rellenar información general del cliente
-            sumClientFullName.text(data.client_info.nombre_completo || 'N/A'); 
+            sumClientFullName.text(data.client_info.nombre_completo || 'N/A');
             sumClientType.text(data.client_info.type || 'N/A');
             sumClientId.text(data.client_info.identificacion || 'N/A');
             sumClientPhone.text(data.client_info.telefono || 'N/A');
@@ -983,6 +1035,27 @@ document.addEventListener('DOMContentLoaded', function() {
             sumClientPreferredPayment.text(data.client_info.forma_pago_preferida_display || 'N/A');
             sumClientCreationDate.text(data.client_info.fecha_creacion || 'N/A');
             sumTotalDiscountsGiven.text(formatCurrency(data.total_discounts_given));
+
+            // Mostrar botón editar solo para clientes online
+            const btnEditarClienteOnline = $('#btn-editar-cliente-online');
+            if (client_type === 'online') {
+                btnEditarClienteOnline.show();
+                btnEditarClienteOnline.off('click').on('click', function() {
+                    $('#edit-cliente-id').val(client_pk);
+                    $('#edit-cliente-nombre').val(data.client_info.nombre_completo || '');
+                    $('#edit-cliente-identificacion').val(data.client_info.identificacion || '');
+                    $('#edit-cliente-telefono').val(data.client_info.telefono || '');
+                    $('#edit-cliente-email').val(data.client_info.email || '');
+                    $('#edit-cliente-direccion').val(data.client_info.direccion || '');
+
+                    // Cerrar modal de resumen y abrir modal de edición
+                    modalClienteSummary.hide();
+                    const modalEditarClienteOnline = new bootstrap.Modal(document.getElementById('modalEditarClienteOnline'));
+                    modalEditarClienteOnline.show();
+                });
+            } else {
+                btnEditarClienteOnline.hide();
+            }
 
             // Rellenar información del último pedido
             if (data.last_order) {
@@ -1080,6 +1153,45 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <p class="text-sm">${error.message}</p>
                                     <p class="text-sm mt-2">Por favor, inténtalo de nuevo más tarde o contacta a soporte.</p>
                                 </div>`);
+        });
+    });
+
+    // Manejador para guardar cambios del cliente online
+    $('#btn-guardar-cambios-cliente').on('click', function() {
+        const clienteId = $('#edit-cliente-id').val();
+        const formData = new FormData($('#form-editar-cliente')[0]);
+
+        $.ajax({
+            url: '{% url "pedidos_online:api_editar_cliente_online" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function(response) {
+                if (response.success) {
+                    // Mostrar mensaje de éxito
+                    alert('Cliente actualizado exitosamente');
+
+                    // Cerrar modal de edición
+                    const modalEditarClienteOnline = bootstrap.Modal.getInstance(document.getElementById('modalEditarClienteOnline'));
+                    if (modalEditarClienteOnline) {
+                        modalEditarClienteOnline.hide();
+                    }
+
+                    // Recargar el resumen del cliente para mostrar los cambios
+                    const clientSelection = $('.select2-selection__rendered').text();
+                    if (clientSelection.includes('online_' + clienteId)) {
+                        // Disparar la búsqueda del cliente nuevamente para actualizar el resumen
+                        $('select[name="cliente_online_search"]').val('').trigger('change');
+                    }
+                } else {
+                    alert('Error al actualizar cliente: ' + response.error);
+                }
+            },
+            error: function() {
+                alert('Error al guardar los cambios. Intenta de nuevo.');
+            }
         });
     });
 });

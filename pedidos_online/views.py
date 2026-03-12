@@ -533,6 +533,51 @@ def api_crear_cliente_online(request):
     else:
         return Response({'success': False, 'errors': form.errors}, status=400)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_editar_cliente_online(request):
+    """Actualiza los datos de un cliente online existente"""
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return Response({'success': False, 'error': 'Company not identified'}, status=403)
+
+    cliente_id = request.POST.get('cliente_id')
+    if not cliente_id:
+        return Response({'success': False, 'error': 'Cliente ID requerido'}, status=400)
+
+    try:
+        cliente = ClienteOnline.objects.get(pk=cliente_id, empresa=empresa_actual)
+
+        # Actualizar solo los campos editables
+        if request.POST.get('telefono') is not None:
+            cliente.telefono = request.POST.get('telefono', '')
+        if request.POST.get('email') is not None:
+            cliente.email = request.POST.get('email', '')
+        if request.POST.get('direccion') is not None:
+            cliente.direccion = request.POST.get('direccion', '')
+
+        cliente.save()
+
+        return Response({
+            'success': True,
+            'message': 'Cliente actualizado exitosamente',
+            'cliente': {
+                'id': f'online_{cliente.pk}',
+                'text': f'[Online] {cliente.nombre_completo} ({cliente.identificacion})',
+                'data': {
+                    'tipo_cliente': cliente.tipo_cliente,
+                    'identificacion': cliente.identificacion,
+                    'telefono': cliente.telefono,
+                    'email': cliente.email,
+                    'direccion': cliente.direccion,
+                    'forma_pago_preferida': cliente.forma_pago_preferida,
+                }
+            }
+        })
+    except ClienteOnline.DoesNotExist:
+        return Response({'success': False, 'error': 'Cliente no encontrado'}, status=404)
+    except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=400)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

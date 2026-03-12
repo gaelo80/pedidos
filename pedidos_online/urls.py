@@ -21,7 +21,8 @@ urlpatterns = [
 
     # --- APIs para la Interfaz de Usuario ---
     path('api/buscar-clientes/', views.api_buscar_clientes_unificado, name='api_buscar_clientes_unificado'),
-    path('api/crear-cliente-online/', views.api_crear_cliente_online, name='api_crear_cliente_online'), 
+    path('api/crear-cliente-online/', views.api_crear_cliente_online, name='api_crear_cliente_online'),
+    path('api/editar-cliente-online/', views.api_editar_cliente_online, name='api_editar_cliente_online'), 
     path('api/referencia/<str:ref>/colores/', views.api_get_colores_for_referencia, name='api_get_colores_for_referencia'),
     path('api/referencia/<str:ref>/color/<path:color_slug>/tallas/', views.api_get_tallas_for_color, name='api_get_tallas_for_color'),
     path('api/get-cliente-estandar/<int:cliente_id>/', views.api_get_cliente_estandar_data, name='api_get_cliente_estandar_data'),  
