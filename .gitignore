@@ -1,25 +1,50 @@
 # Entornos virtuales
 venv/
 env/
-*.env  # ¡Muy importante si usas un archivo .env para secretos locales!
+.venv/
+*.env
 .env
+.env.local
+.env.*.local
 
 # Archivos compilados de Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
 
-# Base de datos SQLite local (no la subirás a producción)
+# Base de datos SQLite local
 *.sqlite3
 db.sqlite3
 
-# Archivos de staticfiles y media (estos se generan/suben al servidor de otra forma)
+# Archivos de staticfiles y media
 staticfiles/
-# media/  # Decide si quieres versionar tus archivos media o no.
-          # Si son subidas de usuarios y muchos, usualmente no se versionan.
+media/
 
-# Archivos IDE / OS
+# Backups de settings
+gestion_inventario/settings.py.backup.*
+
+# Logs
+logs/
+*.log
+
+# IDE / OS
 .vscode/
 .idea/
 *.DS_Store
-gestion_inventario/settings.py
+*.swp
+*.swo
+
+# Directorios compilados
+dist/
+build/
+*.egg-info/
+
+# AlmacenDesktop
+AlmacenDesktop/dist/
+AlmacenDesktop/build/
+*.exe
+*.msi
+
+# Claude
+.claude/
