@@ -40,7 +40,7 @@ def decrementar_inventario_por_venta_almacen(sender, instance, created, **kwargs
 @receiver(post_save, sender=SalidaInternaDetalle)
 def incrementar_inventario_por_transferencia_almacen(sender, instance, created, **kwargs):
     """
-    Cuando bodega transfiere a almacén (SalidaInterna con destino=ALMACEN),
+    Cuando bodega transfiere a almacén (SalidaInterna con tipo=TRASLADO_INTERNO),
     incrementar InventarioAlmacen.
 
     Se dispara cuando:
@@ -48,18 +48,18 @@ def incrementar_inventario_por_transferencia_almacen(sender, instance, created, 
     - Se crea un SalidaInternaDetalle
     """
     if created:
-        # Verificar que la salida es hacia almacén
-        if instance.salida_cabecera.destino == 'ALMACEN':
+        # Verificar que la salida es un traslado interno (hacia almacén)
+        if instance.cabecera_salida.tipo_salida == 'TRASLADO_INTERNO':
             try:
                 inventario = InventarioAlmacen.objects.get(
                     producto_id=instance.producto_id
                 )
-                inventario.stock_actual += instance.cantidad
+                inventario.stock_actual += instance.cantidad_despachada
                 inventario.save(update_fields=['stock_actual'])
             except InventarioAlmacen.DoesNotExist:
                 # Si no existe InventarioAlmacen, crear uno
                 inventario = InventarioAlmacen.objects.create(
                     producto_id=instance.producto_id,
                     precio_detal=instance.producto.precio_venta or 0,
-                    stock_actual=instance.cantidad
+                    stock_actual=instance.cantidad_despachada
                 )
