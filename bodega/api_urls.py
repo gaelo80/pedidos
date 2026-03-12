@@ -5,6 +5,9 @@ from . import api_views
 app_name = 'bodega_api'
 
 urlpatterns = [
+    # Health check
+    path('health/', api_views.HealthCheckAPIView.as_view(), name='health_api'),
+
     # List all pending pedidos for bodega
     path('pedidos/', api_views.PedidoBodegaListAPIView.as_view(), name='lista_pedidos_api'),
 

@@ -19,6 +19,27 @@ from .api_serializers import PedidoBodegaListSerializer, PedidoBodegaDetalleSeri
 logger = logging.getLogger(__name__)
 
 
+class HealthCheckAPIView(APIView):
+    """
+    GET /api/bodega/health/ - Health check sin autenticación
+    """
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            empresa = getattr(request, 'tenant', None)
+            return Response({
+                'status': 'ok',
+                'empresa_id': empresa.id if empresa else None,
+                'empresa_nombre': empresa.nombre if empresa else 'Sin empresa'
+            })
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
+
+
 class PedidoBodegaListAPIView(APIView):
     """
     GET /api/bodega/pedidos/ - Lista pedidos pendientes para bodega
