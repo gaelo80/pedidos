@@ -225,8 +225,23 @@ class AppAlmacen(ctk.CTk):
         )
         self._btn_login.pack(fill="x")
 
+        # Botón configurar servidor (sin autenticación)
+        ctk.CTkButton(
+            box,
+            text="⚙️  Configurar Servidor",
+            font=FONT["body"],
+            height=40,
+            fg_color=C["surface"],
+            hover_color="#2d3348",
+            text_color=C["text_dim"],
+            border_width=1,
+            border_color=C["border"],
+            corner_radius=8,
+            command=self._dialogo_configurar_servidor,
+        ).pack(fill="x", pady=(12, 0))
+
         ctk.CTkLabel(box,
-                     text="Modo sin conexión disponible si Django no está activo.",
+                     text="Usa Configurar Servidor para cambiar URL sin loguearte.",
                      font=FONT["small"],
                      text_color=C["muted"]).pack(pady=(16, 0))
 
@@ -250,14 +265,19 @@ class AppAlmacen(ctk.CTk):
                 json={"username": usr, "password": pwd},
                 timeout=5,
             )
+
+            # Validar que el servidor respondió
             if res.status_code == 200:
+                # Credenciales válidas
                 self.token          = res.json().get("access")
                 self.usuario_actual = usr.capitalize()
                 self._btn_login.configure(text="INGRESAR", state="normal")
                 self._mostrar_dashboard()
                 threading.Thread(target=self._loop_sync,
                                  daemon=True).start()
-            else:
+
+            elif res.status_code == 401:
+                # Credenciales inválidas (RECHAZAR siempre)
                 self._lbl_login_msg.configure(
                     text="Usuario o contraseña incorrectos.",
                     text_color=C["danger"])
@@ -265,23 +285,93 @@ class AppAlmacen(ctk.CTk):
                 self._entry_pass.delete(0, "end")
                 self._entry_pass.focus()
 
+            else:
+                # Otro error del servidor
+                self._lbl_login_msg.configure(
+                    text=f"Error del servidor (HTTP {res.status_code}).",
+                    text_color=C["danger"])
+                self._btn_login.configure(text="INGRESAR", state="normal")
+
         except requests.exceptions.Timeout:
+            # Servidor no responde - Ofrecer modo offline
             self._lbl_login_msg.configure(
-                text="Servidor no responde (timeout). Revisa la URL.",
+                text="Timeout: Servidor no responde. Reintenta o intenta más tarde.",
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
 
         except requests.exceptions.ConnectionError:
+            # No hay conexión de red - Ofrecer modo offline
             self._lbl_login_msg.configure(
-                text="No hay conexión al servidor. Revisa URL y red.",
+                text="Sin conexión: Verifica URL, red e internet.",
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
 
         except Exception as e:
+            # Error inesperado
             self._lbl_login_msg.configure(
-                text=f"Error: {str(e)[:50]}...",
+                text=f"Error inesperado: {str(e)[:40]}",
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
+
+    def _dialogo_configurar_servidor(self):
+        """Abre un diálogo para cambiar URL sin autenticación."""
+        from tkinter import simpledialog
+        import sqlite3
+
+        # Cargar URL actual
+        try:
+            conn = sqlite3.connect("almacen_local.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+            resultado = cursor.fetchone()
+            url_actual = resultado[0] if resultado else "http://127.0.0.1:8000/api"
+            conn.close()
+        except:
+            url_actual = "http://127.0.0.1:8000/api"
+
+        # Pedir nueva URL
+        nueva_url = simpledialog.askstring(
+            "Configurar Servidor",
+            "Ingresa la URL del servidor API:\n(Ej: https://tu-dominio.com/api)",
+            initialvalue=url_actual
+        )
+
+        if nueva_url and nueva_url.strip():
+            nueva_url = nueva_url.strip()
+            if not (nueva_url.startswith("http://") or nueva_url.startswith("https://")):
+                messagebox.showwarning(
+                    "URL Inválida",
+                    "La URL debe comenzar con http:// o https://"
+                )
+                return
+
+            # Guardar en BD
+            try:
+                conn = sqlite3.connect("almacen_local.db")
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS configuracion (
+                        id INTEGER PRIMARY KEY,
+                        clave TEXT UNIQUE,
+                        valor TEXT
+                    )
+                """)
+                cursor.execute(
+                    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                    ("api_url", nueva_url)
+                )
+                conn.commit()
+                conn.close()
+
+                # Actualizar en memoria
+                self.API_BASE_URL = nueva_url
+
+                messagebox.showinfo(
+                    "Éxito",
+                    f"URL guardada:\n{nueva_url}\n\nAhora puedes ingresar con tus credenciales."
+                )
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al guardar: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # PANTALLA PRINCIPAL
