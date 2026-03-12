@@ -49,6 +49,8 @@ class PedidoBodegaListAPIView(APIView):
     def get(self, request):
         try:
             empresa_actual = getattr(request, 'tenant', None)
+            logger.info(f"[DEBUG] PedidoBodegaListAPIView - Empresa: {empresa_actual}")
+
             if not empresa_actual:
                 return Response(
                     {'error': 'Empresa no identificada'},
@@ -63,10 +65,14 @@ class PedidoBodegaListAPIView(APIView):
             cliente = request.query_params.get('cliente', None)
             referencia = request.query_params.get('referencia', None)
 
+            logger.info(f"[DEBUG] Buscando pedidos con estados: {estados_permitidos}")
+
             pedidos = Pedido.objects.filter(
                 empresa=empresa_actual,
                 estado__in=estados_permitidos
             ).prefetch_related('detalles__producto').select_related('cliente', 'vendedor', 'cliente_online')
+
+            logger.info(f"[DEBUG] Encontrados {pedidos.count()} pedidos")
 
             # Filtros adicionales
             if estado and estado in [s[0] for s in Pedido.ESTADO_PEDIDO_CHOICES]:
@@ -84,12 +90,14 @@ class PedidoBodegaListAPIView(APIView):
                     detalles__producto__referencia__icontains=referencia
                 ).distinct()
 
+            logger.info(f"[DEBUG] Serializando {pedidos.count()} pedidos")
             serializer = PedidoBodegaListSerializer(pedidos, many=True)
+            logger.info(f"[DEBUG] Serialización exitosa")
             return Response(serializer.data)
         except Exception as e:
-            logger.error(f"Error en PedidoBodegaListAPIView: {str(e)}", exc_info=True)
+            logger.error(f"[ERROR] PedidoBodegaListAPIView: {type(e).__name__}: {str(e)}", exc_info=True)
             return Response(
-                {'error': f'Error interno: {str(e)[:100]}'},
+                {'error': f'{type(e).__name__}: {str(e)[:200]}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
