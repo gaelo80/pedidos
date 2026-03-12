@@ -117,8 +117,20 @@ class PanelPedidos(ctk.CTkFrame):
                 self.pedidos_data = response.json()
                 self._mostrar_tabla()
                 self._lbl_status.configure(text=f"✅ {len(self.pedidos_data)} pedidos cargados", text_color=C['text_dark'])
+            elif response.status_code == 401:
+                self._lbl_status.configure(text="❌ No autorizado (token expirado) - Inicia sesión nuevamente", text_color=C['error'])
+            elif response.status_code == 400:
+                try:
+                    error_detail = response.json().get('error', 'Error desconocido')
+                    self._lbl_status.configure(text=f"❌ Error 400: {error_detail[:40]}", text_color=C['error'])
+                except:
+                    self._lbl_status.configure(text="❌ Error 400: solicitud inválida", text_color=C['error'])
+            elif response.status_code == 500:
+                self._lbl_status.configure(text="❌ Error 500: servidor no responde correctamente", text_color=C['error'])
+            elif response.status_code == 404:
+                self._lbl_status.configure(text="❌ Error 404: endpoint no encontrado", text_color=C['error'])
             else:
-                self._lbl_status.configure(text="❌ Error al cargar pedidos", text_color=C['error'])
+                self._lbl_status.configure(text=f"❌ Error HTTP {response.status_code}", text_color=C['error'])
 
         except requests.exceptions.Timeout:
             self._lbl_status.configure(text="❌ Timeout - Servidor no responde", text_color=C['error'])
