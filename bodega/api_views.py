@@ -26,44 +26,51 @@ class PedidoBodegaListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        empresa_actual = getattr(request, 'tenant', None)
-        if not empresa_actual:
+        try:
+            empresa_actual = getattr(request, 'tenant', None)
+            if not empresa_actual:
+                return Response(
+                    {'error': 'Empresa no identificada'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Estados que bodega puede ver por defecto
+            estados_permitidos = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO']
+
+            # Parámetros opcionales
+            estado = request.query_params.get('estado', None)
+            cliente = request.query_params.get('cliente', None)
+            referencia = request.query_params.get('referencia', None)
+
+            pedidos = Pedido.objects.filter(
+                empresa=empresa_actual,
+                estado__in=estados_permitidos
+            ).prefetch_related('detalles__producto').select_related('cliente', 'vendedor', 'cliente_online')
+
+            # Filtros adicionales
+            if estado and estado in [s[0] for s in Pedido.ESTADO_PEDIDO_CHOICES]:
+                pedidos = pedidos.filter(estado=estado)
+
+            if cliente:
+                pedidos = pedidos.filter(
+                    cliente__nombre_completo__icontains=cliente
+                ) | pedidos.filter(
+                    cliente_online__nombre__icontains=cliente
+                )
+
+            if referencia:
+                pedidos = pedidos.filter(
+                    detalles__producto__referencia__icontains=referencia
+                ).distinct()
+
+            serializer = PedidoBodegaListSerializer(pedidos, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error en PedidoBodegaListAPIView: {str(e)}", exc_info=True)
             return Response(
-                {'error': 'Empresa no identificada'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': f'Error interno: {str(e)[:100]}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        # Estados que bodega puede ver por defecto
-        estados_permitidos = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO']
-
-        # Parámetros opcionales
-        estado = request.query_params.get('estado', None)
-        cliente = request.query_params.get('cliente', None)
-        referencia = request.query_params.get('referencia', None)
-
-        pedidos = Pedido.objects.filter(
-            empresa=empresa_actual,
-            estado__in=estados_permitidos
-        ).prefetch_related('detalles__producto').select_related('cliente', 'vendedor')
-
-        # Filtros adicionales
-        if estado and estado in [s[0] for s in Pedido.ESTADO_PEDIDO_CHOICES]:
-            pedidos = pedidos.filter(estado=estado)
-
-        if cliente:
-            pedidos = pedidos.filter(
-                cliente__nombre_completo__icontains=cliente
-            ) | pedidos.filter(
-                cliente_online__nombre__icontains=cliente
-            )
-
-        if referencia:
-            pedidos = pedidos.filter(
-                detalles__producto__referencia__icontains=referencia
-            ).distinct()
-
-        serializer = PedidoBodegaListSerializer(pedidos, many=True)
-        return Response(serializer.data)
 
 
 class PedidoBodegaDetalleAPIView(APIView):
