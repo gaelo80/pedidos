@@ -1296,9 +1296,9 @@ def registrar_salida_interna(request):
 
                     for detalle in detalles_guardados:
                         # Asegurarse que el detalle no fue marcado para borrarse y tiene cantidad
-                        if detalle and detalle.cantidad_despachada > 0: 
+                        if detalle and detalle.cantidad_despachada > 0:
                             tipo_mov_str = f"SALIDA_{cabecera.tipo_salida.upper()}"
-                            
+
                             # Mapeo explícito para asegurar consistencia con MovimientoInventario.TIPO_MOVIMIENTO_CHOICES
                             tipo_mov_map = {
                                 'MUESTRARIO': 'SALIDA_MUESTRARIO',
@@ -1310,15 +1310,18 @@ def registrar_salida_interna(request):
                             }
                             tipo_mov_str = tipo_mov_map.get(cabecera.tipo_salida, 'SALIDA_INTERNA_OTRA')
 
-
-                            MovimientoInventario.objects.create(
+                            # Usar get_or_create() con documento_referencia específico por producto
+                            # para evitar violación del constraint unique_together
+                            MovimientoInventario.objects.get_or_create(
                                 empresa=empresa_actual,
                                 producto=detalle.producto,
-                                cantidad=-detalle.cantidad_despachada, 
                                 tipo_movimiento=tipo_mov_str,
-                                documento_referencia=f"SalidaInt #{cabecera.pk}",
-                                usuario=request.user,
-                                notas=f"Salida por {cabecera.get_tipo_salida_display()} a {cabecera.destino_descripcion}"
+                                documento_referencia=f"SalidaInt #{cabecera.pk}-{detalle.producto.id}",
+                                defaults={
+                                    'cantidad': -detalle.cantidad_despachada,
+                                    'usuario': request.user,
+                                    'notas': f"Salida por {cabecera.get_tipo_salida_display()} a {cabecera.destino_descripcion}"
+                                }
                             )
                     
                     messages.success(request, f"Salida Interna #{cabecera.pk} registrada exitosamente. Stock actualizado.")
