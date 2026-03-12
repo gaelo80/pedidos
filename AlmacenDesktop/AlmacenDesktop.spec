@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('modulos', 'modulos'), ('repositories', 'repositories')]
+datas = [('modulos', 'modulos'), ('repositories', 'repositories'), ('assets', 'assets')]
 binaries = []
 hiddenimports = ['sqlite3', 'requests', 'urllib3']
 tmp_ret = collect_all('customtkinter')
