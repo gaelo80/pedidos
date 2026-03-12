@@ -48,57 +48,67 @@ class PedidoBodegaListAPIView(APIView):
 
     def get(self, request):
         try:
+            # PASO 1: Verificar empresa
             empresa_actual = getattr(request, 'tenant', None)
-            logger.info(f"[DEBUG] PedidoBodegaListAPIView - Empresa: {empresa_actual}")
+            logger.info(f"[PASO1] Empresa: {empresa_actual}")
 
             if not empresa_actual:
-                return Response(
-                    {'error': 'Empresa no identificada'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({'error': 'Empresa no identificada'}, status=400)
 
-            # Estados que bodega puede ver por defecto
+            # PASO 2: Preparar filtros
             estados_permitidos = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO']
+            logger.info(f"[PASO2] Estados permitidos: {estados_permitidos}")
 
-            # Parámetros opcionales
-            estado = request.query_params.get('estado', None)
-            cliente = request.query_params.get('cliente', None)
-            referencia = request.query_params.get('referencia', None)
-
-            logger.info(f"[DEBUG] Buscando pedidos con estados: {estados_permitidos}")
-
-            pedidos = Pedido.objects.filter(
-                empresa=empresa_actual,
-                estado__in=estados_permitidos
-            ).prefetch_related('detalles__producto').select_related('cliente', 'vendedor', 'cliente_online')
-
-            logger.info(f"[DEBUG] Encontrados {pedidos.count()} pedidos")
-
-            # Filtros adicionales
-            if estado and estado in [s[0] for s in Pedido.ESTADO_PEDIDO_CHOICES]:
-                pedidos = pedidos.filter(estado=estado)
-
-            if cliente:
-                pedidos = pedidos.filter(
-                    cliente__nombre_completo__icontains=cliente
-                ) | pedidos.filter(
-                    cliente_online__nombre__icontains=cliente
+            # PASO 3: Ejecutar query base
+            try:
+                pedidos = Pedido.objects.filter(
+                    empresa=empresa_actual,
+                    estado__in=estados_permitidos
                 )
+                logger.info(f"[PASO3] Query base OK, count={pedidos.count()}")
+            except Exception as e:
+                logger.error(f"[PASO3-ERROR] Query base falló: {e}")
+                raise
 
-            if referencia:
-                pedidos = pedidos.filter(
-                    detalles__producto__referencia__icontains=referencia
-                ).distinct()
+            # PASO 4: Agregar select_related
+            try:
+                pedidos = pedidos.select_related('cliente', 'vendedor', 'cliente_online')
+                logger.info(f"[PASO4] select_related OK")
+            except Exception as e:
+                logger.error(f"[PASO4-ERROR] select_related falló: {e}")
+                raise
 
-            logger.info(f"[DEBUG] Serializando {pedidos.count()} pedidos")
-            serializer = PedidoBodegaListSerializer(pedidos, many=True)
-            logger.info(f"[DEBUG] Serialización exitosa")
-            return Response(serializer.data)
+            # PASO 5: Agregar prefetch_related
+            try:
+                pedidos = pedidos.prefetch_related('detalles__producto')
+                logger.info(f"[PASO5] prefetch_related OK")
+            except Exception as e:
+                logger.error(f"[PASO5-ERROR] prefetch_related falló: {e}")
+                raise
+
+            # PASO 6: Serializar
+            try:
+                serializer = PedidoBodegaListSerializer(pedidos, many=True)
+                logger.info(f"[PASO6] Serializer creado OK")
+            except Exception as e:
+                logger.error(f"[PASO6-ERROR] Serializer creación falló: {e}")
+                raise
+
+            # PASO 7: Obtener datos
+            try:
+                data = serializer.data
+                logger.info(f"[PASO7] Serialization OK, items={len(data)}")
+            except Exception as e:
+                logger.error(f"[PASO7-ERROR] Serialization falló: {e}")
+                raise
+
+            return Response(data)
+
         except Exception as e:
-            logger.error(f"[ERROR] PedidoBodegaListAPIView: {type(e).__name__}: {str(e)}", exc_info=True)
+            logger.error(f"[EXCEPCION] {type(e).__name__}: {str(e)}", exc_info=True)
             return Response(
-                {'error': f'{type(e).__name__}: {str(e)[:200]}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': f'{type(e).__name__}: {str(e)[:300]}'},
+                status=500
             )
 
 
