@@ -188,13 +188,15 @@ def crear_pedido_online(request, pk=None):
                     if tipo_mov_nuevo:
                         for detalle in pedido.detalles.all():
                             if detalle.cantidad > 0:
-                                MovimientoInventario.objects.create(
+                                MovimientoInventario.objects.get_or_create(
                                     empresa=pedido.empresa,
                                     producto=detalle.producto,
-                                    cantidad=-detalle.cantidad, # Salida
                                     tipo_movimiento=tipo_mov_nuevo,
-                                    documento_referencia=doc_ref_nuevo,
-                                    usuario=pedido.vendedor.user if pedido.vendedor else None
+                                    documento_referencia=f'{doc_ref_nuevo} - {detalle.producto.referencia}',
+                                    defaults={
+                                        'cantidad': -detalle.cantidad,
+                                        'usuario': pedido.vendedor.user if pedido.vendedor else None
+                                    }
                                 )
                         logger.info(f"Creados {pedido.detalles.count()} movimientos '{tipo_mov_nuevo}' para Pedido #{pedido.numero_pedido_empresa} desde la vista.")
                     
@@ -934,13 +936,15 @@ def registrar_cambio_online(request):
                             precio_unitario=precio,
                             tipo_detalle='DEVOLUCION'  # <-- USO DEL NUEVO CAMPO
                         )
-                        MovimientoInventario.objects.create(
+                        MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=producto,
-                            cantidad=cantidad,  # Positivo para la entrada
                             tipo_movimiento='ENTRADA_CAMBIO',
-                            documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa}',
-                            usuario=request.user
+                            documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa} - {producto.referencia}',
+                            defaults={
+                                'cantidad': cantidad,
+                                'usuario': request.user
+                            }
                         )
 
                 # 4. Procesar productos A ENVIAR (Salida de bodega)
@@ -961,13 +965,15 @@ def registrar_cambio_online(request):
                             precio_unitario=precio,
                             tipo_detalle='ENVIO'  # <-- USO DEL NUEVO CAMPO
                         )
-                        MovimientoInventario.objects.create(
+                        MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=producto,
-                            cantidad=-cantidad,  # Negativo para la salida
                             tipo_movimiento='SALIDA_CAMBIO',
-                            documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa}',
-                            usuario=request.user
+                            documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa} - {producto.referencia}',
+                            defaults={
+                                'cantidad': -cantidad,
+                                'usuario': request.user
+                            }
                         )
             
             messages.success(request, f"El cambio #{cambio_pedido.numero_pedido_empresa} ha sido registrado exitosamente.")
