@@ -225,9 +225,12 @@ class AppAlmacen(ctk.CTk):
         )
         self._btn_login.pack(fill="x")
 
-        # Botón configurar servidor (sin autenticación)
+        # Botones de configuración (sin autenticación)
+        botones_frame = ctk.CTkFrame(box, fg_color="transparent")
+        botones_frame.pack(fill="x", pady=(12, 0))
+
         ctk.CTkButton(
-            box,
+            botones_frame,
             text="⚙️  Configurar Servidor",
             font=FONT["body"],
             height=40,
@@ -238,7 +241,21 @@ class AppAlmacen(ctk.CTk):
             border_color=C["border"],
             corner_radius=8,
             command=self._dialogo_configurar_servidor,
-        ).pack(fill="x", pady=(12, 0))
+        ).pack(side="left", fill="both", expand=True, padx=(0, 6))
+
+        ctk.CTkButton(
+            botones_frame,
+            text="🧪 Probar",
+            font=FONT["body"],
+            height=40,
+            fg_color=C["surface"],
+            hover_color="#2d3348",
+            text_color=C["text_dim"],
+            border_width=1,
+            border_color=C["border"],
+            corner_radius=8,
+            command=self._probar_conexion_login,
+        ).pack(side="left", fill="both", expand=True, padx=(6, 0))
 
         ctk.CTkLabel(box,
                      text="Usa Configurar Servidor para cambiar URL sin loguearte.",
@@ -312,6 +329,72 @@ class AppAlmacen(ctk.CTk):
                 text=f"Error inesperado: {str(e)[:40]}",
                 text_color=C["danger"])
             self._btn_login.configure(text="INGRESAR", state="normal")
+
+    def _probar_conexion_login(self):
+        """Prueba conexión al servidor sin necesidad de credenciales."""
+        import sqlite3
+
+        # Cargar URL
+        try:
+            conn = sqlite3.connect("almacen_local.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor FROM configuracion WHERE clave='api_url'")
+            resultado = cursor.fetchone()
+            url = resultado[0] if resultado else None
+            conn.close()
+        except:
+            url = None
+
+        if not url:
+            messagebox.showwarning(
+                "URL No Configurada",
+                "Primero debes configurar la URL del servidor.\n\n"
+                "Click en '⚙️ Configurar Servidor'"
+            )
+            return
+
+        # Probar conexión
+        try:
+            res = requests.get(f"{url}/almacen/inventario/", timeout=4)
+            if res.status_code < 500:
+                messagebox.showinfo(
+                    "Conexión Exitosa ✓",
+                    f"Servidor respondiendo correctamente\n"
+                    f"URL: {url}\n"
+                    f"HTTP {res.status_code}\n\n"
+                    f"Ahora puedes ingresar con tus credenciales."
+                )
+            else:
+                messagebox.showwarning(
+                    "Error del Servidor",
+                    f"El servidor respondió con error:\n"
+                    f"HTTP {res.status_code}\n\n"
+                    f"Verifica que Django esté corriendo."
+                )
+        except requests.exceptions.Timeout:
+            messagebox.showerror(
+                "Timeout",
+                f"El servidor no responde (timeout 4s).\n\n"
+                f"Verifica:\n"
+                f"• URL correcta: {url}\n"
+                f"• Conexión a internet\n"
+                f"• Que el servidor esté en línea"
+            )
+        except requests.exceptions.ConnectionError:
+            messagebox.showerror(
+                "Sin Conexión",
+                f"No se puede conectar al servidor:\n\n"
+                f"URL: {url}\n\n"
+                f"Verifica:\n"
+                f"• URL correcta\n"
+                f"• Conexión a internet\n"
+                f"• Firewall/proxy del almacén"
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al conectar:\n{str(e)[:60]}"
+            )
 
     def _dialogo_configurar_servidor(self):
         """Abre un diálogo para cambiar URL sin autenticación."""
