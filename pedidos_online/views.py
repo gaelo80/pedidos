@@ -156,49 +156,38 @@ def crear_pedido_online(request, pk=None):
                     # porque se ejecuta ANTES de que los DetallePedido se guarden.
                     # La lógica debe vivir aquí, después de guardar los detalles.
 
-                    # 1. Eliminar todos los movimientos PENDIENTES anteriores para este pedido.
-                    # Esto es crucial para que al "actualizar" un borrador no se duplique el stock.
-                    # También limpia la reserva si un borrador se convierte en definitivo.
-                    movimientos_anteriores = MovimientoInventario.objects.filter(
+                    # FIX: Usar update_or_create() en lugar de delete() + get_or_create()
+                    # para evitar race conditions cuando el usuario intenta guardar rápidamente.
+                    # El documento_referencia es consistente, sin incluir el estado (Borrador/Definitivo).
+
+                    doc_ref_base = f'Pedido #{pedido.numero_pedido_empresa} (Reserva Online)'
+
+                    # Obtener los IDs de productos en el pedido actual
+                    productos_actuales_ids = set(pedido.detalles.values_list('producto_id', flat=True))
+
+                    # Eliminar movimientos de productos que ya NO están en el pedido
+                    # (el usuario quitó esos ítems)
+                    MovimientoInventario.objects.filter(
                         empresa=pedido.empresa,
                         tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                        documento_referencia__startswith=f'Pedido #{pedido.numero_pedido_empresa}'
-                    )
-                    if movimientos_anteriores.exists():
-                        movimientos_anteriores.delete()
-                        logger.info(f"Movimientos pendientes anteriores eliminados para Pedido #{pedido.numero_pedido_empresa}.")
+                        documento_referencia__startswith=doc_ref_base,
+                        producto_id__notin=productos_actuales_ids
+                    ).delete()
 
-                    # 2. Determinar el nuevo tipo de movimiento
-                    tipo_mov_nuevo = None
-                    doc_ref_nuevo = ''
-
-                    if accion == 'guardar_borrador':
-                        # Estado 'BORRADOR'. Creamos una reserva PENDIENTE.
-                        tipo_mov_nuevo = 'SALIDA_VENTA_PENDIENTE'
-                        doc_ref_nuevo = f'Pedido #{pedido.numero_pedido_empresa} (Reserva Online)'
-                    
-                    elif accion == 'crear_definitivo':
-                        # Estado 'LISTO_BODEGA_DIRECTO'.
-                        # Esto también debe crear una reserva pendiente, que Bodega
-                        # luego convertirá en un despacho definitivo.
-                        tipo_mov_nuevo = 'SALIDA_VENTA_PENDIENTE'
-                        doc_ref_nuevo = f'Pedido #{pedido.numero_pedido_empresa} (Reserva Online Definitiva)'
-
-                    # 3. Crear los nuevos movimientos de inventario
-                    if tipo_mov_nuevo:
-                        for detalle in pedido.detalles.all():
-                            if detalle.cantidad > 0:
-                                MovimientoInventario.objects.get_or_create(
-                                    empresa=pedido.empresa,
-                                    producto=detalle.producto,
-                                    tipo_movimiento=tipo_mov_nuevo,
-                                    documento_referencia=f'{doc_ref_nuevo} - {detalle.producto.referencia}',
-                                    defaults={
-                                        'cantidad': -detalle.cantidad,
-                                        'usuario': pedido.vendedor.user if pedido.vendedor else None
-                                    }
-                                )
-                        logger.info(f"Creados {pedido.detalles.count()} movimientos '{tipo_mov_nuevo}' para Pedido #{pedido.numero_pedido_empresa} desde la vista.")
+                    # Crear o actualizar movimientos para todos los detalles actuales
+                    for detalle in pedido.detalles.all():
+                        if detalle.cantidad > 0:
+                            MovimientoInventario.objects.update_or_create(
+                                empresa=pedido.empresa,
+                                producto=detalle.producto,
+                                tipo_movimiento='SALIDA_VENTA_PENDIENTE',
+                                documento_referencia=f'{doc_ref_base} - {detalle.producto.referencia}',
+                                defaults={
+                                    'cantidad': -detalle.cantidad,
+                                    'usuario': pedido.vendedor.user if pedido.vendedor else None
+                                }
+                            )
+                    logger.info(f"Movimientos de inventario actualizados para Pedido #{pedido.numero_pedido_empresa}.")
                     
                     # --- FIN DE LA LÓGICA DE INVENTARIO ---
 
