@@ -153,7 +153,7 @@ class MovimientoInventario(models.Model):
             verbose_name = "Movimiento de Inventario"
             verbose_name_plural = "Movimientos de Inventario"
             ordering = ['-fecha_hora', 'producto__nombre']
-            unique_together = ('empresa', 'documento_referencia', 'tipo_movimiento')
+            unique_together = ('empresa', 'documento_referencia', 'tipo_movimiento', 'producto')
             
             
 class CabeceraConteo(models.Model):

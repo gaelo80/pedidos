@@ -170,7 +170,7 @@ def crear_pedido_online(request, pk=None):
                     MovimientoInventario.objects.filter(
                         empresa=pedido.empresa,
                         tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                        documento_referencia__startswith=doc_ref_base
+                        documento_referencia=doc_ref_base
                     ).exclude(
                         producto_id__in=productos_actuales_ids
                     ).delete()
@@ -182,7 +182,7 @@ def crear_pedido_online(request, pk=None):
                                 empresa=pedido.empresa,
                                 producto=detalle.producto,
                                 tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                                documento_referencia=f'{doc_ref_base} - {detalle.producto.referencia}',
+                                documento_referencia=doc_ref_base,
                                 defaults={
                                     'cantidad': -detalle.cantidad,
                                     'usuario': pedido.vendedor.user if pedido.vendedor else None
