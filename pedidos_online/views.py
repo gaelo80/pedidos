@@ -170,8 +170,9 @@ def crear_pedido_online(request, pk=None):
                     MovimientoInventario.objects.filter(
                         empresa=pedido.empresa,
                         tipo_movimiento='SALIDA_VENTA_PENDIENTE',
-                        documento_referencia__startswith=doc_ref_base,
-                        producto_id__notin=productos_actuales_ids
+                        documento_referencia__startswith=doc_ref_base
+                    ).exclude(
+                        producto_id__in=productos_actuales_ids
                     ).delete()
 
                     # Crear o actualizar movimientos para todos los detalles actuales
