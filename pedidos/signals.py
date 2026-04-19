@@ -56,29 +56,37 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
     # (Asegúrate que este sea el primer 'if' o 'elif' de la lógica de stock)
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA' and instance.tipo_pedido != 'ONLINE':
         # Si no hay movimientos, creamos la reserva/salida inicial
+
         for detalle in instance.detalles.all():
             producto = detalle.producto
             cantidad_a_descontar = -detalle.cantidad
 
             tipo_mov = 'SALIDA_VENTA_PENDIENTE'
-            # Incluir producto en documento_referencia para hacer único por producto
-            doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva) - {producto.referencia}'
+            
+            # MEJORA: Incluir el ID del producto o su talla para mayor claridad en reportes
+            talla_display = producto.talla if hasattr(producto, 'talla') else producto.id
+            doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva) - {producto.referencia} T-{talla_display}'
 
-            # Usa get_or_create para evitar duplicados si el signal se dispara múltiples veces
+            # CORRECCIÓN: 'producto' sale de defaults para que Django lo use como filtro de búsqueda
             mov, created = MovimientoInventario.objects.get_or_create(
                 empresa=instance.empresa,
                 tipo_movimiento=tipo_mov,
                 documento_referencia=doc_ref,
+                producto=producto,  # <--- AHORA SÍ FILTRA POR TALLA EXACTA
                 defaults={
-                    'producto': producto,
                     'cantidad': cantidad_a_descontar,
                     'usuario': instance.vendedor.user if instance.vendedor else None
                 }
             )
+            
             if created:
-                logger.info(f"Creado movimiento de reserva para {producto.referencia} en pedido #{instance.numero_pedido_empresa}.")
+                logger.info(f"Creado movimiento de reserva para {producto.referencia} Talla {talla_display} en pedido #{instance.numero_pedido_empresa}.")
             else:
-                logger.debug(f"Movimiento de reserva ya existe para {producto.referencia} en pedido #{instance.numero_pedido_empresa}.")
+                # Si entra aquí, es porque la MISMA talla se guardó dos veces en el mismo pedido, 
+                # en cuyo caso sumamos la cantidad para no perder el registro.
+                mov.cantidad += cantidad_a_descontar
+                mov.save()
+                logger.debug(f"Movimiento actualizado (sumado) para {producto.referencia} Talla {talla_display} en pedido #{instance.numero_pedido_empresa}.")
 
         logger.info(f"Procesadas reservas para pedido estándar #{instance.numero_pedido_empresa}.")
 
