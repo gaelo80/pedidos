@@ -49,6 +49,7 @@ from django.utils.safestring import mark_safe
 from django.core.paginator import Paginator
 from django.db.models import Q 
 from almacen.models import InventarioAlmacen
+from django.views import View
 
 
 def admin_permission_required(view_func):
