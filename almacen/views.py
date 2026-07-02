@@ -24,7 +24,7 @@ class InventarioAlmacenViewSet(viewsets.ModelViewSet):
             return qs
 
         # Si es Vendedor Estándar -> SOLO VE LO NO OCULTO
-        return qs.filter(oculto_para_standar=False)
+        return qs.filter(producto__oculto_para_standar=False)
 
 
 class FacturaAlmacenViewSet(viewsets.ModelViewSet):

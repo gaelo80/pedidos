@@ -12,52 +12,48 @@
         <a href="{% url 'bodega:visibilidad_productos' %}" class="btn btn-secondary ms-2">Limpiar</a>
     </form>
 
-    <!-- Tabla de Productos -->
-    <table class="table table-striped table-hover">
+<!-- Tabla de Productos Agrupados -->
+    <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
             <tr>
                 <th>Referencia</th>
-                <th>Descripción</th>
-                <th>Stock Tienda</th>
-                <th>Estado para Vendedores</th>
-                <th>Acción</th>
+                <th>Descripción General</th>
+                <th class="text-center">Estado para Vendedores</th>
+                <th class="text-center">Acción (Afecta todas las tallas)</th>
             </tr>
         </thead>
         <tbody>
-            {% for item in inventario %}
+            {% for item in referencias %}
             <tr>
-                <td>{{ item.producto.referencia }}</td>
-                <td>{{ item.producto.descripcion }}</td>
-                <td><strong>{{ item.stock_actual }}</strong></td>
-                <td id="estado-texto-{{ item.id }}">
+                <td><strong>{{ item.referencia }}</strong></td>
+                <td>{{ item.descripcion }}</td>
+                <td class="text-center" id="estado-texto-{{ item.referencia }}">
                     {% if item.oculto_para_standar %}
-                        <span class="badge bg-danger">❌ Oculto</span>
+                        <span class="badge bg-danger">❌ Oculto Completo</span>
                     {% else %}
-                        <span class="badge bg-success">✅ Visible</span>
+                        <span class="badge bg-success">✅ Visible Completo</span>
                     {% endif %}
                 </td>
-                <td>
-                    <!-- Botón de Interruptor -->
+                <td class="text-center">
                     <button class="btn btn-sm {% if item.oculto_para_standar %}btn-success{% else %}btn-warning{% endif %}" 
-                            id="btn-toggle-{{ item.id }}"
-                            onclick="toggleVisibilidad({{ item.id }})">
-                        {% if item.oculto_para_standar %}Mostrar{% else %}Ocultar{% endif %}
+                            id="btn-toggle-{{ item.referencia }}"
+                            onclick="toggleVisibilidad('{{ item.referencia }}')">
+                        {% if item.oculto_para_standar %}Mostrar Todo{% else %}Ocultar Todo{% endif %}
                     </button>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" class="text-center">No se encontraron productos.</td>
+                <td colspan="4" class="text-center py-4 text-muted">No se encontraron referencias en el sistema.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- Script AJAX para cambiar el estado sin recargar la página -->
+<!-- Script AJAX -->
 <script>
-function toggleVisibilidad(itemId) {
-    // Necesitamos enviar el token CSRF por seguridad
+function toggleVisibilidad(referenciaId) {
     const csrfToken = '{{ csrf_token }}';
 
     fetch("{% url 'bodega:toggle_visibilidad' %}", {
@@ -66,23 +62,22 @@ function toggleVisibilidad(itemId) {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken
         },
-        body: JSON.stringify({ id: itemId })
+        body: JSON.stringify({ referencia: referenciaId })
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'ok') {
-            const btn = document.getElementById(`btn-toggle-${itemId}`);
-            const texto = document.getElementById(`estado-texto-${itemId}`);
+            const btn = document.getElementById(`btn-toggle-${referenciaId}`);
+            const texto = document.getElementById(`estado-texto-${referenciaId}`);
             
-            // Actualizamos los colores y textos dependiendo del nuevo estado
             if (data.oculto) {
                 btn.className = "btn btn-sm btn-success";
-                btn.innerText = "Mostrar";
-                texto.innerHTML = '<span class="badge bg-danger">❌ Oculto</span>';
+                btn.innerText = "Mostrar Todo";
+                texto.innerHTML = '<span class="badge bg-danger">❌ Oculto Completo</span>';
             } else {
                 btn.className = "btn btn-sm btn-warning";
-                btn.innerText = "Ocultar";
-                texto.innerHTML = '<span class="badge bg-success">✅ Visible</span>';
+                btn.innerText = "Ocultar Todo";
+                texto.innerHTML = '<span class="badge bg-success">✅ Visible Completo</span>';
             }
         } else {
             alert("Error al actualizar: " + data.msg);

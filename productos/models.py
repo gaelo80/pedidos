@@ -180,6 +180,7 @@ class Producto(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     activo = models.BooleanField(default=True, db_index=True)
     codigo_barras = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    oculto_para_standar = models.BooleanField(default=False)
 
     @property
     def stock_actual(self):

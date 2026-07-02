@@ -2470,42 +2470,42 @@ def vista_ajuste_masivo_inventario(request):
     
 
 class VisibilidadProductosView(LoginRequiredMixin, ListView):
-    """Vista web para que el bodeguero busque y vea qué ocultar"""
-    model = InventarioAlmacen
+    """Vista web para que el bodeguero busque y vea qué ocultar (Agrupado por Referencia)"""
     template_name = 'bodega/visibilidad_productos.html'
-    context_object_name = 'inventario'
+    context_object_name = 'referencias'
 
     def get_queryset(self):
-        # Optimizamos cruzando con Producto
-        qs = InventarioAlmacen.objects.select_related('producto').all()
-        
-        # Lógica del buscador
+        qs = Producto.objects.all()
         q = self.request.GET.get('q', '').strip()
+        
         if q:
-            qs = qs.filter(
-                producto__descripcion__icontains=q
-            ) | qs.filter(
-                producto__referencia__icontains=q
-            )
-        return qs
+            qs = qs.filter(referencia__icontains=q) | qs.filter(descripcion__icontains=q)
+            
+        # Agrupamos manualmente para que cada referencia aparezca solo 1 vez
+        referencias_unicas = {}
+        for p in qs:
+            if p.referencia not in referencias_unicas:
+                referencias_unicas[p.referencia] = p
+                
+        return list(referencias_unicas.values())
 
 class ToggleVisibilidadView(LoginRequiredMixin, View):
-    """Endpoint AJAX que recibe el clic del interruptor"""
+    """Endpoint AJAX que apaga/enciende TODAS las tallas de una referencia"""
     def post(self, request, *args, **kwargs):
         try:
             data = json.loads(request.body)
-            item_id = data.get('id')
+            referencia = data.get('referencia')
             
-            # Buscamos el item en el inventario del almacén
-            item = InventarioAlmacen.objects.get(id=item_id)
+            # Vemos en qué estado está el primer producto de esta referencia
+            producto_base = Producto.objects.filter(referencia=referencia).first()
+            nuevo_estado = not producto_base.oculto_para_standar
             
-            # Invertimos su estado actual (Si era True, pasa a False y viceversa)
-            item.oculto_para_standar = not item.oculto_para_standar
-            item.save(update_fields=['oculto_para_standar'])
+            # ¡Magia! Actualizamos TODAS las tallas y colores de esta referencia de un solo golpe
+            Producto.objects.filter(referencia=referencia).update(oculto_para_standar=nuevo_estado)
             
             return JsonResponse({
                 'status': 'ok', 
-                'oculto': item.oculto_para_standar
+                'oculto': nuevo_estado
             })
         except Exception as e:
             return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)
