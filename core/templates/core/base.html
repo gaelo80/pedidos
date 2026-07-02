@@ -321,8 +321,9 @@
                             <li><a class="dropdown-item" href="{% url 'bodega:vista_conteo_inventario' %}">Realizar Conteo de Inventario</a></li>
                             <li><a class="dropdown-item" href="{% url 'bodega:lista_salidas_internas' %}">Registrar Salida Interna</a></li>
                             <li><a class="dropdown-item" href="{% url 'devoluciones:crear_devolucion' %}">Registrar Devolución</a></li>
+                            <!-- NUEVO: Control de visibilidad -->
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'visibilidad_productos' %}"><i class="fas fa-eye-slash me-1"></i> Ocultar Productos (Tiendas)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'bodega:visibilidad_productos' %}"><i class="fas fa-eye-slash me-1"></i> Ocultar Productos (Tiendas)</a></li>
                         {% endif %}
                         {% if es_bodega or es_administracion or es_diseno %}
                             <li><hr class="dropdown-divider"></li>
