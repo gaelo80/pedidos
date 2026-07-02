@@ -6,6 +6,7 @@ import threading
 import time
 from tkinter import messagebox
 
+from BodegaDesktop.modulos.visibilidad import PanelVisibilidad
 import customtkinter as ctk
 import requests
 from PIL import Image
@@ -58,6 +59,7 @@ MODULE_BUTTONS = [
     ("Devoluciones",    "devoluciones.png", "devoluciones",  "#f97316", "#ea580c"),
     ("Informes / Caja", "reportes.png",     "informes",      "#8b5cf6", "#7c3aed"),
     ("Configuración",   "config.png",       "configuracion", "#64748b", "#475569"),
+    ("Control Visibilidad", "inventario.png", "visibilidad", "#f59e0b", "#d97706"),
 ]
 
 
@@ -538,6 +540,7 @@ class AppAlmacen(ctk.CTk):
             "informes":     PanelInformes(self._content, self),
             "devoluciones": PanelDevoluciones(self._content, self),
             "configuracion":PanelConfiguracion(self._content, self),
+            "visibilidad": PanelVisibilidad(self._content, self),
         }
 
         return frame

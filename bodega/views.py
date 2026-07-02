@@ -1841,6 +1841,10 @@ def vista_informe_inventario(request):
     con opciones de filtrado.
     """
     empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        # Aquí le decimos al usuario exactamente qué pasa en lugar de un error 500
+        messages.error(request, "No se ha podido identificar la empresa para este informe.")
+        return redirect('core:index') # O donde quieras redirigir
     
     # Query base: solo productos activos de la empresa actual
     productos_queryset = Producto.objects.filter(

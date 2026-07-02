@@ -10,6 +10,7 @@ class InventarioAlmacen(models.Model):
     producto = models.OneToOneField(Producto, on_delete=models.CASCADE, related_name='inventario_almacen')
     precio_detal = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio de venta en el almacén físico")
     stock_actual = models.IntegerField(default=0)
+    oculto_para_standar = models.BooleanField(default=False)
     
     def __str__(self):
         return f"{self.producto.descripcion} - Stock Almacén: {self.stock_actual}"

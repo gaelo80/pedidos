@@ -5,7 +5,7 @@ from .models import InventarioAlmacen, FacturaAlmacen
 from .serializers import InventarioAlmacenSerializer, FacturaAlmacenSerializer
 
 
-class InventarioAlmacenViewSet(viewsets.ReadOnlyModelViewSet):
+class InventarioAlmacenViewSet(viewsets.ModelViewSet):
     """
     Endpoint para que el .exe descargue el catálogo y stock actual.
     Requiere que el usuario del .exe inicie sesión (IsAuthenticated).
@@ -14,6 +14,17 @@ class InventarioAlmacenViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = InventarioAlmacen.objects.select_related('producto').all()
     serializer_class = InventarioAlmacenSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = InventarioAlmacen.objects.select_related('producto').all()
+        usuario = self.request.user
+
+        # Si es Administrador, Bodeguero o Vendedor Online -> VE TODO
+        if usuario.is_superuser or usuario.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists():
+            return qs
+
+        # Si es Vendedor Estándar -> SOLO VE LO NO OCULTO
+        return qs.filter(oculto_para_standar=False)
 
 
 class FacturaAlmacenViewSet(viewsets.ModelViewSet):

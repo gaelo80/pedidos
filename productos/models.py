@@ -118,6 +118,16 @@ class Producto(models.Model):
     """
     Representa una VARIANTE específica (SKU) y pertenece a una Empresa.
     """
+
+    class GeneroOpciones(models.TextChoices):
+        DAMA = 'DAMA', 'Dama'
+        CABALLERO = 'CABALLERO', 'Caballero'
+        NINO = 'NIÑO', 'Niño'
+        NINA = 'NIÑA', 'Niña'
+        PLUS = 'PLUS', 'Plus'
+        UNISEX = 'UNISEX', 'Unisex'
+
+
     empresa = models.ForeignKey(
         'clientes.Empresa',
         on_delete=models.CASCADE,
@@ -156,10 +166,11 @@ class Producto(models.Model):
     color = models.CharField(max_length=50, blank=True, null=True, db_index=True)
 
     genero = models.CharField(
-        max_length=20, # Aumentamos el tamaño
-        default='UNISEX',
+        max_length=20,
+        choices=GeneroOpciones.choices,
+        default=GeneroOpciones.UNISEX,
         verbose_name="Categoría/Género",
-        help_text="Ej: DAMA, CABALLERO, NIÑO,  NIÑA, PLUS. Debe coincidir con la configuración de la empresa."
+        help_text="Seleccione el género o categoría del producto."
     )
     #genero = models.CharField(max_length=10, choices=GENERO_CHOICES, db_index=True, default='UNISEX')
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

@@ -10,7 +10,7 @@ import logging
 import os
 import sys
 from urllib.parse import urljoin
-
+from modulos.visibilidad import PanelVisibilidad
 from database import inicializar_db, obtener_configuracion, guardar_configuracion
 
 # Configurar logging

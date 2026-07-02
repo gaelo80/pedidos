@@ -6,12 +6,12 @@ from bodega.models import MovimientoInventario
 class InventarioAlmacenSerializer(serializers.ModelSerializer):
     # Extraemos campos específicos del Producto original (la Bodega)
     # NOTA: Cambia 'referencia' y 'descripcion' si tus campos en el modelo Producto se llaman diferente (ej. 'codigo', 'nombre')
-    codigo_barras = serializers.CharField(source='producto.referencia')
-    nombre = serializers.CharField(source='producto.descripcion')
+    codigo_barras = serializers.CharField(source='producto.referencia', read_only=True)
+    nombre = serializers.CharField(source='producto.descripcion', read_only=True)
 
     class Meta:
         model = InventarioAlmacen
-        fields = ['id', 'codigo_barras', 'nombre', 'precio_detal', 'stock_actual']
+        fields = ['id', 'codigo_barras', 'nombre', 'precio_detal', 'stock_actual', 'oculto_para_standar']
 
 
 class DetalleFacturaAlmacenSerializer(serializers.ModelSerializer):
