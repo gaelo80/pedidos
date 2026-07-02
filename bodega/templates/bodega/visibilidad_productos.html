@@ -9,7 +9,7 @@
     <form method="GET" class="mb-4 d-flex">
         <input type="text" name="q" value="{{ request.GET.q }}" class="form-control me-2" placeholder="Buscar por referencia o nombre...">
         <button type="submit" class="btn btn-primary">Buscar</button>
-        <a href="{% url 'visibilidad_productos' %}" class="btn btn-secondary ms-2">Limpiar</a>
+        <a href="{% url 'bodega:visibilidad_productos' %}" class="btn btn-secondary ms-2">Limpiar</a>
     </form>
 
     <!-- Tabla de Productos -->
@@ -60,7 +60,7 @@ function toggleVisibilidad(itemId) {
     // Necesitamos enviar el token CSRF por seguridad
     const csrfToken = '{{ csrf_token }}';
 
-    fetch("{% url 'toggle_visibilidad' %}", {
+    fetch("{% url 'bodega:toggle_visibilidad' %}", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
