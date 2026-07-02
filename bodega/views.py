@@ -48,6 +48,7 @@ from .forms import CambioProductoForm
 from django.utils.safestring import mark_safe
 from django.core.paginator import Paginator
 from django.db.models import Q 
+from almacen.models import InventarioAlmacen
 
 
 def admin_permission_required(view_func):
@@ -2465,3 +2466,45 @@ def vista_ajuste_masivo_inventario(request):
         'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO_CHOICES,
     }
     return render(request, 'bodega/ajuste_masivo_inventario.html', context)
+    
+
+class VisibilidadProductosView(LoginRequiredMixin, ListView):
+    """Vista web para que el bodeguero busque y vea qué ocultar"""
+    model = InventarioAlmacen
+    template_name = 'bodega/visibilidad_productos.html'
+    context_object_name = 'inventario'
+
+    def get_queryset(self):
+        # Optimizamos cruzando con Producto
+        qs = InventarioAlmacen.objects.select_related('producto').all()
+        
+        # Lógica del buscador
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                producto__descripcion__icontains=q
+            ) | qs.filter(
+                producto__referencia__icontains=q
+            )
+        return qs
+
+class ToggleVisibilidadView(LoginRequiredMixin, View):
+    """Endpoint AJAX que recibe el clic del interruptor"""
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body)
+            item_id = data.get('id')
+            
+            # Buscamos el item en el inventario del almacén
+            item = InventarioAlmacen.objects.get(id=item_id)
+            
+            # Invertimos su estado actual (Si era True, pasa a False y viceversa)
+            item.oculto_para_standar = not item.oculto_para_standar
+            item.save(update_fields=['oculto_para_standar'])
+            
+            return JsonResponse({
+                'status': 'ok', 
+                'oculto': item.oculto_para_standar
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)

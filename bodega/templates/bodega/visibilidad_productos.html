@@ -1,0 +1,94 @@
+{% extends 'base.html' %} <!-- Usa la plantilla base de tu proyecto -->
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Control de Visibilidad en Tiendas Físicas</h2>
+    <p class="text-muted">Los productos marcados como "Ocultos" no podrán ser vendidos por los vendedores estándar.</p>
+
+    <!-- Buscador -->
+    <form method="GET" class="mb-4 d-flex">
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control me-2" placeholder="Buscar por referencia o nombre...">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        <a href="{% url 'visibilidad_productos' %}" class="btn btn-secondary ms-2">Limpiar</a>
+    </form>
+
+    <!-- Tabla de Productos -->
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Referencia</th>
+                <th>Descripción</th>
+                <th>Stock Tienda</th>
+                <th>Estado para Vendedores</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventario %}
+            <tr>
+                <td>{{ item.producto.referencia }}</td>
+                <td>{{ item.producto.descripcion }}</td>
+                <td><strong>{{ item.stock_actual }}</strong></td>
+                <td id="estado-texto-{{ item.id }}">
+                    {% if item.oculto_para_standar %}
+                        <span class="badge bg-danger">❌ Oculto</span>
+                    {% else %}
+                        <span class="badge bg-success">✅ Visible</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <!-- Botón de Interruptor -->
+                    <button class="btn btn-sm {% if item.oculto_para_standar %}btn-success{% else %}btn-warning{% endif %}" 
+                            id="btn-toggle-{{ item.id }}"
+                            onclick="toggleVisibilidad({{ item.id }})">
+                        {% if item.oculto_para_standar %}Mostrar{% else %}Ocultar{% endif %}
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">No se encontraron productos.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Script AJAX para cambiar el estado sin recargar la página -->
+<script>
+function toggleVisibilidad(itemId) {
+    // Necesitamos enviar el token CSRF por seguridad
+    const csrfToken = '{{ csrf_token }}';
+
+    fetch("{% url 'toggle_visibilidad' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ id: itemId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const btn = document.getElementById(`btn-toggle-${itemId}`);
+            const texto = document.getElementById(`estado-texto-${itemId}`);
+            
+            // Actualizamos los colores y textos dependiendo del nuevo estado
+            if (data.oculto) {
+                btn.className = "btn btn-sm btn-success";
+                btn.innerText = "Mostrar";
+                texto.innerHTML = '<span class="badge bg-danger">❌ Oculto</span>';
+            } else {
+                btn.className = "btn btn-sm btn-warning";
+                btn.innerText = "Ocultar";
+                texto.innerHTML = '<span class="badge bg-success">✅ Visible</span>';
+            }
+        } else {
+            alert("Error al actualizar: " + data.msg);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}
