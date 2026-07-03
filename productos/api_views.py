@@ -105,8 +105,8 @@ def get_tallas_por_ref_color(request, ref, color_slug):
 @permission_classes([IsAuthenticated]) 
 def buscar_productos_api(request):
     """
-    Busca productos por término para Select2, filtrando por la empresa del usuario
-    y aplicando reglas de visibilidad.
+    Busca productos por término para Select2, filtrando por empresa
+    y reglas de visibilidad para vendedores estándar.
     """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -122,15 +122,22 @@ def buscar_productos_api(request):
         activo=True
     )
 
-    # --- 2. CANDADO DE VISIBILIDAD ---
+    # --- 2. CANDADO DE VISIBILIDAD MULTI-ROL ---
     usuario = request.user
-    es_admin_o_bodega = usuario.is_superuser or usuario.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists()
     
-    if not es_admin_o_bodega:
+    # Comprobamos si el usuario es Admin o si su grupo contiene la palabra 'online' o 'bodega'
+    es_admin_o_especial = (
+        usuario.is_superuser or 
+        usuario.groups.filter(name__icontains='bodega').exists() or 
+        usuario.groups.filter(name__icontains='online').exists()
+    )
+    
+    # Si es Vendedor Estándar (NO admin, NO bodega, NO online), bloqueamos los ocultos
+    if not es_admin_o_especial:
         queryset = queryset.filter(oculto_para_standar=False)
-    # ---------------------------------
+    # ------------------------------------------
 
-    # 3. Filtro de búsqueda
+    # 3. Filtrar por término
     queryset = queryset.filter(
         Q(referencia__icontains=term) | Q(nombre__icontains=term) | Q(codigo_barras__icontains=term)
     )[:20]
@@ -144,12 +151,13 @@ def buscar_productos_api(request):
     
     return JsonResponse({'results': results})
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def buscar_referencias_api(request):
     """
-    Busca referencias únicas para Select2, filtrando por la empresa del usuario
-    y reglas de visibilidad.
+    Busca referencias únicas para Select2, filtrando por la empresa
+    y aplicando reglas de visibilidad.
     """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -166,17 +174,21 @@ def buscar_referencias_api(request):
         activo=True
     )
 
-    # --- 2. CANDADO DE VISIBILIDAD ---
+    # --- 2. CANDADO DE VISIBILIDAD MULTI-ROL ---
     usuario = request.user
-    es_admin_o_bodega = usuario.is_superuser or usuario.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists()
     
-    if not es_admin_o_bodega:
+    es_admin_o_especial = (
+        usuario.is_superuser or 
+        usuario.groups.filter(name__icontains='bodega').exists() or 
+        usuario.groups.filter(name__icontains='online').exists()
+    )
+    
+    if not es_admin_o_especial:
         referencias_qs = referencias_qs.filter(oculto_para_standar=False)
-    # ---------------------------------
+    # ------------------------------------------
 
-    # 3. Agrupar y limitar
+    # 3. Agrupar y preparar respuesta
     referencias_qs = referencias_qs.values('referencia').distinct().order_by('referencia')[:20]
-
     results = [{'id': item['referencia'], 'text': item['referencia']} for item in referencias_qs]
     
     return JsonResponse({'results': results})
