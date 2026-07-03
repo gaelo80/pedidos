@@ -105,7 +105,8 @@ def get_tallas_por_ref_color(request, ref, color_slug):
 @permission_classes([IsAuthenticated]) 
 def buscar_productos_api(request):
     """
-    Busca productos por término para Select2, filtrando por la empresa del usuario.
+    Busca productos por término para Select2, filtrando por la empresa del usuario
+    y aplicando reglas de visibilidad.
     """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -115,10 +116,22 @@ def buscar_productos_api(request):
     if len(term) < 2:
         return JsonResponse({'results': []})
             
+    # 1. Consulta base
     queryset = Producto.objects.filter(
         empresa=empresa_actual,
         activo=True
-    ).filter(
+    )
+
+    # --- 2. CANDADO DE VISIBILIDAD ---
+    usuario = request.user
+    es_admin_o_bodega = usuario.is_superuser or usuario.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists()
+    
+    if not es_admin_o_bodega:
+        queryset = queryset.filter(oculto_para_standar=False)
+    # ---------------------------------
+
+    # 3. Filtro de búsqueda
+    queryset = queryset.filter(
         Q(referencia__icontains=term) | Q(nombre__icontains=term) | Q(codigo_barras__icontains=term)
     )[:20]
 
@@ -131,11 +144,12 @@ def buscar_productos_api(request):
     
     return JsonResponse({'results': results})
 
-@api_view(['GET']) # MEJORA: Se añade el decorador.
-@permission_classes([IsAuthenticated]) # MEJORA: Se protege el endpoint.
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def buscar_referencias_api(request):
     """
-    Busca referencias únicas para Select2, filtrando por la empresa del usuario.
+    Busca referencias únicas para Select2, filtrando por la empresa del usuario
+    y reglas de visibilidad.
     """
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -145,15 +159,24 @@ def buscar_referencias_api(request):
     if len(term) < 1:
         return JsonResponse({'results': []})
 
-    # --- CAMBIO DE SEGURIDAD CRÍTICO ---
-    # La consulta ahora filtra por la empresa del inquilino actual.
+    # 1. Consulta base
     referencias_qs = Producto.objects.filter(
         empresa=empresa_actual,
         referencia__icontains=term,
         activo=True
-    ).values('referencia').distinct().order_by('referencia')[:20]
+    )
+
+    # --- 2. CANDADO DE VISIBILIDAD ---
+    usuario = request.user
+    es_admin_o_bodega = usuario.is_superuser or usuario.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists()
+    
+    if not es_admin_o_bodega:
+        referencias_qs = referencias_qs.filter(oculto_para_standar=False)
+    # ---------------------------------
+
+    # 3. Agrupar y limitar
+    referencias_qs = referencias_qs.values('referencia').distinct().order_by('referencia')[:20]
 
     results = [{'id': item['referencia'], 'text': item['referencia']} for item in referencias_qs]
     
     return JsonResponse({'results': results})
-
