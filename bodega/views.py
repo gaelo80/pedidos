@@ -2469,43 +2469,53 @@ def vista_ajuste_masivo_inventario(request):
     return render(request, 'bodega/ajuste_masivo_inventario.html', context)
     
 
-class VisibilidadProductosView(LoginRequiredMixin, ListView):
-    """Vista web para que el bodeguero busque y vea qué ocultar (Agrupado por Referencia)"""
-    template_name = 'bodega/visibilidad_productos.html'
-    context_object_name = 'referencias'
-
-    def get_queryset(self):
-        qs = Producto.objects.all()
-        q = self.request.GET.get('q', '').strip()
+@login_required
+def visibilidad_productos_view(request):
+    """Vista web para que el bodeguero busque y vea qué ocultar"""
+    # 1. Filtro MULTI-INQUILINO: Solo los productos de la empresa actual
+    empresa_actual = getattr(request, 'tenant', None) or request.user.empresa
+    qs = Producto.objects.filter(empresa=empresa_actual)
+    
+    # 2. Buscador
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(referencia__icontains=q) | qs.filter(descripcion__icontains=q)
         
-        if q:
-            qs = qs.filter(referencia__icontains=q) | qs.filter(descripcion__icontains=q)
+    # 3. Agrupamos para no repetir referencias
+    referencias_unicas = {}
+    for p in qs:
+        if p.referencia not in referencias_unicas:
+            referencias_unicas[p.referencia] = p
             
-        # Agrupamos manualmente para que cada referencia aparezca solo 1 vez
-        referencias_unicas = {}
-        for p in qs:
-            if p.referencia not in referencias_unicas:
-                referencias_unicas[p.referencia] = p
-                
-        return list(referencias_unicas.values())
+    context = {
+        'referencias': list(referencias_unicas.values())
+    }
+    return render(request, 'bodega/visibilidad_productos.html', context)
 
-class ToggleVisibilidadView(LoginRequiredMixin, View):
-    """Endpoint AJAX que apaga/enciende TODAS las tallas de una referencia"""
-    def post(self, request, *args, **kwargs):
+@login_required
+def toggle_visibilidad_view(request):
+    """Endpoint AJAX para encender/apagar todas las tallas de una referencia"""
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
             referencia = data.get('referencia')
             
-            # Vemos en qué estado está el primer producto de esta referencia
-            producto_base = Producto.objects.filter(referencia=referencia).first()
-            nuevo_estado = not producto_base.oculto_para_standar
+            # Filtro MULTI-INQUILINO por seguridad
+            empresa_actual = getattr(request, 'tenant', None) or request.user.empresa
+            productos = Producto.objects.filter(referencia=referencia, empresa=empresa_actual)
             
-            # ¡Magia! Actualizamos TODAS las tallas y colores de esta referencia de un solo golpe
-            Producto.objects.filter(referencia=referencia).update(oculto_para_standar=nuevo_estado)
-            
-            return JsonResponse({
-                'status': 'ok', 
-                'oculto': nuevo_estado
-            })
+            if productos.exists():
+                producto_base = productos.first()
+                nuevo_estado = not producto_base.oculto_para_standar
+                
+                # Actualizamos todas las tallas de esta referencia de un golpe
+                productos.update(oculto_para_standar=nuevo_estado)
+                
+                return JsonResponse({'status': 'ok', 'oculto': nuevo_estado})
+            else:
+                return JsonResponse({'status': 'error', 'msg': 'Referencia no encontrada'}, status=404)
+                
         except Exception as e:
             return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)
+            
+    return JsonResponse({'status': 'error', 'msg': 'Método no permitido'}, status=405)

@@ -47,6 +47,6 @@ urlpatterns = [
      path('api/get-tallas-para-ingreso/', views.api_get_tallas_para_ingreso, name='api_get_tallas_para_ingreso'),
      path('api/get-tallas-para-ajuste/', views.api_get_tallas_para_ajuste, name='api_get_tallas_para_ajuste'),
      path('ajuste-masivo/', views.vista_ajuste_masivo_inventario, name='ajuste_masivo_inventario'),
-     path('visibilidad/', views.VisibilidadProductosView.as_view(), name='visibilidad_productos'),
-     path('visibilidad/toggle/', views.ToggleVisibilidadView.as_view(), name='toggle_visibilidad'),
+     path('visibilidad/', views.visibilidad_productos_view, name='visibilidad_productos'),
+     path('visibilidad/toggle/', views.toggle_visibilidad_view, name='toggle_visibilidad'),
 ]

@@ -930,11 +930,18 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
     
     if pedido_form is None:
         pedido_form = PedidoForm(instance=pedido_instance, empresa=empresa_actual)
+
+    es_admin_o_bodega = request.user.is_superuser or request.user.groups.filter(name__in=['Bodega', 'Vendedores Online']).exists()
         
     referencias_qs = Producto.objects.filter(
         empresa=empresa_actual,        
-        activo=True
-    ).values_list('referencia', flat=True).distinct().order_by('referencia')
+        activo=True        
+    )
+    if not es_admin_o_bodega:
+        referencias_qs = referencias_qs.filter(oculto_para_standar=False)
+        
+    # Finalizamos la consulta original
+    referencias_qs = referencias_qs.values_list('referencia', flat=True).distinct().order_by('referencia')
     
     
     detalles_agrupados_json, linea_counter_init = None, 0
