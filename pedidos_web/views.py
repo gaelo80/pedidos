@@ -201,9 +201,14 @@ def obtener_token_temporal(shop_url, client_id, client_secret):
     }
     try:
         response = requests.post(url, data=payload)
-        response.raise_for_status()
+        response.raise_for_status() # Esto lanza un error si Shopify no devuelve 200 OK
         return response.json().get('access_token')
-    except Exception:
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ Error de Shopify al pedir token: HTTP {response.status_code}")
+        print(f"Detalle del rechazo: {response.text}")
+        return None
+    except Exception as e:
+        print(f"❌ Error interno de conexión: {str(e)}")
         return None
     
 @login_required
