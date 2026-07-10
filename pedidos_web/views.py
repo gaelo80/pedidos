@@ -208,8 +208,7 @@ def obtener_token_temporal(shop_url, client_id, client_secret):
     
 @login_required
 def panel_sincronizacion_shopify(request):
-
-        # --- LÓGICA MULTI-EMPRESA ESTANDARIZADA ---
+    # --- LÓGICA MULTI-EMPRESA ESTANDARIZADA ---
     empresa_actual = getattr(request, 'tenant', None)
     
     if not empresa_actual:
@@ -218,11 +217,11 @@ def panel_sincronizacion_shopify(request):
 
     # Creamos una base de consulta filtrada dinámicamente por la empresa actual del usuario.
     productos_base = Producto.objects.filter(activo=True, empresa=empresa_actual)
-
-    # 1. Variables base
-    total_productos = Producto.objects.filter(activo=True).count()
-    sincronizados = Producto.objects.filter(shopify_variant_id__isnull=False, activo=True).count()
-    huerfanos = Producto.objects.filter(shopify_variant_id__isnull=True, activo=True)
+    
+    # 1. Variables base (Ahora usamos productos_base en vez de Producto.objects)
+    total_productos = productos_base.count()
+    sincronizados = productos_base.filter(shopify_variant_id__isnull=False).count()
+    huerfanos = productos_base.filter(shopify_variant_id__isnull=True)
     
     context = {
         'total_productos': total_productos,
@@ -275,7 +274,8 @@ def panel_sincronizacion_shopify(request):
                                 if not sku_shopify:
                                     continue
                                     
-                                producto_local = Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).first()
+                                # 1. Buscamos PRIMERO dentro del catálogo de ESTA empresa (Louisferry)
+                                producto_local = productos_base.filter(codigo_barras__iexact=sku_shopify.strip()).first()
                                 
                                 if producto_local:
                                     if not producto_local.shopify_variant_id:
@@ -283,11 +283,18 @@ def panel_sincronizacion_shopify(request):
                                         producto_local.save()
                                         productos_actualizados.append(producto_local)
                                 else:
-                                    errores_shopify.append({
-                                        'titulo': item.get('title'),
-                                        'sku': sku_shopify,
-                                        'motivo': 'Código no existe en local'
-                                    })
+                                    # --- CORRECCIÓN DE LA FUGA DE DATOS MULTI-TENANT ---
+                                    # Si no está en esta empresa, verificamos globalmente si le pertenece a OTRA empresa
+                                    existe_en_otra_empresa = Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).exists()
+                                    
+                                    # Solo lo marcamos como error si NO existe en NINGUNA empresa de la base de datos
+                                    if not existe_en_otra_empresa:
+                                        errores_shopify.append({
+                                            'titulo': item.get('title'),
+                                            'sku': sku_shopify,
+                                            'motivo': 'Código no existe en el sistema local'
+                                        })
+                                        
                         context['resultado_sync'] = {'exitosos': productos_actualizados, 'errores': errores_shopify}
                     else:
                         context['error_api'] = f"Error conectando a Shopify: {response.status_code}"
@@ -317,7 +324,8 @@ def panel_sincronizacion_shopify(request):
                                     variant_id = str(variant.get('id'))
                                     inventory_item_id = variant.get('inventory_item_id')
                                     
-                                    producto_local = Producto.objects.filter(shopify_variant_id=variant_id).first()
+                                    # Buscar solo dentro del catálogo filtrado de esta empresa
+                                    producto_local = productos_base.filter(shopify_variant_id=variant_id).first()
                                     
                                     if producto_local and inventory_item_id:
                                         cantidad_real = producto_local.stock 
@@ -337,8 +345,9 @@ def panel_sincronizacion_shopify(request):
                     except Exception as e:
                         context['error_api'] = f"Error actualizando inventario: {str(e)}"
 
-    context['sincronizados'] = Producto.objects.filter(shopify_variant_id__isnull=False, activo=True).count()
+    # Recalculamos los totales al final usando la misma base filtrada
+    context['sincronizados'] = productos_base.filter(shopify_variant_id__isnull=False).count()
     context['pendientes'] = total_productos - context['sincronizados']
-    context['huerfanos'] = Producto.objects.filter(shopify_variant_id__isnull=True, activo=True)
+    context['huerfanos'] = productos_base.filter(shopify_variant_id__isnull=True)
 
     return render(request, 'pedidos_web/sincronizacion_shopify.html', context)
