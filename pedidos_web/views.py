@@ -90,14 +90,14 @@ def webhook_nuevo_pedido_shopify(request):
             texto_nota = f"Orden Shopify #{numero_shopify} - Estado pago: {estado_financiero}"
 
             with transaction.atomic():
-                # --- C. Crear Pedido ---
-                
-                # 1. Escudo antiduplicados: Buscamos si esta orden ya está en las notas
+                # 1. Escudo antiduplicados
                 if Pedido.objects.filter(empresa=empresa_actual, notas__icontains=f"Orden Shopify #{numero_shopify}").exists():
+                    print(f"🛑 ATENCIÓN: La orden #{numero_shopify} ya estaba registrada. Se aborta para no duplicar.")
                     return HttpResponse(status=200)
 
-                # 2. Creamos el pedido SIN enviarle el 'numero_pedido_empresa' 
-                # para que tu aplicación asigne el consecutivo automáticamente
+                print("✅ Pasó el escudo antiduplicados. Intentando guardar en la base de datos...")
+                
+                # 2. Creamos el pedido
                 pedido = Pedido.objects.create(
                     empresa=empresa_actual,
                     cliente_online=cliente_online,
@@ -107,6 +107,7 @@ def webhook_nuevo_pedido_shopify(request):
                     notas=texto_nota,
                     fecha_hora=parse_datetime(orden.get('created_at'))
                 )
+                print(f"🎉 ¡PEDIDO CREADO CON ÉXITO! Consecutivo interno asignado: {pedido.numero_pedido_empresa}")
 
 
 # --- D. Procesar Detalles ---
@@ -144,8 +145,10 @@ def webhook_nuevo_pedido_shopify(request):
         return HttpResponse(status=200)
 
     except Exception as e:
-        print(f"❌ Error en Webhook: {str(e)}")
-        return HttpResponse(status=200)
+            import traceback
+            traceback.print_exc()
+            print(f"❌ Error CRÍTICO al guardar en DB: {str(e)}")
+            return HttpResponse(status=200)
     
 @csrf_exempt
 def webhook_producto_shopify(request):
