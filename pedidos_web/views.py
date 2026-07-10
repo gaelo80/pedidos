@@ -108,21 +108,9 @@ def webhook_nuevo_pedido_shopify(request):
 
             for item in (orden.get('line_items') or []):
                 variant_id = str(item.get('variant_id'))
-                sku_shopify = item.get('sku') or ''  
                 cantidad_comprada = int(item.get('quantity', 0))
                 
-                # 1. Buscar por Código de Barras (SKU)
-                producto_interno = Producto.objects.filter(
-                    codigo_barras__iexact=sku_shopify.strip(), 
-                    empresa=empresa_actual
-                ).first()
-                
-                # 2. Respaldo por ID
-                if not producto_interno:
-                    producto_interno = Producto.objects.filter(
-                        shopify_variant_id=variant_id, 
-                        empresa=empresa_actual
-                    ).first()
+                producto_interno = Producto.objects.filter(shopify_variant_id=variant_id, empresa=empresa_actual).first()
                 
                 if producto_interno:
                     DetallePedido.objects.create(
