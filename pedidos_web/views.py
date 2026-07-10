@@ -80,28 +80,34 @@ def webhook_nuevo_pedido_shopify(request):
         else:
             cliente_online = None
 
-        # --- B. Lógica de Pago y Estados ---
-        estado_financiero = orden.get('financial_status')
-        es_pago_confirmado = (estado_financiero == 'paid')
-        estado_django = 'LISTO_BODEGA_DIRECTO' if es_pago_confirmado else 'BORRADOR'
+# --- B. Lógica de Pago y Estados ---
+            estado_financiero = orden.get('financial_status')
+            es_pago_confirmado = (estado_financiero == 'paid')
+            estado_django = 'LISTO_BODEGA_DIRECTO' if es_pago_confirmado else 'BORRADOR'
+            
+            # Preparamos la nota con el número de Shopify
+            numero_shopify = orden.get('order_number')
+            texto_nota = f"Orden Shopify #{numero_shopify} - Estado pago: {estado_financiero}"
 
-        with transaction.atomic():
-            # --- C. Crear Pedido ---
-            pedido, pedido_creado = Pedido.objects.get_or_create(
-                numero_pedido_empresa=orden.get('order_number'),
-                empresa=empresa_actual,
-                defaults={
-                    'cliente_online': cliente_online,
-                    'vendedor': vendedor_shopify,
-                    'tipo_pedido': 'ONLINE',
-                    'estado': estado_django,
-                    'notas': f"Importado de Shopify. Pago: {estado_financiero}",
-                    'fecha_hora': parse_datetime(orden.get('created_at'))
-                }
-            )
+            with transaction.atomic():
+                # --- C. Crear Pedido ---
+                
+                # 1. Escudo antiduplicados: Buscamos si esta orden ya está en las notas
+                if Pedido.objects.filter(empresa=empresa_actual, notas__icontains=f"Orden Shopify #{numero_shopify}").exists():
+                    return HttpResponse(status=200)
 
-            if not pedido_creado:
-                return HttpResponse(status=200)
+                # 2. Creamos el pedido SIN enviarle el 'numero_pedido_empresa' 
+                # para que tu aplicación asigne el consecutivo automáticamente
+                pedido = Pedido.objects.create(
+                    empresa=empresa_actual,
+                    cliente_online=cliente_online,
+                    vendedor=vendedor_shopify,
+                    tipo_pedido='ONLINE',
+                    estado=estado_django,
+                    notas=texto_nota,
+                    fecha_hora=parse_datetime(orden.get('created_at'))
+                )
+
 
 # --- D. Procesar Detalles ---
             doc_ref_base = f'Pedido #{pedido.numero_pedido_empresa} (Shopify)'
