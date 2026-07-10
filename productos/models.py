@@ -206,6 +206,10 @@ class Producto(models.Model):
         
         super().save(*args, **kwargs)
 
+    # Campos de conexión exclusiva con Shopify
+    shopify_variant_id = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="ID Variante Shopify")
+    shopify_inventory_item_id = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="ID Inventario Shopify")
+
     def __str__(self):
         variante_parts = []
         if self.talla: variante_parts.append(f"T:{self.talla}")

@@ -153,7 +153,8 @@ INSTALLED_APPS = [
         'recaudos',
         'notificaciones',
         'pedidos_online',
-        'almacen.apps.AlmacenConfig',  # ✅ CRÍTICO: Carga signals automáticamente
+        'almacen.apps.AlmacenConfig',
+        'pedidos_web',
 
 
         # APLICACIONES DE TERCERO

@@ -365,6 +365,7 @@
                             <li><a class="dropdown-item" href="{% url 'productos:producto_crear' %}">Crear Producto</a></li>
                             <li><a class="dropdown-item" href="{% url 'productos:producto_subir_fotos_agrupadas' %}">Subir Fotos</a></li>
                             <li><a class="dropdown-item" href="{% url 'costeo_jeans:panel_costeo' %}">Costeo de Productos</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pedidos_web:panel_sincronizacion' %}">Sincronizar Shopify</a></li>
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if es_vendedor or es_administracion or es_cartera or es_online %}
