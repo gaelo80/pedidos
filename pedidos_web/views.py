@@ -7,6 +7,8 @@ import os
 from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.db import transaction
 from django.conf import settings
 from clientes.models import Empresa
@@ -206,6 +208,17 @@ def obtener_token_temporal(shop_url, client_id, client_secret):
     
 @login_required
 def panel_sincronizacion_shopify(request):
+
+        # --- LÓGICA MULTI-EMPRESA ESTANDARIZADA ---
+    empresa_actual = getattr(request, 'tenant', None)
+    
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+
+    # Creamos una base de consulta filtrada dinámicamente por la empresa actual del usuario.
+    productos_base = Producto.objects.filter(activo=True, empresa=empresa_actual)
+
     # 1. Variables base
     total_productos = Producto.objects.filter(activo=True).count()
     sincronizados = Producto.objects.filter(shopify_variant_id__isnull=False, activo=True).count()
