@@ -202,15 +202,13 @@ def obtener_token_temporal(shop_url, client_id, client_secret):
     try:
         response = requests.post(url, data=payload)
         response.raise_for_status()
-        return response.json().get('access_token')
+        return response.json().get('access_token'), None
     except requests.exceptions.HTTPError as e:
-        # Cambiamos print por logger.error
-        logger.error(f"❌ Error de Shopify al pedir token: HTTP {response.status_code}")
-        logger.error(f"Detalle del rechazo: {response.text}")
-        return None
+        mensaje_error = f"Shopify rechazó la conexión (HTTP {response.status_code}). Detalle: {response.text}"
+        return None, mensaje_error
     except Exception as e:
-        logger.error(f"❌ Error interno de conexión: {str(e)}")
-        return None
+        mensaje_error = f"Error interno: {str(e)}"
+        return None, mensaje_error
     
 @login_required
 def panel_sincronizacion_shopify(request):
@@ -249,10 +247,12 @@ def panel_sincronizacion_shopify(request):
         client_secret = config('SHOPIFY_CLIENT_SECRET') # El Secreto de tu captura de pantalla
         
         # 3. Canjeamos las credenciales por el token dinámico válido
-        token = obtener_token_temporal(shop_url, client_id, client_secret)
+# 3. Canjeamos las credenciales por el token dinámico válido
+        token, mensaje_de_error = obtener_token_temporal(shop_url, client_id, client_secret)
         
         if not token:
-            context['error_api'] = "Fallo de Autenticación: Verifica que el ID de cliente y el Secreto sean exactos a tu captura."
+            # Aquí le pasamos el error exacto de Shopify a tu plantilla HTML
+            context['error_api'] = f"Fallo de Autenticación: {mensaje_de_error}"
         else:
             # Si Shopify nos autoriza, armamos la cabecera permitida
             headers = {
