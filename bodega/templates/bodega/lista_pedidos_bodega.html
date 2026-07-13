@@ -131,6 +131,25 @@
                                     <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info rounded-pill shadow-sm ms-1 text-white">
                                         <i class="fas fa-file-pdf"></i>
                                     </a>
+
+                                    
+                                    {% if pedido.estado == 'PROCESANDO' %}
+                                        <form method="POST" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Seguro que quieres finalizar este pedido como INCOMPLETO? Se devolverá TODO el stock pendiente y el pedido se cerrará.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-warning rounded-pill shadow-sm ms-1 text-dark" title="Finalizar Pedido Incompleto"> {# text-dark para badge-warning #}
+                                                <i class="fas fa-exclamation-triangle me-1"></i> Finalizar
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    {% if pedido.estado in 'APROBADO_ADMIN,PROCESANDO' %}
+                                        <form method="POST" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres CANCELAR TODO el pedido #{{ pedido.numero_pedido_empresa }}? Esta acción devolverá todos los productos al inventario y no se puede deshacer.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger rounded-pill shadow-sm ms-1" title="Cancelar Pedido Completo">
+                                                <i class="fas fa-times-circle me-1"></i> Cancelar
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
