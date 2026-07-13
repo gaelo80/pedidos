@@ -7,7 +7,7 @@
         <div class="col-md-6">
             <div class="card p-4 text-center h-100 shadow-sm">
                 <h5>🔗 1. Enlazar Códigos</h5>
-                <p class="text-muted small">Busca productos nuevos en la web y los conecta con este sistema usando el código de barras.</p>
+                <p class="text-muted small">Busca productos y los conecta con este sistema.</p>
                 <form method="POST">
                     {% csrf_token %}
                     <button type="submit" name="accion" value="enlazar_productos" class="btn btn-primary btn-lg w-100">
@@ -20,7 +20,7 @@
         <div class="col-md-6">
             <div class="card p-4 text-center h-100 shadow-sm">
                 <h5>📦 2. Subir Inventario Real</h5>
-                <p class="text-muted small">Toma las cantidades exactas de nuestra bodega y sobreescribe el inventario en Shopify.</p>
+                <p class="text-muted small">Toma las cantidades exactas de la bodega y sobreescribe el inventario en Shopify.</p>
                 <form method="POST">
                     {% csrf_token %}
                     <button type="submit" name="accion" value="subir_inventario" class="btn btn-success btn-lg w-100">
