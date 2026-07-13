@@ -94,36 +94,63 @@
         </div>
     {% endif %}
 
-    {% if huerfanos %}
-    <div class="card">
+<!-- NUEVA BARRA DE BÚSQUEDA -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action=""> <!-- Action vacío para recargar la misma página -->
+                <div class="input-group">
+                    <input type="text" class="form-control" name="q" placeholder="Buscar huérfano por Referencia o Código de Barras..." value="{{ search_query }}">
+                    <button class="btn btn-outline-primary" type="submit">
+                        <i class="fas fa-search me-1"></i> Buscar
+                    </button>
+                    {% if search_query %}
+                        <a href="?" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE HUÉRFANOS -->
+    {% if huerfanos or search_query %}
+    <div class="card shadow-sm">
         <div class="card-header bg-dark text-white">
             🚨 Referencias locales que NO están en Shopify (o tienen el código mal)
+            {% if search_query %} - Resultados para "{{ search_query }}"{% endif %}
         </div>
         <div class="card-body">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Referencia</th>
-                        <th>Código de Barras</th>
-                        <th>Acción Requerida</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in huerfanos %}
-                    <tr>
-                        <td>{{ p.referencia }}</td>
-                        <td>{{ p.codigo_barras }}</td>
-                        <td>
-                            Verificar que en Shopify exista un producto con el SKU exacto <b>{{ p.codigo_barras }}</b>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% if huerfanos %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Código de Barras</th>
+                            <th>Acción Requerida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in huerfanos %}
+                        <tr>
+                            <td>{{ p.referencia }}</td>
+                            <td>{{ p.codigo_barras }}</td>
+                            <td>
+                                Verificar que en Shopify exista un producto con el SKU exacto <b>{{ p.codigo_barras }}</b>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="alert alert-warning text-center mb-0">
+                    No se encontraron productos huérfanos que coincidan con "<strong>{{ search_query }}</strong>".
+                </div>
+            {% endif %}
         </div>
     </div>
     {% else %}
-    <div class="alert alert-success mt-3">
+    <div class="alert alert-success mt-3 shadow-sm text-center">
         ¡Felicidades! Todo tu inventario local está perfectamente sincronizado con Shopify.
     </div>
     {% endif %}

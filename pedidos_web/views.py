@@ -21,6 +21,7 @@ from decouple import config
 import requests
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 
 
 
@@ -392,6 +393,16 @@ def panel_sincronizacion_shopify(request):
     # Recalculamos los totales al final usando la misma base filtrada
     context['sincronizados'] = productos_base.filter(shopify_variant_id__isnull=False).count()
     context['pendientes'] = total_productos - context['sincronizados']
-    context['huerfanos'] = productos_base.filter(shopify_variant_id__isnull=True)
+    search_query = request.GET.get('q', '').strip()
+    huerfanos = productos_base.filter(shopify_variant_id__isnull=True)
+    
+    if search_query:
+        huerfanos = huerfanos.filter(
+            Q(referencia__icontains=search_query) | 
+            Q(codigo_barras__icontains=search_query)
+        )
+        
+    context['huerfanos'] = huerfanos
+    context['search_query'] = search_query # Pasamos la búsqueda al HTML
 
     return render(request, 'pedidos_web/sincronizacion_shopify.html', context)
