@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from django.contrib import messages
 from django.db import transaction
 from .models import Producto, FotoProducto, ReferenciaColor
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, ConteoInventario
 from pedidos.models import DetallePedido
 
 @admin.action(description="⚠️ ELIMINAR productos de prueba y TODO su historial")
@@ -19,6 +19,9 @@ def eliminar_productos_con_historial(modeladmin, request, queryset):
     # transaction.atomic asegura que si algo falla, no quede la base de datos a medias
     with transaction.atomic():
         for producto in queryset:
+            # 0. Borrar de los conteos de inventario
+            ConteoInventario.objects.filter(producto=producto).delete()
+
             # 1. Borrar historial de bodega
             MovimientoInventario.objects.filter(producto=producto).delete()
             
