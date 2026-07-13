@@ -395,11 +395,9 @@ def vista_lista_pedidos_bodega(request):
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:index')
 
-    # --- Obtener parámetros de búsqueda ---
-    ref_query = request.GET.get('ref', '').strip()
-    cliente_query = request.GET.get('cliente', '').strip()
+    # --- 1. Obtener parámetros de búsqueda (NUEVO FORMATO UNIFICADO) ---
+    q_query = request.GET.get('q', '').strip()
     estado_query = request.GET.get('estado', '').strip()
-    ref_producto_query = request.GET.get('ref_producto', '').strip()
 
     # --- Preparar Prefetch (sin cambios) ---
     prefetch_detalles = Prefetch(
@@ -409,23 +407,21 @@ def vista_lista_pedidos_bodega(request):
     )
 
     # --- Query base SIN filtro de estado inicial ---
+    # NOTA: Agregué 'cliente_online' al select_related para que la búsqueda también encuentre los de Shopify
     pedidos_list = Pedido.objects.filter(
         empresa=empresa_actual
-    ).select_related('cliente', 'vendedor__user').prefetch_related(prefetch_detalles)
+    ).select_related('cliente', 'cliente_online', 'vendedor__user').prefetch_related(prefetch_detalles)
 
     # --- Determinar qué estados mostrar ---
-    # Asegúrate que estos estados coincidan con los definidos en tu modelo Pedido.ESTADO_PEDIDO_CHOICES
-    estados_validos = [choice[0] for choice in Pedido.ESTADO_PEDIDO_CHOICES] # ['PENDIENTE', 'APROBADO_CARTERA', ..., 'CANCELADO']
-    estados_por_defecto = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO'] # Estados a mostrar si no se filtra
+    estados_validos = [choice[0] for choice in Pedido.ESTADO_PEDIDO_CHOICES] 
+    estados_por_defecto = ['APROBADO_ADMIN', 'PROCESANDO', 'LISTO_BODEGA_DIRECTO'] 
 
     titulo = f'Pedidos Bodega ({empresa_actual.nombre})'
     estado_display_filtro = "Todos (por defecto)"
 
-
     if estado_query:
         if estado_query in estados_validos:
             pedidos_list = pedidos_list.filter(estado=estado_query)
-            # CORREGIDO: Forma correcta de obtener el "display name" de un choice.
             estado_display_filtro = dict(Pedido.ESTADO_PEDIDO_CHOICES).get(estado_query, estado_query)
             titulo = f'Pedidos: {estado_display_filtro} ({empresa_actual.nombre})'
         else:
@@ -436,41 +432,38 @@ def vista_lista_pedidos_bodega(request):
         pedidos_list = pedidos_list.filter(estado__in=estados_por_defecto)
         titulo = f'Pedidos Pendientes Bodega ({empresa_actual.nombre})'
         
-    # --- Aplicar OTROS filtros (lógica existente) ---
-    if ref_query:
-        try:
-            pedido_id = int(ref_query)
-            pedidos_list = pedidos_list.filter(pk=pedido_id)
-        except ValueError:
-            messages.error(request, f"El ID del pedido '{ref_query}' debe ser un número.")
-            pedidos_list = Pedido.objects.none()
+    # --- 2. Aplicar el Filtro Mágico Unificado (LA CORRECCIÓN ESTÁ AQUÍ) ---
+    if q_query:
+        # Preparamos las búsquedas de texto (Nombre cliente estandar, online, vendedor y referencia de producto)
+        filtros = (
+            Q(cliente__nombre_completo__icontains=q_query) |
+            Q(cliente_online__nombre_completo__icontains=q_query) |
+            Q(vendedor__user__username__icontains=q_query) |
+            Q(detalles__producto__referencia__icontains=q_query)
+        )
 
-    if cliente_query:
-        pedidos_list = pedidos_list.filter(cliente__nombre_completo__icontains=cliente_query)
+        # Si el usuario escribió un número, le agregamos la orden de buscar ese consecutivo EXACTO
+        if q_query.isdigit():
+            filtros |= Q(numero_pedido_empresa=int(q_query))
+            # Opcional: También busca en cédulas si digitan un número largo
+            filtros |= Q(cliente__identificacion__icontains=q_query)
+            filtros |= Q(cliente_online__identificacion__icontains=q_query)
 
-    if ref_producto_query:
-        pedidos_list = pedidos_list.filter(
-            detalles__producto__referencia__icontains=ref_producto_query
-        ).distinct()
+        # Aplicamos todos los filtros de una vez y usamos distinct() para que no salgan duplicados
+        pedidos_list = pedidos_list.filter(filtros).distinct()
 
     # --- Orden final (sin cambios) ---
     pedidos_list = pedidos_list.order_by('-fecha_hora')
 
-
     context = {
         'pedidos_list': pedidos_list,
         'titulo': titulo,
-        'ref_query': ref_query,
-        'cliente_query': cliente_query,
+        'q_query': q_query, # Actualizado para coincidir con el HTML
         'estado_query': estado_query, 
-        'ref_producto_query': ref_producto_query,
-        'ESTADO_PEDIDO_CHOICES': Pedido.ESTADO_PEDIDO_CHOICES, # Pasar todos los choices para el select del filtro
+        'ESTADO_PEDIDO_CHOICES': Pedido.ESTADO_PEDIDO_CHOICES, 
     }
-    return render(request, 'bodega/lista_pedidos_bodega.html', context) 
+    return render(request, 'bodega/lista_pedidos_bodega.html', context)
 
-
-
-# --- Vista para Verificar Pedido (Ej: Por Bodega) ---
 @login_required
 @permission_required(['pedidos.change_pedido', 'bodega.add_comprobantedespacho'], login_url='core:acceso_denegado')
 def vista_verificar_pedido(request, pk):

@@ -1,114 +1,106 @@
 {% extends 'core/base.html' %}
-{% load humanize %} {# Aseguramos que humanize esté cargado si se usa intcomma u otros #}
+{% load humanize %}
 
 {% block page_title %}{{ titulo }}{% endblock page_title %}
 
 {% block content %}
-<div class="container-fluid mt-4 mb-5 px-4"> {# Cambiado a container-fluid para consistencia #}
-    <div class="row align-items-center mb-4"> {# Añadido align-items-center y mb-4 #}
+<div class="container-fluid mt-4 mb-5 px-4">
+    <div class="row align-items-center mb-4">
         <div class="col-md-8">
-            <h1 class="display-6 fw-bold mb-0 text-primary"> {# Unificado el estilo del título #}
-                <i class="fas fa-shipping-fast me-2"></i> {{ titulo }} {# Icono para el título #}
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-shipping-fast me-2"></i> {{ titulo }}
             </h1>
         </div>
-        <div class="col-md-4 text-md-end mt-3 mt-md-0"> {# Ajustado margen en móvil #}
-            <a href="{% url 'core:index' %}" class="btn btn-secondary rounded-pill shadow-sm"> {# Añadido rounded-pill shadow-sm #}
-                <i class="fas fa-arrow-left me-2"></i> Volver al Panel Principal
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'core:index' %}" class="btn btn-secondary rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel
             </a>
         </div>
     </div>
 
-    {# --- Formulario de Búsqueda Encapsulado en una Card --- #}
-    <div class="card shadow-lg border-0 rounded-3 mb-4"> {# Card styling consistente #}
-        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header styling consistente #}
-            <h5 class="mb-0"><i class="fas fa-search me-2"></i> Opciones de Búsqueda</h5>
-        </div>
+    {# --- Formulario de Búsqueda Unificado --- #}
+    <div class="card shadow-sm border-0 rounded-3 mb-4">
         <div class="card-body p-4">
-            <form method="get" action="" class="g-3"> {# Eliminado mb-4, añadido g-3 #}
-                <div class="row align-items-end"> {# Alinea items a la parte inferior #}
-                    <div class="col-md-3 mb-3"> {# Ajustado columna y margen #}
-                        <label for="id_ref" class="form-label visually-hidden">Buscar ID Pedido</label> {# Label para accesibilidad #}
-                        <input type="text" id="id_ref" name="ref" class="form-control rounded-pill" placeholder="ID Pedido..." value="{{ ref_query|default_if_none:'' }}">
+            <form method="get" action="" class="row align-items-center g-3">
+                
+                <!-- Búsqueda General (Unificada) -->
+                <div class="col-md-7">
+                    <label for="id_q" class="form-label visually-hidden">Búsqueda General</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 rounded-start-pill text-primary">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" id="id_q" name="q" class="form-control border-start-0 rounded-end-pill" 
+                               placeholder="Buscar # de Pedido, Cliente, Vendedor o Referencia..." 
+                               value="{{ q_query|default_if_none:'' }}">
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="id_cliente" class="form-label visually-hidden">Buscar Cliente</label>
-                        <input type="text" id="id_cliente" name="cliente" class="form-control rounded-pill" placeholder="Cliente..." value="{{ cliente_query|default_if_none:'' }}">
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="id_ref_producto" class="form-label visually-hidden">Buscar Ref. Producto</label>
-                        <input type="text" id="id_ref_producto" name="ref_producto" class="form-control rounded-pill" placeholder="Ref. Producto..." value="{{ ref_producto_query|default_if_none:'' }}">
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="id_estado" class="form-label visually-hidden">Estado Pedido</label>
-                        <select id="id_estado" name="estado" class="form-select rounded-pill">
-                            <option value="">-- Estado Pedido --</option>
-                            <option value="APROBADO_ADMIN" {% if estado_query == 'APROBADO_ADMIN' %}selected{% endif %}>Pendiente</option>
-                            <option value="PROCESANDO" {% if estado_query == 'PROCESANDO' %}selected{% endif %}>Procesando</option>
-                            <option value="COMPLETADO" {% if estado_query == 'COMPLETADO' %}selected{% endif %}>Completado</option>
-                            <option value="ENVIADO" {% if estado_query == 'ENVIADO' %}selected{% endif %}>Enviado</option>
-                            <option value="ENVIADO_INCOMPLETO" {% if estado_query == 'ENVIADO_INCOMPLETO' %}selected{% endif %}>Enviado Incompleto</option>
-                            <option value="ENTREGADO" {% if estado_query == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
-                            <option value="CANCELADO" {% if estado_query == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
-                        </select>
-                    </div>
-                    <div class="col-12 text-end"> {# Columna para los botones de acción #}
-                        <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm me-2">
-                            <i class="fas fa-search me-2"></i>Buscar
-                        </button>
-                        {% if ref_query or cliente_query or estado_query or ref_producto_query %}
-                            <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
-                                <i class="fas fa-eraser me-2"></i>Limpiar Filtros
-                            </a>
-                        {% endif %}
-                    </div>
+                </div>
+
+                <!-- Filtro de Estado -->
+                <div class="col-md-3">
+                    <label for="id_estado" class="form-label visually-hidden">Estado Pedido</label>
+                    <select id="id_estado" name="estado" class="form-select rounded-pill">
+                        <option value="">-- Todos los Estados --</option>
+                        <option value="APROBADO_ADMIN" {% if estado_query == 'APROBADO_ADMIN' %}selected{% endif %}>Pendiente</option>
+                        <option value="PROCESANDO" {% if estado_query == 'PROCESANDO' %}selected{% endif %}>Procesando</option>
+                        <option value="COMPLETADO" {% if estado_query == 'COMPLETADO' %}selected{% endif %}>Completado</option>
+                        <option value="ENVIADO" {% if estado_query == 'ENVIADO' %}selected{% endif %}>Enviado</option>
+                        <option value="ENVIADO_INCOMPLETO" {% if estado_query == 'ENVIADO_INCOMPLETO' %}selected{% endif %}>Enviado Incompleto</option>
+                        <option value="ENTREGADO" {% if estado_query == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
+                        <option value="CANCELADO" {% if estado_query == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+
+                <!-- Botones -->
+                <div class="col-md-2 text-md-end text-center">
+                    <button type="submit" class="btn btn-primary rounded-pill shadow-sm">
+                        Buscar
+                    </button>
+                    {% if q_query or estado_query %}
+                        <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="btn btn-outline-secondary rounded-pill shadow-sm ms-1" title="Limpiar Filtros">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    {% endif %}
                 </div>
             </form>
         </div>
     </div>
-    {# --- Fin Formulario de Búsqueda --- #}
+    {# --- Fin Formulario --- #}
 
-    {# --- Mensaje de Resumen o Alerta si no hay pedidos --- #}
-    {% if pedidos_list %}
-        <div class="alert alert-info py-3 rounded-3 shadow-sm border-0 mb-4 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-dark">
-                <i class="fas fa-info-circle me-2"></i> Mostrando <span class="fw-bold">{{ pedidos_list|length }}</span> pedido(s).
-            </h5>
-        </div>
-    {% else %}
-        <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0 mb-4" role="alert">
-            <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron pedidos que coincidan con los criterios de búsqueda.
-            {% if ref_query or cliente_query or estado_query or ref_producto_query %}
-                 <br>Por favor, <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="alert-link">limpia los filtros</a> para ver todos los pedidos.
+    {% if not pedidos_list %}
+        <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0 mb-4">
+            <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron pedidos.
+            {% if q_query or estado_query %}
+                 <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="alert-link">Limpia los filtros</a> para ver todo.
             {% endif %}
         </div>
-    {% endif %}
-
-    {# --- Tabla de Pedidos --- #}
-    {% if pedidos_list %}
-        <div class="card shadow-lg border-0 rounded-3"> {# Card styling consistente #}
-            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3"> {# Header styling consistente #}
+    {% else %}
+        <div class="card shadow-lg border-0 rounded-3">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3 d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> Lista de Pedidos</h5>
+                <span class="badge bg-light text-primary rounded-pill">{{ pedidos_list|length }} Registros</span>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover table-sm mb-0">
+                    <table class="table table-striped table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>ID</th>
+                                <th class="ps-4">ID</th>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th>Vendedor</th>
                                 <th>Estado</th>
-                                <th>Referencias Prod.</th>
-                                <th class="text-center">Acciones</th> {# Centrar acciones para mejor visual #}
+                                <th>Referencias</th>
+                                <th class="text-center pe-4">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for pedido in pedidos_list %}
                             <tr>
-                                <td>{{ pedido.numero_pedido_empresa }}</td>
-                                <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
-                                <td>{{ pedido.cliente.nombre_completo|default:"-" }}</td>
+                                <td class="ps-4 fw-bold">#{{ pedido.numero_pedido_empresa }}</td>
+                                <!-- text-nowrap EVITA QUE LA FECHA SE SALTE A VARIOS RENGLONES -->
+                                <td class="text-nowrap text-secondary"><i class="far fa-calendar-alt me-1"></i> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
+                                <td class="text-nowrap">{{ pedido.cliente.nombre_completo|default:"-" }}</td>
                                 <td>{{ pedido.vendedor.user.username|default:"-" }}</td>
                                 <td>
                                     <span class="badge rounded-pill {% if pedido.estado == 'PENDIENTE' %}bg-warning text-dark{% elif pedido.estado == 'PROCESANDO' %}bg-info text-white{% elif pedido.estado == 'COMPLETADO' %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
@@ -118,47 +110,27 @@
                                 <td>
                                     {% with detalles=pedido.detalles_precargados %}
                                         {% if detalles %}
-                                            <span title="{% for detalle in detalles %}{{ detalle.producto.referencia|escape }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                                            <span class="text-nowrap text-truncate d-inline-block" style="max-width: 150px;" title="{% for detalle in detalles %}{{ detalle.producto.referencia|escape }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                                                 {% for detalle in detalles|slice:":3" %}
                                                     {{ detalle.producto.referencia }}{% if not forloop.last %}, {% endif %}
                                                 {% endfor %}
-                                                {% if detalles|length > 3 %}
-                                                    ...
-                                                {% endif %}
+                                                {% if detalles|length > 3 %}...{% endif %}
                                             </span>
                                         {% else %}
                                             <span class="text-muted">(Sin detalles)</span>
                                         {% endif %}
                                     {% endwith %}
                                 </td>
-                                <td class="text-center text-nowrap"> {# text-nowrap para evitar que los botones salten de línea #}
-                                    <a href="{% url 'bodega:verificar_pedido' pedido.pk %}" class="btn btn-sm btn-success rounded-pill shadow-sm me-1" title="Verificar o despachar manualmente">
-                                        <i class="fas fa-check-circle me-1"></i> Verificar
+                                <td class="text-center text-nowrap pe-4">
+                                    <a href="{% url 'bodega:verificar_pedido' pedido.pk %}" class="btn btn-sm btn-success rounded-pill shadow-sm" title="Verificar manualmente">
+                                        <i class="fas fa-check"></i>
                                     </a>
-                                    <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary rounded-pill shadow-sm me-1" title="Despachar con Scanner">
-                                        <i class="fas fa-barcode me-1"></i> Despachar
+                                    <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary rounded-pill shadow-sm ms-1" title="Scanner">
+                                        <i class="fas fa-barcode"></i>
                                     </a>
-                                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info rounded-pill shadow-sm" title="Ver PDF del Pedido">
-                                        <i class="fas fa-file-pdf me-1"></i> PDF
+                                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info rounded-pill shadow-sm ms-1 text-white">
+                                        <i class="fas fa-file-pdf"></i>
                                     </a>
-
-                                    {% if pedido.estado == 'PROCESANDO' %}
-                                        <form method="POST" action="{% url 'bodega:finalizar_pedido_incompleto' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Seguro que quieres finalizar este pedido como INCOMPLETO? Se devolverá TODO el stock pendiente y el pedido se cerrará.');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-warning rounded-pill shadow-sm ms-1 text-dark" title="Finalizar Pedido Incompleto"> {# text-dark para badge-warning #}
-                                                <i class="fas fa-exclamation-triangle me-1"></i> Finalizar
-                                            </button>
-                                        </form>
-                                    {% endif %}
-
-                                    {% if pedido.estado in 'APROBADO_ADMIN,PROCESANDO' %}
-                                        <form method="POST" action="{% url 'bodega:cancelar_pedido_bodega' pk=pedido.pk %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres CANCELAR TODO el pedido #{{ pedido.numero_pedido_empresa }}? Esta acción devolverá todos los productos al inventario y no se puede deshacer.');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-danger rounded-pill shadow-sm ms-1" title="Cancelar Pedido Completo">
-                                                <i class="fas fa-times-circle me-1"></i> Cancelar
-                                            </button>
-                                        </form>
-                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -167,6 +139,6 @@
                 </div>
             </div>
         </div>
-    {% endif %} {# Cierre del if pedidos_list principal #}
+    {% endif %}
 </div>
 {% endblock content %}
