@@ -10,7 +10,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-success',
         'rol_requerido': 'es_vendedor',
         'order': 1,
-        'categoria': 'Pedidos y Ventas', # <-- NUEVA CATEGORÍA
+        'categoria': 'Pedidos y Ventas',  
     },
     {
         'titulo': 'Crear Pedido Online',
@@ -20,7 +20,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_online', 'es_administracion'],
         'order': 1,
-        'categoria': 'Pedidos y Ventas', # <-- NUEVA CATEGORÍA
+        'categoria': 'Pedidos y Ventas',  
     },
     {
         'titulo': 'Borradores Guardados',
@@ -30,7 +30,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_vendedor', 'es_administracion'],
         'order': 2,
-        'categoria': 'Pedidos y Ventas', # <-- NUEVA CATEGORÍA
+        'categoria': 'Pedidos y Ventas',  
     },
     {
         'titulo': 'Borradores Guardados (Online)',
@@ -40,7 +40,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_online', 'es_administracion'],
         'order': 2,
-        'categoria': 'Pedidos y Ventas', # <-- NUEVA CATEGORÍA
+        'categoria': 'Pedidos y Ventas',  
     },
     {
         'titulo': 'Cambios de producto',
@@ -49,10 +49,8 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-undo-alt',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_online', 'es_administracion'],
-        'categoria': 'Pedidos y Ventas', # <-- NUEVA CATEGORÍA
-    },
-
-    # --- Clientes y Prospectos ---
+        'categoria': 'Pedidos y Ventas',  
+    },    
     {
         'titulo': 'Formulario de Solicitud de Cliente Nuevo',
         'descripcion': 'Ingresa requisitos de estudio para nuevo cliente',
@@ -61,7 +59,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_vendedor', 'es_administracion'],
         'order': 5,
-        'categoria': 'Clientes y Prospectos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Clientes y Prospectos',  
     },
     {
         'titulo': 'Lista de clientes Prospectos pendientes por aprobar',
@@ -71,7 +69,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_cartera', 'es_vendedor', 'es_administracion'],
         'order': 4,
-        'categoria': 'Clientes y Prospectos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Clientes y Prospectos',  
     },
     {
         'titulo': 'Listado de clientes',
@@ -80,7 +78,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-users',
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_vendedor', 'es_administracion', 'es_cartera', 'es_factura'],
-        'categoria': 'Clientes y Prospectos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Clientes y Prospectos',  
     },
     {
         'titulo': 'Clientes (Gestión)',
@@ -89,7 +87,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': ' fas fa-users-cog',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_factura', 'es_cartera', 'es_administracion'],
-        'categoria': 'Clientes y Prospectos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Clientes y Prospectos',  
     },
 
     # --- Finanzas y Recaudos ---
@@ -101,7 +99,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_vendedor'],
         'order': 2,
-        'categoria': 'Finanzas y Recaudos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Finanzas y Recaudos',  
     },
     {
         'titulo': 'Gestionar Recaudos',
@@ -111,7 +109,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_administracion','es_cartera'],
         'order': 2,
-        'categoria': 'Finanzas y Recaudos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Finanzas y Recaudos',  
     },
     {
         'titulo': 'Informe de Recaudos',
@@ -121,7 +119,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_administracion','es_cartera'],
         'order': 2,
-        'categoria': 'Finanzas y Recaudos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Finanzas y Recaudos',  
     },
     {
         'titulo': 'Cartera (Informe General)',
@@ -130,7 +128,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-wallet',
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_vendedor', 'es_cartera','es_administracion'],
-        'categoria': 'Finanzas y Recaudos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Finanzas y Recaudos',  
     },
     {
         'titulo': 'Cargar Cartera',
@@ -139,7 +137,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-paperclip',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_cartera', 'es_administracion'],
-        'categoria': 'Finanzas y Recaudos', # <-- NUEVA CATEGORÍA
+        'categoria': 'Finanzas y Recaudos',  
     },
 
     # --- Bodega e Inventario ---
@@ -164,7 +162,15 @@ PANEL_OPTIONS_CONFIG = [
         'order': 3,
         'categoria': 'Bodega e Inventario',
     },
-    
+    {
+        'titulo': 'Registrar Ingreso',
+        'descripcion': 'Registrar ingresos de mercancía a bodega.',
+        'url_nombre': 'bodega:vista_registrar_ingreso',
+        'icono': 'fa-solid fa-warehouse',
+        'icono_color_class': 'icon-info',
+        'rol_requerido': ['es_diseno', 'es_bodega', 'es_administracion'],
+        'categoria': 'Bodega e Inventario',  
+    },
     {
         'titulo': 'Cambio de Productos',
         'descripcion': 'Registrar un cambio de un producto por otro.',
@@ -174,19 +180,7 @@ PANEL_OPTIONS_CONFIG = [
         'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura', 'es_bodega', 'es_online', 'es_diseno'],
         'order': 4, 
         'categoria': 'Bodega e Inventario',
-    },
-    
-    {
-        'titulo': 'Historial de Cambios',
-        'descripcion': 'Consultar todos los cambios de producto registrados.',
-        'url_nombre': 'bodega:historial_cambios_producto',
-        'icono': 'fas fa-history',
-        'icono_color_class': 'icon-dark',
-        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura', 'es_bodega', 'es_online', 'es_diseno'],
-        'order': 5, # Justo después del formulario de cambio
-        'categoria': 'Bodega e Inventario',
-    },
-    
+    },    
     {
         'titulo': 'Pedidos Pendientes para Despacho',
         'descripcion': 'Ver y gestionar pedidos pendientes para despacho.',
@@ -195,7 +189,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_bodega', 'es_administracion'],
         'order': 1,
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
+        'categoria': 'Bodega e Inventario',  
     },
     {
         'titulo': 'Ingreso desde Producción',
@@ -219,22 +213,13 @@ PANEL_OPTIONS_CONFIG = [
         'categoria': 'Bodega e Inventario',
     },
     {
-        'titulo': 'Informe de Ingresos a Bodega',
-        'descripcion': 'Ingresos de mercancía a bodega.',
-        'url_nombre': 'informes:informe_ingresos_bodega',
-        'icono': 'fa-solid fa-warehouse',
-        'icono_color_class': 'icon-primary',
-        'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
-    },
-    {
         'titulo': 'Inventario Físico',
         'descripcion': 'Vista de inventario físico de productos en bodega.',
         'url_nombre': 'bodega:informe_inventario',
         'icono': 'fa-solid fa-clipboard-list',
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_bodega','es_administracion'],
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
+        'categoria': 'Bodega e Inventario',  
     },
     {
         'titulo': 'Registrar Salida Interna',
@@ -243,7 +228,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-box-open',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['bodega.add_salidainternacabecera','es_bodega', 'es_administracion'], # Asumo que 'bodega.add_salidainternacabecera' es un permiso de Django
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
+        'categoria': 'Bodega e Inventario',  
     },
     {
         'titulo': 'Realizar Conteo de Inventario',
@@ -252,17 +237,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-clipboard-list',
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['bodega.view_cabeceraconteo','es_administracion'], # Asumo que 'bodega.view_cabeceraconteo' es un permiso de Django
-        'categoria': 'Bodega e Inventario', # <-- NUEVA CATEGORÍA
-    },
-    
-    {
-        'titulo': 'Historial de Conteos',
-        'descripcion': 'Consultar y descargar informes de conteos de inventario realizados.',
-        'url_nombre': 'bodega:lista_informes_conteo',
-        'icono': 'fas fa-history',
-        'icono_color_class': 'icon-primary',
-        'rol_requerido': ['bodega.view_cabeceraconteo', 'es_administracion'], # <-- LÍNEA CORREGIDA
-        'categoria': 'Bodega e Inventario',
+        'categoria': 'Bodega e Inventario',  
     },
 
     # --- Facturación ---
@@ -274,7 +249,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_factura', 'es_administracion'],
         'order': 1,
-        'categoria': 'Facturación', # <-- NUEVA CATEGORÍA
+        'categoria': 'Facturación',  
     },
     {
         'titulo': 'Consultar Despachos por Cliente',
@@ -283,7 +258,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-users',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_factura', 'es_administracion'],
-        'categoria': 'Facturación', # <-- NUEVA CATEGORÍA
+        'categoria': 'Facturación',  
     },
     {
         'titulo': 'Consultar Despachos por Estado',
@@ -292,7 +267,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-info-circle',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_factura', 'es_administracion'],
-        'categoria': 'Facturación', # <-- NUEVA CATEGORÍA
+        'categoria': 'Facturación',  
     },
     {
         'titulo': 'Consultar Despacho por número de Pedido',
@@ -301,7 +276,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-search',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_factura', 'es_administracion'],
-        'categoria': 'Facturación', # <-- NUEVA CATEGORÍA
+        'categoria': 'Facturación',  
     },
     {
         'titulo': 'Despachos Facturados por Fecha',
@@ -310,7 +285,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-calendar-check',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_factura', 'es_administracion'],
-        'categoria': 'Facturación', # <-- NUEVA CATEGORÍA
+        'categoria': 'Facturación',  
     },
 
     # --- Productos y Catálogo ---
@@ -321,7 +296,8 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-box',
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_diseno', 'es_administracion'],
-        'categoria': 'Productos y Catálogo', # <-- NUEVA CATEGORÍA
+        'order': 1,
+        'categoria': 'Productos y Catálogo',  
     },
     {
         'titulo': 'Subir Fotos de Productos',
@@ -330,16 +306,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-images',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_diseno', 'es_administracion'],
-        'categoria': 'Productos y Catálogo', # <-- NUEVA CATEGORÍA
-    },
-    {
-        'titulo': 'Registrar Ingreso',
-        'descripcion': 'Registrar ingresos de mercancía a bodega.',
-        'url_nombre': 'bodega:vista_registrar_ingreso',
-        'icono': 'fa-solid fa-warehouse',
-        'icono_color_class': 'icon-info',
-        'rol_requerido': ['es_diseno', 'es_bodega', 'es_administracion'],
-        'categoria': 'Productos y Catálogo', # <-- NUEVA CATEGORÍA
+        'categoria': 'Productos y Catálogo',  
     },
     {
         'titulo': 'Compartir Catálogo',
@@ -349,16 +316,27 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_vendedor', 'es_administracion', 'es_cartera', 'es_online'],
         'order': 5,
-        'categoria': 'Productos y Catálogo', # <-- NUEVA CATEGORÍA
+        'categoria': 'Productos y Catálogo',
     },
     {
-        'titulo': 'VER CATÁLOGO',
+        'titulo': 'Ver Catálogo',
         'descripcion': 'Visualizar el catálogo de productos.',
         'url_nombre': 'catalogo:lista_referencias',
         'icono': 'fas fa-book-open',
         'icono_color_class': 'icon-success',
         'rol_requerido': ['es_vendedor', 'es_diseno', 'es_online', 'es_cartera', 'es_factura', 'es_bodega', 'es_administracion'],
-        'categoria': 'Productos y Catálogo', # <-- NUEVA CATEGORÍA
+        'order': 2,
+        'categoria': 'Productos y Catálogo',
+    },
+    {
+        'titulo': 'Sincronizar Shopify',
+        'descripcion': 'Sincronizar productos y stock con la tienda Shopify.',
+        'url_nombre': 'pedidos_web:panel_sincronizacion',
+        'icono': 'fas fa-sync-alt',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': ['es_vendedor', 'es_bodega', 'es_administracion'],
+        'order': 7,
+        'categoria': 'Productos y Catálogo',
     },
 
     # --- Informes Generales ---
@@ -370,7 +348,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_administracion', 'es_cartera'],
         'order': 2,
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
     },
     {
         'titulo': 'Informe de Ventas por vendedor',
@@ -380,7 +358,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_vendedor'],
         'order': 4,
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',
     },
     {
         'titulo': 'Informe de Ventas por vendedor online',
@@ -390,7 +368,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_online', 'es_administracion'],
         'order': 3,
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',
     },
     {
         'titulo': 'Informe de Ventas General online',
@@ -400,7 +378,17 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-primary',
         'rol_requerido': ['es_administracion'],
         'order': 5,
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',
+    },
+        {
+        'titulo': 'Historial de Cambios',
+        'descripcion': 'Consultar todos los cambios de producto registrados.',
+        'url_nombre': 'bodega:historial_cambios_producto',
+        'icono': 'fas fa-history',
+        'icono_color_class': 'icon-dark',
+        'rol_requerido': ['es_administracion', 'es_cartera', 'es_factura', 'es_bodega', 'es_online', 'es_diseno'],
+        'order': 5, 
+        'categoria': 'Informes Generales', 
     },
     
     {
@@ -408,10 +396,27 @@ PANEL_OPTIONS_CONFIG = [
         'descripcion': 'Cantidad de unidades vendidas por referencia y talla.',
         'url_nombre': 'pedidos:reporte_ventas_referencia',
         'icono': 'fas fa-tshirt',
-        'icono_color_class': 'icon-info',
-        # Hacemos que todos los roles con acceso a informes puedan verlo
+        'icono_color_class': 'icon-info',        
         'rol_requerido': ['es_vendedor', 'es_cartera', 'es_bodega', 'es_administracion', 'es_factura'],
         'order': 6,
+        'categoria': 'Informes Generales',
+    },
+    {
+        'titulo': 'Historial de Conteos',
+        'descripcion': 'Consultar y descargar informes de conteos de inventario realizados.',
+        'url_nombre': 'bodega:lista_informes_conteo',
+        'icono': 'fas fa-history',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': ['bodega.view_cabeceraconteo', 'es_administracion'],
+        'categoria': 'Informes Generales',
+    },
+    {
+        'titulo': 'Informe de Ingresos a Bodega',
+        'descripcion': 'Ingresos de mercancía a bodega.',
+        'url_nombre': 'informes:informe_ingresos_bodega',
+        'icono': 'fa-solid fa-warehouse',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
         'categoria': 'Informes Generales',
     },
     {
@@ -421,7 +426,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': ' fa-solid fa-check',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_cartera', 'es_administracion'],
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
     },
     {
         'titulo': 'Informes pedidos RECHAZADOS',
@@ -430,7 +435,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-ban',
         'icono_color_class': 'icon-danger',
         'rol_requerido': ['es_cartera', 'es_administracion'],
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
     },
     {
         'titulo': 'Informe Devoluciones Clientes',
@@ -440,16 +445,16 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_bodega', 'es_administracion', 'es_vendedor', 'es_cartera', 'es_factura'], # Corregido error de sintaxis 'es_administracion' 'es_vendedor'
         'order': 6,
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
     },
     {
-        'titulo': 'COMPROBANTES DE DESPACHO',
+        'titulo': 'Comprobantes de Despacho',
         'descripcion': 'Consultar comprobantes de despacho generados.',
         'url_nombre': 'informes:informe_comprobantes_despacho',
         'icono': 'fa-solid fa-file-alt',
         'icono_color_class': 'icon-dark',
         'rol_requerido': ['informes.view_comprobantes_despacho', 'es_administracion', 'es_cartera', 'es_factura', 'es_bodega'], # Asumo que 'informes.view_comprobantes_despacho' es un permiso de Django
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
     },
     {
         'titulo': 'LISTA TOTAL PEDIDOS',
@@ -468,7 +473,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fa-solid fa-dolly', # Icono de un carro para movimientos
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
-        'categoria': 'Informes Generales', # <-- NUEVA CATEGORÍA
+        'categoria': 'Informes Generales',  
         #'url_kwargs': {'pk': 1}, # Ejemplo: Si la URL requiere un PK por defecto para el informe
     },
 
@@ -481,7 +486,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_administracion'],
         'order': 1,
-        'categoria': 'Administración del Sistema', # <-- NUEVA CATEGORÍA
+        'categoria': 'Administración del Sistema',  
     },
     
     {
@@ -492,7 +497,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono_color_class': 'icon-warning',
         'rol_requerido': ['es_administracion', 'es_cartera'],
         'order': 1,
-        'categoria': 'Administración del Sistema', # <-- NUEVA CATEGORÍA
+        'categoria': 'Administración del Sistema',  
     },
     
     {
@@ -502,7 +507,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-users-cog',
         'icono_color_class': 'icon-primary',
         'rol_requerido': 'es_administrador_app', # <--- Usa la función de rol
-        'categoria': 'Administración del Sistema', # <-- NUEVA CATEGORÍA
+        'categoria': 'Administración del Sistema',  
     },
     {
         'titulo': 'Gestion Grupos de Usuarios',
@@ -511,7 +516,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-users-cog',
         'icono_color_class': 'icon-primary',
         'rol_requerido': 'es_administrador_app', # <--- Usa la función de rol
-        'categoria': 'Administración del Sistema', # <-- NUEVA CATEGORÍA
+        'categoria': 'Administración del Sistema',  
     },
     {
         'titulo': 'Admin Django',
@@ -520,6 +525,6 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-cog',
         'icono_color_class': 'icon-dark',
         'rol_requerido': 'puede_ver_panel_django_admin', # <--- Usa la función de rol
-        'categoria': 'Administración del Sistema', # <-- NUEVA CATEGORÍA
+        'categoria': 'Administración del Sistema',  
     },
 ]

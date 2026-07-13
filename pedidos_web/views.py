@@ -82,11 +82,6 @@ def webhook_nuevo_pedido_shopify(request):
         else:
             cliente_online = None
 
-
-
-
-
-
         # --- B. Lógica de Pago y Estados ---
         estado_financiero_ingles = orden.get('financial_status')
         es_pago_confirmado = (estado_financiero_ingles == 'paid')
