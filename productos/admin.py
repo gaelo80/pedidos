@@ -2,9 +2,36 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources
 from django.utils.html import format_html
+from django.contrib import messages
+from django.db import transaction
 from .models import Producto, FotoProducto, ReferenciaColor
+from bodega.models import MovimientoInventario
+from pedidos.models import DetallePedido
 
-# Register your models here.
+@admin.action(description="⚠️ ELIMINAR productos de prueba y TODO su historial")
+def eliminar_productos_con_historial(modeladmin, request, queryset):
+    # Medida de seguridad: Solo el Superusuario puede hacer esto
+    if not request.user.is_superuser:
+        modeladmin.message_user(request, "No tienes permisos de Superusuario para realizar esta acción.", level=messages.ERROR)
+        return
+
+    eliminados = 0
+    # transaction.atomic asegura que si algo falla, no quede la base de datos a medias
+    with transaction.atomic():
+        for producto in queryset:
+            # 1. Borrar historial de bodega
+            MovimientoInventario.objects.filter(producto=producto).delete()
+            
+            # 2. Borrar de los pedidos (borradores/pruebas)
+            DetallePedido.objects.filter(producto=producto).delete()
+            
+            # 3. Borrar el producto
+            producto.delete()
+            eliminados += 1
+
+    modeladmin.message_user(request, f"¡Limpieza profunda exitosa! Se eliminaron {eliminados} productos y todo su historial.", level=messages.SUCCESS)
+
+
 class ProductoResource(resources.ModelResource):
     class Meta:
         model = Producto
@@ -77,6 +104,7 @@ class ProductoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     autocomplete_fields = ['articulo_color_fotos']
     readonly_fields = ('stock_actual', 'fecha_creacion')
 
+    actions = [eliminar_productos_con_historial]
     
     fieldsets = (
         ('Información Principal', {
@@ -189,3 +217,4 @@ class FotoProductoAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.imagen.url)
         return "(Sin imagen)"
     previsualizacion_imagen_lista.short_description = 'Imagen'
+

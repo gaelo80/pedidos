@@ -81,35 +81,63 @@ def webhook_nuevo_pedido_shopify(request):
         else:
             cliente_online = None
 
+
+
+
+
+
         # --- B. Lógica de Pago y Estados ---
-        # (Nivel corregido: A la misma altura del if/else)
-        estado_financiero = orden.get('financial_status')
-        es_pago_confirmado = (estado_financiero == 'paid')
+        estado_financiero_ingles = orden.get('financial_status')
+        es_pago_confirmado = (estado_financiero_ingles == 'paid')
         estado_django = 'LISTO_BODEGA_DIRECTO' if es_pago_confirmado else 'BORRADOR'
         
-        # Preparamos la nota con el número de Shopify
+        # 1. Diccionario traductor de estados financieros
+        traductor_estados = {
+            'paid': 'Pagado',
+            'pending': 'Pendiente',
+            'authorized': 'Autorizado',
+            'partially_paid': 'Pago Parcial',
+            'refunded': 'Reembolsado',
+            'partially_refunded': 'Reembolso Parcial',
+            'voided': 'Anulado'
+        }
+        estado_espanol = traductor_estados.get(estado_financiero_ingles, estado_financiero_ingles)
+
+        # 2. Extraer el método de pago de Shopify
+        nombres_pasarelas = orden.get('payment_gateway_names', [])
+        medio_pago_shopify = ", ".join(nombres_pasarelas) if nombres_pasarelas else "No especificado"
+        
+        # 3. Lógica para Forma de Pago Nativa (Mapeo a models.py)
+        pasarelas_lower = medio_pago_shopify.lower()
+        if 'addi' in pasarelas_lower:
+            forma_pago_django = 'ADDI'
+        else:
+            forma_pago_django = 'OTRO_ONLINE'
+        
+        # 4. Preparar la nota final
         numero_shopify = orden.get('order_number')
-        texto_nota = f"Orden Shopify #{numero_shopify} - Estado pago: {estado_financiero}"
+        texto_nota = f"Orden Shopify #{numero_shopify} | Estado: {estado_espanol} | Pasarela: {medio_pago_shopify}"
 
         with transaction.atomic():
-            # 1. Escudo antiduplicados
+            # Escudo antiduplicados
             if Pedido.objects.filter(empresa=empresa_actual, notas__icontains=f"Orden Shopify #{numero_shopify}").exists():
-                print(f"🛑 ATENCIÓN: La orden #{numero_shopify} ya estaba registrada. Se aborta para no duplicar.")
+                print(f"🛑 ATENCIÓN: La orden #{numero_shopify} ya estaba registrada. Se aborta.")
                 return HttpResponse(status=200)
 
             print("✅ Pasó el escudo antiduplicados. Intentando guardar en la base de datos...")
             
-            # 2. Creamos el pedido
+            # Creamos el pedido asignando la forma de pago exacta
             pedido = Pedido.objects.create(
                 empresa=empresa_actual,
                 cliente_online=cliente_online,
                 vendedor=vendedor_shopify,
                 tipo_pedido='ONLINE',
                 estado=estado_django,
+                forma_pago=forma_pago_django,
                 notas=texto_nota,
                 fecha_hora=parse_datetime(orden.get('created_at'))
             )
-            print(f"🎉 ¡PEDIDO CREADO CON ÉXITO! Consecutivo interno asignado: {pedido.numero_pedido_empresa}")
+            print(f"🎉 ¡PEDIDO CREADO! Consecutivo asignado: {pedido.numero_pedido_empresa}")
 
         # --- D. Procesar Detalles ---
         doc_ref_base = f'Pedido #{pedido.numero_pedido_empresa} (Shopify)'
@@ -139,7 +167,7 @@ def webhook_nuevo_pedido_shopify(request):
                     )
                     print(f"✅ Activado en Bodega: {producto_interno.referencia}")
                 else:
-                    print(f"⏳ Guardado como borrador: Pago {estado_financiero}")
+                    print(f"⏳ Guardado como borrador: Pago {estado_espanol}")
             else:
                 print(f"⚠️ Variante {variant_id} no enlazada en Django.")
 
