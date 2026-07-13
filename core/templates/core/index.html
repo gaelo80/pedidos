@@ -5,44 +5,102 @@
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4">
-    <h2 class="text-center panel-title display-5 fw-bold text-primary mb-5">
+    <h2 class="text-center panel-title display-5 fw-bold text-primary mb-4">
         Hola {{ user.first_name|default:user.username }}!
     </h2>
 
-    {% if opciones_agrupadas %} {# Ahora iteramos sobre las categorías agrupadas #}
-        <div class="row g-4"> {# g-4 para espacio entre las tarjetas de categoría #}
-            {% for categoria in opciones_agrupadas %}
-                <div class="col-12 col-md-6 col-lg-4 col-xl-3 d-flex align-items-stretch"> {# 3 o 4 categorías por fila en pantallas grandes #}
-                    <div class="card h-100 shadow-lg border-0 rounded-4 category-card"> {# Tarjeta para cada categoría #}
-                        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-4">
-                            <h5 class="mb-0 fw-bold"><i class="fas fa-folder-open me-2"></i>{{ categoria.nombre_categoria }}</h5>
-                        </div>
-                        <div class="card-body p-0"> {# padding 0 para que la lista interna lo defina #}
-                            <ul class="list-group list-group-flush rounded-bottom-4"> {# Lista de enlaces sin bordes entre items y redondeada abajo #}
+    {% if opciones_agrupadas %}
+    
+        <!-- ==========================================
+             VISTA MÓVIL: ACORDEÓN + APPS 
+             (Se oculta en pantallas medianas/grandes)
+             ========================================== -->
+        <div class="d-block d-md-none">
+            <div class="accordion shadow-sm mt-2 rounded-4" id="accordionMobile">
+                {% for categoria in opciones_agrupadas %}
+                <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
+                    <h2 class="accordion-header" id="heading-mobile-{{ forloop.counter }}">
+                        <!-- El primer acordeón aparece abierto por defecto gracias a la clase 'show' y quitando 'collapsed' -->
+                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold bg-white text-dark py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-mobile-{{ forloop.counter }}">
+                            <i class="fas fa-folder me-3 text-primary"></i> <span class="fs-6">{{ categoria.nombre_categoria }}</span>
+                            <span class="badge bg-primary ms-auto rounded-pill">{{ categoria.opciones|length }}</span>
+                        </button>
+                    </h2>
+                    <div id="collapse-mobile-{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionMobile">
+                        <div class="accordion-body bg-light p-3">
+                            <!-- Cuadrícula estilo App dentro del acordeón -->
+                            <div class="row g-2">
                                 {% for opcion in categoria.opciones %}
-                                    <li class="list-group-item d-flex justify-content-between align-items-center py-3 custom-list-item-hover">
-                                        <a href="{{ opcion.url_target|default:opcion.url }}" class="flex-grow-1 text-decoration-none text-dark fw-semibold" 
-                                           {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
-                                            <i class="{{ opcion.icono }} me-2 {{ opcion.icono_color_class|default:'icon-default-color' }}"></i>
-                                            {{ opcion.titulo }}
-                                            <small class="d-block text-muted mt-1">{{ opcion.descripcion }}</small>
-                                        </a>
-                                        {% if opcion.deshabilitado %}
-                                            <span class="badge bg-secondary text-white rounded-pill px-3 py-2">No disponible</span>
-                                        {% else %}
-                                            <i class="fas fa-chevron-right text-primary ms-2"></i> {# Flecha indicadora #}
-                                        {% endif %}
-                                    </li>
+                                <div class="col-6">
+                                    <a href="{{ opcion.url_target|default:opcion.url }}" class="text-decoration-none" {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                                        <div class="card h-100 text-center shadow-sm card-hover border-0 rounded-4 bg-white">
+                                            <div class="card-body d-flex flex-column justify-content-center align-items-center p-3">
+                                                <i class="{{ opcion.icono }} fa-2x mb-2 {{ opcion.icono_color_class|default:'text-primary' }}"></i>
+                                                <h6 class="card-title text-dark fw-bold mb-0" style="font-size: 0.85rem;">{{ opcion.titulo }}</h6>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
                                 {% endfor %}
-                            </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
+
+        <!-- ==========================================
+             VISTA ESCRITORIO: PESTAÑAS LATERALES 
+             (Se oculta en celulares, se muestra en PC/Tablets)
+             ========================================== -->
+        <div class="d-none d-md-block">
+            <div class="row mt-2">
+                <!-- Columna Izquierda: Menú de Categorías -->
+                <div class="col-md-4 col-lg-3 mb-4">
+                    <div class="nav flex-column nav-pills shadow-sm rounded-4 bg-white p-2" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                        {% for categoria in opciones_agrupadas %}
+                        <button class="nav-link text-start fw-bold mb-1 rounded-pill {% if forloop.first %}active{% endif %}" id="v-pills-{{ forloop.counter }}-tab" data-bs-toggle="pill" data-bs-target="#v-pills-{{ forloop.counter }}" type="button" role="tab">
+                            {{ categoria.nombre_categoria }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Columna Derecha: Contenido de la Categoría Seleccionada -->
+                <div class="col-md-8 col-lg-9">
+                    <div class="tab-content" id="v-pills-tabContent">
+                        {% for categoria in opciones_agrupadas %}
+                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="v-pills-{{ forloop.counter }}" role="tabpanel">
+                            <div class="card shadow-sm border-0 rounded-4">
+                                <div class="card-header bg-gradient bg-primary text-white border-0 py-3 rounded-top-4">
+                                    <h5 class="mb-0 fw-bold">{{ categoria.nombre_categoria }}</h5>
+                                </div>
+                                <div class="list-group list-group-flush rounded-bottom-4">
+                                    {% for opcion in categoria.opciones %}
+                                    <a href="{{ opcion.url_target|default:opcion.url }}" class="list-group-item list-group-item-action d-flex align-items-center py-3 custom-list-item-hover border-bottom" {% if opcion.nueva_pestana %}target="_blank"{% endif %}>
+                                        <div class="rounded-circle bg-light p-3 me-3 text-center d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                            <i class="{{ opcion.icono }} fs-5 {{ opcion.icono_color_class|default:'text-primary' }}"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-bold text-dark">{{ opcion.titulo }}</h6>
+                                            <small class="text-muted">{{ opcion.descripcion }}</small>
+                                        </div>
+                                        <i class="fas fa-chevron-right text-primary opacity-50 ms-2"></i>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
     {% else %}
         <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0" role="alert">
-            <i class="fas fa-exclamation-triangle me-2"></i> No hay opciones disponibles para tu perfil de usuario. Contacta al administrador si crees que esto es un error.
+            <i class="fas fa-exclamation-triangle me-2"></i> No hay opciones disponibles para tu perfil de usuario.
         </div>
     {% endif %}
 </div>
@@ -50,98 +108,44 @@
 
 {% block extra_css %}
 <style>
-    /* ----------------------------------------------------- */
-    /* DEFINICIÓN DE VARIABLES DE COLOR (CRUCIAL)           */
-    /* ASEGÚRATE DE QUE ESTAS VARIABLES ESTÉN DEFINIDAS      */
-    /* EN TU CSS PRINCIPAL DE BOOTSTRAP O EN EL :ROOT GLOBAL */
-    /* O DEFINELAS AQUÍ SI NO ESTÁN EN OTRO LADO.             */
-    /* ----------------------------------------------------- */
-    /* Ejemplo de cómo podrían estar en tu CSS principal o un archivo de tema:
-    :root {
-        --bs-primary: #0d6efd;
-        --bs-success: #198754;
-        --bs-info: #0dcaf0;
-        --bs-warning: #ffc107;
-        --bs-danger: #dc3545;
-        --bs-dark: #212529;
-        --bs-secondary: #6c757d;
-        --bs-light: #f8f9fa;
-        --bs-gray-400: #ced4da;
-        --bs-gray-500: #adb5bd;
-        --bs-gray-700: #495057;
-        --bs-border-color: #198754;
-
-        --bs-primary-rgb: 13,110,253; /* Necesario para rgba */
-        --bs-dark-rgb: 33,37,41;
-
-        --icon-color-primary: var(--bs-primary);
-        --icon-color-success: var(--bs-success);
-        --icon-color-warning: var(--bs-warning);
-        --icon-color-danger: var(--bs-danger);
-        --icon-color-info: var(--bs-info);
-        --icon-color-secondary: var(--bs-secondary);
-        --icon-color-dark: var(--bs-dark);
-        --icon-color-default: var(--bs-gray-500);
-
-        --card-hover-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.25);
-        --card-hover-transform: translateY(-8px);
+    /* Efecto suave de elevación para las tarjetas móviles (Hover) */
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    */
-
-    /* Estilos generales del panel */
-    .panel-title {
-        font-weight: 600;
-        font-size: 2.5rem;
-        margin-bottom: 2.5rem !important;
+    .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1) !important;
+        border-bottom: 3px solid var(--bs-primary) !important;
+    }
+    
+    /* Efectos para los items de las listas en PC */
+    .custom-list-item-hover {
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease-in-out;
+    }
+    .custom-list-item-hover:hover {
+        background-color: var(--bs-light);
+        border-left-color: var(--bs-primary);
+        transform: translateX(3px);
+    }
+    .custom-list-item-hover:hover .text-dark {
         color: var(--bs-primary) !important;
     }
 
-    /* Estilos para las tarjetas de categoría */
-    .category-card {
-        background-color: var(--bs-card-bg);
-        border: 1px solid var(--bs-border-color);
-        border-radius: 0.75rem; /* rounded-4 */
-        overflow: hidden;
+    /* Ajustes específicos para el acordeón móvil */
+    .accordion-button:not(.collapsed) {
+        background-color: var(--bs-light); /* Fondo suave cuando está abierto */
+        color: var(--bs-primary); /* Texto azul cuando está abierto */
+        box-shadow: inset 0 -1px 0 rgba(0,0,0,.125);
     }
 
-    .category-card .card-header {
-        border-bottom: none; /* Quitamos el borde inferior si la lista es flush */
-    }
-
-    .category-card .list-group-item {
-        border-left: 5px solid transparent; /* Acento en el borde izquierdo de cada item */
-        transition: all 0.2s ease-in-out;
-    }
-
-    .category-card .list-group-item:hover {
-        background-color: var(--bs-light); /* Fondo suave al pasar el ratón */
-        border-left-color: var(--bs-primary); /* Color del acento al pasar el ratón */
-        transform: translateX(5px); /* Deslizamiento sutil */
-    }
-
-    .custom-list-item-hover .text-dark {
-        transition: color 0.2s ease-in-out;
-    }
-
-    .custom-list-item-hover:hover .text-dark {
-        color: var(--bs-primary) !important; /* Cambia el color del título al pasar el ratón */
-    }
-
-    /* Estilos para los iconos dentro de los ítems de la lista */
-    .list-group-item i.fas {
-        min-width: 20px; /* Asegura un ancho mínimo para alinear iconos */
-    }
-
-    /* Colores de iconos (solo color del texto para los iconos en lista) */
-    .icon-primary { color: var(--icon-color-primary, var(--bs-primary)); }
-    .icon-success { color: var(--icon-color-success, var(--bs-success)); }
-    .icon-warning { color: var(--icon-color-warning, var(--bs-warning)); }
-    .icon-danger { color: var(--icon-color-danger, var(--bs-danger)); }
-    .icon-info { color: var(--icon-color-info, var(--bs-info)); }
-    .icon-secondary { color: var(--icon-color-secondary, var(--bs-secondary)); }
-    .icon-dark { color: var(--icon-color-dark, var(--bs-dark)); }
-    .icon-default-color { color: var(--icon-color-default, var(--bs-gray-500)); }
-
-
+    /* Estilos globales de iconos para respetar tus configuraciones previas */
+    .icon-primary { color: var(--bs-primary); }
+    .icon-success { color: var(--bs-success); }
+    .icon-warning { color: var(--bs-warning); }
+    .icon-danger { color: var(--bs-danger); }
+    .icon-info { color: var(--bs-info); }
+    .icon-secondary { color: var(--bs-secondary); }
+    .icon-dark { color: var(--bs-dark); }
 </style>
 {% endblock extra_css %}
