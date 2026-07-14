@@ -626,8 +626,10 @@
                                 <a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Subir Fotos</a>
                                 <a href="{% url 'costeo_jeans:panel_costeo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Costeo de Productos</a>
                             {% endif %}
-                            {% if es_administracion %}                            
+                            {% if empresa_actual.usa_shopify %}   
+                                {% if es_administracion %}                                                     
                                 <a href="{% url 'pedidos_web:panel_sincronizacion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Sincronizar Shopify</a>
+                                {% endif %}
                             {% endif %}
                             {% if es_vendedor or es_administracion or es_cartera or es_online %}
                                 <a href="{% url 'catalogo:catalogo_generar_enlace_usuario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Compartir Catálogo</a>
