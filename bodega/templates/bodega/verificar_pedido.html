@@ -43,7 +43,7 @@
         <div class="card-body p-4">
             <div class="row">
                 <div class="col-md-6">
-                    <p class="mb-2"><strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:pedido.cliente_online.nombre_completo|default:"N/A" }}</p>
+                    <p class="mb-2"><strong>Cliente:</strong> {% if pedido.cliente %}{{ pedido.cliente.nombre_completo }}{% elif pedido.cliente_online %}{{ pedido.cliente_online.nombre_completo }}{% else %}N/A{% endif %}</p>
                     <p class="mb-0"><strong>Fecha:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
                 </div>
                 <div class="col-md-6">

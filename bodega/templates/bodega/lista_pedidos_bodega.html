@@ -100,7 +100,7 @@
                                 <td class="ps-4 fw-bold">#{{ pedido.numero_pedido_empresa }}</td>
                                 <!-- text-nowrap EVITA QUE LA FECHA SE SALTE A VARIOS RENGLONES -->
                                 <td class="text-nowrap text-secondary"><i class="far fa-calendar-alt me-1"></i> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
-                                <td class="text-nowrap">{{ pedido.cliente.nombre_completo|default:pedido.cliente_online.nombre_completo|default:"-" }}</td>
+                                <td class="text-nowrap">{% if pedido.cliente %}{{ pedido.cliente.nombre_completo }}{% elif pedido.cliente_online %}{{ pedido.cliente_online.nombre_completo }}{% else %}-{% endif %}</td>
                                 <td>{{ pedido.vendedor.user.username|default:"-" }}</td>
                                 <td>
                                     <span class="badge rounded-pill {% if pedido.estado == 'PENDIENTE' %}bg-warning text-dark{% elif pedido.estado == 'PROCESANDO' %}bg-info text-white{% elif pedido.estado == 'COMPLETADO' %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
