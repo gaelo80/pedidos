@@ -128,8 +128,6 @@
         Pedido N° <span class="numero-pedido">{{ pedido.numero_pedido_empresa }}</span>
     </p>
 
-    {# --- Cliente / Despacho.
-         Usamos 'destinatario' (property que resuelve cliente web u online). --- #}
     {% with c=pedido.destinatario %}
     <table class="info-table section">
         <tr>
@@ -140,7 +138,7 @@
                     <p><span class="lbl">ID:</span> {{ c.identificacion|default:"N/A" }}</p>
                     <p><span class="lbl">Teléfono:</span> {{ c.telefono|default:"N/A" }}</p>
                     <p><span class="lbl">Dirección:</span> {{ c.direccion|default:"N/A" }}</p>
-                    <p><span class="lbl">Ciudad:</span> {% if c.ciudad %}{{ c.ciudad.nombre }}{% else %}N/A{% endif %}</p>
+                    {% if c.ciudad %}<p><span class="lbl">Ciudad:</span> {{ c.ciudad.nombre }}</p>{% endif %}
                 </div>
             </td>
             <td style="width: 50%;">
@@ -189,7 +187,7 @@
         <tfoot>
             <tr>
                 <td colspan="4" style="text-align: right;">TOTAL DE PRENDAS DESPACHADAS:</td>
-                <td class="text-center">{{ total_general_prendas|default:0|intcomma }}</td>
+                <td class="text-center">{{ total_a_mostrar|intcomma }}</td>
             </tr>
         </tfoot>
     </table>

@@ -750,6 +750,7 @@ def vista_imprimir_comprobante_especifico(request, pk_comprobante):
         'items_despachados_agrupados': items_agrupados_para_pdf,
         'fecha_despacho': comprobante.fecha_hora_despacho, 
         'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
+        'total_a_mostrar': sum(item['total_cantidad_referencia_color'] for item in items_agrupados_para_pdf)
     }
     
     filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_{comprobante.pk}"
@@ -855,6 +856,7 @@ def vista_generar_ultimo_comprobante_pedido(request, pk): # pk_pedido es el ID d
         'items_despachados_agrupados': items_agrupados_para_pdf,
         'fecha_despacho': comprobante.fecha_hora_despacho, 
         'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
+        'total_a_mostrar': sum(item['total_cantidad_referencia_color'] for item in items_agrupados_para_pdf)
     }
     
     filename = f"Comprobante_Despacho_Empresa{empresa_actual.pk}_P{pedido_obj.pk}_C{comprobante.pk}"
