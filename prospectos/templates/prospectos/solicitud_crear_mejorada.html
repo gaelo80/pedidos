@@ -2,22 +2,22 @@
 {% load crispy_forms_tags %}
 {% load static %} {# Asegúrate de cargar static si no lo está en tu base.html para iconos/imágenes #}
 
-{% block page_title %}Crear Solicitud de Cliente{% endblock page_title %}
+{% block page_title %}Crear Solicitud de Cliente {% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5"> {# Más margen superior e inferior para espacio #}
-    
-    <div class="row mb-5 align-items-center"> {# mb-5 para más espacio #}
-        <div class="col-md-8"> {# Columna más ancha para el título #}
-            <h1 class="display-5 fw-bold mb-0 text-primary"> {# Título más grande y en color primario #}
-                <i class="fas fa-file-invoice me-3"></i>{{ titulo_pagina }}
+<div class="mb-5">
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-file-invoice me-2"></i>{{ titulo_pagina|default:"Crear Solicitud de Cliente" }}
             </h1>
-            <p class="lead text-secondary mt-2 mb-0"> {# Texto descriptivo más destacado #}
+            <p class="lead text-secondary mb-0">
                 Diligencia los datos y adjunta la documentación requerida para el estudio de crédito.
             </p>
         </div>
-        <div class="col-md-4 text-md-end"> {# Columna para el botón alineada a la derecha #}
-            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg"> {# Botón más grande #}
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
                 <i class="fas fa-arrow-left me-2"></i>Volver al Panel
             </a>
         </div>
@@ -26,11 +26,11 @@
     <form method="post" enctype="multipart/form-data" novalidate id="solicitud-form">
         {% csrf_token %}
 
-        <div class="card shadow-lg mb-5 border-0 rounded-3"> {# Sombra más pronunciada, sin borde, redondeado #}
-            <div class="card-header bg-primary-subtle py-4 rounded-top-3"> {# Fondo suave de color primario, más padding #}
-                <h5 class="mb-0 text-primary"><i class="fas fa-user-tie me-3"></i>Información del Prospecto</h5> {# Icono más grande y espaciado #}
+        <div class="card shadow-lg mb-4 border-0 rounded-3">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i> 1. Información del Prospecto</h5>
             </div>
-            <div class="card-body p-5"> {# Más padding interno #}
+            <div class="card-body p-4">
                 <div class="row g-4"> {# g-4 para más espacio entre campos #}
                     <div class="col-md-6">{{ form.nombre_completo|as_crispy_field }}</div>
                     <div class="col-md-6">{{ form.identificacion|as_crispy_field }}</div>
@@ -43,11 +43,11 @@
             </div>
         </div>
 
-        <div class="card shadow-lg mb-5 border-0 rounded-3"> {# Sombra y redondeo consistentes #}
-            <div class="card-header bg-primary-subtle py-4 rounded-top-3">
-                <h5 class="mb-0 text-primary"><i class="fas fa-file-upload me-3"></i>Documentación para Estudio</h5>
+        <div class="card shadow-lg mb-4 border-0 rounded-3">
+            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-file-upload me-2"></i> 2. Documentación para Estudio</h5>
             </div>
-            <div class="card-body p-5">
+            <div class="card-body p-4">
                 {{ documentos_formset.management_form }}
 
                 <div id="documentos-ocultos-container" style="display: none;"></div>
@@ -106,11 +106,11 @@
             </div>
         </div>
 
-        <div class="mt-5 d-flex justify-content-end gap-3"> {# Más margen superior, gap-3 #}
-            <a href="{% url 'core:index' %}" class="btn btn-secondary btn-lg"> {# Botón más grande #}
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill">
                 <i class="fas fa-times me-2"></i>Cancelar
             </a>
-            <button type="submit" class="btn btn-success btn-lg"> {# Botón más grande #}
+            <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
                 <i class="fas fa-save me-2"></i>Enviar Solicitud
             </button>
         </div>
@@ -139,6 +139,7 @@
 
 
 {% block extra_scripts %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- CONTENEDORES PRINCIPALES ---

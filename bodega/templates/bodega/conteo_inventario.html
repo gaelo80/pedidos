@@ -2,7 +2,7 @@
 {% load static %}
 {% load widget_tweaks %} {# Asegúrate de que django-widget-tweaks esté instalado y en INSTALLED_APPS #}
 
-{% block page_title %}{{ titulo|default:"Conteo de Inventario" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Conteo de Inventario" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Contenedor consistente #}

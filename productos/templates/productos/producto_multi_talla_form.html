@@ -4,139 +4,137 @@
 {% block page_title %}{{ titulo_pagina|default:"Crear Producto" }}{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10 col-xl-9">
+<div class="mb-5">
 
-            {# ---------- Encabezado ---------- #}
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                <h2 class="mb-0">
-                    <i class="fas fa-cubes text-success me-2"></i>Crear Producto
-                </h2>
-                <div class="d-flex flex-wrap gap-2">
-                    {# Importar / Exportar #}
-                    <div class="btn-group" role="group" aria-label="Importar/Exportar">
-                        <a href="{% url 'productos:producto_importar' %}" class="btn btn-outline-info">
-                            <i class="fas fa-file-import me-2"></i>Importar
-                        </a>
-                        <div class="btn-group" role="group">
-                            <button id="btnExportProd" type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-file-export me-2"></i>Exportar
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="btnExportProd">
-                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xlsx' %}">Excel (.xlsx)</a></li>
-                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='csv' %}">CSV (.csv)</a></li>
-                                <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xls' %}">Excel 97-2003 (.xls)</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-list me-2"></i>Ver Listado
+    {# ---------- Encabezado ---------- #}
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-cubes me-2"></i> Crear Producto
+            </h1>
+            <p class="lead text-secondary mb-0">Registra una o varias tallas de una vez.</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            <div class="d-inline-flex flex-wrap gap-2 justify-content-md-end">
+                <div class="btn-group" role="group" aria-label="Importar/Exportar">
+                    <a href="{% url 'productos:producto_importar' %}" class="btn btn-outline-info rounded-start-pill">
+                        <i class="fas fa-file-import me-2"></i>Importar
                     </a>
+                    <div class="btn-group" role="group">
+                        <button id="btnExportProd" type="button" class="btn btn-outline-success dropdown-toggle rounded-end-pill" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-file-export me-2"></i>Exportar
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="btnExportProd">
+                            <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xlsx' %}">Excel (.xlsx)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='csv' %}">CSV (.csv)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'productos:producto_exportar' file_format='xls' %}">Excel 97-2003 (.xls)</a></li>
+                        </ul>
+                    </div>
                 </div>
+                <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary rounded-pill">
+                    <i class="fas fa-list me-2"></i>Ver Listado
+                </a>
             </div>
-
-            <p class="text-muted mb-4">
-                <i class="fas fa-info-circle me-1"></i>
-                Completa la información base y agrega una o varias tallas. Puedes crear una sola variante (una fila) o muchas de golpe.
-            </p>
-
-            <form method="post" novalidate>
-                {% csrf_token %}
-
-                {# ---------- Card 1: Información del producto ---------- #}
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0"><i class="fas fa-tag me-2 text-info"></i>1. Información del Producto</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        {{ base_form.non_field_errors }}
-                        {{ base_form.hidden_fields }}
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">{{ base_form.referencia|as_crispy_field }}</div>
-                            <div class="col-md-8">{{ base_form.nombre|as_crispy_field }}</div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-12">{{ base_form.descripcion|as_crispy_field }}</div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">{{ base_form.color|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ base_form.genero|as_crispy_field }}</div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">{{ base_form.costo|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ base_form.precio_venta|as_crispy_field }}</div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">{{ base_form.unidad_medida|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ base_form.ubicacion|as_crispy_field }}</div>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-6">{{ base_form.activo|as_crispy_field }}</div>
-                            <div class="col-md-6">{{ base_form.permitir_preventa|as_crispy_field }}</div>
-                        </div>
-                    </div>
-                </div>
-
-                {# ---------- Card 2: Tallas ---------- #}
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0"><i class="fas fa-ruler-horizontal me-2 text-info"></i>2. Tallas y Códigos de Barras</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        {{ talla_formset.management_form }}
-                        {{ talla_formset.non_form_errors }}
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 30%;">Talla <span class="text-danger">*</span></th>
-                                        <th>Código de Barras</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for form in talla_formset %}
-                                        <tr>
-                                            <td>
-                                                {{ form.talla.errors }}
-                                                {{ form.talla }}
-                                                {{ form.id }}
-                                            </td>
-                                            <td>
-                                                {{ form.codigo_barras.errors }}
-                                                {{ form.codigo_barras }}
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            Deja en blanco las filas que no uses. Solo se crearán las filas con talla.
-                        </small>
-                    </div>
-                </div>
-
-                <hr class="my-4">
-
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-times me-2"></i>Cancelar
-                    </a>
-                    <button type="submit" class="btn btn-success btn-lg">
-                        <i class="fas fa-save me-2"></i>Guardar Producto(s)
-                    </button>
-                </div>
-            </form>
-
         </div>
     </div>
+
+    <p class="text-muted mb-4">
+        <i class="fas fa-info-circle me-1"></i>
+        Completa la información base y agrega una o varias tallas. Puedes crear una sola variante (una fila) o muchas de golpe.
+    </p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {# ---------- Card 1: Información del producto ---------- #}
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-tag me-2"></i> 1. Información del Producto</h5>
+            </div>
+            <div class="card-body p-4">
+                {{ base_form.non_field_errors }}
+                {{ base_form.hidden_fields }}
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">{{ base_form.referencia|as_crispy_field }}</div>
+                    <div class="col-md-8">{{ base_form.nombre|as_crispy_field }}</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12">{{ base_form.descripcion|as_crispy_field }}</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{{ base_form.color|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ base_form.genero|as_crispy_field }}</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{{ base_form.costo|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ base_form.precio_venta|as_crispy_field }}</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{{ base_form.unidad_medida|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ base_form.ubicacion|as_crispy_field }}</div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">{{ base_form.activo|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ base_form.permitir_preventa|as_crispy_field }}</div>
+                </div>
+            </div>
+        </div>
+
+        {# ---------- Card 2: Tallas ---------- #}
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-ruler-horizontal me-2"></i> 2. Tallas y Códigos de Barras</h5>
+            </div>
+            <div class="card-body p-4">
+                {{ talla_formset.management_form }}
+                {{ talla_formset.non_form_errors }}
+
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 30%;">Talla <span class="text-danger">*</span></th>
+                                <th>Código de Barras</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form in talla_formset %}
+                                <tr>
+                                    <td>
+                                        {{ form.talla.errors }}
+                                        {{ form.talla }}
+                                        {{ form.id }}
+                                    </td>
+                                    <td>
+                                        {{ form.codigo_barras.errors }}
+                                        {{ form.codigo_barras }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    Deja en blanco las filas que no uses. Solo se crearán las filas con talla.
+                </small>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary rounded-pill">
+                <i class="fas fa-times me-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-save me-2"></i>Guardar Producto(s)
+            </button>
+        </div>
+    </form>
+
 </div>
 {% endblock content %}

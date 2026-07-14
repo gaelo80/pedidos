@@ -15196,7 +15196,7 @@ def vista_ajuste_masivo_inventario(request):
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}Ajuste Masivo de Inventario{% endblock page_title %}
+{% block page_title %}Ajuste Masivo de Inventario {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -15876,7 +15876,7 @@ $(document).ready(function() {
 {% load static %}
 {% load widget_tweaks %} {# Asegúrate de que django-widget-tweaks esté instalado y en INSTALLED_APPS #}
 
-{% block page_title %}{{ titulo|default:"Conteo de Inventario" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Conteo de Inventario" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Contenedor consistente #}
@@ -16253,7 +16253,7 @@ $(document).ready(function() {
 {% load humanize %} {# Asumo que lo necesitas si lo tienes en tu base #}
 {# {% load core_extras %} #} {# Comentado si no estás seguro si despacho_pedido.html lo usa directamente #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -17104,7 +17104,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load humanize %} {# Asumo que lo necesitas si lo tienes en tu base #}
 {# {% load core_extras %} #} {# Comentado si no estás seguro si despacho_pedido.html lo usa directamente #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -18207,7 +18207,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo_pagina|default:"Mis Pedidos" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Mis Pedidos" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
@@ -18385,7 +18385,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %} {# Aseguramos page_title #}
+{% block page_title %}{{ titulo }} {% endblock %} {# Aseguramos page_title #}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Añadido mb-5 px-4 para consistencia #}
@@ -18666,7 +18666,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4">
@@ -18844,7 +18844,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}Ingresar Stock por Lote{% endblock page_title %}
+{% block page_title %}Ingresar Stock por Lote {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -18967,7 +18967,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Historial de Conteos" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Historial de Conteos" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -19031,7 +19031,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load humanize %} {# Aseguramos que humanize esté cargado si se usa intcomma u otros #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Cambiado a container-fluid para consistencia #}
@@ -19208,7 +19208,7 @@ $(document).ready(function() {
 {% load static %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo|default:"Listado de Salidas Internas" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Listado de Salidas Internas" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Contenedor consistente #}
@@ -19353,7 +19353,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}Modificar Ingreso Bodega #{{ object.pk }}{% endblock page_title %}
+{% block page_title %}Modificar Ingreso Bodega #{{ object.pk }} {% endblock %}
 
 {% block content %}
 <div class="row">
@@ -19518,7 +19518,7 @@ $(document).ready(function() {
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Registrar Ingreso Bodega" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Registrar Ingreso Bodega" }} {% endblock %}
 
 {% block content %}
 {#<h1>{{ titulo }}</h1>#}
@@ -20118,7 +20118,7 @@ $(document).ready(function() {
 {% load core_extras %}
 {% load math_filters %} {# NECESARIO para el filtro 'subtract' #}
 
-{% block page_title %}Despachar Pedido #{{ pedido.numero_pedido_empresa }}{% endblock page_title %}
+{% block page_title %}Despachar Pedido #{{ pedido.numero_pedido_empresa }} {% endblock %}
 
 {# Puedes añadir estilos específicos para esta página aquí si es necesario #}
 {% block extra_head %}
@@ -22810,7 +22810,7 @@ def vista_eliminar_cartera(request):
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block extra_head %}
 {# Considera eliminar extra_css si los estilos se manejan con las variables globales y clases de Bootstrap #}
@@ -22971,7 +22971,7 @@ def vista_eliminar_cartera(request):
 
 {% block page_title %}
     {{ titulo|default:"Importar Cartera" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Cambiado a container-fluid para consistencia #}
@@ -23919,7 +23919,7 @@ class Command(BaseCommand):
   {% load static %}
   {% load humanize %}
 
-  {% block page_title %}{{ titulo }}{% endblock page_title %}
+  {% block page_title %}{{ titulo }} {% endblock %}
 
   {% block extra_head %}
   <style>
@@ -24112,7 +24112,7 @@ class Command(BaseCommand):
 {% extends 'core/base.html' %} {# Usa la misma base que tu panel principal #}
 {% load static %}
 
-{% block page_title %}{{ titulo_pagina|default:"Generar Enlace de Catálogo" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Generar Enlace de Catálogo" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -24202,7 +24202,7 @@ class Command(BaseCommand):
   {% load static %}
   {% load humanize %}
 
-  {% block page_title %}{{ titulo }}{% endblock page_title %}
+  {% block page_title %}{{ titulo }} {% endblock %}
 
   {% block extra_head %}
   <style>
@@ -24360,7 +24360,7 @@ class Command(BaseCommand):
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block extra_head %}
 <style>
@@ -25597,7 +25597,7 @@ def cliente_import_view(request):
 
 {% block page_title %}
     Confirmar Eliminación de Ciudad
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-5 mb-5">
@@ -25647,7 +25647,7 @@ def cliente_import_view(request):
     {% else %}
         Crear Nueva Ciudad
     {% endif %}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -25716,7 +25716,7 @@ def cliente_import_view(request):
 
 {% block page_title %}
     {{ titulo_pagina|default:"Importar Ciudades" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -25790,7 +25790,7 @@ Cali</code></pre>
 
 {% block page_title %}
     Listado de Ciudades
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -25876,7 +25876,7 @@ Cali</code></pre>
 
 {% block page_title %}
     Confirmar Eliminación de Cliente
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-5 mb-5">
@@ -25924,7 +25924,7 @@ Cali</code></pre>
 
 {% block page_title %}
     Detalle de Cliente: {{ cliente.nombre_completo }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -25994,7 +25994,7 @@ Cali</code></pre>
     {% else %}
         Crear Nuevo Cliente
     {% endif %}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -26097,7 +26097,7 @@ Cali</code></pre>
 
 {% block page_title %}
     Importar Clientes
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -26152,7 +26152,7 @@ Cali</code></pre>
 
 {% block page_title %}
     {{ titulo_pagina|default:"Listado de Clientes" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Usamos container-fluid para mayor amplitud, y px-4 para padding lateral #}
@@ -26337,7 +26337,7 @@ Cali</code></pre>
 {% load static %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo_pagina|default:"Detalle de Cliente" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Detalle de Cliente" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4">
@@ -26430,7 +26430,7 @@ Cali</code></pre>
 {% load static %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo_pagina|default:"Listado de Clientes" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Listado de Clientes" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4">
@@ -27976,7 +27976,7 @@ def manifest_view(request):
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}Acceso Denegado{% endblock page_title %}
+{% block page_title %}Acceso Denegado {% endblock %}
 
 {% block content %}
 <div class="container mt-5">
@@ -28767,7 +28767,7 @@ def manifest_view(request):
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4">
@@ -28918,7 +28918,7 @@ def manifest_view(request):
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}Sin Conexión{% endblock page_title %}
+{% block page_title %}Sin Conexión {% endblock %}
 
 {% block content %}
 <div class="container mt-5 text-center">
@@ -33412,7 +33412,7 @@ def recibir_devolucion_bodega(request, pk_devolucion):
 
 {% block page_title %}
     {{ titulo|default:"Registrar Devolución" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% comment %}
     Bloque para estilos CSS personalizados.
@@ -34088,7 +34088,7 @@ def recibir_devolucion_bodega(request, pk_devolucion):
 {# inventario/devolucion_detalle.html (o devoluciones/devolucion_detalle.html si prefieres) #}
 {% extends 'core/base.html' %}
 
-{% block page_title %}Detalle Devolución #{{ devolucion.pk }}{% endblock page_title %}
+{% block page_title %}Detalle Devolución #{{ devolucion.pk }} {% endblock %}
 
 {% block content %}
     <div class="row mb-3 align-items-center">
@@ -37738,7 +37738,7 @@ def informe_lista_devoluciones(request):
 {% extends 'core/base.html' %}
 {% load humanize %} {# Aseguramos que humanize esté cargado si se usa #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %} {# Cambiado a page_title #}
+{% block page_title %}{{ titulo }} {% endblock %} {# Cambiado a page_title #}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Contenedor consistente #}
@@ -38199,7 +38199,7 @@ def informe_lista_devoluciones(request):
 {% load static %}
 {% load humanize %} {# Asegúrate de que humanize esté cargado si lo usas #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Usamos container-fluid para mayor amplitud, y px-4 para padding lateral #}
@@ -38302,7 +38302,7 @@ def informe_lista_devoluciones(request):
 
 {% block page_title %}
     {{ titulo|default:"Informe de Ventas (Cantidades)" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
     <div class="row">
@@ -38468,7 +38468,7 @@ def informe_lista_devoluciones(request):
 
 {% block page_title %}
     {{ titulo|default:"Informe de Ventas por Vendedor" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %} {# O 'main_content' si así se llama en tu base.html #}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Usamos container-fluid para mayor amplitud, y px-4 para padding lateral #}
@@ -42029,7 +42029,7 @@ def generar_pedido_pdf(request, pk): # ... código completo ...
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Crear Pedido Web" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Crear Pedido Web" }} {% endblock %}
 
 {% block content %}
 
@@ -44120,7 +44120,7 @@ $(document).ready(function() {
 {% load static %} {# Si necesitas archivos estáticos específicos aquí #}
 {% load core_extras %}
 
-{% block page_title %}{{ titulo|default:"Detalle de Pedido" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Detalle de Pedido" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -44543,7 +44543,7 @@ document.addEventListener('DOMContentLoaded', function () {
 {% extends 'core/base.html' %}
 {% load static %} {# Carga static si usas archivos estáticos aquí #}
 
-{% block page_title %}{{ titulo|default:"Mis Borradores" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Mis Borradores" }} {% endblock %}
 
 {% block content %}
 {#<h1>{{ titulo }}</h1>#}
@@ -44643,7 +44643,7 @@ document.addEventListener('DOMContentLoaded', function () {
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Fotos del Pedido" }} - Pedido #{{ pedido.numero_pedido_empresa }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Fotos del Pedido" }} - Pedido #{{ pedido.numero_pedido_empresa }} {% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -45221,7 +45221,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load core_extras %} {# O donde tengas definido query_transform #}
 
 
-{% block page_title %}{{ titulo|default:"Reporte de Demanda" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Reporte de Demanda" }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
@@ -47188,7 +47188,7 @@ def eliminar_borrador_online(request, pk):
 
 {% block page_title %}
     {{ titulo }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -47376,7 +47376,7 @@ def eliminar_borrador_online(request, pk):
 
 {% block page_title %}
     {{ titulo|default:"Registrar Cambio de Producto Online" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5">
@@ -49250,7 +49250,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block page_title %}
     {{ titulo|default:"Informe General de Ventas Online (Cantidades)" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
     <div class="row">
@@ -49432,7 +49432,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block page_title %}
     {{ titulo|default:"Informe de Ventas Online por Vendedor" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %} {# O 'main_content' si así se llama en tu base.html #}
 <div class="container-fluid mt-4">
@@ -51041,7 +51041,7 @@ def crear_producto_multi_talla(request):
 
 {% block page_title %}
     {{ titulo_pagina|default:"Confirmar Eliminación" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51088,7 +51088,7 @@ def crear_producto_multi_talla(request):
 
 {% block page_title %}
     {{ titulo_pagina|default:"Detalle de Producto" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51215,7 +51215,7 @@ def crear_producto_multi_talla(request):
     {% else %}
         Crear Nuevo Producto
     {% endif %}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51384,7 +51384,7 @@ def crear_producto_multi_talla(request):
 
 {% block page_title %}
     {{ titulo_pagina|default:"Importar Productos" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51451,7 +51451,7 @@ def crear_producto_multi_talla(request):
 
 {% block page_title %}
     {{ titulo_pagina|default:"Listado de Productos (Variantes)" }}
-{% endblock page_title %}
+ {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51621,7 +51621,7 @@ def crear_producto_multi_talla(request):
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}{{ titulo_pagina }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -51775,7 +51775,7 @@ def crear_producto_multi_talla(request):
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Subir Fotos para Artículos" }}{% endblock page_title %} {# Usar page_title #}
+{% block page_title %}{{ titulo|default:"Subir Fotos para Artículos" }} {% endblock %} {# Usar page_title #}
 
 {% block content %}
 <div class="container mt-4">
@@ -52555,7 +52555,7 @@ def rechazar_solicitud(request, pk):
 {% load humanize %} {# Para filtros como intcomma #}
 {% load static %} {# Si necesitas archivos estáticos específicos aquí #}
 
-{% block page_title %}{{ titulo|default:"Detalle de Pedido" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Detalle de Pedido" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -52727,7 +52727,7 @@ def rechazar_solicitud(request, pk):
 {% load crispy_forms_tags %}
 {% load static %} {# Asegúrate de cargar static si no lo está en tu base.html para iconos/imágenes #}
 
-{% block page_title %}Crear Solicitud de Cliente{% endblock page_title %}
+{% block page_title %}Crear Solicitud de Cliente {% endblock %}
 
 {% block content %}
 <div class="container mt-5 mb-5"> {# Más margen superior e inferior para espacio #}
@@ -53083,7 +53083,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load humanize %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}{{ titulo_pagina }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -53245,7 +53245,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo_pagina|default:"Solicitudes" }}{% endblock page_title %}
+{% block page_title %}{{ titulo_pagina|default:"Solicitudes" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -54018,7 +54018,7 @@ def reporte_general_recaudos(request):
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
@@ -54208,7 +54208,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load widget_tweaks %}
 {# Asegúrate de que Select2 CSS para Bootstrap 5 esté cargado en base.html si no está #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
@@ -54645,7 +54645,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %} {# Añadir page_title para consistencia #}
+{% block page_title %}{{ titulo }} {% endblock %} {# Añadir page_title para consistencia #}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Añadir contenedor principal #}
@@ -54729,7 +54729,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %} {# Añadir page_title para consistencia #}
+{% block page_title %}{{ titulo }} {% endblock %} {# Añadir page_title para consistencia #}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# Añadir contenedor principal #}
@@ -54855,7 +54855,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load humanize %}
 {% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 mb-5 px-4"> {# container-fluid para amplitud #}
@@ -55510,7 +55510,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55544,7 +55544,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55590,7 +55590,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55645,7 +55645,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55679,7 +55679,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55776,7 +55776,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %} {# O la ruta a tu base.html #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -55863,7 +55863,7 @@ class GroupDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, PermissionRequ
 ```html
 {% extends 'core/base.html' %}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4">

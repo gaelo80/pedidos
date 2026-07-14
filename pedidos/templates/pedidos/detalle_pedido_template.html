@@ -3,7 +3,7 @@
 {% load static %} {# Si necesitas archivos estáticos específicos aquí #}
 {% load core_extras %}
 
-{% block page_title %}{{ titulo|default:"Detalle de Pedido" }}{% endblock page_title %}
+{% block page_title %}{{ titulo|default:"Detalle de Pedido" }} {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">

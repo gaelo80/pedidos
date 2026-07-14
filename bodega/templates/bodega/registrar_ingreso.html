@@ -4,160 +4,155 @@
 {% block page_title %}{{ titulo|default:"Registrar Ingreso Bodega" }}{% endblock page_title %}
 
 {% block content %}
-{#<h1>{{ titulo }}</h1>#}
-    <div class="row">
+<div class="mb-5">
+
+    {# ---------- Encabezado ---------- #}
+    <div class="row align-items-center mb-4">
         <div class="col-md-8">
-            <h1 class="mb-3">{{ titulo }}</h1>
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-dolly-flatbed me-2"></i> {{ titulo|default:"Registrar Ingreso a Bodega" }}
+            </h1>
+            <p class="lead text-secondary mb-0">Registra la entrada de productos al inventario.</p>
         </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel
             </a>
         </div>
     </div>
 
-<form method="post" novalidate>
-    {% csrf_token %}
+    <form method="post" novalidate>
+        {% csrf_token %}
 
-    {# --- Sección Cabecera Ingreso --- #}
-    <div class="card mb-4">
-        <div class="card-header fw-bold">
-            Información del Ingreso
-        </div>
-        <div class="card-body">
-            {# Renderizar campos del form principal (IngresoBodegaForm) #}
-            <div class="row g-3">
-                <div class="col-md-6 mb-3">
-                    <label for="{{ form.proveedor_info.id_for_label }}" class="form-label">{{ form.proveedor_info.label }}</label>
-                    {{ form.proveedor_info }}
-                    {% if form.proveedor_info.errors %}<div class="text-danger small">{{ form.proveedor_info.errors }}</div>{% endif %}
-                    <div class="form-text">{{ form.proveedor_info.help_text }}</div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label for="{{ form.documento_referencia.id_for_label }}" class="form-label">{{ form.documento_referencia.label }}</label>
-                    {{ form.documento_referencia }}
-                    {% if form.documento_referencia.errors %}<div class="text-danger small">{{ form.documento_referencia.errors }}</div>{% endif %}
-                    <div class="form-text">{{ form.documento_referencia.help_text }}</div>
-                </div>
-                <div class="col-12 mb-3">
-                    <label for="{{ form.notas.id_for_label }}" class="form-label">{{ form.notas.label }}</label>
-                    {{ form.notas }}
-                    {% if form.notas.errors %}<div class="text-danger small">{{ form.notas.errors }}</div>{% endif %}
-                    <div class="form-text">{{ form.notas.help_text }}</div>
-                </div>
+        {# ---------- Card 1: Información del ingreso ---------- #}
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> 1. Información del Ingreso</h5>
             </div>
-             {% if form.non_field_errors %}
-                 <div class="alert alert-danger p-2 mt-2">{{ form.non_field_errors }}</div>
-             {% endif %}
-        </div>
-    </div>
-
-    {# --- Sección Detalles Ingreso (FormSet) --- #}
-    <div class="card">
-        <div class="card-header fw-bold">
-            Productos Ingresados
-        </div>
-        <div class="card-body">
-            {# Campo oculto necesario para manejar el FormSet #}
-            {{ formset.management_form }}
-
-            {% if formset.non_form_errors %}
-                 <div class="alert alert-danger p-2">{{ formset.non_form_errors }}</div>
-            {% endif %}
-
-            {# Contenedor para las filas del formset #}
-            <div id="detalle-ingreso-list">
-                {# Iterar sobre cada formulario individual dentro del FormSet #}
-                {% for detalle_form in formset %}
-                    <div class="detalle-ingreso-item border-bottom pb-3 mb-3">
-                        {{ detalle_form.id }} {# Campo oculto #}
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-5">
-                                <label for="{{ detalle_form.producto.id_for_label }}" class="form-label">{{ detalle_form.producto.label }}</label>
-                                {{ detalle_form.producto }}
-                                {% if detalle_form.producto.errors %}<div class="text-danger small">{{ detalle_form.producto.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ detalle_form.cantidad.id_for_label }}" class="form-label">{{ detalle_form.cantidad.label }}</label>
-                                {{ detalle_form.cantidad }}
-                                {% if detalle_form.cantidad.errors %}<div class="text-danger small">{{ detalle_form.cantidad.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ detalle_form.costo_unitario.id_for_label }}" class="form-label">{{ detalle_form.costo_unitario.label }}</label>
-                                {{ detalle_form.costo_unitario }}
-                                {% if detalle_form.costo_unitario.errors %}<div class="text-danger small">{{ detalle_form.costo_unitario.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                         {% if detalle_form.non_field_errors %}
-                             <div class="alert alert-warning p-1 mt-2 small">{{ detalle_form.non_field_errors }}</div>
-                        {% endif %}
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.proveedor_info.id_for_label }}" class="form-label fw-semibold">{{ form.proveedor_info.label }}</label>
+                        {{ form.proveedor_info }}
+                        {% if form.proveedor_info.errors %}<div class="text-danger small mt-1">{{ form.proveedor_info.errors }}</div>{% endif %}
+                        {% if form.proveedor_info.help_text %}<div class="form-text">{{ form.proveedor_info.help_text }}</div>{% endif %}
                     </div>
-                {% endfor %}
+                    <div class="col-md-6">
+                        <label for="{{ form.documento_referencia.id_for_label }}" class="form-label fw-semibold">{{ form.documento_referencia.label }}</label>
+                        {{ form.documento_referencia }}
+                        {% if form.documento_referencia.errors %}<div class="text-danger small mt-1">{{ form.documento_referencia.errors }}</div>{% endif %}
+                        {% if form.documento_referencia.help_text %}<div class="form-text">{{ form.documento_referencia.help_text }}</div>{% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label for="{{ form.notas.id_for_label }}" class="form-label fw-semibold">{{ form.notas.label }}</label>
+                        {{ form.notas }}
+                        {% if form.notas.errors %}<div class="text-danger small mt-1">{{ form.notas.errors }}</div>{% endif %}
+                        {% if form.notas.help_text %}<div class="form-text">{{ form.notas.help_text }}</div>{% endif %}
+                    </div>
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger p-2 mt-3 mb-0">{{ form.non_field_errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ---------- Card 2: Productos ingresados (formset) ---------- #}
+        <div class="card shadow-lg border-0 rounded-3">
+            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-boxes me-2"></i> 2. Productos Ingresados</h5>
+            </div>
+            <div class="card-body p-4">
+                {{ formset.management_form }}
+
+                {% if formset.non_form_errors %}
+                    <div class="alert alert-danger p-2">{{ formset.non_form_errors }}</div>
+                {% endif %}
+
+                <div id="detalle-ingreso-list">
+                    {% for detalle_form in formset %}
+                        <div class="detalle-ingreso-item border rounded-3 p-3 mb-3 bg-light">
+                            {{ detalle_form.id }}
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-5">
+                                    <label for="{{ detalle_form.producto.id_for_label }}" class="form-label fw-semibold small">{{ detalle_form.producto.label }}</label>
+                                    {{ detalle_form.producto }}
+                                    {% if detalle_form.producto.errors %}<div class="text-danger small mt-1">{{ detalle_form.producto.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="{{ detalle_form.cantidad.id_for_label }}" class="form-label fw-semibold small">{{ detalle_form.cantidad.label }}</label>
+                                    {{ detalle_form.cantidad }}
+                                    {% if detalle_form.cantidad.errors %}<div class="text-danger small mt-1">{{ detalle_form.cantidad.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="{{ detalle_form.costo_unitario.id_for_label }}" class="form-label fw-semibold small">{{ detalle_form.costo_unitario.label }}</label>
+                                    {{ detalle_form.costo_unitario }}
+                                    {% if detalle_form.costo_unitario.errors %}<div class="text-danger small mt-1">{{ detalle_form.costo_unitario.errors }}</div>{% endif %}
+                                </div>
+                            </div>
+                            {% if detalle_form.non_field_errors %}
+                                <div class="alert alert-warning p-1 mt-2 small mb-0">{{ detalle_form.non_field_errors }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="text-end mt-3">
+                    <button type="button" id="add-detalle-ingreso" class="btn btn-outline-primary btn-sm rounded-pill">
+                        <i class="fas fa-plus me-1"></i> Agregar Producto
+                    </button>
+                </div>
             </div>
 
-            {# --- BOTÓN PARA AGREGAR FILAS --- #}
-            <div class="text-end mt-3">
-                <button type="button" id="add-detalle-ingreso" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus me-1"></i> Agregar Producto
+            <div class="card-footer text-center bg-light py-3 rounded-bottom-3">
+                <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                    <i class="fas fa-save me-2"></i> Registrar Ingreso
                 </button>
             </div>
-
-        </div> {# Fin card-body #}
-
-        <div class="card-footer text-center">
-            <button type="submit" class="btn btn-success btn-lg">Registrar Ingreso</button>
         </div>
-    </div> {# Fin card #}
+    </form>
 
-</form>
-
-{# --- PLANTILLA OCULTA PARA LA NUEVA FILA --- #}
-<template id="detalle-ingreso-template">
-    <div class="detalle-ingreso-item border-bottom pb-3 mb-3">
-        {# El formset.empty_form usa '__prefix__' como placeholder para el índice de la nueva fila #}
-        {{ formset.empty_form.id }}
-        <div class="row g-3 align-items-end">
-            <div class="col-md-5">
-                <label for="{{ formset.empty_form.producto.id_for_label }}" class="form-label">{{ formset.empty_form.producto.label }}</label>
-                {{ formset.empty_form.producto }}
-            </div>
-            <div class="col-md-3">
-                <label for="{{ formset.empty_form.cantidad.id_for_label }}" class="form-label">{{ formset.empty_form.cantidad.label }}</label>
-                {{ formset.empty_form.cantidad }}
-            </div>
-            <div class="col-md-3">
-                <label for="{{ formset.empty_form.costo_unitario.id_for_label }}" class="form-label">{{ formset.empty_form.costo_unitario.label }}</label>
-                {{ formset.empty_form.costo_unitario }}
+    {# ---------- Plantilla oculta para nuevas filas ---------- #}
+    <template id="detalle-ingreso-template">
+        <div class="detalle-ingreso-item border rounded-3 p-3 mb-3 bg-light">
+            {{ formset.empty_form.id }}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="{{ formset.empty_form.producto.id_for_label }}" class="form-label fw-semibold small">{{ formset.empty_form.producto.label }}</label>
+                    {{ formset.empty_form.producto }}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ formset.empty_form.cantidad.id_for_label }}" class="form-label fw-semibold small">{{ formset.empty_form.cantidad.label }}</label>
+                    {{ formset.empty_form.cantidad }}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ formset.empty_form.costo_unitario.id_for_label }}" class="form-label fw-semibold small">{{ formset.empty_form.costo_unitario.label }}</label>
+                    {{ formset.empty_form.costo_unitario }}
+                </div>
             </div>
         </div>
-    </div>
-</template>
+    </template>
 
+</div>
 {% endblock content %}
 
 {% block extra_scripts %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const addRowBtn = document.getElementById('add-detalle-ingreso');
     const formsetContainer = document.getElementById('detalle-ingreso-list');
     const formTemplate = document.getElementById('detalle-ingreso-template');
     const totalFormsInput = document.querySelector('[name="{{ formset.prefix }}-TOTAL_FORMS"]');
-    
-    // Verificación para evitar errores si los elementos no existen
+
     if (!addRowBtn || !formsetContainer || !formTemplate || !totalFormsInput) {
         console.error("No se encontraron los elementos necesarios para el formset dinámico.");
         return;
     }
 
     addRowBtn.addEventListener('click', function() {
-        // Obtener el número actual de formularios
         let formCount = parseInt(totalFormsInput.value);
-
-        // Clonar el contenido de la plantilla
         const newForm = formTemplate.content.cloneNode(true);
-        
-        // Actualizar los atributos 'id', 'name', y 'for' en el clon
-        // reemplazando '__prefix__' con el nuevo índice
+
         newForm.querySelectorAll('*').forEach(node => {
             ['id', 'name', 'for'].forEach(attr => {
                 let value = node.getAttribute(attr);
@@ -167,10 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // Añadir la nueva fila al contenedor
         formsetContainer.append(newForm);
-        
-        // Incrementar el contador de formularios en el management_form
         totalFormsInput.value = formCount + 1;
     });
 });

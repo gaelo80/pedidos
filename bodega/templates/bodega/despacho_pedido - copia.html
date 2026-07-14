@@ -3,7 +3,7 @@
 {% load humanize %} {# Asumo que lo necesitas si lo tienes en tu base #}
 {# {% load core_extras %} #} {# Comentado si no estás seguro si despacho_pedido.html lo usa directamente #}
 
-{% block page_title %}{{ titulo }}{% endblock page_title %}
+{% block page_title %}{{ titulo }} {% endblock %}
 
 {% block extra_head %}
     {{ block.super }}

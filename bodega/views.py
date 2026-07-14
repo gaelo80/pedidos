@@ -658,7 +658,7 @@ def vista_verificar_pedido(request, pk):
     else:
         return HttpResponse("Método no permitido.", status=405)
     
-    #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+  
 
 @login_required
 @permission_required('bodega.view_comprobantedespacho', login_url='core:acceso_denegado')
