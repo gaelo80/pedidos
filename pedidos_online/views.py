@@ -218,6 +218,30 @@ def crear_pedido_online(request, pk=None):
             'precio_unitario': float(d.precio_unitario)
         } for d in pedido_instance.detalles.select_related('producto').all()]
         detalles_existentes_json = json.dumps(detalles_data)
+    elif request.method == 'POST' and 'detalles_para_crear' in locals() and detalles_para_crear:
+        # Caso POST FALLIDO en pedido NUEVO (p. ej. stock insuficiente):
+        # reconstruimos los detalles desde lo que el usuario acababa de enviar,
+        # para que el JavaScript vuelva a pintar la tabla y no se pierda el trabajo.
+        detalles_data = [{
+            'producto_id': d['producto'].id, 'ref': d['producto'].referencia, 'nombre': d['producto'].nombre,
+            'color': d['producto'].color or '-', 'talla': d['producto'].talla, 'cantidad': d['cantidad'],
+            'precio_unitario': float(d['precio_unitario'])
+        } for d in detalles_para_crear]
+        detalles_existentes_json = json.dumps(detalles_data)
+
+    # Cliente y descuento seleccionados (para repintarlos tras un POST fallido)
+    cliente_post_pk = ''
+    cliente_post_text = ''
+    descuento_post = ''
+    if request.method == 'POST':
+        cliente_post_pk = request.POST.get('cliente_online', '')
+        descuento_post = request.POST.get('porcentaje_descuento', '')
+        if cliente_post_pk:
+            try:
+                _cli = ClienteOnline.objects.get(pk=cliente_post_pk, empresa=empresa_actual)
+                cliente_post_text = f"[Online] {_cli.nombre_completo} ({_cli.identificacion})"
+            except (ClienteOnline.DoesNotExist, ValueError, TypeError):
+                cliente_post_text = ''
 
     context = {
         'titulo': titulo, # La variable 'titulo' ya tiene el valor correcto
@@ -225,6 +249,9 @@ def crear_pedido_online(request, pk=None):
         'cliente_form': ClienteOnlineForm(),
         'pedido_instance': pedido_instance,
         'detalles_existentes_json': detalles_existentes_json,
+        'cliente_post_pk': cliente_post_pk,
+        'cliente_post_text': cliente_post_text,
+        'descuento_post': descuento_post,
         'IVA_RATE': Pedido.IVA_RATE
     }
     return render(request, 'pedidos_online/crear_pedido_online.html', context)

@@ -1,10 +1,41 @@
-{% comment %} {% include 'core/partials/messages.html' %} {% endcomment %}
+{% comment %}
+    core/partials/messages.html
+    Muestra los mensajes de Django como toasts flotantes (esquina superior derecha).
+    - Éxito / info: se cierran solos a los 5 s.
+    - Error / advertencia: quedan fijos hasta que el usuario los cierra con la X.
+    Usa el sistema de toasts de Bootstrap 5 (cargado al final de base.html).
+
+    IMPORTANTE: este partial se incluye antes de que se cargue bootstrap.bundle.js,
+    por eso el script espera a 'DOMContentLoaded' para inicializar los toasts;
+    así 'bootstrap' ya existe cuando se ejecuta.
+{% endcomment %}
+
 {% if messages %}
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1090;">
     {% for message in messages %}
-        {# Usa las etiquetas del mensaje (success, error, warning, info) para clases de Bootstrap #}
-        <div class="alert alert-dismissible fade show {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
+        {% if 'error' in message.tags %}
+            {% with color='danger' icono='fa-circle-exclamation' titulo='Error' fijo='true' %}{% include 'core/partials/_toast_item.html' %}{% endwith %}
+        {% elif 'warning' in message.tags %}
+            {% with color='warning' icono='fa-triangle-exclamation' titulo='Atención' fijo='true' %}{% include 'core/partials/_toast_item.html' %}{% endwith %}
+        {% elif 'success' in message.tags %}
+            {% with color='success' icono='fa-circle-check' titulo='Listo' fijo='' %}{% include 'core/partials/_toast_item.html' %}{% endwith %}
+        {% else %}
+            {% with color='info' icono='fa-circle-info' titulo='Información' fijo='' %}{% include 'core/partials/_toast_item.html' %}{% endwith %}
+        {% endif %}
     {% endfor %}
+</div>
+
+<script>
+    // Espera a que la página cargue por completo para asegurar que 'bootstrap' ya existe
+    // (este partial se incluye antes de cargar bootstrap.bundle.js).
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Toast) {
+            console.error('Bootstrap JS no está cargado; no se pueden mostrar los toasts.');
+            return;
+        }
+        document.querySelectorAll('.toast').forEach(function (el) {
+            new bootstrap.Toast(el, { delay: 5000 }).show();
+        });
+    });
+</script>
 {% endif %}

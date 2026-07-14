@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pedido Bodega N° {{ pedido.numero_pedido_empresa }}</title>
+    <style type="text/css">
+        @page {
+            size: letter;
+            margin-top: 1cm;
+            margin-bottom: 1.4cm;
+            margin-left: 1.5cm;
+            margin-right: 1.5cm;
+
+            @frame footer {
+                -pdf-frame-content: footer-content;
+                bottom: 0.5cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 1cm;
+            }
+        }
+        body {
+            font-family: "Helvetica", Arial, sans-serif;
+            color: #000000;
+            font-size: 10pt;
+        }
+
+        /* --- ENCABEZADO HIPER-COMPACTO --- */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            border: 2px solid #000;
+        }
+        .header-table td {
+            padding: 4px 8px;
+            vertical-align: middle;
+            border: 1px solid #000;
+        }
+        .numero-pedido {
+            font-size: 26pt;
+            font-weight: bold;
+        }
+        .nombre-cliente {
+            font-size: 14pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* --- CAJA DE OBSERVACIONES --- */
+        .observaciones-caja {
+            border: 2px solid red; /* Cambiamos el borde a rojo */
+            color: red; /* Agregamos el texto en rojo */
+            padding: 6px 10px;
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        /* --- TABLA DE REFERENCIAS --- */
+        h3 {
+            font-size: 11pt;
+            margin: 10px 0 2px 0;
+            text-transform: uppercase;
+            border-bottom: 2px solid #000;
+            display: inline-block;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+            font-size: 10pt;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid #000;
+            padding: 3px 3px; /* Reducimos el padding superior/inferior a 1px (antes estaba en 4px) */
+            text-align: center;
+            vertical-align: middle;
+            line-height: 1; /* Comprime el espacio vertical del texto */
+        }
+        /* Encabezado sin fondo gris: negrita + doble línea inferior para distinguirlo */
+        .items-table thead th {
+            font-weight: bold;
+            font-size: 9pt;
+            border-bottom: 2px solid #000;
+        }
+        .items-table .text-left { text-align: left; padding-left: 5px; }
+
+/* Anchos fijos calculados según la cantidad de caracteres */
+        .items-table .check-col { width: 35px; text-align: center; } /* ~ 5 caracteres */
+        .items-table .ref-col { width: 45px; text-align: left; padding-left: 5px; } /* ~ 6 caracteres */
+        
+        /* La columna color no lleva ancho fijo y forzamos a que no haga salto de línea para que ocupe el tamaño de la palabra más larga */
+        .items-table .color-col { white-space: nowrap; text-align: left; padding-left: 5px; } 
+        
+        .items-table .tot-col { width: 40px; text-align: center; } /* ~ 4 caracteres */
+        
+        /* Las tallas no llevan ancho fijo para que la tabla divida el espacio sobrante en partes iguales */
+        .items-table .talla-col { text-align: center; }
+
+        /* Casilla para marcar lo empacado */
+        .check-box {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #000;
+        }
+
+        /* Fila de subtotal por sección */
+        .subtotal-row td {
+            font-weight: bold;
+            border-top: 2px solid #000;
+            text-align: right;
+            padding-right: 8px;
+        }
+
+        .total-seccion {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 15px;
+            border-top: 3px solid #000;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="footer-content" style="text-align: center; font-size: 8pt; color: #555555;">
+        Página <pdf:pagenumber /> de <pdf:pagecount />
+    </div>
+    <!-- 1. Encabezado en forma de cuadro -->
+<!-- 1. Encabezado en forma de cuadro -->
+    <table class="header-table">
+        <tr>
+            <!-- Ampliamos esta columna al 75% para darle más espacio al cliente -->
+            <td style="width: 75%;">
+                <span style="font-size: 11pt; font-weight: bold;">CLIENTE:</span> 
+                <span class="nombre-cliente" style="font-size: 12pt;">{{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</span>
+                <br>
+                <span style="font-size: 11pt;"><strong>FECHA DE PEDIDO:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</span>
+            </td>
+            <!-- Reducimos esta columna al 25% y alineamos todo su contenido a la derecha -->
+            <td style="width: 25%; text-align: right; padding-right: 15px;">
+                <span style="font-size: 10pt; font-weight: bold;">PEDIDO N°</span><br>
+                <span class="numero-pedido">{{ pedido.numero_pedido_empresa }}</span>
+            </td>
+        </tr>
+        <tr>
+            <!-- La fecha ya no está en esta fila, solo queda Dirección, Ciudad y Vendedor -->
+            <td colspan="2" style="font-size: 9pt;">
+                <strong>DIR:</strong> {{ pedido.destinatario.direccion|default:"No registrada" }} &nbsp;|&nbsp;
+                <strong>CIUDAD:</strong> {% if pedido.destinatario.ciudad %}{{ pedido.destinatario.ciudad.nombre }}{% else %}No registrada{% endif %} &nbsp;|&nbsp;
+                <strong>VEND:</strong> {{ pedido.vendedor|default:"N/A" }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- 2. Observaciones resaltadas -->
+    {% if pedido.notas %}
+    <div class="observaciones-caja">
+        OBSERVACIONES: {{ pedido.notas|linebreaksbr }}
+    </div>
+    {% endif %}
+
+    <!-- 3. Tabla de referencias -->
+    {% for seccion in secciones_procesadas %}
+        <h3>{{ seccion.titulo }}</h3>
+<table class="items-table">
+            <thead>
+                <tr>
+                    <th class="check-col">✓</th>
+                    <th class="ref-col">REF.</th>
+                    {% if incluir_color %}<th class="color-col">COLOR</th>{% endif %}
+                    {% for talla in seccion.tallas_cols %}
+                        <th class="talla-col">{{ talla }}</th>
+                    {% endfor %}
+                    <th class="tot-col">TOT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in seccion.grupos %}
+                <tr>
+                    <td class="check-col"><span class="check-box">&nbsp;</span></td>
+                    <td class="ref-col"><strong>{{ grupo.ref }}</strong></td>
+                    {% if incluir_color %}<td class="color-col">{{ grupo.color }}</td>{% endif %}
+                    {% for cantidad in grupo.tallas_cantidades %}
+                        <td class="talla-col">{% if cantidad > 0 %}<strong>{{ cantidad }}</strong>{% else %}-{% endif %}</td>
+                    {% endfor %}
+                    <td class="tot-col"><strong>{{ grupo.cantidad_total }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endfor %}
+
+    <!-- 4. Gran Total -->
+    <div class="total-seccion">
+        TOTAL UNIDADES: {{ pedido.total_cantidad_productos|floatformat:0 }}
+    </div>
+
+</body>
+</html>

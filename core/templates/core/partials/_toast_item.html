@@ -1,0 +1,20 @@
+{% comment %}
+    core/partials/_toast_item.html
+    Un único toast flotante. Recibe por contexto (vía {% with %} del partial padre):
+      color  -> clase de color Bootstrap: danger, warning, success, info
+      icono  -> clase de icono Font Awesome
+      titulo -> título corto del toast
+      fijo   -> 'true' = no se auto-oculta (errores/avisos); '' = se cierra solo
+    y usa {{ message }} del bucle del partial padre.
+{% endcomment %}
+<div class="toast border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true"
+     data-bs-autohide="{% if fijo %}false{% else %}true{% endif %}">
+    <div class="toast-header text-white bg-{{ color }}">
+        <i class="fas {{ icono }} me-2" aria-hidden="true"></i>
+        <strong class="me-auto">{{ titulo }}</strong>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+    <div class="toast-body bg-white text-dark">
+        {{ message }}
+    </div>
+</div>

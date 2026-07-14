@@ -87,7 +87,7 @@
                 <div class="input-group">
                     {{ pedido_form.cliente }}
                     <button class="btn btn-outline-info" type="button" id="btn-mostrar-info-cliente" style="display: none;" title="Ver detalles del cliente">
-                        <i class="fas fa-info-circle"></i> Ver Info
+                        <i class="fas fa-info-circle me-1" aria-hidden="true"></i>Ver Info
                     </button>
                 </div>
                 {% if pedido_form.cliente.errors %}
@@ -108,7 +108,7 @@
         </div>
 
         <div id="info-cartera-cliente" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;"> 
-            <h5><i class="fas fa-wallet me-2"></i>Información de Cartera</h5>
+            <h5><i class="fas fa-wallet me-2" aria-hidden="true"></i>Información de Cartera</h5>
             <hr class="my-2">
             <div id="cartera-contenido">
                 <p class="text-muted">Seleccione un cliente para ver su estado de cartera.</p> 
@@ -191,7 +191,7 @@
     
     
         <div class="form-section mb-3 p-3 border bg-light rounded">
-        <h2></h2> {# <-- El título que no te aparecía #}
+        <h5 class="mb-3">3. Descuento</h5>
         <div class="row">
             <div class="col-md-4"> {# O el ancho que prefieras #}
                 {# Muestra la etiqueta (Label) del campo #}
@@ -212,7 +212,7 @@
 
     {# --- Sección Detalle del Pedido --- #}
     <div class="mt-4 form-section mb-3 p-3 border rounded">
-        <h2 id="detalle-titulo" style="color:black;">Detalle del Pedido</h2>
+        <h2 id="detalle-titulo" class="text-dark">Detalle del Pedido</h2>
         <div class="table-responsive">
             <table class="table table-sm table-bordered align-middle" id="detalle-pedido-tabla">
                 <thead class="table-light">
@@ -276,7 +276,7 @@
     </div>
      {# --- Fin Sección Detalle --- #}
      <div class="form-section mb-3 p-3 border bg-light rounded">
-        <h2></h2>
+        <h5 class="mb-3">4. Notas y opciones</h5>
         <div class="mb-3">
              {{ pedido_form.notas.label_tag }} <br>
              {{ pedido_form.notas }}
@@ -310,7 +310,7 @@
          {# Botón "Nuevo Pedido" que aparece SOLO si NO estás editando #}
          {% if not pedido_instance %}
             <button type="button" id="btn-nuevo-pedido" class="btn btn-info btn-lg">
-                <i class="fas fa-plus me-1"></i>
+                <i class="fas fa-plus me-1" aria-hidden="true"></i>
                 Nuevo Pedido
             </button>
          {% endif %}
@@ -343,6 +343,13 @@
 </script>
 
 <script>
+// ==========================================================
+//  Silenciador de logs en producción.
+//  Para reactivar la depuración, cambia DEBUG_PEDIDO a true.
+// ==========================================================
+const DEBUG_PEDIDO = false;
+const log = DEBUG_PEDIDO ? console.log.bind(console) : function () {};
+
 document.addEventListener('DOMContentLoaded', function() {
 
 
@@ -470,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función principal que se encarga del autoguardado
     function performAutosave() {
-        console.log("Activando autoguardado...");
+        log("Activando autoguardado...");
         
         // Recolectar datos del formulario
         const formData = new FormData(pedidoForm[0]);
@@ -489,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                console.log("Autoguardado exitoso:", data);
+                log("Autoguardado exitoso:", data);
                 currentDraftId = data.pedido_pk; // MUY IMPORTANTE: Actualizar el ID del borrador
 
                 // Actualizar la URL del navegador sin recargar la página
@@ -610,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     function updateGrandTotals() {
-        console.log("--- Recalculando Totales Generales ---");
+        log("--- Recalculando Totales Generales ---");
         let sumBaseOriginal = 0.0;
         let sumDescuento = 0.0;
         let sumIva = 0.0;
@@ -642,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
             rowCount++;
         });
 
-        console.log('Totales Sumados:', { sumBaseOriginal, sumDescuento, sumIva, sumTotalPagarConDescuento, sumTotalOriginalConIVA, grandTotalQty });
+        log('Totales Sumados:', { sumBaseOriginal, sumDescuento, sumIva, sumTotalPagarConDescuento, sumTotalOriginalConIVA, grandTotalQty });
 
         // Actualizar tabla resumen (CON DESCUENTO)
         subtotalBrutoEl.text(formatCurrency(sumBaseOriginal));
@@ -661,7 +668,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Resetea solo Color y Tallas (usado al cambiar Ref o cancelar)
     function resetColorYTallas() {
-        console.log("Reseteando Color y Tallas...");
+        log("Reseteando Color y Tallas...");
         // Reset Tallas Container
         tallasContainer.empty().hide();
         // Reset Color Selector
@@ -679,25 +686,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Resetea toda el área de selección (Ref, Color, Tallas)
     function resetCurrentSelectionInputs() {
-        console.log("Reseteando área de selección (Ref, Color, Tallas)...");
+        log("Reseteando área de selección (Ref, Color, Tallas)...");
         resetColorYTallas(); // Llama a la función que resetea Color y Tallas
 
         // Reset Referencia Selector (Select2)
         if (refSelect && typeof refSelect.select2 === 'function') {
             // Limpia Select2 sin disparar el listener change general que usamos para cargar colores
             refSelect.val(null).trigger('change.select2');
-            console.log("Referencia Select2 limpiada.");
+            log("Referencia Select2 limpiada.");
              // Opcional: Abrir para nueva selección
              // refSelect.select2('open');
         } else {
              refSelect.val(''); // Fallback si no es Select2
-             console.log("Referencia <select> limpiada (fallback).");
+             log("Referencia <select> limpiada (fallback).");
         }
     }
 
 
     function resetEditState() {
-        console.log("Saliendo del modo edición...");
+        log("Saliendo del modo edición...");
 
         // Quitar resaltado de la fila
         if (editingRowId) {
@@ -727,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Color se habilita/deshabilita en la lógica de carga, pero aseguramos que no quede bloqueado
         colorSelect?.prop('disabled', true); // Se deshabilita por defecto al resetear
 
-        console.log("Modo edición reseteado.");
+        log("Modo edición reseteado.");
     }
 
     //================================================
@@ -752,14 +759,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Asegúrate que 'inventario_api:api_cartera_cliente' sea tu namespace:nombre_url correcto
                 var urlApi = "{% url 'cartera:api_cartera_cliente' cliente_id=0 %}".replace('/0/', '/' + clienteId + '/');
     
-                console.log("Llamando a API Cartera: ", urlApi); 
+                log("Llamando a API Cartera: ", urlApi); 
     
                 $.ajax({
                     url: urlApi,
                     type: 'GET',
                     dataType: 'json',
                     success: function(data) {
-                        console.log("Respuesta API Cartera:", data); 
+                        log("Respuesta API Cartera:", data); 
                         $carteraContenido.empty(); // Limpiar 'Cargando...'
     
                         if (data.total_documentos > 0) {
@@ -820,7 +827,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Si al cargar la página ya hay un cliente seleccionado (ej: al editar),
         // dispara el evento 'change' para cargar su cartera inmediatamente.
         if (clienteSelect.val()) {
-             console.log("Cliente ya seleccionado al cargar, disparando change...");
+             log("Cliente ya seleccionado al cargar, disparando change...");
              clienteSelect.trigger('change');
         }
     });
@@ -834,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
         // --- PASO 1: Validar la cadena ANTES de parsear ---
         if (!detallesJson || detallesJson.toLowerCase() === 'none' || detallesJson.toLowerCase() === 'null' || detallesJson === '') {
-            console.log("No hay detalles iniciales válidos para cargar (JSON vacío, 'None', o 'null').");
+            log("No hay detalles iniciales válidos para cargar (JSON vacío, 'None', o 'null').");
             updateGrandTotals(); // Asegura que la tabla/totales muestren estado vacío
             // Si tienes una 'filaVacia' global, asegúrate que se muestre
             if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.show === 'function') {
@@ -846,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- PASO 2: Intentar parsear SOLO si la validación pasó ---
         try {
             detallesAgrupados = JSON.parse(detallesJson);
-            console.log("JSON principal parseado con éxito:", detallesAgrupados);
+            log("JSON principal parseado con éxito:", detallesAgrupados);
     
         } catch (error) {
             console.error("Error al parsear el JSON principal (detalles_agrupados_json_data):", error);
@@ -862,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
         // --- PASO 3: Procesar los datos (solo si el parseo fue exitoso) ---
         try {
-            console.log("Procesando detalles iniciales:", detallesAgrupados);
+            log("Procesando detalles iniciales:", detallesAgrupados);
     
             // Validar que detallesAgrupados sea un array y tenga elementos
             if (detallesAgrupados && Array.isArray(detallesAgrupados) && detallesAgrupados.length > 0) {
@@ -963,11 +970,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
     
                 updateGrandTotals(); // Calcular totales finales
-                console.log("Detalles iniciales cargados y procesados correctamente.");
+                log("Detalles iniciales cargados y procesados correctamente.");
     
             } else {
                 // El JSON se parseó, pero estaba vacío o no era un array
-                console.log("El JSON parseado está vacío o no es un array:", detallesAgrupados);
+                log("El JSON parseado está vacío o no es un array:", detallesAgrupados);
                 updateGrandTotals(); // Asegurar estado inicial correcto si no hay detalles válidos
                  if (typeof filaVacia !== 'undefined' && filaVacia && typeof filaVacia.show === 'function') {
                      filaVacia.show();
@@ -983,16 +990,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Función para recalcular subtotales cuando cambia el descuento general
     function actualizarTodosLosSubtotalesYTotalGeneral() {
-        console.log("--- Actualizando subtotales por cambio de descuento ---");
+        log("--- Actualizando subtotales por cambio de descuento ---");
         const descuentoPct = parseFloat(descuentoSelectEl.val()) || 0;
-        console.log("Nuevo Descuento Pct:", descuentoPct);
+        log("Nuevo Descuento Pct:", descuentoPct);
 
         detalleTbody.find('tr:not(#fila-vacia)').each(function() {
             const row = $(this);
             const totalQty = parseInt(row.data('linea-qty') || '0', 10);
             const precioUnitarioConIvaOriginal = parseFloat(row.data('precio-unitario-original') || '0');
 
-            console.log(`Recalculando fila ${row.attr('id')}: Qty=${totalQty}, PrecioOriginal=${precioUnitarioConIvaOriginal}`);
+            log(`Recalculando fila ${row.attr('id')}: Qty=${totalQty}, PrecioOriginal=${precioUnitarioConIvaOriginal}`);
 
             if (precioUnitarioConIvaOriginal > 0 && totalQty > 0) {
                 // Recalcular usando la función helper con el NUEVO descuento
@@ -1010,7 +1017,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 'data-precio-unitario-original' no cambia
                 // 'data-linea-qty' no cambia
 
-                console.log(`  Nuevos datos recalculados: lineaValue=${datosCalculados.lineaTotalFinal}`);
+                log(`  Nuevos datos recalculados: lineaValue=${datosCalculados.lineaTotalFinal}`);
             }
         });
 
@@ -1023,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (refSelect && refSelect.length > 0) {
         refSelect.on('change', function() {
             const currentRef = $(this).val(); // Obtener valor seleccionado (puede ser null)
-            console.log("Referencia cambiada. Valor:", currentRef);
+            log("Referencia cambiada. Valor:", currentRef);
 
             /*if (isEditing) {
                  alert("Estás editando una línea. Por favor, 'Actualiza' o 'Cancela la Edición' antes de seleccionar otra referencia.");
@@ -1037,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // 2. Si se seleccionó una referencia válida...
              if (currentRef) {
-                 console.log("Referencia válida seleccionada. Buscando colores...");
+                 log("Referencia válida seleccionada. Buscando colores...");
                  //const urlColores = `/api/v1/productos/referencia/${currentRef}/colores/`;// // Ajusta esta URL si es necesario
                  const urlColores = `/productos/api/referencia/${currentRef}/colores/`;
                  fetch(urlColores, { headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }})
@@ -1049,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          return response.json();
                      })
                      .then(colores => {
-                         console.log("Datos de colores recibidos:", colores);
+                         log("Datos de colores recibidos:", colores);
                          colorSelect.empty().append('<option value="" selected disabled>-- Selecciona Color --</option>'); // Limpiar y añadir placeholder
 
                          let colorOptionsValues = [];
@@ -1061,17 +1068,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                      colorOptionsValues.push(colorInfo.valor);
                                  }
                              });
-                             console.log("Opciones de color añadidas:", colorOptionsValues);
+                             log("Opciones de color añadidas:", colorOptionsValues);
 
                              colorSelectDiv.show(); // Mostrar el selector
                              colorSelect.prop('disabled', false); // Habilitar el selector
 
                              // Lógica para edición: Si estamos editando y el color guardado está en las opciones
                              if (isEditing && editTargetData?.color && colorOptionsValues.includes(editTargetData.color)) {
-                                 console.log(`Modo Edición: Seleccionando color guardado '${editTargetData.color}'...`);
+                                 log(`Modo Edición: Seleccionando color guardado '${editTargetData.color}'...`);
                                  colorSelect.val(editTargetData.color);
                                  // Disparar 'change' para cargar tallas de edición
-                                 console.log("Disparando 'change' en Color para cargar tallas de edición...");
+                                 log("Disparando 'change' en Color para cargar tallas de edición...");
                                  colorSelect.trigger('change'); // Usar trigger de jQuery
                              } else if (isEditing && editTargetData?.color) {
                                  console.error(`Color guardado ('${editTargetData.color}') NO encontrado en opciones:`, colorOptionsValues);
@@ -1086,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
 
                          } else {
-                             console.log("No se encontraron colores para esta referencia.");
+                             log("No se encontraron colores para esta referencia.");
                              // Mantener oculto y deshabilitado (ya hecho por resetColorYTallas)
                               if (isEditing) {
                                   alert("Error al editar: No se encontraron colores para esta referencia.");
@@ -1104,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          }
                      });
              } else {
-                 console.log("Referencia limpiada.");
+                 log("Referencia limpiada.");
                  // resetColorYTallas() ya fue llamado arriba.
              }
         });
@@ -1113,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Selección de Color (Carga Tallas) ---
     if (colorSelect && colorSelect.length > 0) {
         colorSelect.on('change', function() {
-            console.log('Color cambiado! Iniciando fetch de tallas...');
+            log('Color cambiado! Iniciando fetch de tallas...');
             const currentColor = $(this).val();
             const currentColorDisplay = $(this).find('option:selected').text();
             const currentRef = refSelect.val(); // Obtener ref actual
@@ -1136,7 +1143,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             //const urlTallas = `/api/v1/productos/referencia/${currentRef}/color/${currentColor}/tallas/`;
             const urlTallas = `/productos/api/referencia/${currentRef}/color/${currentColor}/tallas/`; // Ajusta URL si es necesario
-            console.log('URL para fetch Tallas:', urlTallas);
+            log('URL para fetch Tallas:', urlTallas);
 
             fetch(urlTallas, { 
                 headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken },
@@ -1151,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Datos de tallas recibidos:', data);
+                    log('Datos de tallas recibidos:', data);
                     currentPrecioVenta = data.precio_venta || 0; // Guardar precio unitario base (con IVA)
                     currentVariantes = data.variantes || [];
 
@@ -1210,11 +1217,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                         gridHtml += '</div>';
                         tallasContainer.html(gridHtml).show(); // Mostrar inputs de talla
-                        console.log('Inputs de talla añadidos al contenedor.');
+                        log('Inputs de talla añadidos al contenedor.');
 
                         // Si estamos editando, pre-rellenar cantidades (SOBREESCRIBE las copiadas si aplica)
                         if (isEditing && editTargetData?.quantities) {
-                            console.log("Rellenando cantidades para edición:", editTargetData.quantities);
+                            log("Rellenando cantidades para edición:", editTargetData.quantities);
                             tallasContainer.find('.input-cantidad-temp').each(function() {
                                 const input = $(this);
                                 const productoId = input.data('producto-id');
@@ -1255,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (copiarCantidadesCheckbox.length > 0) {
         copiarCantidadesCheckbox.on('change', function() {
             if ($(this).is(':checked')) {
-                console.log("Checkbox 'Copiar' marcado. Intentando aplicar cantidades.");
+                log("Checkbox 'Copiar' marcado. Intentando aplicar cantidades.");
                 const hayCantidadesParaCopiar = ultimasCantidadesCopiables && Object.keys(ultimasCantidadesCopiables).length > 0;
                 const inputsTallaVisibles = tallasContainer.find('.input-cantidad-temp:visible'); // Solo inputs visibles
 
@@ -1282,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         let valorAplicar = Math.min(cantidadCopiada, stockBodega);
                         input.val(valorAplicar); // Actualizar valor del input
                         copiados++;
-                        console.log(`Aplicado a Talla ${tallaActual}: ${valorAplicar}`);
+                        log(`Aplicado a Talla ${tallaActual}: ${valorAplicar}`);
                     } else {
                         // Si la talla actual no estaba en las guardadas, opcionalmente poner 0
                          // input.val(0);
@@ -1290,13 +1297,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
 
                 if (copiados > 0) {
-                    console.log("Cantidades copiadas a los campos visibles.");
+                    log("Cantidades copiadas a los campos visibles.");
                 } else {
                     alert("Las tallas actuales no coinciden con las cantidades guardadas anteriormente.");
                 }
 
             } else {
-                console.log("Checkbox 'Copiar' desmarcado.");
+                log("Checkbox 'Copiar' desmarcado.");
                 // Opcional: Limpiar inputs si se desmarca? Depende de la UX deseada.
             }
         });
@@ -1306,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Listener para Cambio de Descuento General ---
     if (descuentoSelectEl.length > 0) {
         descuentoSelectEl.on('change', actualizarTodosLosSubtotalesYTotalGeneral);
-        console.log('Listener añadido al select de descuento.');
+        log('Listener añadido al select de descuento.');
     } else {
         console.warn('Elemento #id_porcentaje_descuento no encontrado para añadir listener.');
     }
@@ -1315,7 +1322,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Botón Agregar / Actualizar Producto al Pedido ---
     if (btnAddUpdateProducto.length > 0) {
         btnAddUpdateProducto.on('click', function() {
-            console.log("--- Click en Add/Update ---");
+            log("--- Click en Add/Update ---");
 
             // 1. Validar y Recolectar Cantidades de los Inputs de Talla
             let items = []; // Array de { productoId, cantidad, talla }
@@ -1358,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 });
             }
-            console.log('DEBUG: Antes de check validationOk. validationOk =', validationOk);
+            log('DEBUG: Antes de check validationOk. validationOk =', validationOk);
 
             if (!validationOk) return; // Detener si hubo error en validación
 
@@ -1369,14 +1376,14 @@ document.addEventListener('DOMContentLoaded', function() {
              const descuentoPct = parseFloat(descuentoSelectEl.val()) || 0;
 
              // Verificar datos esenciales
-             console.log('DEBUG: Antes de check Ref/Color. currentRef =', currentRef, 'currentColor =', currentColor);
+             log('DEBUG: Antes de check Ref/Color. currentRef =', currentRef, 'currentColor =', currentColor);
 
             if (!currentRef || !currentColor) {
                 console.error("Faltan datos esenciales (Referencia/Color).");
                  alert("Error: Falta seleccionar la Referencia o el Color.");
                  return;
              }
-             console.log('DEBUG: Antes de check Cantidad Cero (Add). items.length =', items.length, 'totalQtyLinea =', totalQtyLinea, 'isEditing =', isEditing);
+             log('DEBUG: Antes de check Cantidad Cero (Add). items.length =', items.length, 'totalQtyLinea =', totalQtyLinea, 'isEditing =', isEditing);
 
              if (items.length === 0 && totalQtyLinea === 0 && !isEditing) {
                  alert("Debes ingresar una cantidad mayor a 0 para al menos una talla.");
@@ -1386,8 +1393,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // 3. Calcular Precios y Totales de Línea usando la función helper
              const datosCalculados = calculateLineItemPricing(currentPrecioVenta, descuentoPct, totalQtyLinea);
-             console.log('Datos Calculados para Línea:', datosCalculados);
-             console.log('DEBUG: Punto A - Antes de declarar tallasDetalleString. Array items:', items);
+             log('Datos Calculados para Línea:', datosCalculados);
+             log('DEBUG: Punto A - Antes de declarar tallasDetalleString. Array items:', items);
              // Ordenar items por talla para mostrar y crear objeto/JSON para data-quantities
              items.sort((a, b) => {
                 // Asegura que a.talla y b.talla sean tratados como strings.
@@ -1405,7 +1412,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const quantitiesJson = JSON.stringify(quantitiesObject);
 
             // 4. Verificar Duplicados antes de Añadir/Actualizar
-            console.log('DEBUG: Punto D - Antes de verificar duplicados.');
+            log('DEBUG: Punto D - Antes de verificar duplicados.');
             let alreadyExists = false;
             let existingRowId = null;
             const refToAdd = currentRef;
@@ -1443,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 5. Actualizar Tabla e Inputs Ocultos (según si es Edición o Adición)
             if (isEditing) {
                  // --- Lógica de ACTUALIZAR LÍNEA ---
-                 console.log("Actualizando línea:", editingRowId);
+                 log("Actualizando línea:", editingRowId);
                  const rowToUpdate = $(`#${editingRowId}`);
 
                  if (rowToUpdate.length === 0) {
@@ -1510,10 +1517,10 @@ document.addEventListener('DOMContentLoaded', function() {
                  }, {});
                  if (Object.keys(cantidadesParaGuardarEdit).length > 0) {
                      ultimasCantidadesCopiables = cantidadesParaGuardarEdit;
-                     console.log("Cantidades actualizadas guardadas para copiar:", ultimasCantidadesCopiables);
+                     log("Cantidades actualizadas guardadas para copiar:", ultimasCantidadesCopiables);
                  }
 
-                 console.log("Línea actualizada.");
+                 log("Línea actualizada.");
                  resetEditState();              // Salir del modo edición
                  resetCurrentSelectionInputs(); // Limpiar área de selección
                  updateGrandTotals();           // Recalcular totales generales
@@ -1521,12 +1528,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } else {
                  // --- Lógica de AÑADIR NUEVA LÍNEA ---
-                 console.log('DEBUG: Punto C - Dentro del bloque ELSE (añadir nuevo), ANTES de usar tallasDetalleString.');
+                 log('DEBUG: Punto C - Dentro del bloque ELSE (añadir nuevo), ANTES de usar tallasDetalleString.');
 
-                console.log("Añadiendo nueva línea.");
+                log("Añadiendo nueva línea.");
                 lineaCounter++; // Incrementar contador para ID único
                 const lineaId = `linea-${lineaCounter}`;
-                console.log('DEBUG: INSIDE ELSE - Valor de tallasDetalleString:', tallasDetalleString);
+                log('DEBUG: INSIDE ELSE - Valor de tallasDetalleString:', tallasDetalleString);
 
 
                 // 1. Crear HTML de la nueva fila con todos los data-* necesarios
@@ -1580,11 +1587,11 @@ document.addEventListener('DOMContentLoaded', function() {
                  }, {});
                  if (Object.keys(cantidadesParaGuardarAdd).length > 0) {
                      ultimasCantidadesCopiables = cantidadesParaGuardarAdd;
-                     console.log("Cantidades nuevas guardadas para copiar:", ultimasCantidadesCopiables);
+                     log("Cantidades nuevas guardadas para copiar:", ultimasCantidadesCopiables);
                  }
 
 
-                 console.log("Nueva línea añadida.");
+                 log("Nueva línea añadida.");
                  resetCurrentSelectionInputs(); // Limpiar área de selección
                  updateGrandTotals();           // Recalcular totales generales
                  debouncedAutosave();
@@ -1596,7 +1603,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Botón Cancelar Edición ---
     if (btnCancelarEdicion.length > 0) {
         btnCancelarEdicion.on('click', function() {
-            console.log("Edición cancelada por usuario.");
+            log("Edición cancelada por usuario.");
             resetEditState();
             resetCurrentSelectionInputs(); // Limpiar también el área de selección
         });
@@ -1632,7 +1639,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         rowToDelete.remove();
                         updateGrandTotals(); // Recalcular totales
                         debouncedAutosave();
-                        console.log(`Línea ${rowIdToDelete} eliminada.`);
+                        log(`Línea ${rowIdToDelete} eliminada.`);
                         // Mostrar fila vacía si ya no quedan filas
                          if (detalleTbody.find('tr:not(#fila-vacia)').length === 0) {
                              filaVacia.show();
@@ -1668,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      quantities: quantitiesParsed
                  };
 
-                 console.log("Iniciando edición. Datos:", editTargetData);
+                 log("Iniciando edición. Datos:", editTargetData);
                  isEditing = true; // Marcar que estamos editando
 
                  // --- Actualizar UI para modo edición ---
@@ -1701,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           refSelect.append(editOptionRef); //.trigger('change'); // Appen y trigger
                      }
                       // Establecer valor y disparar 'change' para iniciar carga de colores/tallas
-                      console.log("Estableciendo referencia para edición y disparando change:", refId);
+                      log("Estableciendo referencia para edición y disparando change:", refId);
                       refSelect.val(refId).trigger('change');
                  } else {
                      console.warn("No se pudo pre-cargar la referencia en modo edición (Select2 no listo o falta ref).");
@@ -1727,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Botón Nuevo Pedido ---
     if (btnNuevoPedido.length > 0) {
         btnNuevoPedido.on('click', function() {
-            console.log("Limpiando formulario para nuevo pedido...");
+            log("Limpiando formulario para nuevo pedido...");
 
             if (!confirm("¿Estás seguro? Se borrarán todos los datos ingresados en este pedido.")) {
                 return; // No hacer nada si cancela
@@ -1766,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Opcional: Scroll al principio
             $('html, body').animate({ scrollTop: 0 }, 'smooth');
 
-            console.log("Formulario limpiado exitosamente.");
+            log("Formulario limpiado exitosamente.");
             // alert('Formulario limpiado para un nuevo pedido.'); // Opcional
         });
     }
@@ -1779,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const submitter = event.originalEvent?.submitter;
             const accion = submitter?.value; // Botón presionado ('guardar_borrador' o 'crear_definitivo')
 
-            console.log(`Intento de submit con acción: ${accion}`);
+            log(`Intento de submit con acción: ${accion}`);
 
             if (isEditing) {
                 alert("Por favor, 'Actualiza' o 'Cancela la Edición' de la línea actual antes de guardar o enviar el pedido.");
@@ -1796,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // Opcional: Deshabilitar botones para evitar doble envío
                      /*$(this).find('button[type="submit"]').prop('disabled', true).addClass('disabled');*/
-                     console.log("Guardando borrador...");
+                     log("Guardando borrador...");
 
                 }
                      
@@ -1813,12 +1820,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                      // Opcional: Deshabilitar botones para evitar doble envío
                      //$(this).find('button[type="submit"]').prop('disabled', true).addClass('disabled');
-                     console.log("Creando pedido definitivo...");
+                     log("Creando pedido definitivo...");
                      const buttons = $(this).find('button[type="submit"]');
 
                      setTimeout(() => {
                         buttons.prop('disabled', true).addClass('disabled');
-                        console.log("Botones deshabilitados (con delay)");
+                        log("Botones deshabilitados (con delay)");
                     }, 50); // Deshabilitar después de 50ms (puedes ajustar este tiempo)
            
                 }
@@ -1839,14 +1846,14 @@ if (clienteSelect.length > 0) {
     clienteSelect.on('select2:select', function (e) {
         const data = e.params.data;
         clienteSeleccionadoId = data.id; // Guarda el ID del cliente
-        console.log("Cliente seleccionado:", clienteSeleccionadoId, data.text);
+        log("Cliente seleccionado:", clienteSeleccionadoId, data.text);
         btnMostrarInfoCliente.show(); // Muestra el botón "Ver Info"
         infoClienteContainer.hide().html('<small class="text-muted">Haz clic en "Ver Info" para cargar detalles.</small>');
     });
 
     // Cuando BORRAS la selección del cliente
     clienteSelect.on('select2:clear', function (e) {
-        console.log("Selección de cliente limpiada.");
+        log("Selección de cliente limpiada.");
         clienteSeleccionadoId = null; // Olvida el ID
         btnMostrarInfoCliente.hide(); // Oculta el botón "Ver Info"
         infoClienteContainer.hide().empty(); // Oculta y vacía la info
@@ -1877,16 +1884,16 @@ if (btnMostrarInfoCliente.length > 0) {
         if (container.is(':visible')) {
             // Si ya está visible, simplemente lo ocultamos con una animación
             container.slideUp();
-            console.log("Ocultando detalles del cliente.");
+            log("Ocultando detalles del cliente.");
         } else {
             // Si está oculto, procedemos a cargar y mostrar
-            console.log("Buscando detalles para cliente ID:", clienteSeleccionadoId);
+            log("Buscando detalles para cliente ID:", clienteSeleccionadoId);
             // Muestra 'cargando' y empieza a mostrar la caja con animación
             container.html('<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Cargando...</span></div> <small>Cargando detalles...</small>')
                      .slideDown(); // Usa slideDown para mostrar suavemente
 
             const urlDetallesCliente = urlBaseDetalleCliente.replace('/0/', '/' + clienteSeleccionadoId + '/');
-            console.log("URL Detalles Cliente construida:", urlDetallesCliente); // Para depurar
+            log("URL Detalles Cliente construida:", urlDetallesCliente); // Para depurar
 
             // Petición Fetch (igual que antes)
             fetch(urlDetallesCliente, {
@@ -1907,7 +1914,7 @@ if (btnMostrarInfoCliente.length > 0) {
                 return response.json();
             })
             .then(data => { // Cuando tenemos los datos (igual que antes)
-                console.log("Detalles del cliente recibidos:", data);
+                log("Detalles del cliente recibidos:", data);
                 // Formatear la información HTML (igual que antes)
                 // !!! Recuerda ajustar data.nombre, data.nit, etc. a tus campos !!!
                 let infoHtml = `<h5> ${data.nombre || 'Cliente'}</h5>`;
@@ -1961,7 +1968,7 @@ if (btnMostrarInfoCliente.length > 0) {
                 },
                 theme: "bootstrap-5" // O el tema que uses (requiere CSS/JS adicional)
             });
-            console.log("Select2 para Clientes inicializado.");
+            log("Select2 para Clientes inicializado.");
         } catch(e) {
             console.error("Error inicializando Select2 para Clientes:", e);
             alert("Error al cargar el buscador de clientes. Intenta recargar la página.");
@@ -1992,7 +1999,7 @@ if (btnMostrarInfoCliente.length > 0) {
                 },
                 theme: "bootstrap-5"
             });
-             console.log("Select2 para Referencias inicializado.");
+             log("Select2 para Referencias inicializado.");
         } catch(e) {
             console.error("Error inicializando Select2 para Referencia:", e);
             alert("Error al cargar el buscador de referencias.");
@@ -2007,7 +2014,7 @@ if (btnMostrarInfoCliente.length > 0) {
         
     if (tallasContainer.length > 0) {
 
-        console.log("Añadiendo listeners focus/blur para inputs de cantidad.");
+        log("Añadiendo listeners focus/blur para inputs de cantidad.");
 
         // --- Comportamiento Placeholder '0' para Inputs de Cantidad ---
         // Usamos delegación de eventos en el contenedor porque los inputs se crean dinámicamente.
@@ -2018,7 +2025,7 @@ if (btnMostrarInfoCliente.length > 0) {
             // Si el valor actual es '0', lo limpiamos para facilitar la escritura
             if (input.val() === '0') {
                 input.val('');
-                // console.log(`Input ${input.attr('id')} enfocado, valor '0' limpiado.`); // Descomenta para depurar
+                // log(`Input ${input.attr('id')} enfocado, valor '0' limpiado.`); // Descomenta para depurar
             }
         });
 
@@ -2029,7 +2036,7 @@ if (btnMostrarInfoCliente.length > 0) {
             // Usamos trim() por si el usuario solo introduce espacios.
             if (input.val().trim() === '') {
                 input.val('0');
-                // console.log(`Input ${input.attr('id')} desenfocado, valor vacío restablecido a '0'.`); // Descomenta para depurar
+                // log(`Input ${input.attr('id')} desenfocado, valor vacío restablecido a '0'.`); // Descomenta para depurar
             }
         });
 
@@ -2042,7 +2049,7 @@ $(document).ready(function() {
 
     if (descuentoElement.length > 0 && descuentoElement.is('input')) {
 
-        console.log("Añadiendo listeners focus/blur para input de descuento (#id_porcentaje_descuento).");
+        log("Añadiendo listeners focus/blur para input de descuento (#id_porcentaje_descuento).");
 
         // Evento FOCUS
         descuentoElement.on('focus', function() {
@@ -2058,7 +2065,7 @@ $(document).ready(function() {
             if (input.val().trim() === '') {
                 input.val('0.00');
             }
-            console.log("Disparando 'change' en input de descuento después de blur.");
+            log("Disparando 'change' en input de descuento después de blur.");
             input.trigger('change');
         });
     }
@@ -2070,7 +2077,7 @@ $(document).ready(function() {
     // --- Calcular Totales Iniciales (se llama dentro de cargarDetallesIniciales si hay datos, o al final si no hay) ---
     // updateGrandTotals(); // Ya se llama desde cargarDetallesIniciales
 
-    console.log("Formulario de pedido inicializado y listo.");
+    log("Formulario de pedido inicializado y listo.");
     toggleSelector();
     
 

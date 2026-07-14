@@ -1740,3 +1740,103 @@ def detalle_referencia_reporte_ajax(request):
         item['vendedor'] = item.pop('pedido__vendedor__user__username', 'N/A')
 
     return JsonResponse({'detalles': resultados_finales})
+
+@login_required
+def generar_pedido_bodega_pdf(request, pk):
+    """
+    Genera un PDF optimizado en blanco y negro para la bodega,
+    sin precios y resaltando la información clave.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    query_params = {'pk': pk}
+    
+    if not request.user.is_superuser:
+        if not empresa_actual:
+            messages.error(request, "Acceso no válido. Su usuario no está asociado a ninguna empresa.")
+            return redirect('core:acceso_denegado')
+        query_params['empresa'] = empresa_actual
+    
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'cliente_online', 'prospecto', 'vendedor__user', 'empresa'), 
+        **query_params
+    )
+    
+    es_su_pedido = (hasattr(request.user, 'perfil_vendedor') and pedido.vendedor == request.user.perfil_vendedor)
+    es_admin_o_staff = request.user.is_superuser or es_administracion(request.user)
+    grupos_autorizados = ['Bodega', 'Cartera', 'Factura', 'Administracion']
+    pertenece_a_grupo_autorizado = request.user.groups.filter(name__in=grupos_autorizados).exists()
+    
+    if not (es_su_pedido or es_admin_o_staff or pertenece_a_grupo_autorizado):
+        messages.error(request, "No tienes permiso para ver este pedido.")
+        return redirect('core:acceso_denegado')
+    
+    empresa_obj = pedido.empresa
+    categorias_config = empresa_obj.categorias_tallas or {
+        'DAMA': ['6', '8', '10', '12', '14', '16'],
+        'CABALLERO': ['28', '30', '32', '34', '36', '38'],
+        'NIÑO': ['4', '6', '8', '10', '12', '14', '16'],
+        'NIÑA': ['4', '6', '8', '10', '12', '14', '16'],
+        'UNISEX': ['S', 'M', 'L', 'XL']
+    }
+    TALLAS_MAPEO = empresa_obj.talla_mapeo or {}
+
+    from collections import defaultdict
+    detalles_por_categoria = defaultdict(list)
+    
+    for detalle in pedido.detalles.select_related('producto').all():
+        talla_normalizada = ""
+        if hasattr(detalle.producto, 'talla') and detalle.producto.talla is not None:
+            talla_normalizada = str(detalle.producto.talla).strip().split('.')[0].split(',')[0]
+            if TALLAS_MAPEO and talla_normalizada in TALLAS_MAPEO:
+                detalle.producto.talla = TALLAS_MAPEO[talla_normalizada]
+            else:
+                detalle.producto.talla = talla_normalizada
+        
+        categoria_producto = getattr(detalle.producto, 'genero', 'NIÑO').upper()
+        detalles_por_categoria[categoria_producto].append(detalle)
+        
+    secciones_procesadas = []
+    for categoria, tallas_lista in categorias_config.items():
+        if categoria in detalles_por_categoria:
+            items_de_categoria = detalles_por_categoria[categoria]
+            tallas_columnas_normalizadas_y_mapeadas = []
+            for t in tallas_lista:
+                col_normalizada = str(t).strip().split('.')[0].split(',')[0]
+                col_mapeada = TALLAS_MAPEO.get(col_normalizada, col_normalizada)
+                tallas_columnas_normalizadas_y_mapeadas.append(col_mapeada)
+
+            grupos, tallas_cols = preparar_datos_seccion(items_de_categoria, tallas_columnas_normalizadas_y_mapeadas)
+                
+            if grupos:
+                # 1. Calculamos el subtotal sumando la 'cantidad_total' de cada grupo
+                total_unidades_seccion = sum(grupo.get('cantidad_total', 0) for grupo in grupos)
+
+                secciones_procesadas.append({
+                    'titulo': f"PEDIDO {categoria.replace('_', ' ')}",
+                    'grupos': grupos,
+                    'tallas_cols': tallas_cols,
+                    # 2. Agregamos las variables que tu HTML está buscando
+                    'total_unidades': total_unidades_seccion,
+                    'subtotal_unidades': total_unidades_seccion
+                })
+
+    context = {
+        'pedido': pedido,
+        'secciones_procesadas': secciones_procesadas,
+        'incluir_color': True,
+        'incluir_vr_unit': False, # Obligamos a que NO salgan los precios nunca
+    }
+    
+    # Cargamos el nuevo HTML
+    template = get_template('pedidos/pedido_bodega_pdf.html')
+    html = template.render(context)
+
+    response = HttpResponse(content_type='application/pdf')
+    # Cambiamos el nombre de descarga para distinguirlo
+    response['Content-Disposition'] = f'attachment; filename="BODEGA_pedido_{pedido.numero_pedido_empresa}.pdf"'
+    
+    from xhtml2pdf import pisa
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+       return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    return response

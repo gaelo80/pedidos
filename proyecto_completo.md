@@ -17668,7 +17668,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 # Archivo: bodega\templates\bodega\detalle_ingreso_bodega.html
 ```html
-{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+{% extends 'core/base.html' %} {% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -23769,7 +23769,7 @@ class Command(BaseCommand):
 {% load humanize %}
 {% load core_extras %} {# Si tienes filtros o tags personalizados #}
 
-{% block titulo %}{{ titulo|default:"Catálogo de Productos" }}{% endblock %}
+{% block page_title %}{{ titulo|default:"Catálogo de Productos" }}{% endblock %}
 
 {% block content %}
 
@@ -24080,7 +24080,7 @@ class Command(BaseCommand):
 ```html
 {% extends 'core/base_publica.html' %} {# Ajusta a tu plantilla base pública #}
 
-{% block titulo %}{{ titulo_mensaje|default:"Aviso del Catálogo" }}{% endblock %}
+{% block page_title %}{{ titulo_mensaje|default:"Aviso del Catálogo" }}{% endblock %}
 
 {% block content %}
 <div class="container mt-5 mb-5">
@@ -28713,7 +28713,7 @@ def manifest_view(request):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block titulo %}Mi Sitio Web{% endblock titulo %}</title>    
+    <title>{% block page_title %}Mi Sitio Web{% endblock titulo %}</title>    
     <meta name="theme-color" content="#3b5998">
 
     {# Bootstrap CSS #}
@@ -37636,7 +37636,7 @@ def informe_lista_devoluciones(request):
 ```html
 {% extends 'core/base.html' %} {% load humanize %}
 
-{% block titulo %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -37850,7 +37850,7 @@ def informe_lista_devoluciones(request):
 
 # Archivo: informes\templates\informes\informe_pedidos_aprobados_bodega.html
 ```html
-{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+{% extends 'core/base.html' %} {% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -37920,7 +37920,7 @@ def informe_lista_devoluciones(request):
 
 # Archivo: informes\templates\informes\informe_pedidos_rechazados.html
 ```html
-{% extends 'core/base.html' %} {% block titulo %}{{ titulo }}{% endblock %}
+{% extends 'core/base.html' %} {% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -38003,7 +38003,7 @@ def informe_lista_devoluciones(request):
 ```html
 {% extends 'core/base.html' %} {% load humanize %}
 
-{% block titulo %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -44304,7 +44304,7 @@ $(document).ready(function() {
 {% load static %} {# Asegúrate de tener static cargado si usas íconos de FontAwesome vía static #}
 {% load humanize %} {# Para el floatformat si lo necesitas #}
 
-{% block titulo %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
 
 {% block extra_head %}
 {# Puedes añadir estilos específicos aquí si es necesario, o en tu CSS principal #}

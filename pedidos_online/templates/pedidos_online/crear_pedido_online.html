@@ -4,188 +4,56 @@
 {% block page_title %}{{ titulo }}{% endblock %}
 
 {% block extra_head %}
-    <!-- Incluye Tailwind CSS CDN (si no está ya configurado en tu proyecto) -->
-    <!-- IMPORTANTE: desactivamos 'preflight' (el reset de Tailwind) ANTES de cargar el CDN.
-         Sin esto, Tailwind reescribe los estilos ~1s después de cargar y rompe el
-         sidebar/dropdowns de Bootstrap (los submenús desaparecen al desplegarlos). -->
-    <script>
-        window.tailwind = window.tailwind || {};
-        window.tailwind.config = {
-            corePlugins: { preflight: false }
-        };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
     <style>
-        /* Fuentes personalizadas (ej. Inter) */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #dfe9e5ff; /* Color de fondo muy claro */
+        /* Estilos propios de la página de pedido online, compatibles con base.html */
+
+        /* Notas: textarea de tamaño fijo */
+        #id_notas, textarea[name="notas"] {
+            width: 100%;
+            min-height: 100px;
+            resize: vertical;
         }
-        /* Estilos para Select2 con Tailwind */
-        .select2-container--bootstrap-5 .select2-selection--single {
-            border-radius: 0.5rem !important; /* rounded-lg */
-            border-color: #d1d5db !important; /* gray-300 */
-            height: 2.5rem !important; /* h-10 */
-            padding-left: 0.75rem !important; /* pl-3 */
-            padding-right: 0.75rem !important; /* pr-3 */
-            display: flex !important;
-            align-items: center !important;
+
+        /* Select2 dentro de input-group */
+        .input-group > .select2-container--bootstrap-5 {
+            flex: 1 1 auto;
+            width: 1% !important;
+            min-width: 0;
         }
-        .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
-            color: #1f2937 !important; /* gray-900 */
-            line-height: 1.5 !important; /* leading-tight */
-        }
-        .select2-container--bootstrap-5 .select2-dropdown {
-            border-color: #485363 !important;
-            border-radius: 0.5rem !important;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; /* shadow-md */
-        }
-        .select2-container--bootstrap-5 .select2-results__option--highlighted.select2-results__option--selectable {
-            background-color: #e0f2fe !important; /* blue-100 */
-            color: #1e40af !important; /* blue-800 */
-        }
-        .select2-container--bootstrap-5 .select2-results__option--selected {
-            background-color: #bfdbfe !important; /* blue-200 */
-            color: #1e40af !important;
-        }
-        .form-control, .form-select, .btn {
-            border-radius: 0.5rem !important; /* rounded-lg */
-        }
-        .card {
-            border-radius: 0.75rem !important; /* rounded-xl */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; /* shadow-lg */
-            border: none !important;
-        }
-        .card-header {
-            background-color: #bad5f8 !important; /* blue-50 */
-            color: #0c0c0c !important; /* blue-800 */
-            border-bottom: 1px solid #dbeafe !important; /* blue-100 */
-            padding: 1rem 1.5rem !important;
-            font-size: 1.125rem !important; /* text-lg */
-            font-weight: 600 !important; /* font-semibold */
-            border-top-left-radius: 0.75rem !important;
-            border-top-right-radius: 0.75rem !important;
-        }
-        .btn-primary {
-            background-color: #3b82f6 !important; /* blue-500 */
-            border-color: #3b82f6 !important;
-        }
-        .btn-primary:hover {
-            background-color: #2563eb !important; /* blue-600 */
-            border-color: #2563eb !important;
-        }
-        .btn-secondary {
-            background-color: #6b7280 !important; /* gray-500 */
-            border-color: #6b7280 !important;
-        }
-        .btn-secondary:hover {
-            background-color: #4b5563 !important; /* gray-600 */
-            border-color: #4b5563 !important;
-        }
-        .btn-success {
-            background-color: #10b981 !important; /* emerald-500 */
-            border-color: #10b981 !important;
-        }
-        .btn-success:hover {
-            background-color: #059669 !important; /* emerald-600 */
-            border-color: #059669 !important;
-        }
-        .btn-warning {
-            background-color: #f59e0b !important; /* amber-500 */
-            border-color: #f59e0b !important;
-            color: #fff !important;
-        }
-        .btn-warning:hover {
-            background-color: #d97706 !important; /* amber-600 */
-            border-color: #d97706 !important;
-        }
-        .btn-danger {
-            background-color: #ef4444 !important; /* red-500 */
-            border-color: #ef4444 !important;
-        }
-        .btn-danger:hover {
-            background-color: #dc2626 !important; /* red-600 */
-            border-color: #dc2626 !important;
-        }
-        .table th, .table td {
-            padding: 0.75rem;
-            vertical-align: middle;
-        }
-        .table-sm th, .table-sm td {
-            padding: 0.5rem;
-        }
-        .table-bordered th, .table-bordered td {
-            border: 1px solid #e5e7eb; /* gray-200 */
-        }
-        .table-light thead th {
-            background-color: #f9fafb; /* gray-50 */
-            color: #374151; /* gray-700 */
-        }
-        .alert-danger {
-            background-color: #fee2e2; /* red-100 */
-            color: #991b1b; /* red-800 */
-            border-color: #fca5a5; /* red-300 */
-            border-radius: 0.5rem;
-            padding: 0.75rem 1.25rem;
-        }
-        .invalid-feedback {
-            display: block; /* Para que se muestre debajo del input */
-            color: #ef4444; /* red-500 */
-            font-size: 0.875rem; /* text-sm */
-            margin-top: 0.25rem;
-        }
-        .input-group-text {
-            background-color: #e5e7eb; /* gray-200 */
-            border-color: #d1d5db; /* gray-300 */
-            border-radius: 0.5rem;
-        }
-        /* Estilos para los badges de stock */
-        .badge {
-            padding: 0.35em 0.65em;
-            border-radius: 0.375rem; /* rounded-md */
-            font-size: 0.75rem; /* text-xs */
-            font-weight: 600;
-            line-height: 1;
-            text-align: center;
+        .select2-selection__rendered {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
             white-space: nowrap;
-            vertical-align: baseline;
-            display: inline-block;
         }
-        .bg-success { background-color: #10b981; color: #fff; } /* emerald-500 */
-        .bg-danger { background-color: #ef4444; color: #fff; } /* red-500 */
-        .bg-warning { background-color: #f59e0b; color: #fff; } /* amber-500 */
-        .text-dark { color: #1f2937; } /* gray-900 */
-        /* Estilos específicos para el modal de resumen */
+
+        /* Contenedor de tallas */
+        #tallas-grid-container {
+            min-height: 100px;
+        }
+
+        /* Rejilla de tarjetas del resumen del cliente (modal) */
         .summary-info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1rem;
         }
         .summary-card {
-            background-color: #f7fafc;
-            border: 1px solid #e2e8f0;
+            background-color: var(--color-fondo-secundario);
+            border: 1px solid var(--color-borde-linea);
             border-radius: 0.5rem;
             padding: 1rem;
         }
         .summary-card h4 {
             font-size: 1rem;
             font-weight: 600;
-            color: #2d3748;
+            color: var(--color-texto-principal);
             margin-bottom: 0.5rem;
         }
         .summary-card p, .summary-card li {
             font-size: 0.875rem;
-            color: #4a5568;
+            color: var(--color-texto-secundario);
             margin-bottom: 0.25rem;
-        }
-        .summary-card ul {
-            list-style: none;
-            padding-left: 0;
-        }
-        .summary-card ul li:last-child {
-            margin-bottom: 0;
         }
         .summary-table {
             width: 100%;
@@ -193,274 +61,266 @@
             margin-top: 0.75rem;
         }
         .summary-table th, .summary-table td {
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--color-borde-linea);
             padding: 0.5rem;
             text-align: left;
             font-size: 0.8rem;
         }
         .summary-table th {
-            background-color: #edf2f7;
+            background-color: var(--color-fondo-secundario);
             font-weight: 600;
-            color: #4a5568;
         }
         .summary-table tbody tr:nth-child(even) {
-            background-color: #f7fafc;
+            background-color: var(--color-fondo-secundario);
         }
     </style>
 {% endblock %}
 
 {% block content %}
 
-<div class="container-fluid mt-4">
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="mb-0">{{ titulo }}</h1>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="btn btn-primary">
+            <i class="fas fa-list-alt me-2" aria-hidden="true"></i>Ver Borradores
+        </a>
+        <a href="{% url 'core:index' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Volver al Panel
+        </a>
+    </div>
+</div>
 
+<form method="post" id="pedido-online-form" novalidate enctype="multipart/form-data">
+    {% csrf_token %}
 
-<div class="container mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">{{ titulo }}</h1>
-        <div class="flex space-x-3"> {# Contenedor para los botones de navegación #}
-            <a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">
-                <i class="fas fa-list-alt mr-2"></i> Ver Borradores
-            </a>
-            <a href="{% url 'core:index' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-300 ease-in-out shadow-md">
-                <i class="fas fa-arrow-left mr-2"></i> Volver al Panel
-            </a>
+    <!-- Sección 1: Datos del Pedido -->
+    <div class="card mb-4">
+        <div class="card-header">1. Datos del Pedido</div>
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}<p class="mb-0">{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="id_cliente_selector" class="form-label fw-bold">Cliente</label>
+                    <div class="input-group">
+                        <select id="id_cliente_selector" class="form-control"></select>
+                        <button class="btn btn-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearCliente" title="Crear Nuevo Cliente Online">
+                            <i class="fas fa-user-plus" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="btn-ver-resumen-cliente" class="btn btn-info" title="Ver Resumen del Cliente" style="display: none;">
+                            <i class="fas fa-info-circle me-1" aria-hidden="true"></i>Resumen
+                        </button>
+                    </div>
+                    {{ form.cliente_online }}
+                    <div class="text-danger small mt-1">{{ form.cliente_online.errors }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.porcentaje_descuento.id_for_label }}" class="form-label fw-bold">{{ form.porcentaje_descuento.label }}</label>
+                    {{ form.porcentaje_descuento }}
+                    <div class="text-danger small mt-1">{{ form.porcentaje_descuento.errors }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.forma_pago.id_for_label }}" class="form-label fw-bold">{{ form.forma_pago.label }}</label>
+                    {{ form.forma_pago }}
+                    <div class="text-danger small mt-1">{{ form.forma_pago.errors }}</div>
+                </div>
+                <div class="col-12">
+                    <label for="{{ form.notas.id_for_label }}" class="form-label fw-bold">{{ form.notas.label }}</label>
+                    {{ form.notas }}
+                    <div class="text-danger small mt-1">{{ form.notas.errors }}</div>
+                </div>
+                <div class="col-12">
+                    <label for="{{ form.comprobante_pago.id_for_label }}" class="form-label fw-bold">{{ form.comprobante_pago.label }}</label>
+                    {{ form.comprobante_pago }}
+                    {% if form.comprobante_pago.errors %}
+                        <div class="text-danger small mt-1">{{ form.comprobante_pago.errors }}</div>
+                    {% endif %}
+                    {% if form.instance.comprobante_pago %}
+                        <p class="small text-muted mt-2">
+                            Archivo actual: <a href="{{ form.instance.comprobante_pago.url }}" class="text-primary">Ver Comprobante</a>
+                            ({{ form.instance.comprobante_pago.name|truncatechars:30 }})
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
-    <form method="post" id="pedido-online-form" novalidate class="space-y-6" enctype="multipart/form-data"> {# AÑADIDO: enctype #}
-        {% csrf_token %}
-
-        <!-- Sección 1: Datos del Pedido -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="card-header">1. Datos del Pedido</div>
-            <div class="p-6">
-                {% if form.non_field_errors %}
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
-                        {% for error in form.non_field_errors %}<p class="mb-0">{{ error }}</p>{% endfor %}
+    <!-- Sección 2: Agregar Productos -->
+    <div class="card mb-4">
+        <div class="card-header">2. Agregar Productos al Pedido</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="id_ref_selector" class="form-label fw-bold">Referencia</label>
+                        <select id="id_ref_selector" class="form-control"></select>
                     </div>
-                {% endif %}
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="md:col-span-2">
-                        <label for="id_cliente_selector" class="block text-sm font-semibold text-gray-700 mb-1">Cliente</label>
-                        <div class="flex items-center space-x-2">
-                            <select id="id_cliente_selector" class="form-control flex-grow"></select>
-                            <button class="flex-shrink-0 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition duration-300 ease-in-out shadow-md" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearCliente" title="Crear Nuevo Cliente Online">
-                                <i class="fas fa-user-plus"></i>
-                            </button>
-                            {# NUEVO BOTÓN: Ver Resumen Cliente #}
-                            <button type="button" id="btn-ver-resumen-cliente" class="flex-shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300 ease-in-out shadow-md" title="Ver Resumen del Cliente" style="display: none;">
-                                <i class="fas fa-info-circle"></i> Resumen
-                            </button>
-                            {# FIN NUEVO BOTÓN #}
-                        </div>
-                        {# El input oculto para cliente_online ahora se renderiza directamente desde el formulario #}
-                        {{ form.cliente_online }} 
-                        <div class="text-red-500 text-sm mt-1">{{ form.cliente_online.errors }}</div>
+                    <div class="mb-3">
+                        <label for="id_color_selector" class="form-label fw-bold">Color</label>
+                        <select id="id_color_selector" class="form-control" disabled></select>
                     </div>
-                    <div>
-                        <label for="{{ form.porcentaje_descuento.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.porcentaje_descuento.label }}</label>
-                        {{ form.porcentaje_descuento }}
-                        <div class="text-red-500 text-sm mt-1">{{ form.porcentaje_descuento.errors }}</div>
-                    </div>
-                    {# --- CAMPO: FORMA DE PAGO --- #}
-                    <div>
-                        <label for="{{ form.forma_pago.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.forma_pago.label }}</label>
-                        {{ form.forma_pago }} 
-                        <div class="text-red-500 text-sm mt-1">{{ form.forma_pago.errors }}</div>
-                    </div>
-                    {# --- FIN CAMPO FORMA DE PAGO --- #}
-                    <div class="md:col-span-3">
-                         <label for="{{ form.notas.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.notas.label }}</label>
-                        {{ form.notas }}
-                        <div class="text-red-500 text-sm mt-1">{{ form.notas.errors }}</div>
-                    </div>
-                    {# --- NUEVO CAMPO: COMPROBANTE DE PAGO --- #}
-                    <div class="md:col-span-3"> {# Ocupa el ancho completo de la fila #}
-                        <label for="{{ form.comprobante_pago.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">{{ form.comprobante_pago.label }}</label>
-                        {{ form.comprobante_pago }}
-                        {% if form.comprobante_pago.errors %}
-                            <div class="text-red-500 text-sm mt-1">{{ form.comprobante_pago.errors }}</div>
-                        {% endif %}
-                        {% if form.instance.comprobante_pago %} {# Si ya hay un archivo adjunto #}
-                            <p class="text-sm text-gray-500 mt-2">
-                                Archivo actual: <a href="{{ form.instance.comprobante_pago.url }}" class="text-blue-600 hover:underline">Ver Comprobante</a>
-                                ({{ form.instance.comprobante_pago.name|truncatechars:30 }})
-                            </p>
-                        {% endif %}
-                    </div>
-                    {# --- FIN NUEVO CAMPO COMPROBANTE DE PAGO --- #}
                 </div>
-            </div>
-        </div>
-
-        <!-- Sección 2: Agregar Productos -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="card-header">2. Agregar Productos al Pedido</div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <div class="mb-4">
-                            <label for="id_ref_selector" class="block text-sm font-semibold text-gray-700 mb-1">Referencia</label>
-                            <select id="id_ref_selector" class="form-control"></select>
-                        </div>
-                        <div class="mb-4">
-                            <label for="id_color_selector" class="block text-sm font-semibold text-gray-700 mb-1">Color</label>
-                            <select id="id_color_selector" class="form-control" disabled></select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Cantidades por Talla</label>
-                        <div id="tallas-grid-container" class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[100px] flex items-center justify-center text-gray-500">
-                            Selecciona una referencia y color para ver las tallas disponibles.
-                        </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Cantidades por Talla</label>
+                    <div id="tallas-grid-container" class="p-3 border rounded bg-light d-flex align-items-center justify-content-center text-muted">
+                        Selecciona una referencia y color para ver las tallas disponibles.
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Sección 3: Detalle del Pedido y Resumen -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="card-header">3. Detalle del Pedido</div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2">
-                        <div class="overflow-x-auto">
-                            <table class="w-full table-auto border-collapse" id="tabla-detalles">
-                                <thead class="bg-blue-50">
-                                    <tr>
-                                        <th>Ref.</th>
-                                        <th>Color</th>
-                                        <th>Detalle Tallas/Cant.</th>
-                                        <th class="text-right">Vr. Unitario</th>
-                                        <th class="text-center">Cant. Total</th>
-                                        <th class="text-right">Subtotal</th>
-                                        <th class="text-center">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-detalles" class="bg-white divide-y divide-gray-200">
-                                    <tr id="fila-vacia"><td colspan="7" class="text-center text-gray-500 py-6">Aún no has agregado productos.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+    <!-- Sección 3: Detalle del Pedido y Resumen -->
+    <div class="card mb-4">
+        <div class="card-header">3. Detalle del Pedido</div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle" id="tabla-detalles">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ref.</th>
+                                    <th>Color</th>
+                                    <th>Detalle Tallas/Cant.</th>
+                                    <th class="text-end">Vr. Unitario</th>
+                                    <th class="text-center">Cant. Total</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-detalles">
+                                <tr id="fila-vacia"><td colspan="7" class="text-center text-muted fst-italic py-4">Aún no has agregado productos.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="lg:col-span-1 bg-blue-50 p-6 rounded-lg shadow-inner">
+                </div>
+                <div class="col-lg-4">
+                    <div class="p-3 border rounded bg-light">
                         <h5 class="mb-3">Resumen de Totales</h5>
-                        <table class="w-full text-gray-700">
+                        <table class="table table-sm align-middle mb-0">
                             <tbody>
                                 <tr>
                                     <td>Subtotal Base (Sin IVA):</td>
-                                    <td id="subtotal-bruto" class="text-end font-bold">$0</td>
+                                    <td id="subtotal-bruto" class="text-end fw-bold">$0</td>
                                 </tr>
                                 <tr>
                                     <td>Descuento (<span id="descuento-pct">0</span>%):</td>
-                                    <td id="valor-descuento" class="text-end font-bold text-red-500">-$0</td>
+                                    <td id="valor-descuento" class="text-end fw-bold text-danger">-$0</td>
                                 </tr>
                                 <tr>
                                     <td>Subtotal después Desc. (Sin IVA):</td>
-                                    <td id="subtotal-neto" class="text-end font-bold">$0</td>
+                                    <td id="subtotal-neto" class="text-end fw-bold">$0</td>
                                 </tr>
                                 <tr>
                                     <td>IVA (<span id="iva-pct">0</span>%):</td>
-                                    <td id="valor-iva" class="text-end font-bold">$0</td>
+                                    <td id="valor-iva" class="text-end fw-bold">$0</td>
                                 </tr>
-                                <tr class="bg-blue-100 font-bold text-blue-900">
-                                    <td class="py-3 text-lg">TOTAL A PAGAR:</td>
-                                    <td id="total-general" class="text-end text-2xl">$0</td>
+                                <tr class="table-primary fw-bold">
+                                    <td class="py-3 fs-5">TOTAL A PAGAR:</td>
+                                    <td id="total-general" class="text-end fs-4">$0</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div id="hidden-inputs-container" class="hidden"></div>
             </div>
+            <div id="hidden-inputs-container" style="display: none;"></div>
         </div>
+    </div>
 
-        <div class="mt-8 flex justify-end space-x-4">
-            <button type="submit" name="accion" value="guardar_borrador" class="inline-flex items-center px-6 py-3 bg-gray-500 text-white text-lg font-semibold rounded-lg hover:bg-gray-600 transition duration-300 ease-in-out shadow-lg">
-                <i class="fas fa-save mr-2"></i> Guardar Borrador
-            </button>
-            <button type="submit" name="accion" value="crear_definitivo" class="inline-flex items-center px-6 py-3 bg-emerald-500 text-white text-lg font-semibold rounded-lg hover:bg-emerald-600 transition duration-300 ease-in-out shadow-lg">
-                <i class="fas fa-check-circle mr-2"></i> Crear Pedido Definitivo
-            </button>
-        </div>
-    </form>
-</div>
+    <div class="mt-4 d-flex flex-wrap justify-content-end gap-2">
+        <button type="submit" name="accion" value="guardar_borrador" class="btn btn-secondary btn-lg">
+            <i class="fas fa-save me-2" aria-hidden="true"></i>Guardar Borrador
+        </button>
+        <button type="submit" name="accion" value="crear_definitivo" class="btn btn-success btn-lg">
+            <i class="fas fa-check-circle me-2" aria-hidden="true"></i>Crear Pedido Definitivo
+        </button>
+    </div>
+</form>
 
 <!-- Modal para Crear Cliente Online -->
 <div class="modal fade" id="modalCrearCliente" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content rounded-xl shadow-xl">
-            <div class="modal-header bg-blue-600 text-white p-4 rounded-t-xl">
-                <h5 class="modal-title text-xl font-semibold" id="modalLabel">Crear Nuevo Cliente Online</h5>
-                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalLabel">Crear Nuevo Cliente Online</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-6">
-                <form id="form-crear-cliente" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="modal-body">
+                <form id="form-crear-cliente" class="row g-3">
                     {% csrf_token %}
-                    <div>
-                        <label for="{{ cliente_form.nombre_completo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.nombre_completo.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.nombre_completo.id_for_label }}" class="form-label">{{ cliente_form.nombre_completo.label_tag }}</label>
                         {{ cliente_form.nombre_completo }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div>
-                        <label for="{{ cliente_form.identificacion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.identificacion.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.identificacion.id_for_label }}" class="form-label">{{ cliente_form.identificacion.label_tag }}</label>
                         {{ cliente_form.identificacion }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div>
-                        <label for="{{ cliente_form.telefono.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.telefono.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.telefono.id_for_label }}" class="form-label">{{ cliente_form.telefono.label_tag }}</label>
                         {{ cliente_form.telefono }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div>
-                        <label for="{{ cliente_form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.email.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.email.id_for_label }}" class="form-label">{{ cliente_form.email.label_tag }}</label>
                         {{ cliente_form.email }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="{{ cliente_form.direccion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.direccion.label_tag }}</label>
+                    <div class="col-12">
+                        <label for="{{ cliente_form.direccion.id_for_label }}" class="form-label">{{ cliente_form.direccion.label_tag }}</label>
                         {{ cliente_form.direccion }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div>
-                        <label for="{{ cliente_form.tipo_cliente.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.tipo_cliente.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.tipo_cliente.id_for_label }}" class="form-label">{{ cliente_form.tipo_cliente.label_tag }}</label>
                         {{ cliente_form.tipo_cliente }}
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div>
-                        <label for="{{ cliente_form.forma_pago_preferida.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ cliente_form.forma_pago_preferida.label_tag }}</label>
+                    <div class="col-md-6">
+                        <label for="{{ cliente_form.forma_pago_preferida.id_for_label }}" class="form-label">{{ cliente_form.forma_pago_preferida.label_tag }}</label>
                         {{ cliente_form.forma_pago_preferida }}
                         <div class="invalid-feedback"></div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
-                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300" id="btn-guardar-cliente">Guardar Cliente</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-cliente">Guardar Cliente</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Modal Resumen Cliente -->
 <div class="modal fade" id="modalClienteSummary" tabindex="-1" aria-labelledby="modalClienteSummaryLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl"> {# Modal más grande para el resumen #}
-        <div class="modal-content rounded-xl shadow-xl">
-            <div class="modal-header bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 rounded-t-xl">
-                <h5 class="modal-title text-xl font-semibold" id="modalClienteSummaryLabel">Resumen del Cliente: <span id="summary-client-name"></span></h5>
-                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalClienteSummaryLabel">Resumen del Cliente: <span id="summary-client-name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-6">
-                <div id="summary-loading-indicator" class="text-center py-8">
-                    <div class="spinner-border text-blue-500" role="status">
+            <div class="modal-body">
+                <div id="summary-loading-indicator" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Cargando resumen...</span>
                     </div>
-                    <p class="text-gray-600 mt-2">Cargando resumen del cliente...</p>
+                    <p class="text-muted mt-2">Cargando resumen del cliente...</p>
                 </div>
-                <div id="summary-content" class="hidden">
-                    <div class="summary-info-grid mb-6">
+                <div id="summary-content" style="display: none;">
+                    <div class="summary-info-grid mb-4">
                         <div class="summary-card">
-                            <h4><i class="fas fa-user-circle mr-2 text-blue-500"></i>Información General</h4>
-                            <p><strong>Nombre Completo:</strong> <span id="sum-client-full-name"></span></p> {# Added full name field #}
+                            <h4><i class="fas fa-user-circle me-2 text-primary" aria-hidden="true"></i>Información General</h4>
+                            <p><strong>Nombre Completo:</strong> <span id="sum-client-full-name"></span></p>
                             <p><strong>Tipo:</strong> <span id="sum-client-type"></span></p>
                             <p><strong>ID:</strong> <span id="sum-client-id"></span></p>
                             <p><strong>Teléfono:</strong> <span id="sum-client-phone"></span></p>
@@ -470,14 +330,12 @@
                             <p><strong>F. Creación:</strong> <span id="sum-client-creation-date"></span></p>
                         </div>
                         <div class="summary-card">
-                            <h4><i class="fas fa-money-check-alt mr-2 text-green-500"></i>Preferencias y Descuentos</h4>
+                            <h4><i class="fas fa-money-check-alt me-2 text-success" aria-hidden="true"></i>Preferencias y Descuentos</h4>
                             <p><strong>Forma Pago Pref.:</strong> <span id="sum-client-preferred-payment"></span></p>
-                            <p><strong>Descuento Total Histórico:</strong> <span id="sum-total-discounts-given" class="font-bold text-green-700"></span></p>
-                            {# Aquí podrías añadir un campo de descuento fijo si tu modelo Cliente/ClienteOnline lo tiene #}
-                            {# <p><strong>Descuento Fijo:</strong> <span id="sum-client-fixed-discount"></span></p> #}
+                            <p><strong>Descuento Total Histórico:</strong> <span id="sum-total-discounts-given" class="fw-bold text-success"></span></p>
                         </div>
                         <div class="summary-card">
-                            <h4><i class="fas fa-history mr-2 text-purple-500"></i>Último Pedido</h4>
+                            <h4><i class="fas fa-history me-2 text-primary" aria-hidden="true"></i>Último Pedido</h4>
                             <p><strong>ID Pedido:</strong> <span id="sum-last-order-id">N/A</span></p>
                             <p><strong>Fecha:</strong> <span id="sum-last-order-date">N/A</span></p>
                             <p><strong>Estado:</strong> <span id="sum-last-order-status">N/A</span></p>
@@ -486,38 +344,37 @@
                         </div>
                     </div>
 
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3"><i class="fas fa-clipboard-list mr-2 text-indigo-500"></i>Historial de Pedidos Recientes</h3>
-                    <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+                    <h5 class="mb-3"><i class="fas fa-clipboard-list me-2 text-primary" aria-hidden="true"></i>Historial de Pedidos Recientes</h5>
+                    <div class="table-responsive border rounded">
                         <table class="summary-table">
                             <thead>
                                 <tr>
                                     <th># Pedido</th>
                                     <th>Fecha</th>
                                     <th>Estado</th>
-                                    <th class="text-right">Total</th>
-                                    <th class="text-right">Descuento (%)</th>
-                                    <th class="text-right">Valor Dcto.</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Descuento (%)</th>
+                                    <th class="text-end">Valor Dcto.</th>
                                     <th>Vendedor</th>
                                 </tr>
                             </thead>
                             <tbody id="summary-order-history-tbody">
-                                <tr><td colspan="7" class="text-center text-gray-500 py-4">No hay pedidos recientes.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted py-4">No hay pedidos recientes.</td></tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3"><i class="fas fa-wallet mr-2 text-red-500"></i>Información de Cartera</h3>
+                    <h5 class="mt-4 mb-3"><i class="fas fa-wallet me-2 text-danger" aria-hidden="true"></i>Información de Cartera</h5>
                     <div id="summary-cartera-info" class="summary-card">
-                        <p class="text-gray-600">Cargando información de cartera...</p>
-                        {# Aquí se cargará dinámicamente la información de cartera #}
+                        <p class="text-muted">Cargando información de cartera...</p>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
-                <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300" id="btn-editar-cliente-online" style="display:none;">
-                    <i class="fas fa-edit mr-2"></i> Editar
+            <div class="modal-footer">
+                <button type="button" class="btn btn-info" id="btn-editar-cliente-online" style="display:none;">
+                    <i class="fas fa-edit me-2" aria-hidden="true"></i>Editar
                 </button>
-                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -526,52 +383,52 @@
 <!-- Modal para Editar Cliente Online -->
 <div class="modal fade" id="modalEditarClienteOnline" tabindex="-1" aria-labelledby="modalEditarClienteLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content rounded-xl shadow-xl">
-            <div class="modal-header bg-blue-600 text-white p-4 rounded-t-xl">
-                <h5 class="modal-title text-xl font-semibold" id="modalEditarClienteLabel">Editar Cliente Online</h5>
-                <button type="button" class="btn-close text-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalEditarClienteLabel">Editar Cliente Online</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-6">
+            <div class="modal-body">
                 <form id="form-editar-cliente">
                     {% csrf_token %}
                     <input type="hidden" id="edit-cliente-id" name="cliente_id" value="">
 
-                    <div class="mb-4">
-                        <label for="edit-cliente-nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                    <div class="mb-3">
+                        <label for="edit-cliente-nombre" class="form-label">Nombre Completo</label>
                         <input type="text" id="edit-cliente-nombre" class="form-control" readonly>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="edit-cliente-identificacion" class="block text-sm font-medium text-gray-700 mb-1">Identificación</label>
+                    <div class="mb-3">
+                        <label for="edit-cliente-identificacion" class="form-label">Identificación</label>
                         <input type="text" id="edit-cliente-identificacion" class="form-control" readonly>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="edit-cliente-telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <div class="mb-3">
+                        <label for="edit-cliente-telefono" class="form-label">Teléfono</label>
                         <input type="text" id="edit-cliente-telefono" name="telefono" class="form-control">
                     </div>
 
-                    <div class="mb-4">
-                        <label for="edit-cliente-email" class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                    <div class="mb-3">
+                        <label for="edit-cliente-email" class="form-label">Correo Electrónico</label>
                         <input type="email" id="edit-cliente-email" name="email" class="form-control">
                     </div>
 
-                    <div class="mb-4">
-                        <label for="edit-cliente-direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                    <div class="mb-3">
+                        <label for="edit-cliente-direccion" class="form-label">Dirección</label>
                         <input type="text" id="edit-cliente-direccion" name="direccion" class="form-control">
                     </div>
                 </form>
             </div>
-            <div class="modal-footer flex justify-end space-x-3 p-4 bg-gray-50 rounded-b-xl">
-                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-300" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300" id="btn-guardar-cambios-cliente">
-                    <i class="fas fa-save mr-2"></i> Guardar Cambios
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-cambios-cliente">
+                    <i class="fas fa-save me-2" aria-hidden="true"></i>Guardar Cambios
                 </button>
             </div>
         </div>
     </div>
 </div>
-</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -725,12 +582,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function renderizarGridTallas(variantes) {
-        let gridHtml = '<div class="flex flex-wrap gap-4 p-4 bg-gray-100 rounded-lg shadow-inner">';
+        let gridHtml = '<div class="d-flex flex-wrap gap-3 p-3 bg-light rounded border">';
         if (variantes.length === 0) {
-            gridHtml = '<p class="text-center text-gray-500 py-4 w-full">No hay variantes disponibles para esta referencia y color.</p>';
+            gridHtml = '<p class="text-center text-muted py-4 w-100">No hay variantes disponibles para esta referencia y color.</p>';
         } else {
             variantes.forEach(v => {
-                let stockClass = 'bg-emerald-500';
+                let stockClass = 'bg-success';
                 
                 // --- INICIO DE LA CORRECCIÓN ---
                 let isDisabled = '';
@@ -738,23 +595,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 let disabledDivClasses = 'bg-white'; // Clases para el div contenedor
 
                 if (v.stock_actual <= 0) {
-                    stockClass = 'bg-red-500';
+                    stockClass = 'bg-danger';
                     isDisabled = 'disabled'; // Añade el atributo disabled
-                    disabledInputClasses = 'bg-gray-100 cursor-not-allowed'; // Estilo de input deshabilitado
-                    disabledDivClasses = 'bg-gray-50 opacity-60'; // Atenúa todo el bloque de la talla
+                    disabledInputClasses = 'bg-light'; // Estilo de input deshabilitado
+                    disabledDivClasses = 'bg-light opacity-50'; // Atenúa todo el bloque de la talla
                 } 
                 // --- FIN DE LA CORRECCIÓN ---
                 else if (v.stock_actual <= 5) {
-                    stockClass = 'bg-amber-500 text-gray-900';
+                    stockClass = 'bg-warning text-dark';
                 }
 
                 gridHtml += `
-                    <div class="flex flex-col items-center p-2 border border-gray-200 rounded-md ${disabledDivClasses} shadow-sm">
-                        <label class="text-xs font-semibold text-gray-700 mb-1">Talla: ${v.talla}</label>
-                        <span class="px-2 py-1 ${stockClass} text-white rounded-full text-xs mb-1">Stock: ${v.stock_actual}</span>
+                    <div class="d-flex flex-column align-items-center p-2 border rounded ${disabledDivClasses} shadow-sm">
+                        <label class="small fw-semibold text-secondary mb-1">Talla: ${v.talla}</label>
+                        <span class="badge ${stockClass} rounded-pill mb-1">Stock: ${v.stock_actual}</span>
                         <input 
                             type="number" 
-                            class="w-20 px-2 py-1 border border-gray-300 rounded-md text-center text-sm focus:ring-blue-500 focus:border-blue-500 input-cantidad-talla ${disabledInputClasses}" 
+                            class="form-control form-control-sm text-center input-cantidad-talla ${disabledInputClasses}" 
+                            style="width: 5rem;" 
                             min="0" 
                             max="${v.stock_actual}" 
                             placeholder="Cant." 
@@ -764,7 +622,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         >
                     </div>`;
             });
-            gridHtml += `</div><button type="button" id="btn-add-linea" class="mt-4 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">Agregar al Pedido</button>`;
+            gridHtml += `</div><button type="button" id="btn-add-linea" class="btn btn-primary mt-3">Agregar al Pedido</button>`;
         }
         tallasGridContainer.html(gridHtml).show();
     }
@@ -808,18 +666,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     hiddenInputsContainer.append(`<input type="hidden" name="precio_${p.id}" value="${detalle.precioUnitario}">`);
                 });
                 subtotalConIva += subtotalLinea;
-                const row = `<tr data-key="${key}" class="hover:bg-gray-50">
-                        <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${detalle.ref}</td>
-                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${detalle.color}</td>
-                        <td class="px-4 py-2 text-sm text-gray-700">${tallasStr.join(', ')}</td>
-                        <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-gray-700">
-                            <input type="number" class="w-24 px-2 py-1 border border-gray-300 rounded-md text-right text-sm input-precio-linea" value="${Math.round(detalle.precioUnitario)}">
+                const row = `<tr data-key="${key}">
+                        <td class="fw-medium">${detalle.ref}</td>
+                        <td>${detalle.color}</td>
+                        <td>${tallasStr.join(', ')}</td>
+                        <td class="text-end">
+                            <input type="number" class="form-control form-control-sm text-end input-precio-linea" style="width: 6rem; display:inline-block;" value="${Math.round(detalle.precioUnitario)}">
                         </td>
-                        <td class="px-4 py-2 whitespace-nowrap text-center text-sm text-gray-700">${cantTotal}</td>
-                        <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-gray-900 font-semibold">${formatCurrency(subtotalLinea)}</td>
-                        <td class="px-4 py-2 whitespace-nowrap text-center text-sm">
-                            <button type="button" class="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 btn-eliminar-linea">
-                                <i class="fas fa-trash"></i>
+                        <td class="text-center">${cantTotal}</td>
+                        <td class="text-end fw-semibold">${formatCurrency(subtotalLinea)}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-danger btn-sm btn-eliminar-linea" title="Eliminar">
+                                <i class="fas fa-trash" aria-hidden="true"></i>
                             </button>
                         </td>
                     </tr>`;
@@ -937,15 +795,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const detallesExistentes = JSON.parse('{{ detalles_existentes_json|safe }}');
         if (detallesExistentes.length === 0) return;
         
-        // Cargar cliente inicial si existe
-        const clienteInicialPK = {{ form.instance.cliente_online.pk|default:'null' }};
+        // Cargar cliente inicial si existe.
+        // Prioridad 1: edición de un borrador (form.instance).
+        // Prioridad 2: POST fallido (p. ej. stock insuficiente) -> datos reenviados por la vista.
+        let clienteInicialPK = {{ form.instance.cliente_online.pk|default:'null' }};
+        let clienteText = '';
         if (clienteInicialPK) {
             const clienteNombre = '{{ form.instance.cliente_online.nombre_completo|default:'' }}';
             const clienteIdentificacion = '{{ form.instance.cliente_online.identificacion|default:'' }}';
-            const clienteTipo = '{{ form.instance.cliente_online.tipo_cliente|default:'' }}';
+            clienteText = `[Online] ${clienteNombre} (${clienteIdentificacion})`;
+        } else {
+            // Datos recuperados del POST fallido (vacíos si no aplica)
+            const clientePostPK = '{{ cliente_post_pk|default:'' }}';
+            const clientePostText = '{{ cliente_post_text|escapejs }}';
+            if (clientePostPK) {
+                clienteInicialPK = clientePostPK;
+                clienteText = clientePostText;
+            }
+        }
 
-            const clienteText = `[Online] ${clienteNombre} (${clienteIdentificacion})`;
-            const clienteData = { tipo_cliente: clienteTipo };
+        if (clienteInicialPK) {
             const clienteId = `online_${clienteInicialPK}`;
 
             // Crear y seleccionar la opción para Select2
@@ -953,8 +822,8 @@ document.addEventListener('DOMContentLoaded', function() {
             clienteSelector.append(newOption).trigger('change');
 
             // Actualizar el estado y el input oculto
-            state.cliente = { id: clienteId, text: clienteText, data: clienteData };
-            clienteFormHiddenInput.val(clienteInicialPK); // Usar el nuevo selector
+            state.cliente = { id: clienteId, text: clienteText, data: {} };
+            clienteFormHiddenInput.val(clienteInicialPK);
         }
 
         // Cargar detalles de productos existentes
@@ -1090,29 +959,29 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td>${order.id}</td>
                             <td>${order.fecha_hora}</td>
                             <td>${order.estado}</td>
-                            <td class="text-right">${formatCurrency(order.total_a_pagar)}</td>
-                            <td class="text-right">${order.descuento_aplicado}%</td>
-                            <td class="text-right">${formatCurrency(order.valor_descuento_total)}</td>
+                            <td class="text-end">${formatCurrency(order.total_a_pagar)}</td>
+                            <td class="text-end">${order.descuento_aplicado}%</td>
+                            <td class="text-end">${formatCurrency(order.valor_descuento_total)}</td>
                             <td>${order.vendedor}</td>
                         </tr>
                     `;
                     summaryOrderHistoryTbody.append(row);
                 });
             } else {
-                summaryOrderHistoryTbody.append('<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay pedidos recientes.</td></tr>');
+                summaryOrderHistoryTbody.append('<tr><td colspan="7" class="text-center text-muted py-4">No hay pedidos recientes.</td></tr>');
             }
 
             // Rellenar información de cartera (si está disponible)
             if (data.cartera_info && data.cartera_info.documentos) {
                 let carteraHtml = `
-                    <p><strong>Saldo Total:</strong> <span class="font-bold">${formatCurrency(data.cartera_info.saldo_total)}</span></p>
-                    <p><strong>Saldo Vencido:</strong> <span class="font-bold ${data.cartera_info.saldo_vencido > 0 ? 'text-red-600' : 'text-green-600'}">${formatCurrency(data.cartera_info.saldo_vencido)}</span></p>
+                    <p><strong>Saldo Total:</strong> <span class="fw-bold">${formatCurrency(data.cartera_info.saldo_total)}</span></p>
+                    <p><strong>Saldo Vencido:</strong> <span class="fw-bold ${data.cartera_info.saldo_vencido > 0 ? 'text-danger' : 'text-success'}">${formatCurrency(data.cartera_info.saldo_vencido)}</span></p>
                     <p><strong>Máx. Días Mora:</strong> ${data.cartera_info.max_dias_mora}</p>
                 `;
                 if (data.cartera_info.documentos.length > 0) {
                     carteraHtml += `
-                        <h5 class="text-md font-semibold text-gray-700 mt-4 mb-2">Documentos Pendientes:</h5>
-                        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+                        <h6 class="fw-semibold text-secondary mt-4 mb-2">Documentos Pendientes:</h6>
+                        <div class="table-responsive border rounded">
                             <table class="summary-table">
                                 <thead>
                                     <tr>
@@ -1120,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <th>Número</th>
                                         <th>Fecha Doc.</th>
                                         <th>Fecha Ven.</th>
-                                        <th class="text-right">Saldo</th>
+                                        <th class="text-end">Saldo</th>
                                         <th class="text-center">Mora</th>
                                     </tr>
                                 </thead>
@@ -1128,12 +997,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                     data.cartera_info.documentos.forEach(doc => {
                         carteraHtml += `
-                            <tr class="${doc.esta_vencido ? 'bg-red-50' : ''}">
+                            <tr class="${doc.esta_vencido ? 'table-danger' : ''}">
                                 <td>${doc.tipo}</td>
                                 <td>${doc.numero}</td>
                                 <td>${doc.fecha_doc}</td>
                                 <td>${doc.fecha_ven}</td>
-                                <td class="text-right">${formatCurrency(doc.saldo)}</td>
+                                <td class="text-end">${formatCurrency(doc.saldo)}</td>
                                 <td class="text-center">${doc.dias_mora}</td>
                             </tr>
                         `;
@@ -1144,11 +1013,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     `;
                 } else {
-                    carteraHtml += '<p class="text-green-600 mt-4"><i class="fas fa-check-circle mr-1"></i>No hay documentos de cartera pendientes.</p>';
+                    carteraHtml += '<p class="text-success mt-4"><i class="fas fa-check-circle me-1" aria-hidden="true"></i>No hay documentos de cartera pendientes.</p>';
                 }
                 summaryCarteraInfo.html(carteraHtml);
             } else {
-                summaryCarteraInfo.html('<p class="text-gray-500">No hay información de cartera disponible.</p>');
+                summaryCarteraInfo.html('<p class="text-muted">No hay información de cartera disponible.</p>');
             }
 
         })
@@ -1156,11 +1025,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Error al obtener el resumen del cliente:", error);
             summaryLoadingIndicator.hide();
             summaryContent.show();
-            summaryContent.html(`<div class="text-center py-8 text-red-600">
-                                    <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
-                                    <p class="text-lg">Error al cargar el resumen del cliente.</p>
-                                    <p class="text-sm">${error.message}</p>
-                                    <p class="text-sm mt-2">Por favor, inténtalo de nuevo más tarde o contacta a soporte.</p>
+            summaryContent.html(`<div class="text-center py-5 text-danger">
+                                    <i class="fas fa-exclamation-triangle fa-3x mb-3" aria-hidden="true"></i>
+                                    <p class="fs-5">Error al cargar el resumen del cliente.</p>
+                                    <p class="small">${error.message}</p>
+                                    <p class="small mt-2">Por favor, inténtalo de nuevo más tarde o contacta a soporte.</p>
                                 </div>`);
         });
     });

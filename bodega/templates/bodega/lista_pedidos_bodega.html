@@ -129,8 +129,8 @@
                                     <a href="{% url 'bodega:despacho_pedido' pk=pedido.pk %}" class="btn btn-sm btn-primary rounded-pill shadow-sm ms-1" title="Scanner">
                                         <i class="fas fa-barcode"></i>
                                     </a>
-                                    <a href="{% url 'pedidos:generar_pedido_pdf' pedido.pk %}" class="btn btn-sm btn-info rounded-pill shadow-sm ms-1 text-white" title="Descargar PDF">
-                                        <i class="fas fa-file-pdf"></i>
+                                    <a href="{% url 'pedidos:generar_pedido_bodega_pdf' pedido.pk %}" class="btn btn-sm btn-dark rounded-pill shadow-sm ms-1 text-white" title="Imprimir para Bodega">
+                                        <i class="fas fa-print"></i>
                                     </a>
 
                                     <!-- Botón Finalizar Incompleto -->

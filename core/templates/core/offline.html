@@ -1,26 +1,35 @@
+ne · HTML
 {% extends 'core/base.html' %}
 {% load static %}
-
-{% block page_title %}Sin Conexión {% endblock %}
-
+ 
+{% block page_title %}Sin Conexión{% endblock %}
+ 
 {% block content %}
 <div class="container mt-5 text-center">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-body p-5">
-                    <i class="fas fa-wifi-slash fa-4x text-danger mb-4"></i>
+                    <i class="fas fa-wifi fa-4x text-danger mb-4" aria-hidden="true"></i>
                     <h1 class="display-5 fw-bold">No tienes conexión a internet</h1>
                     <p class="lead text-muted mt-3">
-                        Parece que estás sin conexión. No te preocupes, aún puedes acceder a las páginas que hayas visitado recientemente.
+                        Parece que estás sin conexión. No te preocupes, aún puedes acceder
+                        a las páginas que hayas visitado recientemente.
                     </p>
-                    <a href="{% url 'core:index' %}" class="btn btn-primary btn-lg mt-4">
-                        <i class="fas fa-home me-2"></i>
-                        Ir a la página de inicio
-                    </a>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="window.location.reload()">
+                            <i class="fas fa-rotate-right me-2" aria-hidden="true"></i>
+                            Reintentar
+                        </button>
+                        <a href="{% url 'core:index' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-home me-2" aria-hidden="true"></i>
+                            Ir a la página de inicio
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock content %}
+ 

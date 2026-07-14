@@ -5,82 +5,131 @@
 <head>
     <meta charset="UTF-8">
     <title>Pedido N° {{ pedido.numero_pedido_empresa }} - {{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</title>
-   <style type="text/css">
+    <style type="text/css">
         @page {
             size: letter;
-            /* Se definen los márgenes de forma individual para mayor control */
             margin-top: 1cm;
-            margin-bottom: 1cm;
+            margin-bottom: 1.4cm;
             margin-left: 1.5cm;
             margin-right: 1.5cm;
 
             @frame footer {
                 -pdf-frame-content: footer-content;
-                bottom: 0cm;
-                margin-top: 0cm;
+                bottom: 0.5cm;
                 margin-left: 1.5cm;
                 margin-right: 1.5cm;
                 height: 1cm;
             }
         }
-        body { 
-            font-family: "Helvetica", Arial, sans-serif; 
-            font-size: 9pt; 
-            line-height: 1.3; 
-            margin: 0 !important; /* Forza la anulación del margen */
+
+        body {
+            font-family: "Helvetica", Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #222222;
+            margin: 0 !important;
         }
+
         h1, h2, h3 { font-weight: bold; margin: 0; padding: 0; color: #000000; }
-        h1 { font-size: 18pt; margin-bottom: 15px; text-align: right; color: #FF0000; }
-        h2 { font-size: 14pt; margin-bottom: 10px; border-bottom: 1px solid #4A90E2; padding-bottom: 3px; color: #4A90E2; }
-        h3 { font-size: 11pt; margin-bottom: 5px; }
+        h1 { font-size: 20pt; margin-bottom: 12px; text-align: right; color: #C00000; }
+        h2 {
+            font-size: 12pt;
+            margin-top: 6px;
+            margin-bottom: 8px;
+            background-color: #4A90E2;
+            color: #FFFFFF;
+            padding: 4px 8px;
+        }
+        h3 { font-size: 10.5pt; margin-bottom: 4px; color: #4A90E2; }
+
         p { margin: 0 0 3px 0; }
+
         table { border-collapse: collapse; width: 100%; }
-        .info-table td { padding: 0; vertical-align: top; }
-        .items-table { margin-bottom: 15px; }
-        .items-table th, .items-table td { border: 1px solid #CCCCCC; padding: 2px 2px; text-align: center; font-size: 8.5pt; }
-        .items-table thead th { background-color: #F5F5F5; font-weight: bold; text-align: center; }
+
+        /* Cabecera (logo + empresa) */
+        .header-table td { border: 0; vertical-align: middle; }
+
+        /* Bloque de datos cliente / pedido */
+        .info-table td {
+            padding: 8px 10px;
+            vertical-align: top;
+            background-color: #F7F9FC;
+            border: 1px solid #E2E8F0;
+        }
+        .info-label { color: #555555; }
+
+        /* Tabla de ítems */
+        .items-table { margin-bottom: 6px; }
+        .items-table th, .items-table td {
+            border: 1px solid #CCCCCC;
+            padding: 3px 4px;
+            text-align: center;
+            font-size: 8.5pt;
+        }
+        .items-table thead th {
+            background-color: #EAF1FB;
+            color: #1F3A5F;
+            font-weight: bold;
+        }
+        .items-table tbody tr.even td { background-color: #F7F9FC; }
+        .items-table .ref-cell { font-weight: bold; text-align: left; }
+        .items-table .color-cell { text-align: left; }
+
         .text-right { text-align: right; }
         .text-center { text-align: center; }
-        .totals-section { page-break-inside: avoid; margin-top: 15px; padding-top: 5px; } /* Se quitó el borde superior */
-        .totals-table { width: 50%; margin-left: 50%; font-size: 9pt; }
-        .totals-table td { border: none; padding: 2px 5px; text-align: right; }
-        .totals-table .label { text-align: right; color: #555555; padding-right: 10px; }
-        .totals-table .value { font-weight: bold; }
-        .grand-total { font-size: 11pt; padding-top: 5px; } /* Se quitó el borde y el fondo */
-        .notes-section { margin-top: 15px; page-break-inside: avoid; }
+
+        /* Totales */
+        .totals-section { page-break-inside: avoid; margin-top: 12px; }
+        .totals-table { width: 45%; margin-left: 55%; font-size: 9pt; }
+        .totals-table td { border: 0; padding: 3px 6px; }
+        .totals-table .label { text-align: right; color: #555555; padding-right: 12px; }
+        .totals-table .value { text-align: right; font-weight: bold; width: 38%; }
+        .totals-table tr.subtotal-row td { border-top: 1px solid #DDDDDD; }
+        .totals-table tr.grand-total td {
+            font-size: 12pt;
+            background-color: #4A90E2;
+            color: #FFFFFF;
+            padding: 6px 6px;
+        }
+        .totals-table tr.grand-total .label { color: #FFFFFF; }
+
+        /* Enlace fotos y notas */
+        .seccion-enlace-fotos { margin-top: 14px; page-break-inside: avoid; }
+        .notes-section {
+            margin-top: 14px;
+            page-break-inside: avoid;
+            background-color: #FFFDF5;
+            border: 1px solid #EAD9A0;
+            padding: 8px 10px;
+        }
     </style>
 </head>
 <body>
 
-   
-    <div id="footer-content" style="text-align: center; font-size: 8pt; color: #555;">
-        Página <pdf:pagecount /> de <pdf:totalPages />
+    <div id="footer-content" style="text-align: center; font-size: 8pt; color: #555555;">
+        Página <pdf:pagenumber /> de <pdf:pagecount />
     </div>
 
     <!-- Cabecera con logo y datos de empresa -->
-    <table style="width: 100%; border: 0; margin-bottom: 10px;">
+    <table class="header-table" style="margin-bottom: 10px;">
         <tr>
-            <td style="width: 50%; text-align: left; vertical-align: middle;">
-                 {% if logo_base64 %}
-                    <img src="{{ logo_base64 }}" alt="Logo" style="max-height: 20px; max-width: 100px;">
+            <td style="width: 45%; text-align: left;">
+                {% if logo_base64 %}
+                    <img src="{{ logo_base64 }}" alt="Logo" style="width: 130px;">
                 {% endif %}
             </td>
-            <td style="width: 50%; text-align: right; vertical-align: middle; font-size: 8pt; line-height: 1.2;">
+            <td style="width: 55%; text-align: right; font-size: 8pt; line-height: 1.25;">
             {% if empresa_actual %}
-                <p style="font-size: 10pt; font-weight: bold; margin-bottom: 5px;">{{ empresa_actual.nombre }}</p>
-                
+                <p style="font-size: 11pt; font-weight: bold; margin-bottom: 4px; color: #000000;">{{ empresa_actual.nombre }}</p>
                 {% if empresa_actual.nit %}
-                    <p>NIT: {{ empresa_actual.nit }} {% if empresa_actual.responsable_de_iva %} - Responsable de IVA{% endif %}</p>
+                    <p>NIT: {{ empresa_actual.nit }}{% if empresa_actual.responsable_de_iva %} - Responsable de IVA{% endif %}</p>
                 {% endif %}
-                
                 {% if empresa_actual.direccion %}
                     <p>{{ empresa_actual.direccion }}{% if empresa_actual.ciudad %}, {{ empresa_actual.ciudad.nombre }}{% endif %}</p>
                 {% endif %}
-
                 {% if empresa_actual.telefono %}
                     <p>Tel: {{ empresa_actual.telefono }}</p>
                 {% endif %}
-                
                 {% if empresa_actual.correo_electronico %}
                     <p>Email: {{ empresa_actual.correo_electronico }}</p>
                 {% endif %}
@@ -91,28 +140,25 @@
 
     <h1>Pedido N° {{ pedido.numero_pedido_empresa }}</h1>
 
-    <table class="info-table" style="margin-bottom: 20px;">
+    <!-- Datos cliente / pedido -->
+    <table class="info-table" style="margin-bottom: 18px;">
         <tr>
-            <td style="width: 60%; padding-right: 15px;">
+            <td style="width: 58%;">
                 <h3>{% if pedido.prospecto %}Datos del Prospecto{% else %}Cliente{% endif %}</h3>
-                <p><strong>Nombre:</strong> {{ pedido.destinatario.nombre_completo|default:"N/A" }}</p>
-                <p><strong>ID:</strong> {{ pedido.destinatario.identificacion|default:"N/A" }}</p>
-                <p><strong>Teléfono:</strong> {{ pedido.destinatario.telefono|default:"N/A" }}</p>
-                <p><strong>Dirección:</strong> {{ pedido.destinatario.direccion|default:"" }}{% if pedido.destinatario.ciudad %}, {{ pedido.destinatario.ciudad.nombre }}{% endif %}</p>
+                <p><span class="info-label">Nombre:</span> <strong>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</strong></p>
+                <p><span class="info-label">ID:</span> {{ pedido.destinatario.identificacion|default:"N/A" }}</p>
+                <p><span class="info-label">Teléfono:</span> {{ pedido.destinatario.telefono|default:"N/A" }}</p>
+                <p><span class="info-label">Dirección:</span> {{ pedido.destinatario.direccion|default:"" }}{% if pedido.destinatario.ciudad %}, {{ pedido.destinatario.ciudad.nombre }}{% endif %}</p>
             </td>
-            <td style="width: 40%; padding-left: 15px;">
+            <td style="width: 42%;">
                 <h3>Datos del Pedido</h3>
-                <p><strong>Fecha:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
-                <p><strong>Vendedor:</strong> {{ pedido.vendedor|default:"N/A" }}</p>
-                <p><strong>Estado:</strong> {{ pedido.get_estado_display|default:pedido.estado }}</p>
-                <p><strong>Forma de Pago:</strong> {{ pedido.get_forma_pago_display|default:"N/A" }}</p>
+                <p><span class="info-label">Fecha:</span> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</p>
+                <p><span class="info-label">Vendedor:</span> {{ pedido.vendedor|default:"N/A" }}</p>
+                <p><span class="info-label">Estado:</span> {{ pedido.get_estado_display|default:pedido.estado }}</p>
+                <p><span class="info-label">Forma de Pago:</span> {{ pedido.get_forma_pago_display|default:"N/A" }}</p>
             </td>
         </tr>
     </table>
-
-
-
-{# --- Tabla de Detalles --- #}
 
     {# --- INICIO: BUCLE DINÁMICO DE SECCIONES --- #}
     {% for seccion in secciones_procesadas %}
@@ -122,12 +168,10 @@
                 <tr>
                     <th rowspan="2">Ref.</th>
                     {% if incluir_color %}<th rowspan="2">Color</th>{% endif %}
-    
                     <th colspan="{{ seccion.tallas_cols|length }}" class="text-center">Tallas</th>
-    
                     <th rowspan="2" class="text-center">Total</th>
                     {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Vr. Unit</th>{% endif %}
-                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">VALOR</th>{% endif %}
+                    {% if incluir_vr_unit %}<th rowspan="2" class="text-right">Valor</th>{% endif %}
                 </tr>
                 <tr>
                     {% for talla in seccion.tallas_cols %}
@@ -137,13 +181,13 @@
             </thead>
             <tbody>
                 {% for grupo in seccion.grupos %}
-                <tr>
-                    <td>{{ grupo.ref }}</td>
-                    {% if incluir_color %}<td>{{ grupo.color }}</td>{% endif %}
+                <tr class="{% cycle 'odd' 'even' %}">
+                    <td class="ref-cell">{{ grupo.ref }}</td>
+                    {% if incluir_color %}<td class="color-cell">{{ grupo.color }}</td>{% endif %}
                     {% for cantidad in grupo.tallas_cantidades %}
                         <td class="text-center">{% if cantidad > 0 %}{{ cantidad|intcomma }}{% else %}&nbsp;{% endif %}</td>
                     {% endfor %}
-                    <td class="text-center">{{ grupo.cantidad_total|intcomma }}</td>
+                    <td class="text-center"><strong>{{ grupo.cantidad_total|intcomma }}</strong></td>
                     {% if incluir_vr_unit %}<td class="text-right">${{ grupo.precio_unitario|floatformat:0|intcomma }}</td>{% endif %}
                     {% if incluir_vr_unit %}<td class="text-right">${{ grupo.subtotal_total|floatformat:0|intcomma }}</td>{% endif %}
                 </tr>
@@ -152,12 +196,10 @@
         </table>
     {% endfor %}
     {# --- FIN: BUCLE DINÁMICO DE SECCIONES --- #}
-    
-    {# --- Mensaje si NINGUNA sección tuvo items --- #}
+
     {% if not secciones_procesadas %}
         <p style="text-align: center; padding: 15px;">Este pedido no tiene detalles válidos para mostrar.</p>
     {% endif %}
-
 
     {# --- Sección de Totales --- #}
     <div class="totals-section">
@@ -165,10 +207,10 @@
             <tbody>
                 <tr>
                     <td class="label">Cantidad Total:</td>
-                    <td class="value">{{ pedido.total_cantidad_productos|floatformat:0|intcomma }}&nbsp;Und.</td>
+                    <td class="value">{{ pedido.total_cantidad_productos|floatformat:0|intcomma }} Und.</td>
                 </tr>
-                {% if incluir_vr_unit %} {# AQUI: CONDICION PARA MOSTRAR TOTALES FINANCIEROS #}
-                <tr>
+                {% if incluir_vr_unit %}
+                <tr class="subtotal-row">
                     <td class="label">Subtotal Bruto (Sin IVA):</td>
                     <td class="value">${{ pedido.subtotal_base_bruto|floatformat:0|intcomma }}</td>
                 </tr>
@@ -196,39 +238,28 @@
                     <td class="value">{{ pedido.total_cantidad_productos|floatformat:0|intcomma }}</td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="text-align: center; font-style: italic; color: #888;">Precios no incluidos en este documento.</td>
+                    <td colspan="2" style="text-align: center; font-style: italic; color: #888888; padding-top: 4px;">Precios no incluidos en este documento.</td>
                 </tr>
-                {% endif %} {# FIN DE LA CONDICION PARA MOSTRAR TOTALES FINANCIEROS #}
+                {% endif %}
             </tbody>
         </table>
     </div>
+
     {% if enlace_descarga_fotos_pdf %}
     <div class="seccion-enlace-fotos">
-        <h3>Fotos de Referencias del Pedido:</h3>
-        <p>
-            Para descargar las imágenes de las referencias incluidas en este pedido,
-            por favor visita el siguiente enlace (o cópialo y pégalo en tu navegador):
-        </p>
-        <p>
-            <a href="{{ enlace_descarga_fotos_pdf }}">{{ enlace_descarga_fotos_pdf }}</a>
-        </p>
-        <p style="font-size: 8pt; color: #666666;">
-            <em>Nota: Este enlace es único para tu pedido.</em>
-        </p>
+        <h3>Fotos de Referencias del Pedido</h3>
+        <p>Para descargar las imágenes de las referencias incluidas en este pedido, visita el siguiente enlace (o cópialo y pégalo en tu navegador):</p>
+        <p><a href="{{ enlace_descarga_fotos_pdf }}">{{ enlace_descarga_fotos_pdf }}</a></p>
+        <p style="font-size: 8pt; color: #666666;"><em>Nota: Este enlace es único para tu pedido.</em></p>
     </div>
     {% endif %}
 
-    {# --- Sección de Notas --- #}
     {% if pedido.notas %}
     <div class="notes-section">
-        <h3>Observaciones:</h3>
+        <h3>Observaciones</h3>
         <p>{{ pedido.notas|linebreaksbr }}</p>
     </div>
     {% endif %}
-
-    <div id="footer_content">
-
-    </div>
 
 </body>
 </html>
