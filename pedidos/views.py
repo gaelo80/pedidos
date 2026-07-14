@@ -1013,7 +1013,10 @@ def vista_lista_pedidos_borrador(request):
     queryset, titulo = Pedido.objects.none(), 'Mis Pedidos Borrador'
     es_admin = es_administracion(user) or user.is_superuser
     
-    base_queryset = Pedido.objects.filter(empresa=empresa_actual, estado='BORRADOR')
+    base_queryset = Pedido.objects.filter(
+        empresa=empresa_actual,
+        estado='BORRADOR'
+    ).exclude(tipo_pedido='ONLINE')
     
     if es_admin:
         queryset, titulo = base_queryset, 'Todos los Pedidos Borrador'
