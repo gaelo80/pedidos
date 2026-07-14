@@ -21,7 +21,7 @@ class EmpresaAdmin(ImportExportModelAdmin):
         }),
         ('Personalización y Web', {
             # 'logo' para el navbar, 'banner_inicio' para el banner del index.
-            'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web')
+            'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web', 'usa_shopify')
         }),
         ('Configuración de Pedidos y Tallas', {
             'description': 'Aquí se configuran los mapeos y categorías de tallas para esta empresa.',
@@ -33,9 +33,6 @@ class EmpresaAdmin(ImportExportModelAdmin):
             'fields': ('activo', 'responsable_de_iva')
         }),
 
-        ('Personalización y Web', {
-            'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web', 'usa_shopify')
-        }),
     )
     
     readonly_fields = ('fecha_creacion', 'preview_banner')
