@@ -2,212 +2,218 @@
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block page_title %}{{ titulo|default:"Subir Fotos para Artículos" }}{% endblock page_title %} {# Usar page_title #}
+{% block page_title %}{{ titulo|default:"Subir Fotos para Artículos" }}{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>{{ titulo|default:"Subir Fotos" }}</h1>
-    <div class="row">
+<div class="mb-5">
+
+    {# ---------- Encabezado ---------- #}
+    <div class="row align-items-center mb-4">
         <div class="col-md-8">
-            {# <h1 class="mb-3">{{ titulo }}</h1> #}
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-images me-2"></i> Subir Fotos de Productos
+            </h1>
+            <p class="lead text-secondary mb-0">Gestiona las fotos agrupadas por referencia y color.</p>
         </div>
-        <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Panel
             </a>
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
     <form method="post" enctype="multipart/form-data" id="foto-upload-form">
         {% csrf_token %}
 
-        <div class="mb-4 p-3 border bg-light rounded">
-            <h5 class="mb-3">1. Seleccionar o Crear Agrupación</h5>
-            <div class="mb-3">
-                <label for="{{ form.articulo_color.id_for_label }}" class="form-label fw-bold">
+        {# ---------- Paso 1: Seleccionar agrupación ---------- #}
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i> 1. Seleccionar Referencia y Color</h5>
+            </div>
+            <div class="card-body p-4">
+                <label for="{{ form.articulo_color.id_for_label }}" class="form-label fw-semibold">
                     {{ form.articulo_color.label }}
                 </label>
                 {{ form.articulo_color }}
                 {% if form.articulo_color.errors %}
                     <div class="text-danger small mt-1">
-                        {% for error in form.articulo_color.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
+                        {% for error in form.articulo_color.errors %}{{ error }}<br>{% endfor %}
                     </div>
                 {% endif %}
-                <div class="form-text">{{ form.articulo_color.help_text }}</div>
+                {% if form.articulo_color.help_text %}
+                    <div class="form-text">{{ form.articulo_color.help_text }}</div>
+                {% endif %}
             </div>
         </div>
 
-        {# Sección para subir nuevas fotos #}
-        <div class="mb-4 p-3 border bg-light rounded">
-            <h5 class="mb-3">2. Subir Nuevas Fotos</h5>
-            <div class="mb-3">
-                <label for="{{ form.imagenes.id_for_label }}" class="form-label fw-bold">
-                    {{ form.imagenes.label }}
-                </label>
-                {{ form.imagenes }}
-                {% if form.imagenes.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.imagenes.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                <div class="form-text">{{ form.imagenes.help_text }}</div>
+        {# ---------- Paso 2: Subir nuevas fotos ---------- #}
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-success text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2"></i> 2. Subir Nuevas Fotos</h5>
             </div>
-
-            <div class="mb-3">
-                <label for="{{ form.descripcion_general.id_for_label }}" class="form-label fw-bold">
-                    {{ form.descripcion_general.label }}
-                </label>
-                {{ form.descripcion_general }}
-                {% if form.descripcion_general.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.descripcion_general.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                <div class="form-text">{{ form.descripcion_general.help_text }}</div>
-            </div>
-        </div>
-
-        {# Sección para gestionar fotos existentes (usando el formset) #}
-        <div id="fotos-existentes-section" class="mb-4 p-3 border bg-light rounded" 
-             style="display: {% if formset or fotos_existentes %}block{% else %}none{% endif %};">
-            <h5 class="mb-3">3. Fotos Existentes para esta Agrupación</h5>
-            <div id="formset-container">
-                {# Management form es CRÍTICO para formsets #}
-                {{ formset.management_form }}
-                <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
-                    {% for sub_form in formset %}
-                        <div class="col" id="foto-form-{{ forloop.counter0 }}">
-                            <div class="card h-100 shadow-sm">
-                                <div class="card-body d-flex flex-column">
-                                    {# Muestra la imagen actual #}
-                                    {% if sub_form.instance.imagen %}
-                                        <img src="{{ sub_form.instance.imagen.url }}" class="img-fluid mb-2 rounded" alt="Foto de Producto" style="max-height: 150px; object-fit: cover; width: 100%;">
-                                    {% else %}
-                                        <div class="text-center text-muted mb-2 py-4 border rounded">No hay imagen</div>
-                                    {% endif %}
-
-                                    {# Campos del formulario para cada foto #}
-                                    <div class="mb-2">
-                                        <label for="{{ sub_form.imagen.id_for_label }}" class="form-label small">Cambiar Imagen:</label>
-                                        {{ sub_form.imagen }}
-                                        {% for error in sub_form.imagen.errors %}
-                                            <div class="text-danger small">{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="mb-2">
-                                        <label for="{{ sub_form.descripcion_foto.id_for_label }}" class="form-label small">Descripción:</label>
-                                        {{ sub_form.descripcion_foto }}
-                                        {% for error in sub_form.descripcion_foto.errors %}
-                                            <div class="text-danger small">{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="mb-2" style="width: 100px;">
-                                        <label for="{{ sub_form.orden.id_for_label }}" class="form-label small">Orden:</label>
-                                        {{ sub_form.orden }}
-                                        {% for error in sub_form.orden.errors %}
-                                            <div class="text-danger small">{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-
-                                    {# Campo oculto para el ID de la instancia de FotoProducto #}
-                                    {{ sub_form.id }} 
-
-                                    {# Checkbox para eliminar #}
-                                    <div class="form-check mt-auto pt-2 border-top">
-                                        {{ sub_form.DELETE }}
-                                        <label class="form-check-label" for="{{ sub_form.DELETE.id_for_label }}">
-                                            Eliminar foto
-                                        </label>
-                                        {% for error in sub_form.DELETE.errors %}
-                                            <div class="text-danger small">{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
+            <div class="card-body p-4">
+                <div class="mb-3">
+                    <label for="{{ form.imagenes.id_for_label }}" class="form-label fw-semibold">
+                        {{ form.imagenes.label }}
+                    </label>
+                    {{ form.imagenes }}
+                    {% if form.imagenes.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.imagenes.errors %}{{ error }}<br>{% endfor %}
                         </div>
-                    {% endfor %}
+                    {% endif %}
+                    {% if form.imagenes.help_text %}
+                        <div class="form-text">{{ form.imagenes.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                {# Previsualización de imágenes nuevas (antes de subir) #}
+                <div id="preview-nuevas" class="row row-cols-2 row-cols-md-4 g-3 mb-3"></div>
+
+                <div class="mb-0">
+                    <label for="{{ form.descripcion_general.id_for_label }}" class="form-label fw-semibold">
+                        {{ form.descripcion_general.label }}
+                    </label>
+                    {{ form.descripcion_general }}
+                    {% if form.descripcion_general.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.descripcion_general.errors %}{{ error }}<br>{% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if form.descripcion_general.help_text %}
+                        <div class="form-text">{{ form.descripcion_general.help_text }}</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-lg mt-3">
-            <i class="fas fa-upload"></i> Guardar Todas las Fotos y Cambios
-        </button>
+        {# ---------- Paso 3: Fotos existentes ---------- #}
+        <div id="fotos-existentes-section" class="card shadow-lg border-0 rounded-3 mb-4"
+             style="display: {% if formset or fotos_existentes %}block{% else %}none{% endif %};">
+            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-photo-video me-2"></i> 3. Fotos Existentes de esta Agrupación</h5>
+            </div>
+            <div class="card-body p-4">
+                <div id="formset-container">
+                    {{ formset.management_form }}
+                    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
+                        {% for sub_form in formset %}
+                            <div class="col" id="foto-form-{{ forloop.counter0 }}">
+                                <div class="card h-100 shadow-sm border-0 rounded-3">
+                                    <div class="card-body d-flex flex-column">
+                                        {% if sub_form.instance.imagen %}
+                                            <img src="{{ sub_form.instance.imagen.url }}" class="img-fluid mb-2 rounded" alt="Foto de Producto" style="max-height: 150px; object-fit: cover; width: 100%;">
+                                        {% else %}
+                                            <div class="text-center text-muted mb-2 py-4 border rounded">Sin imagen</div>
+                                        {% endif %}
+
+                                        <div class="mb-2">
+                                            <label for="{{ sub_form.imagen.id_for_label }}" class="form-label small fw-semibold">Cambiar imagen:</label>
+                                            {{ sub_form.imagen }}
+                                            {% for error in sub_form.imagen.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="{{ sub_form.descripcion_foto.id_for_label }}" class="form-label small fw-semibold">Descripción:</label>
+                                            {{ sub_form.descripcion_foto }}
+                                            {% for error in sub_form.descripcion_foto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        </div>
+                                        <div class="mb-2" style="max-width: 120px;">
+                                            <label for="{{ sub_form.orden.id_for_label }}" class="form-label small fw-semibold">Orden:</label>
+                                            {{ sub_form.orden }}
+                                            {% for error in sub_form.orden.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        </div>
+
+                                        {{ sub_form.id }}
+
+                                        <div class="form-check mt-auto pt-2 border-top">
+                                            {{ sub_form.DELETE }}
+                                            <label class="form-check-label text-danger" for="{{ sub_form.DELETE.id_for_label }}">
+                                                Eliminar foto
+                                            </label>
+                                            {% for error in sub_form.DELETE.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-save me-2"></i> Guardar Fotos y Cambios
+            </button>
+        </div>
     </form>
 </div>
-{% endblock %}
+{% endblock content %}
 
 {% block extra_scripts %}
+{{ block.super }}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const articuloColorSelect = document.getElementById('id_articulo_color');
+        const $select = $('#id_articulo_color');
         const fotosExistentesSection = document.getElementById('fotos-existentes-section');
         const formsetContainer = document.getElementById('formset-container');
         const fotoUploadForm = document.getElementById('foto-upload-form');
-
-        // URL para obtener las fotos de una agrupación
+        const inputImagenes = document.getElementById('{{ form.imagenes.id_for_label }}');
+        const previewNuevas = document.getElementById('preview-nuevas');
         const getFotosUrl = "{% url 'productos:producto_subir_fotos_agrupadas' %}";
 
-        // Función para cargar dinámicamente el contenido de las fotos existentes
-        function loadExistingPhotos(agrupacionId) {
-            if (!agrupacionId) {
-                fotosExistentesSection.style.display = 'none';
-                formsetContainer.innerHTML = '';
-                return;
-            }
-
-            // Mostrar un spinner o mensaje de carga
-            formsetContainer.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Cargando fotos...</p></div>';
-            fotosExistentesSection.style.display = 'block';
-
-            // Recargar la página con el parámetro 'agrupacion_id' para que la vista renderice el formset
-            window.location.href = `${getFotosUrl}?agrupacion_id=${agrupacionId}`;
-        }
-
-        // Listener para el cambio en el select de agrupación
-        articuloColorSelect.addEventListener('change', function() {
-            const selectedAgrupacionId = this.value;
-            loadExistingPhotos(selectedAgrupacionId);
+        // 1. Convertir el select en un buscador (Select2, ya cargado en base.html)
+        $select.addClass('form-select').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Escribe una referencia o color para buscar...',
+            allowClear: true,
+            width: '100%'
         });
 
-        // Si al cargar la página ya hay una agrupación seleccionada (ej. por un POST fallido o GET inicial)
-        const initialAgrupacionId = "{{ agrupacion_seleccionada_id|default:'' }}";
-        if (initialAgrupacionId) {
-            // Asegurarse de que el select muestre el valor correcto si se precargó por GET
-            articuloColorSelect.value = initialAgrupacionId;
+        // 2. Al elegir una agrupación, recargar trayendo sus fotos existentes
+        $select.on('change', function() {
+            const agrupacionId = this.value;
+            if (!agrupacionId) {
+                fotosExistentesSection.style.display = 'none';
+                return;
+            }
+            formsetContainer.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Cargando fotos...</p></div>';
             fotosExistentesSection.style.display = 'block';
-            // La vista ya habrá renderizado el formset si `initialAgrupacionId` estaba presente en el GET/POST.
-            // No necesitamos `loadExistingPhotos` aquí en el `DOMContentLoaded` si la página ya se cargó con el formset.
-        } else {
-            // Si no hay ninguna agrupación seleccionada inicialmente, ocultar la sección
-            fotosExistentesSection.style.display = 'none';
+            window.location.href = `${getFotosUrl}?agrupacion_id=${agrupacionId}`;
+        });
+
+        // 3. Previsualizar las imágenes nuevas antes de subirlas
+        if (inputImagenes) {
+            inputImagenes.addEventListener('change', function() {
+                previewNuevas.innerHTML = '';
+                Array.from(this.files).forEach(function(file) {
+                    if (!file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const col = document.createElement('div');
+                        col.className = 'col';
+                        col.innerHTML = `
+                            <div class="card h-100 shadow-sm border-0 rounded-3">
+                                <img src="${e.target.result}" class="img-fluid rounded-top" style="height:120px; object-fit:cover; width:100%;">
+                                <div class="card-body p-2">
+                                    <small class="text-muted text-truncate d-block" title="${file.name}">${file.name}</small>
+                                </div>
+                            </div>`;
+                        previewNuevas.appendChild(col);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
         }
 
-
-        // Añadir un listener al formulario para que si no hay agrupación seleccionada,
-        // y se intenta subir fotos, de un error más claro.
+        // 4. Evitar enviar sin agrupación seleccionada
         fotoUploadForm.addEventListener('submit', function(event) {
-            if (!articuloColorSelect.value) {
-                alert('Por favor, selecciona una "Agrupación por Referencia y Color" antes de subir o guardar fotos.');
-                event.preventDefault(); // Detener el envío del formulario
-                articuloColorSelect.focus();
+            if (!$select.val()) {
+                alert('Por favor, selecciona una referencia y color antes de guardar las fotos.');
+                event.preventDefault();
+                $select.select2('open');
             }
         });
     });
 </script>
-{% endblock %}
+{% endblock extra_scripts %}

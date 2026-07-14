@@ -1,21 +1,21 @@
-{% extends 'core/base.html' %} {# O tu plantilla base común, ej: 'core/base_core.html' #}
+{% extends 'core/base.html' %}
 {% load static %}
 {% load humanize %}
 
 {% block page_title %}
-    {{ titulo|default:"Informe de Ventas por Vendedor" }}
+    {{ titulo|default:"Informe de Ventas" }}
 {% endblock page_title %}
 
-{% block content %} {# O 'main_content' si así se llama en tu base.html #}
-<div class="container-fluid mt-4 mb-5 px-4"> {# Usamos container-fluid para mayor amplitud, y px-4 para padding lateral #}
+{% block content %}
+<div class="mb-5">
 
     <div class="row mb-4 align-items-center">
         <div class="col-md-8">
             <h1 class="display-6 fw-bold mb-1 text-primary">
-                <i class="fas fa-chart-line me-2"></i> Informe de Ventas por Vendedor
+                <i class="fas fa-chart-line me-2"></i> {{ titulo }}
             </h1>
             <p class="lead text-secondary mb-0">
-                Consulta y analiza el rendimiento de ventas por cada vendedor.
+                Consulta y analiza el rendimiento de ventas.
             </p>
         </div>
         <div class="col-md-4 text-md-end">
@@ -25,43 +25,43 @@
         </div>
     </div>
 
+    {# ---------- Filtros ---------- #}
     <div class="card shadow-lg mb-4 border-0 rounded-3">
         <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
             <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros del Informe</h5>
         </div>
         <div class="card-body p-4">
-            <form method="get" action="{% url 'informes:reporte_ventas_vendedor' %}">
-                <div class="row gx-3 gy-3 align-items-end"> {# gx-3 y gy-3 para espaciado consistente #}
+            <form method="get" action="{% url 'informes:reporte_ventas' %}">
+                <div class="row gx-3 gy-3 align-items-end">
                     <div class="col-md-3 col-sm-6">
                         <label for="fecha_inicio" class="form-label fw-semibold mb-1">Fecha Inicio:</label>
-                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio|default_if_none:'' }}" class="form-control form-control-sm rounded-pill"> {# rounded-pill #}
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio|default_if_none:'' }}" class="form-control form-control-sm rounded-pill">
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label for="fecha_fin" class="form-label fw-semibold mb-1">Fecha Fin:</label>
-                        <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin|default_if_none:'' }}" class="form-control form-control-sm rounded-pill"> {# rounded-pill #}
+                        <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin|default_if_none:'' }}" class="form-control form-control-sm rounded-pill">
                     </div>
 
-                    {# --- INICIO: FILTRO DE VENDEDOR --- #}
+                    {# Filtro de vendedor SOLO para administracion #}
                     {% if es_administracion and vendedores_list %}
                     <div class="col-md-3 col-sm-12">
                         <label for="vendedor_id" class="form-label fw-semibold mb-1">Vendedor:</label>
-                        <select name="vendedor_id" id="vendedor_id" class="form-select form-select-sm rounded-pill"> {# rounded-pill #}
-                            <option value="">-- Seleccione Vendedor --</option>
+                        <select name="vendedor_id" id="vendedor_id" class="form-select form-select-sm rounded-pill">
+                            <option value="">-- Todos los vendedores --</option>
                             {% for vendedor_obj in vendedores_list %}
-                                <option value="{{ vendedor_obj.pk }}" {% if vendedor_id_seleccionado|stringformat:"s" == vendedor_obj.pk|stringformat:"s" %}selected{% endif %}> {# Comparación segura de strings #}
+                                <option value="{{ vendedor_obj.pk }}" {% if vendedor_id_seleccionado|stringformat:"s" == vendedor_obj.pk|stringformat:"s" %}selected{% endif %}>
                                     {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
                     {% endif %}
-                    {# --- FIN: FILTRO DE VENDEDOR --- #}
 
-                    <div class="col-md-3 col-sm-12 d-flex align-items-end"> {# d-flex align-items-end para alinear botones #}
-                        <button type="submit" class="btn btn-primary btn-sm me-2 rounded-pill shadow-sm"> {# rounded-pill y shadow-sm #}
+                    <div class="col-md-3 col-sm-12 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary btn-sm me-2 rounded-pill shadow-sm">
                             <i class="fas fa-filter me-1"></i>Filtrar
                         </button>
-                        <a href="{% url 'informes:reporte_ventas_vendedor' %}" class="btn btn-outline-secondary btn-sm rounded-pill shadow-sm"> {# rounded-pill y shadow-sm #}
+                        <a href="{% url 'informes:reporte_ventas' %}" class="btn btn-outline-secondary btn-sm rounded-pill shadow-sm">
                             <i class="fas fa-times me-1"></i>Limpiar
                         </a>
                     </div>
@@ -70,48 +70,55 @@
         </div>
     </div>
 
-    {# Tarjetas de Resumen #}
-    <div class="row mb-4 gx-3"> {# gx-3 para espaciado horizontal entre tarjetas #}
-        <div class="col-md-4 mb-3"> {# mb-3 para espacio vertical entre columnas en pantallas pequeñas #}
-            <div class="card text-center shadow-lg h-100 border-0 rounded-3"> {# shadow-lg, border-0, rounded-3 #}
-                <div class="card-body py-4"> {# py-4 para más padding vertical #}
-                    <h5 class="card-title text-primary fw-bold">Unidades Solicitadas (Venta)</h5>
-                    <p class="card-text fs-2 fw-bolder mb-1">{{ total_unidades_solicitadas_vendedor|intcomma }}</p> {# fs-2, fw-bolder #}
-                    <small class="text-muted">Valor Total: <span class="fw-bold">${{ valor_total_ventas_solicitadas_vendedor|intcomma:0 }}</span></small> {# intcomma:0, fw-bold #}
+    {# ---------- Tarjetas de resumen ---------- #}
+    <div class="row mb-4 gx-3">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center shadow-lg h-100 border-0 rounded-3">
+                <div class="card-body py-4">
+                    <h6 class="card-title text-primary fw-bold">Unidades Solicitadas</h6>
+                    <p class="card-text fs-3 fw-bolder mb-1">{{ total_unidades_solicitadas_vendedor|intcomma }}</p>
+                    <small class="text-muted">Valor: <span class="fw-bold">${{ valor_total_ventas_solicitadas_vendedor|intcomma }}</span></small>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
+        <div class="col-md-3 mb-3">
             <div class="card text-center shadow-lg h-100 border-0 rounded-3">
                 <div class="card-body py-4">
-                    <h5 class="card-title text-info fw-bold">Unidades Despachadas</h5>
-                    <p class="card-text fs-2 fw-bolder mb-1">{{ total_unidades_despachadas_vendedor|intcomma }}</p>
+                    <h6 class="card-title text-info fw-bold">Unidades Despachadas</h6>
+                    <p class="card-text fs-3 fw-bolder mb-1">{{ total_unidades_despachadas_vendedor|intcomma }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
+        <div class="col-md-3 mb-3">
             <div class="card text-center shadow-lg h-100 border-0 rounded-3">
                 <div class="card-body py-4">
-                    <h5 class="card-title text-success fw-bold">Cumplimiento Despacho</h5>
-                    <p class="card-text fs-2 fw-bolder mb-1">{{ porcentaje_despacho_vendedor|floatformat:2 }}%</p>
-                    <small class="text-muted"><span class="fw-bold">{{ cantidad_pedidos_vendedor|intcomma }}</span> Pedido(s)</small> {# fw-bold #}
+                    <h6 class="card-title text-success fw-bold">Cumplimiento Despacho</h6>
+                    <p class="card-text fs-3 fw-bolder mb-1">{{ porcentaje_despacho_vendedor|floatformat:2 }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center shadow-lg h-100 border-0 rounded-3">
+                <div class="card-body py-4">
+                    <h6 class="card-title text-secondary fw-bold">Pedidos</h6>
+                    <p class="card-text fs-3 fw-bolder mb-1">{{ cantidad_pedidos_vendedor|intcomma }}</p>
                 </div>
             </div>
         </div>
     </div>
 
-    {# Tabla de Pedidos #}
+    {# ---------- Detalle de pedidos ---------- #}
     <div class="card shadow-lg mb-5 border-0 rounded-3">
-        <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3"> {# bg-info para diferenciarlo del filtro #}
+        <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
             <h5 class="mb-0"><i class="fas fa-table me-2"></i> Detalle de Pedidos</h5>
         </div>
         <div class="card-body p-4">
             {% if pedidos_list %}
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover table-sm align-middle caption-top border-light"> {# table-sm, align-middle, caption-top, border-light #}
-                        <caption class="text-end fw-bold text-muted">Total Registros: {{ pedidos_list.paginator.count|default:0|intcomma }}</caption> {# Muestra el total de registros paginados #}
+                    <table class="table table-striped table-hover table-sm align-middle caption-top border-light">
+                        <caption class="text-end fw-bold text-muted">Total Registros: {{ pedidos_list.paginator.count|default:0|intcomma }}</caption>
                         <thead class="table-group-divider">
-                            <tr class="table-info"> {# table-info para el thead para combinar con bg-info del header #}
+                            <tr class="table-info">
                                 <th># Pedido</th>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
@@ -119,7 +126,7 @@
                                 <th class="text-center">Unid. Solicitadas</th>
                                 <th class="text-center">Unid. Despachadas</th>
                                 <th>Estado</th>
-                                <th class="text-center">Acciones</th> {# text-center para el encabezado de acciones #}
+                                <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -131,28 +138,22 @@
                                     {% if es_administracion %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
-                                    <td><span class="badge {% if pedido.estado == 'COMPLETADO' or pedido.estado == 'ENVIADO' %}bg-success{% elif pedido.estado == 'CANCELADO' %}bg-danger{% else %}bg-secondary{% endif %}">{{ pedido.get_estado_display|default:pedido.estado }}</span></td> {# Badges con colores semánticos #}
+                                    <td><span class="badge {% if pedido.estado == 'COMPLETADO' or pedido.estado == 'ENVIADO' %}bg-success{% elif pedido.estado == 'CANCELADO' %}bg-danger{% else %}bg-secondary{% endif %}">{{ pedido.get_estado_display|default:pedido.estado }}</span></td>
                                     <td class="text-center">
-                                        <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" title="Ver Detalles del Pedido"> {# rounded-pill y shadow-sm #}
+                                        <a href="{% url 'pedidos:detalle_pedido' pedido.pk %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm" title="Ver Detalles del Pedido">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
-                        <tfoot class="table-group-divider">
-                            <tr>
-                                <td colspan="{% if es_administracion %}8{% else %}7{% endif %}" class="text-muted text-center">Fin del informe de pedidos.</td> {# Ajuste del colspan #}
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
 
                 {# Paginación #}
-                {% if pedidos_list.has_other_pages %} {# Usa has_other_pages para saber si hay más de una página #}
+                {% if pedidos_list.has_other_pages %}
                     <nav aria-label="Paginación de Pedidos" class="mt-4">
                         <ul class="pagination justify-content-center pagination-lg">
-                            {# Botones de Primera y Anterior #}
                             {% if pedidos_list.has_previous %}
                                 <li class="page-item"><a class="page-link rounded-start-pill" href="?page=1{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Primera"><i class="fas fa-angle-double-left"></i></a></li>
                                 <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.previous_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Anterior"><i class="fas fa-angle-left"></i></a></li>
@@ -161,12 +162,10 @@
                                 <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-left"></i></span></li>
                             {% endif %}
 
-                            {# Números de Página #}
                             <li class="page-item active" aria-current="page">
                                 <span class="page-link">Página {{ pedidos_list.number }} de {{ pedidos_list.paginator.num_pages }}</span>
                             </li>
 
-                            {# Botones de Siguiente y Última #}
                             {% if pedidos_list.has_next %}
                                 <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.next_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Siguiente"><i class="fas fa-angle-right"></i></a></li>
                                 <li class="page-item"><a class="page-link rounded-end-pill" href="?page={{ pedidos_list.paginator.num_pages }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Última"><i class="fas fa-angle-double-right"></i></a></li>
@@ -189,5 +188,41 @@
             {% endif %}
         </div>
     </div>
+
+    {# ---------- Resumen por producto ---------- #}
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-gradient bg-success text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-boxes me-2"></i> Resumen de Ventas por Producto</h5>
+        </div>
+        <div class="card-body p-4">
+            {% if ventas_por_producto %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Referencia</th>
+                                <th>Color</th>
+                                <th>Descripción</th>
+                                <th class="text-center">Cantidad Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ventas_por_producto %}
+                                <tr>
+                                    <td>{{ item.producto__referencia }}</td>
+                                    <td>{{ item.producto__color|default:"Sin Color" }}</td>
+                                    <td>{{ item.nombre_producto_display|default:"N/A" }}</td>
+                                    <td class="text-center">{{ item.cantidad_total_vendida|intcomma }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info text-center mb-0">No hay datos de ventas por producto para el período seleccionado.</div>
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 {% endblock content %}

@@ -494,7 +494,7 @@ def vista_verificar_pedido(request, pk):
         context = {
             'pedido': pedido,
             'detalles_pedido': detalles_para_mostrar, # Ya tiene las tallas traducidas
-            'titulo': f'Verificar Pedido #{pedido.numero_pedido_empresa}'
+            'titulo': f'Verificar pedido número {pedido.numero_pedido_empresa}'
         }
         return render(request, 'bodega/verificar_pedido.html', context)
 

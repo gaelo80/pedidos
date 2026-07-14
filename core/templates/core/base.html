@@ -22,28 +22,20 @@
     <script src="https://kit.fontawesome.com/5dda46da6f.js" crossorigin="anonymous"></script>
 
     <style>
-        /* ... (Todos tus estilos :root, body, .navbar, etc. van aquí - SIN CAMBIOS) ... */
         :root {
-            /* Colores Base (Tonos tierra y azul suave) */
-            --color-fondo-principal: #dfe9e5ff; /* Blanco roto / Gris muy claro - muy suave para la vista */
-            --color-fondo-secundario: #fbfbfcff; /* Gris claro para secciones */
-            --color-fondo-tarjeta: #ffffff; /* Blanco puro para tarjetas */
-            --color-borde-linea: #dee2e6; /* Gris de Bootstrap para bordes sutiles */
-
-            /* Colores de Texto */
-            --color-texto-principal: #343a40; /* Gris oscuro para texto principal */
-            --color-texto-secundario: #6c757d; /* Gris medio para texto secundario */
-            --color-texto-claro: #fdfdfdff; /* Blanco para texto sobre fondos oscuros */
-
-            /* Colores de Marca y Acento (Azules y Verdes suaves) */
-            --color-acento-primario: #007bff; /* Azul estándar de Bootstrap (limpio y profesional) */
-            --color-acento-secundario: #28a745; /* Verde estándar de Bootstrap (para acciones de éxito) */
-            --color-navbar-bg: #3b5998; /* Un azul más oscuro y cálido para la barra de navegación */
+            --color-fondo-principal: #dfe9e5ff;
+            --color-fondo-secundario: #fbfbfcff;
+            --color-fondo-tarjeta: #ffffff;
+            --color-borde-linea: #dee2e6;
+            --color-texto-principal: #343a40;
+            --color-texto-secundario: #6c757d;
+            --color-texto-claro: #fdfdfdff;
+            --color-acento-primario: #007bff;
+            --color-acento-secundario: #28a745;
+            --color-navbar-bg: #3b5998;
             --color-navbar-text: var(--color-texto-claro);
-            --color-dropdown-bg: var(--color-navbar-bg); /* Fondo del dropdown igual que la navbar */
-            --color-dropdown-item-hover: #4e70b7; /* Un poco más claro que el fondo del dropdown */
-
-            /* Colores de Feedback (Bootstrap estándar) */
+            --color-dropdown-bg: var(--color-navbar-bg);
+            --color-dropdown-item-hover: #4e70b7;
             --color-success: #28a745;
             --color-info: #17a2b8;
             --color-warning: #ffc107;
@@ -54,49 +46,31 @@
             --bs-info: var(--color-info);
             --bs-warning: var(--color-warning);
             --bs-danger: var(--color-danger);
-            --bs-dark: var(--color-texto-principal); /* O un color más oscuro si lo prefieres para texto oscuro */
+            --bs-dark: var(--color-texto-principal);
             --bs-secondary: var(--color-texto-secundario);
-            --bs-light: var(--color-fondo-secundario); /* O un color más claro para fondos ligeros */
-
-                /* Colores para los iconos y sus fondos (para el nuevo diseño) */
-            --icon-bg-primary: var(--bs-primary);
-            --icon-bg-success: var(--bs-success);
-            --icon-bg-warning: var(--bs-warning);
-            --icon-bg-danger: var(--bs-danger);
-            --icon-bg-info: var(--bs-info);
-            --icon-bg-secondary: var(--bs-secondary);
-            --icon-bg-dark: var(--bs-dark);
-            --icon-bg-default: var(--bs-gray-500); /* Si Bootstrap 5 define --bs-gray-500 */
-            /* Si no quieres que los iconos tengan fondo, puedes omitir estas variables 'icon-bg-' */
-
-            /* Colores de texto para iconos dentro de círculos */
-            --icon-text-color: white; /* Generalmente blanco para iconos sobre fondo de color */
-
-            /* Colores para el borde izquierdo de las tarjetas al hacer hover */
-            --card-hover-border-left: var(--bs-primary); /* El color del acento al pasar el ratón */
+            --bs-light: var(--color-fondo-secundario);
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--color-fondo-principal);
             color: var(--color-texto-principal);
-            padding-top: 56px; /* Para que el contenido no quede debajo del navbar fijo */
-            zoom: 90%; /* Ajuste de zoom global */
+            padding-top: 56px; 
+            zoom: 90%; 
             -moz-transform: scale(0.9);
             -moz-transform-origin: 0 0;
         }
 
-        /* Navbar personalizada */
         .navbar.bg-dark {
             background-color: var(--color-navbar-bg) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Línea sutil */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
         }
         .navbar-brand, .navbar-nav .nav-link {
             color: var(--color-navbar-text) !important;
             font-weight: 500;
         }
         .navbar-brand:hover, .navbar-nav .nav-link:hover {
-            color: rgba(255, 255, 255, 0.85) !important; /* Ligeramente más claro al pasar el ratón */
+            color: rgba(255, 255, 255, 0.85) !important; 
         }
         .navbar-toggler {
             border-color: rgba(255, 255, 255, 0.1);
@@ -105,50 +79,37 @@
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
-        /* Dropdown Menu Styling */
         .dropdown-menu {
             background-color: var(--color-dropdown-bg);
-            border: 1px solid var(--color-navbar-bg); /* Un borde que combina */
-            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); /* Sombra suave */
-            padding: 0.5rem 0; /* Espaciado interno */
+            border: 1px solid var(--color-navbar-bg); 
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); 
+            padding: 0.5rem 0; 
         }
         .dropdown-item {
             color: var(--color-navbar-text);
-            padding: 0.5rem 1rem; /* Más espaciado para items */
+            padding: 0.5rem 1rem; 
         }
         .dropdown-item:hover, .dropdown-item:focus {
             background-color: var(--color-dropdown-item-hover);
             color: var(--color-navbar-text);
         }
         .dropdown-divider {
-            border-top-color: rgba(255, 255, 255, 0.1); /* Separador sutil */
+            border-top-color: rgba(255, 255, 255, 0.1); 
         }
 
-        /* Títulos */
-        h1, h2, h3, h4, h5, h6 {
-            color: #000000; /* Todos los títulos usan el color de texto principal */
-            margin-bottom: 1rem; /* Espaciado por defecto para títulos */
-        }
+        h1, h2, h3, h4, h5, h6 { color: #000000; margin-bottom: 1rem; }
 
-        /* Mensajes de Django */
-        .messages {
-            list-style: none;
-            padding-left: 0;
-            margin-top: 1rem;
-            margin-bottom: 1rem;
-        }
+        .messages { list-style: none; padding-left: 0; margin-top: 1rem; margin-bottom: 1rem; }
         .alert-success { background-color: var(--color-success); border-color: var(--color-success); color: var(--color-texto-claro); }
         .alert-warning { background-color: var(--color-warning); border-color: var(--color-warning); color: var(--color-texto-principal); }
         .alert-danger { background-color: var(--color-danger); border-color: var(--color-danger); color: var(--color-texto-claro); }
         .alert-info { background-color: var(--color-info); border-color: var(--color-info); color: var(--color-texto-claro); }
 
-        /* Estilos de Botones (opcional si quieres overrides globales) */
         .btn-primary { background-color: var(--color-acento-primario); border-color: var(--color-acento-primario); }
-        .btn-primary:hover { background-color: #0069d9; border-color: #0062cc; } /* Tono más oscuro al hover */
+        .btn-primary:hover { background-color: #0069d9; border-color: #0062cc; } 
         .btn-secondary { background-color: var(--color-texto-secundario); border-color: var(--color-texto-secundario); color: var(--color-texto-claro); }
         .btn-secondary:hover { background-color: #5a6268; border-color: #545b62; }
 
-        /* Estilos para el conteo de notificaciones */
         .badge.bg-danger {
             background-color: var(--color-danger) !important;
             font-size: 0.7em;
@@ -158,15 +119,14 @@
             padding: 0.3em 0.5em;
         }
 
-        /* Estilos para tarjetas */
         .card {
             background-color: var(--color-fondo-tarjeta);
             border: 1px solid var(--color-borde-linea);
-            border-radius: 0.5rem; /* Bordes suaves */
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Sombra sutil */
+            border-radius: 0.5rem; 
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
         }
         .card-header {
-            background-color: var(--color-fondo-secundario); /* Un fondo más claro para el header de la tarjeta */
+            background-color: var(--color-fondo-secundario); 
             border-bottom: 1px solid var(--color-borde-linea);
             color: var(--color-texto-principal);
             padding: 0.75rem 1.25rem;
@@ -178,80 +138,119 @@
             padding: 0.75rem 1.25rem;
         }
 
-        /* Ajustes para tablas */
-        .table-striped > tbody > tr:nth-of-type(odd) > * {
-            background-color: rgba(0, 0, 0, 0.03); /* Tono muy suave para filas impares */
-        }
-        .table-hover > tbody > tr:hover > * {
-            background-color: rgba(0, 0, 0, 0.075); /* Tono un poco más oscuro al pasar el mouse */
+        .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(0, 0, 0, 0.03); }
+        .table-hover > tbody > tr:hover > * { background-color: rgba(0, 0, 0, 0.075); }
+
+        .form-section.border.rounded { --bs-border-color: #0ed42fff; }
+        .form-section.border.rounded:focus-within { --bs-border-color: #007bff; }
+
+        /* ==========================================
+           NUEVOS ESTILOS PARA EL MENÚ LATERAL (PC)
+           Usamos un método 100% seguro que no daña tus plantillas
+           ========================================== */
+        
+        .main-content-wrapper {
+            margin-left: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: calc((100vh - 56px) / 0.9); /* compensa el zoom: 90% del body */
         }
 
-        .form-section.border.rounded {
-        --bs-border-color: #0ed42fff; /* Un azul claro o el color que desees */
-        /* Puedes usar un color hexadecimal, RGB, HSL, o un nombre de color */
-        /* Ejemplo:
-            #FF0000;  // Rojo
-            blue;    // Azul
-            rgb(0, 128, 0); // Verde
-            hsl(30, 100%, 50%); // Naranja
-        */
+        /* El main se estira y empuja el footer al fondo, aunque haya poco contenido */
+        .main-content-wrapper > main {
+            flex: 1 0 auto;
+        }
+        .main-content-wrapper > footer {
+            flex-shrink: 0;
+            margin-top: auto; /* refuerzo: pega el footer al fondo */
         }
 
-        /* Si quieres que el color del borde sea diferente cuando el formulario está activo/enfocado */
-        .form-section.border.rounded:focus-within {
-        --bs-border-color: #007bff; /* Un azul más oscuro al enfocar (color primario de Bootstrap) */
-}
+        @media (min-width: 992px) { 
+            /* En PC, empujamos el contenido a la derecha mediante margen */
+            .main-content-wrapper {
+                margin-left: 280px; 
+            }
+            /* Ocultamos los links viejos del navbar en PC */
+            #navbar-links-movil {
+                display: none !important;
+            }
+        }
+        
+        /* Estilos del Sidebar Fijo */
+        #desktopSidebar {
+            width: 280px;
+            position: fixed;
+            top: 56px; 
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 1040;
+            background-color: var(--color-fondo-tarjeta);
+            border-right: 1px solid var(--color-borde-linea);
+        }
+        
+        #desktopSidebar::-webkit-scrollbar { width: 6px; }
+        #desktopSidebar::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.1); border-radius: 10px; }
+        
+        #desktopSidebar .accordion-button {
+            padding: 1rem 1.25rem;
+            background-color: transparent;
+            color: var(--color-texto-principal);
+            border-bottom: 1px solid var(--color-borde-linea);
+        }
+        
+        #desktopSidebar .accordion-button:not(.collapsed) {
+            color: var(--bs-primary);
+            background-color: var(--bs-light);
+            box-shadow: inset 4px 0 0 var(--bs-primary); 
+        }
+
+        #desktopSidebar .list-group-item {
+            background-color: transparent;
+            border: none;
+            padding: 0.7rem 1rem 0.7rem 3.5rem; 
+            font-size: 0.9rem;
+            color: var(--color-texto-secundario);
+            transition: all 0.2s ease;
+        }
+
+        #desktopSidebar .list-group-item:hover {
+            color: var(--bs-primary);
+            background-color: rgba(0, 123, 255, 0.05);
+            transform: translateX(3px);
+        }
     </style>
 
-    {% block extra_head %}
-        {% endblock extra_head %}
+    {% block extra_head %}{% endblock extra_head %}
 </head>
 <body>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
         <a class="navbar-brand" href="{% url 'core:index' %}">
-            {{ nombre_empresa|default:'Louis Ferry' }}
+            {{ nombre_empresa|default:'Luis Gabriel Echeverry' }}
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarCollapse">
 
-
-        <ul class="navbar-nav me-auto mb-2 mb-md-0">
+        <!-- ESTOS SON LOS LINKS ORIGINALES, SE OCULTARÁN EN PC GRACIAS AL ID -->
+        <ul class="navbar-nav me-auto mb-2 mb-md-0" id="navbar-links-movil">
             {% if user.is_authenticated %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'core:index' %}"><i class="fas fa-home me-1"></i> INICIO</a>
-                </li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'core:index' %}"><i class="fas fa-home me-1"></i> INICIO</a></li>
 
-                {# --- PEDIDOS Y VENTAS (Pestaña Principal: PEDIDOS) --- #}
-                {% comment %} Visible si el usuario tiene algún rol relevante para esta categoría {% endcomment %}
                 {% if es_vendedor or es_online or es_cartera or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownPedidosVentas" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-shopping-cart me-1"></i> PEDIDOS
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownPedidosVentas">
-                        {% if es_vendedor %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos:crear_pedido_web' %}">Crear Nuevo Pedido (Web)</a></li>
-                        {% endif %}
-                        {% if es_online %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos_online:crear_pedido_online' %}">Crear Pedido (Online)</a></li>
-                        {% endif %}
-                        {% if es_vendedor or es_online %}{# Si hay opciones web/online, añade un divisor #}
-                            <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        {% if es_cartera or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_cartera' %}">Aprobación Cartera</a></li>
-                        {% endif %}
-                        {% if es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Aprobación Administración</a></li>
-                        {% endif %}
-                        {% if es_vendedor %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores (Web)</a></li>
-                        {% endif %}
-                        {% if es_online %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}">Borradores (Online)</a></li>
-                        {% endif %}
+                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:crear_pedido_web' %}">Crear nuevo pedido</a></li>{% endif %}
+                        {% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:crear_pedido_online' %}">Crear Pedido (Online)</a></li>{% endif %}
+                        {% if es_vendedor or es_online %}<li><hr class="dropdown-divider"></li>{% endif %}
+                        {% if es_cartera or es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_cartera' %}">Aprobación Cartera</a></li>{% endif %}
+                        {% if es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Aprobación Administración</a></li>{% endif %}
+                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores (Web)</a></li>{% endif %}
+                        {% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}">Borradores (Online)</a></li>{% endif %}
                         {% if es_online or es_administracion %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'pedidos_online:registrar_cambio_online' %}">Registrar Cambio (Online)</a></li>
@@ -260,24 +259,19 @@
                 </li>
                 {% endif %}
 
-                {# --- CLIENTES Y PROSPECTOS (Pestaña Principal: CLIENTES) --- #}
                 {% if es_vendedor or es_cartera or es_administracion or es_administrador_app or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownClientes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> CLIENTES
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownClientes">
-                        {% if es_vendedor or es_cartera or es_administracion or es_factura %}
-                            <li><a class="dropdown-item" href="{% url 'clientes:cliente_listado_v2' %}">Listado de Clientes</a></li>
-                        {% endif %}
+                        {% if es_vendedor or es_cartera or es_administracion or es_factura %}<li><a class="dropdown-item" href="{% url 'clientes:cliente_listado_v2' %}">Listado de Clientes</a></li>{% endif %}
                         {% if es_vendedor or es_administracion %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'prospectos:crear_solicitud' %}">Solicitud Cliente Nuevo</a></li>
                         {% endif %}
-                        {% if es_cartera or es_vendedor or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'prospectos:lista_solicitudes' %}">Prospectos Pendientes</a></li>
-                        {% endif %}
-                        {% if es_factura or es_cartera %} {# Asumo que 'Clientes (Gestión)' se refiere a editar/eliminar #}
+                        {% if es_cartera or es_vendedor or es_administracion %}<li><a class="dropdown-item" href="{% url 'prospectos:lista_solicitudes' %}">Prospectos Pendientes</a></li>{% endif %}
+                        {% if es_factura or es_cartera %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'clientes:cliente_listado' %}">Gestionar Clientes</a></li>
                         {% endif %}
@@ -285,16 +279,13 @@
                 </li>
                 {% endif %}
 
-                {# --- FINANZAS Y RECAUDOS (Pestaña Principal: FINANZAS) --- #}
                 {% if es_vendedor or es_cartera or es_administracion %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFinanzas" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-money-bill-wave me-1"></i> FINANZAS
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownFinanzas">
-                        {% if es_vendedor %}
-                            <li><a class="dropdown-item" href="{% url 'recaudos:crear_recaudo' %}">Registrar Recaudo</a></li>
-                        {% endif %}
+                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'recaudos:crear_recaudo' %}">Registrar Recaudo</a></li>{% endif %}
                         {% if es_administracion or es_cartera %}
                             <li><a class="dropdown-item" href="{% url 'recaudos:panel_administracion' %}">Gestionar Recaudos</a></li>
                             <li><a class="dropdown-item" href="{% url 'recaudos:reporte_general_recaudos' %}">Informe de Recaudos</a></li>
@@ -308,8 +299,7 @@
                 </li>
                 {% endif %}
 
-                {# --- BODEGA E INVENTARIO (Pestaña Principal: BODEGA) --- #}
-                {% if es_bodega or es_administracion or es_administrador_app or es_diseno %}
+                {% if es_bodega or es_administracion or es_administrador_app or es_diseno or es_vendedor %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBodegaInventario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-warehouse me-1"></i> BODEGA
@@ -320,8 +310,12 @@
                             <li><a class="dropdown-item" href="{% url 'bodega:vista_registrar_ingreso' %}">Registrar Ingreso</a></li>
                             <li><a class="dropdown-item" href="{% url 'bodega:vista_conteo_inventario' %}">Realizar Conteo de Inventario</a></li>
                             <li><a class="dropdown-item" href="{% url 'bodega:lista_salidas_internas' %}">Registrar Salida Interna</a></li>
+                        {% endif %}
+
+                        {% if es_bodega or es_administracion or es_vendedor %}
                             <li><a class="dropdown-item" href="{% url 'devoluciones:crear_devolucion' %}">Registrar Devolución</a></li>
-                            <!-- NUEVO: Control de visibilidad -->
+                        {% endif %}
+                        {% if es_bodega or es_administracion or es_diseno %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'bodega:visibilidad_productos' %}"><i class="fas fa-eye-slash me-1"></i> Productos vendedores externos</a></li>
                         {% endif %}
@@ -334,7 +328,6 @@
                 </li>
                 {% endif %}
 
-                {# --- FACTURACIÓN (Pestaña Principal: FACTURACIÓN) --- #}
                 {% if es_factura or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFacturacion" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -353,7 +346,6 @@
                 </li>
                 {% endif %}
 
-                {# --- PRODUCTOS Y CATÁLOGO (Pestaña Principal: PRODUCTOS) --- #}
                 {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownProductosCatalogo" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -378,21 +370,17 @@
                 </li>
                 {% endif %}
 
-                {# --- INFORMES (Pestaña Principal: INFORMES) --- #}
-                {% comment %} Esta es la más compleja, ya que muchos roles pueden ver diferentes informes {% endcomment %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInformes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-chart-line me-1"></i> INFORMES
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownInformes">
                         {% if es_vendedor or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas_general' %}">Ventas en General (Web)</a></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas_vendedor' %}">Ventas por Vendedor (Web)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas' %}">Ventas en General (Web)</a></li>
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if es_online or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos_online:reporte_ventas_general_online' %}">Ventas en General (Online)</a></li>
-                            <li><a class="dropdown-item" href="{% url 'pedidos_online:reporte_ventas_vendedor_online' %}">Ventas por Vendedor (Online)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pedidos_online:reporte_ventas_online' %}">Informes de Ventas (Online)</a></li>
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if es_cartera or es_administracion %}
@@ -402,7 +390,6 @@
                         {% endif %}
                         {% if es_bodega or es_administracion or es_diseno %}
                             <li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Ingresos a Bodega</a></li>
-                            {#<li><a class="dropdown-item" href="{% url 'bodega:informe_movimiento_inventario' %}">Movimiento de Inventario</a></li>#}
                         {% endif %}
                         {% if es_administracion or es_cartera or es_factura %}
                             <li><hr class="dropdown-divider"></li>
@@ -413,19 +400,16 @@
                     </ul>
                 </li>
 
-                {# --- ADMINISTRACIÓN DEL SISTEMA (Pestaña Principal: ADMIN) --- #}
-                {% if es_administrador_app %} {# Solo los superusuarios o miembros de Administrador_app ven este menú #}
+                {% if es_administrador_app %} 
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-cogs me-1"></i> ADMIN
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
-                        <li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Pedidos Pendientes Por Aprobar</a></li> {# Aunque es de pedidos, aquí tiene sentido por ser aprobación admin #}
+                        <li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Pedidos Pendientes Por Aprobar</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'user_management:user_list' %}">Gestion Usuarios</a></li>
                         <li><a class="dropdown-item" href="{% url 'user_management:group_list' %}">Gestion Grupos de Usuarios</a></li>
-
-                        {# Controla la visibilidad de este enlace al Panel de Django Admin por separado #}
                         {% if puede_ver_panel_django_admin %}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'admin:index' %}" target="_blank">Panel de Admin Django</a></li>
@@ -433,7 +417,7 @@
                     </ul>
                 </li>
                 {% endif %}
-            {% endif %} {# Cierre del if user.is_authenticated inicial #}
+            {% endif %} 
         </ul>
 
             <ul class="navbar-nav ms-auto mb-2 mb-md-0">
@@ -468,30 +452,276 @@
         </div>
     </nav>
   
-            {% comment %} MODAL DE CARTERA DESHABILITADO TEMPORALMENTE
-            <div class="modal fade" id="notificacionCarteraModal" tabindex="-1" aria-labelledby="notificacionCarteraModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content border-warning border-3">
-                        <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title" id="notificacionCarteraModalLabel">
-                                <i class="fas fa-exclamation-triangle me-2"></i> ¡Atención Requerida!
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body fs-5 text-center">
-                            <p>Tienes <strong id="modalNotificacionCount">1</strong> pedido(s) nuevo(s) que requieren tu aprobación en Cartera.</p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                            <a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="btn btn-primary">
-                                <i class="fas fa-eye me-1"></i> Ir a Aprobar
-                            </a>
+    <!-- ==========================================
+         COLUMNA IZQUIERDA: MENÚ LATERAL FIJO (Solo PC)
+         ========================================== -->
+    {% if user.is_authenticated %}
+    <aside id="desktopSidebar" class="d-none d-lg-block shadow-sm">
+        <div class="p-4 border-bottom text-center" style="background-color: var(--bs-light);">
+            {% if empresa_actual.logo %}
+                <img src="{{ empresa_actual.logo.url }}" alt="Logo {{ nombre_empresa }}"
+                     class="rounded-circle mb-3 d-block mx-auto"
+                     style="width: 90px; height: 90px; object-fit: cover; border: 3px solid var(--color-borde-linea);">
+            {% else %}
+                <i class="fas fa-user-circle fa-4x text-secondary mb-3"></i>
+            {% endif %}
+            <h5 class="mb-0 fw-bold text-primary">{{ user.first_name|default:user.username }}</h5>
+            <small class="text-success fw-bold"><i class="fas fa-circle me-1" style="font-size: 0.6rem;"></i>En línea</small>
+        </div>
+
+        <!-- NOTA: Eliminamos 'data-bs-parent' de cada acordeón para que puedas tener varios abiertos a la vez -->
+        <div class="accordion accordion-flush" id="accordionSidebar">
+            
+            <a href="{% url 'core:index' %}" class="d-block p-3 border-bottom text-decoration-none text-dark fw-bold">
+                <i class="fas fa-home me-3 text-primary" style="width: 20px; text-align: center;"></i> Panel de Inicio
+            </a>
+
+            <!-- PEDIDOS -->
+            {% if es_vendedor or es_online or es_cartera or es_administracion or es_administrador_app %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarPedidos">
+                        <i class="fas fa-shopping-cart me-3 text-primary" style="width: 20px; text-align: center;"></i> Pedidos
+                    </button>
+                </h2>
+                <div id="sidebarPedidos" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_vendedor %}<a href="{% url 'pedidos:crear_pedido_web' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido</a>{% endif %}
+                            {% if es_online %}<a href="{% url 'pedidos_online:crear_pedido_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido Online</a>{% endif %}
+                            {% if es_cartera or es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Cartera</a>{% endif %}
+                            {% if es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Admin</a>{% endif %}
+                            {% if es_vendedor %}<a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Web)</a>{% endif %}
+                            {% if es_online %}<a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Online)</a>{% endif %}
+                            {% if es_online or es_administracion %}<a href="{% url 'pedidos_online:registrar_cambio_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Cambio (Online)</a>{% endif %}
                         </div>
                     </div>
                 </div>
             </div>
-            {% endcomment %}
+            {% endif %}
 
+            <!-- CLIENTES -->
+            {% if es_vendedor or es_cartera or es_administracion or es_administrador_app or es_factura %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarClientes">
+                        <i class="fas fa-users me-3 text-success" style="width: 20px; text-align: center;"></i> Clientes
+                    </button>
+                </h2>
+                <div id="sidebarClientes" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_vendedor or es_cartera or es_administracion or es_factura %}<a href="{% url 'clientes:cliente_listado_v2' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Listado de Clientes</a>{% endif %}
+                            {% if es_vendedor or es_administracion %}<a href="{% url 'prospectos:crear_solicitud' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Solicitud Cliente Nuevo</a>{% endif %}
+                            {% if es_cartera or es_vendedor or es_administracion %}<a href="{% url 'prospectos:lista_solicitudes' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Prospectos Pendientes</a>{% endif %}
+                            {% if es_factura or es_cartera %}<a href="{% url 'clientes:cliente_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Clientes</a>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- FINANZAS -->
+            {% if es_vendedor or es_cartera or es_administracion %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarFinanzas">
+                        <i class="fas fa-money-bill-wave me-3 text-warning" style="width: 20px; text-align: center;"></i> Finanzas
+                    </button>
+                </h2>
+                <div id="sidebarFinanzas" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_vendedor %}<a href="{% url 'recaudos:crear_recaudo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Recaudo</a>{% endif %}
+                            {% if es_administracion or es_cartera %}
+                                <a href="{% url 'recaudos:panel_administracion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Recaudos</a>
+                                <a href="{% url 'recaudos:reporte_general_recaudos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Recaudos</a>
+                            {% endif %}
+                            {% if es_cartera or es_administracion %}
+                                <a href="{% url 'cartera:reporte_cartera_general' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Cartera</a>
+                                <a href="{% url 'cartera:importar_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cargar Cartera</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- BODEGA E INVENTARIO -->
+            {% if es_bodega or es_administracion or es_administrador_app or es_diseno or es_vendedor %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarBodega">
+                        <i class="fas fa-warehouse me-3 text-info" style="width: 20px; text-align: center;"></i> Bodega
+                    </button>
+                </h2>
+                <div id="sidebarBodega" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_bodega or es_administracion %}
+                                <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pendientes Despacho</a>
+                                <a href="{% url 'bodega:vista_registrar_ingreso' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Ingreso</a>
+                                <a href="{% url 'bodega:realizar_cambio_producto' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cambio de Productos</a>
+                                <a href="{% url 'bodega:ingreso_produccion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingreso desde Producción</a>
+                                <a href="{% url 'bodega:vista_conteo_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Conteo de Inventario</a>
+                                <a href="{% url 'bodega:lista_salidas_internas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Salida Interna</a>
+                            {% endif %}
+
+                            {% if es_bodega or es_administracion or es_vendedor %}   
+                                <a href="{% url 'devoluciones:crear_devolucion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Devolución</a>
+                            {% endif %}
+                            {% if es_bodega or es_administracion or es_diseno %}
+                                <a href="{% url 'bodega:visibilidad_productos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ocultar Referencias a Vendedores externos</a>
+                            {% endif %}
+                            {% if es_bodega or es_administracion or es_diseno %}
+                                <a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>
+                                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ingresos</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- FACTURACIÓN -->
+            {% if es_factura or es_administracion or es_administrador_app %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarFactura">
+                        <i class="fas fa-file-invoice-dollar me-3 text-secondary" style="width: 20px; text-align: center;"></i> Facturación
+                    </button>
+                </h2>
+                <div id="sidebarFactura" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_factura or es_administracion %}
+                                <a href="{% url 'factura:lista_despachos_a_facturar' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Por Facturar</a>
+                                <a href="{% url 'factura:informe_facturados_fecha' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Fecha</a>
+                                <a href="{% url 'factura:informe_despachos_cliente' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Cliente</a>
+                                <a href="{% url 'factura:informe_despachos_estado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Estado</a>
+                                <a href="{% url 'factura:informe_despachos_pedido' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Pedido</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- PRODUCTOS -->
+            {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarProductos">
+                        <i class="fas fa-boxes me-3 text-primary" style="width: 20px; text-align: center;"></i> Productos
+                    </button>
+                </h2>
+                <div id="sidebarProductos" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_diseno or es_administracion %}
+                                <a href="{% url 'productos:producto_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión de Productos</a>
+                                <a href="{% url 'productos:producto_crear' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Crear Producto</a>
+                                <a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Subir Fotos</a>
+                                <a href="{% url 'costeo_jeans:panel_costeo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Costeo de Productos</a>
+                            {% endif %}
+                            {% if es_administracion %}                            
+                                <a href="{% url 'pedidos_web:panel_sincronizacion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Sincronizar Shopify</a>
+                            {% endif %}
+                            {% if es_vendedor or es_administracion or es_cartera or es_online %}
+                                <a href="{% url 'catalogo:catalogo_generar_enlace_usuario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Compartir Catálogo</a>
+                            {% endif %}
+                            {% if es_vendedor or es_diseno or es_online or es_cartera or es_factura or es_bodega or es_administracion %}
+                                <a href="{% url 'catalogo:lista_referencias' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ver Catálogo</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- INFORMES -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarInformes">
+                        <i class="fas fa-chart-line me-3 text-danger" style="width: 20px; text-align: center;"></i> Informes
+                    </button>
+                </h2>
+                <div id="sidebarInformes" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            {% if es_vendedor or es_administracion %}
+                                <a href="{% url 'informes:reporte_ventas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informes de Ventas</a>                                
+                                <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
+                            {% endif %}
+                            {% if es_online or es_administracion %}
+                                <a href="{% url 'pedidos_online:reporte_ventas_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informes de Ventas (Online)</a>                                
+                            {% endif %}
+                            {% if es_cartera or es_administracion %}
+                                <a href="{% url 'informes:informe_pedidos_rechazados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Rechazados</a>
+                                <a href="{% url 'informes:informe_pedidos_aprobados_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Aceptados</a>
+                            {% endif %}
+                            {% if es_bodega or es_administracion or es_diseno %}
+                                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingresos a Bodega</a>
+                            {% endif %}
+                            {% if es_administracion or es_cartera or es_factura %}
+                                <a href="{% url 'informes:informe_comprobantes_despacho' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comprobantes Despacho</a>
+                                <a href="{% url 'informes:informe_total_pedidos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Total Pedidos</a>
+                                <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMINISTRACIÓN -->
+            {% if es_administrador_app %}
+            <div class="accordion-item border-0">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarAdmin">
+                        <i class="fas fa-cogs me-3 text-dark" style="width: 20px; text-align: center;"></i> Administración
+                    </button>
+                </h2>
+                <div id="sidebarAdmin" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobar Pedidos</a>
+                            <a href="{% url 'user_management:user_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión Usuarios</a>
+                            <a href="{% url 'user_management:group_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Grupos Usuarios</a>
+                            {% if puede_ver_panel_django_admin %}
+                            <a href="{% url 'admin:index' %}" target="_blank" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Django Admin</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </aside>
+    {% endif %}
+
+    <!-- ==========================================
+         ENVOLTORIO PRINCIPAL Y ÁREA DE TRABAJO
+         ========================================== -->
+    <div class="main-content-wrapper">
+        <!-- container-fluid px-lg-5 ESTIRA EL CONTENIDO A TODO LO ANCHO DE LA PANTALLA -->
+        <main class="container-fluid mt-4 flex-grow-1" style="max-width: 1800px;">
+            {% include 'core/partials/messages.html' %} 
+            {% block content %}
+            {% endblock content %}
+        </main>
+
+        <footer class="mt-5 py-4 text-center text-muted w-100 shadow-sm" style="background-color: var(--color-fondo-secundario); border-top: 1px solid var(--color-borde-linea);">
+            <div class="container-fluid px-lg-5">
+                <small>
+                    &copy; {% now "Y" %} Todos los derechos reservados. <br class="d-md-none">
+                    Diseñado y desarrollado por <strong class="text-primary">Luis Gabriel Echeverry</strong>.
+                </small>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODAL BORRADORES -->
     {% if es_vendedor and borradores_pendientes_count > 0 %}
     <div class="modal fade" id="notificacionBorradorModal" tabindex="-1" aria-labelledby="notificacionBorradorModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -516,47 +746,29 @@
     </div>
     {% endif %}
 
-
-    <main class="container mt-4">
-        {% include 'core/partials/messages.html' %} {# Si tienes este partial para mensajes #}
-        {% block content %}
-        {% endblock content %}
-    </main>
-
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
-    {# Removido el kit.fontawesome.com duplicado, ya está en el head #}
-
 
     {% block extra_scripts %}
-    
     <script>
-    // Este script se adjunta al 'documento' y espera por clics en cualquier
-    // elemento que tenga la clase '.btn-descargar-pdf', en cualquier página.
     $(document).on('click', '.btn-descargar-pdf', function(e) {
-        // ... (toda tu lógica de descarga de PDF existente va aquí) ...
         e.preventDefault();
-
         const $button = $(this);
-        const url = $button.attr('href'); // Obtener la URL del PDF desde el enlace
-        const originalHtml = $button.html(); // Guardar el texto original (ej: "Descargar")
+        const url = $button.attr('href'); 
+        const originalHtml = $button.html(); 
 
-        // 2. Deshabilitar el botón y mostrar un estado de "cargando"
         $button.prop('disabled', true);
         $button.html('<i class="fa fa-spinner fa-spin"></i> Generando...');
 
-        // 3. Usar fetch para descargar el archivo como un "blob"
         fetch(url)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Error de red al generar el PDF.');
                 }
-
-                // Intentar obtener el nombre del archivo desde la cabecera
                 const disposition = response.headers.get('Content-Disposition');
-                let filename = 'documento.pdf'; // Nombre por defecto
+                let filename = 'documento.pdf'; 
                 
                 if (disposition && disposition.indexOf('attachment') !== -1) {
                     const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
@@ -565,126 +777,42 @@
                         filename = matches[1].replace(/['"]/g, '');
                     }
                 }
-
                 return response.blob().then(blob => ({ blob, filename }));
             })
             .then(({ blob, filename }) => {
-                // 4. Crear un enlace temporal en memoria
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 document.body.appendChild(a);
-
-                // Crear una ObjectURL para el blob
                 const objectUrl = window.URL.createObjectURL(blob);
                 a.href = objectUrl;
-                a.download = filename; // Asignar el nombre del archivo
-
-                // 5. Simular un clic en el enlace para abrir el diálogo "Guardar Como"
+                a.download = filename; 
                 a.click();
-
-                // 6. Limpiar (revocar la URL y eliminar el enlace)
                 window.URL.revokeObjectURL(objectUrl);
                 document.body.removeChild(a);
-
-                // 7. ¡ÉXITO! Mostrar el mensaje al usuario (usando alert nativo)
                 alert('¡Descarga Iniciada! Revisa tu carpeta de descargas para abrir el pedido.');
             })
             .catch(err => {
                 console.error('Error al descargar PDF:', err);
-                // 8. Mostrar mensaje de error (usando alert nativo)
                 alert('Error: No se pudo completar la descarga del archivo.');
             })
             .finally(() => {
-                // 9. Restaurar el botón a su estado original
                 $button.prop('disabled', false);
                 $button.html(originalHtml);
             });
     });
     </script>
 
-    {% comment %} POPUP DE CARTERA DESHABILITADO TEMPORALMENTE
-    {% if user.is_authenticated and es_cartera %}
-
-    <script>
-    $(document).ready(function() {
-        const originalTitle = document.title;
-        var modalEl = document.getElementById('notificacionCarteraModal');
-        var notificacionModal = new bootstrap.Modal(modalEl);
-        const checkUrl = "{% url 'notificaciones:check_notificaciones_cartera_json' %}";
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Definimos la clave para el sessionStorage
-        const storageKey = 'vistoModalCartera';
-        // --- FIN DE LA CORRECCIÓN ---
-
-        function checkNotificacionesCartera(mostrarPopup = false) {
-            fetch(checkUrl)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.count > 0) {
-                        // 1. Actualizar el título de la pestaña (esto siempre se hace)
-                        document.title = `(${data.count}) ${originalTitle}`;
-                        
-                        // 2. Mostrar el popup (solo si se permite)
-                        // 'mostrarPopup' será true solo en la primera carga
-                        if (mostrarPopup && !modalEl.classList.contains('show')) {
-                            $('#modalNotificacionCount').text(data.count);
-                            notificacionModal.show();
-                            
-                            // Marcamos como visto para esta sesión
-                            sessionStorage.setItem(storageKey, 'true');
-                        }
-                    } else {
-                        // 3. Restaurar el título si no hay notificaciones
-                        if (document.title !== originalTitle) {
-                            document.title = originalTitle;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error en polling de notificaciones:', error);
-                });
-        }
-
-        // --- LÓGICA DE CARGA CORREGIDA ---
-        const yaVisto = sessionStorage.getItem(storageKey);
-        
-        if (!yaVisto) {
-            // 1. Si NO lo ha visto, comprobamos y SÍ mostramos el popup
-            checkNotificacionesCartera(true);
-        } else {
-            // 2. Si YA lo vio, solo actualizamos el título de la pestaña (sin popup)
-            checkNotificacionesCartera(false);
-        }
-        
-        // 3. El polling sigue actualizando el título de la pestaña cada 20 seg
-        //    pero nunca mostrará el popup (mostrarPopup = false)
-        setInterval(function() {
-            checkNotificacionesCartera(false);
-        }, 20000); // 20000 ms = 20 segundos
-    });
-    </script>
-    {% endif %}
-    {% endcomment %}
-
     {% if es_vendedor and borradores_pendientes_count > 0 %}
     <script>
     $(document).ready(function() {
-        // Usamos sessionStorage. Esto hace que el popup se muestre
-        // UNA VEZ cuando abres la app, pero no en cada recarga de página.
-        // Si cierras la pestaña y la vuelves a abrir, el popup reaparece.
-        
         const storageKey = 'vistoModalBorradores';
         const yaVisto = sessionStorage.getItem(storageKey);
 
         if (!yaVisto) {
-            // Si no lo ha visto en esta sesión, mostramos el modal
             var modalEl = document.getElementById('notificacionBorradorModal');
             if (modalEl) {
                 var notificacionModal = new bootstrap.Modal(modalEl);
                 notificacionModal.show();
-                
-                // Marcamos como visto para esta sesión
                 sessionStorage.setItem(storageKey, 'true');
             }
         }

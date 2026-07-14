@@ -5,9 +5,10 @@ from . import views
 app_name = 'informes'
 
 urlpatterns = [
-    
-    path('ventas/general/', views.reporte_ventas_general, name='reporte_ventas_general'),
-    path('ventas/vendedor/', views.reporte_ventas_vendedor, name='reporte_ventas_vendedor'),
+
+    # Informe unificado de ventas (reemplaza reporte_ventas_general y reporte_ventas_vendedor)
+    path('ventas/', views.reporte_ventas, name='reporte_ventas'),
+
     path('despachos/cumplimiento/', views.reporte_cumplimiento_despachos, name='reporte_cumplimiento_despachos'),
     path('pedidos/rechazados/', views.informe_pedidos_rechazados, name='informe_pedidos_rechazados'),
     path('pedidos/aprobados-bodega/', views.informe_pedidos_aprobados_bodega, name='informe_pedidos_aprobados_bodega'),

@@ -3,9 +3,7 @@
 
 {% block page_title %}{{ titulo|default:"Crear Pedido Web" }}{% endblock page_title %}
 
-{% block content %}
-
-{% block extra_head %} {# O pon las <style> dentro de block content #}
+{% block extra_head %}
     <style>
         
         #id_notas {
@@ -33,7 +31,9 @@
         }
      
     </style>
-    {% endblock extra_head %} {# O cierra </style> si está en block content #}
+{% endblock extra_head %}
+
+{% block content %}
 
     <div class="row">
         <div class="col-md-8">
@@ -176,23 +176,17 @@
     <div id="tallas-grid-container" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;">
         {# Contenido generado por JS #}
     </div>
-    
-    {# ... Botones Add/Update, etc. ... #}
+
+    {# --- Botones Add / Update --- #}
+    <div class="mt-3 text-end d-flex justify-content-end align-items-center">
+        {# Botón Cancelar Edición (inicialmente oculto) #}
+        <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary me-2" style="display: none;">Cancelar Edición</button>
+
+        {# Botón principal Add/Update - ASEGÚRATE DE QUE TENGA ESTE ID Y ESTÉ 'disabled' #}
+        <button type="button" id="btn-add-update-producto" class="btn btn-primary" disabled>Agregar Producto al Pedido</button>
+    </div>
 
 </div> {# Fin #seccion-seleccion #}
-
-        <div id="tallas-grid-container" class="mt-3 mb-3 p-3 border rounded bg-white" style="display: none;">...</div>
-        {# --- Botón para Añadir / Actualizar --- #}
-        <div class="mt-3 text-end d-flex justify-content-end align-items-center">
-            {# Botón Cancelar Edición (inicialmente oculto) #}
-            <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary me-2" style="display: none;">Cancelar Edición</button>
-
-            {# Botón principal Add/Update - ASEGÚRATE DE QUE TENGA ESTE ID Y ESTÉ 'disabled' #}
-            <button type="button" id="btn-add-update-producto" class="btn btn-primary" disabled>Agregar Producto al Pedido</button>
-        </div>
-        <div class="mt-3 text-end d-flex justify-content-end align-items-center">...</div>
-    
-    </div> {# Fin #seccion-seleccion #}
     
     
     
@@ -322,7 +316,7 @@
          {% endif %}
     
         {# Botones de Guardar/Crear siempre visibles (o puedes añadirles condiciones si quieres) #}
-        <button type="submit" name="accion" value="guardar_borrador" class="btn btn-secondary btn-lg">Guardar Borrador</button>
+        
         <button type="submit" name="accion" value="crear_definitivo" class="btn btn-success btn-lg">Crear Pedido</button>
     
         {# Aquí podrías añadir un botón "Eliminar Borrador" si estás editando un borrador #}
@@ -505,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Actualizar el título principal si es la primera vez que se guarda
                 if ($('h1').text().includes('Crear')) {
-                    $('h1').text(`Editar Pedido Borrador #${data.numero_pedido_empresa}`);
+                    $('h1').text(`Editar Pedido Borrador Número ${data.numero_pedido_empresa}`);
                 }
 
                 $('#autosave-indicator').text('Guardado ✓').removeClass('bg-info').addClass('bg-success');

@@ -7,7 +7,7 @@ from .resources import ClienteResource
 
 @admin.register(Empresa)
 class EmpresaAdmin(ImportExportModelAdmin):
-    list_display = ('nombre', 'nit', 'activo', 'fecha_creacion')
+    list_display = ('nombre', 'nit', 'logo_thumbnail', 'activo', 'fecha_creacion')
     list_filter = ('activo',)
     search_fields = ('nombre', 'nit')
     list_per_page = 20
@@ -20,7 +20,8 @@ class EmpresaAdmin(ImportExportModelAdmin):
             'fields': ('direccion', 'ciudad', 'telefono', 'correo_electronico') 
         }),
         ('Personalización y Web', {
-            'fields': ('logo', 'titulo_web') # <-- Aquí nos aseguramos de que el campo 'logo' se muestre.
+            # 'logo' para el navbar, 'banner_inicio' para el banner del index.
+            'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web')
         }),
         ('Configuración de Pedidos y Tallas', {
             'description': 'Aquí se configuran los mapeos y categorías de tallas para esta empresa.',
@@ -33,7 +34,7 @@ class EmpresaAdmin(ImportExportModelAdmin):
         }),
     )
     
-    readonly_fields = ('fecha_creacion',)
+    readonly_fields = ('fecha_creacion', 'preview_banner')
 
     def logo_thumbnail(self, obj):
         """
@@ -43,6 +44,18 @@ class EmpresaAdmin(ImportExportModelAdmin):
             return format_html('<img src="{}" style="width: 70px; height: auto;" />', obj.logo.url)
         return "Sin logo"
     logo_thumbnail.short_description = 'Logotipo'
+
+    def preview_banner(self, obj):
+        """
+        Muestra una vista previa del banner de inicio dentro del formulario.
+        """
+        if obj.banner_inicio:
+            return format_html(
+                '<img src="{}" style="max-height: 140px; width: auto; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.2);" />',
+                obj.banner_inicio.url
+            )
+        return "Aún no se ha subido un banner."
+    preview_banner.short_description = 'Vista previa del banner'
 
 @admin.register(Dominio)
 class DominioAdmin(admin.ModelAdmin):

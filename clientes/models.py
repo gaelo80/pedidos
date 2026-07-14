@@ -23,6 +23,14 @@ class Empresa(models.Model):
         verbose_name="Logotipo"
     )
 
+    banner_inicio = models.ImageField(
+        upload_to='banners/',
+        null=True,
+        blank=True,
+        verbose_name="Banner de Inicio",
+        help_text="Imagen de fondo del banner en la página principal. Recomendado: ancho grande, ej. 1920x600px."
+    )
+
     titulo_web = models.CharField(
         max_length=100,
         blank=True, # Es opcional

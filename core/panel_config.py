@@ -140,6 +140,10 @@ PANEL_OPTIONS_CONFIG = [
         'categoria': 'Finanzas y Recaudos',  
     },
 
+
+
+
+
     # --- Bodega e Inventario ---
     
     {
@@ -148,7 +152,7 @@ PANEL_OPTIONS_CONFIG = [
         'url_nombre': 'bodega:buscar_informe_movimiento',
         'icono': 'fas fa-search-plus',
         'icono_color_class': 'icon-primary',
-        #'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
+        'rol_requerido': ['es_bodega', 'es_administracion', 'es_diseno'],
         'order': 6, # Ajusta el orden como prefieras
         'categoria': 'Bodega e Inventario',
     },
@@ -239,6 +243,11 @@ PANEL_OPTIONS_CONFIG = [
         'rol_requerido': ['bodega.view_cabeceraconteo','es_administracion'], # Asumo que 'bodega.view_cabeceraconteo' es un permiso de Django
         'categoria': 'Bodega e Inventario',  
     },
+
+
+
+
+
 
     # --- Facturación ---
     {

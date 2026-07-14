@@ -8,37 +8,35 @@ from .models import Notificacion
 @login_required
 def lista_notificaciones(request):
     """
-    Muestra SÓLO las notificaciones NO LEÍDAS del usuario y las marca como leídas.
-    Esto soluciona el problema de la "lista interminable".
+    Muestra el historial de notificaciones del usuario en la empresa actual
+    (leídas y no leídas) y marca como leídas las pendientes, sin ocultarlas.
     """
-    
-    # 1. Aplicamos el filtro Multi-Empresa (¡CRÍTICO!)
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
-        # Manejar el caso donde no hay empresa (aunque login_required debería prevenirlo)
         return render(request, 'notificaciones/lista_notificaciones.html', {
-            'notificaciones': Notificacion.objects.none()
+            'notificaciones': Notificacion.objects.none(),
+            'ids_recien_leidas': [],
         })
 
-    # 2. Obtenemos SÓLO las no leídas de esta empresa
-    notificaciones_no_leidas = Notificacion.objects.filter(
+    # Historial completo de esta empresa (no solo las no leídas)
+    notificaciones = Notificacion.objects.filter(
         destinatario=request.user,
-        empresa=empresa_actual,
-        leido=False
+        empresa=empresa_actual
     ).order_by('-fecha_creacion')
 
-    # 3. Obtenemos los IDs ANTES de marcar, para pasarlos a la plantilla
-    ids_a_marcar = list(notificaciones_no_leidas.values_list('id', flat=True))
+    # Capturamos las que estaban SIN leer, para poder resaltarlas como "nuevas"
+    ids_recien_leidas = list(
+        notificaciones.filter(leido=False).values_list('id', flat=True)
+    )
 
-    # 4. Las marcamos como leídas en la base de datos
-    if ids_a_marcar:
-        Notificacion.objects.filter(pk__in=ids_a_marcar).update(leido=True)
+    # Las marcamos como leídas (el badge baja a 0) PERO seguimos mostrándolas todas
+    if ids_recien_leidas:
+        Notificacion.objects.filter(pk__in=ids_recien_leidas).update(leido=True)
 
-    # 5. Pasamos SÓLO las que acabamos de marcar a la plantilla
     return render(request, 'notificaciones/lista_notificaciones.html', {
-        'notificaciones': notificaciones_no_leidas 
+        'notificaciones': notificaciones,
+        'ids_recien_leidas': ids_recien_leidas,
     })
-
 
 # --- NUEVA VISTA PARA EL POLLING AJAX ---
 

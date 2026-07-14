@@ -987,7 +987,7 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
         detalles_agrupados_json = json.dumps(lista_grupos_final)
     context = {
         'pedido_form': pedido_form, 'referencias': list(referencias_qs),
-        'titulo': f'Editar Pedido Borrador #{pedido_instance.numero_pedido_empresa}' if pedido_instance else 'Crear Nuevo Pedido',
+        'titulo': f'Editar pedido borrador número {pedido_instance.numero_pedido_empresa}' if pedido_instance else 'Crear nuevo pedido',
         'pedido_instance': pedido_instance,
         'detalles_agrupados_json_data': detalles_agrupados_json,
         'linea_counter_init': linea_counter_init,

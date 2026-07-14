@@ -3,149 +3,87 @@
 
 {% block page_title %}{{ titulo }}{% endblock page_title %}
 
+{% block extra_head %}
+<style>
+    /* ==========================================
+       BANNER PRINCIPAL (HERO) DEL INDEX
+       La imagen de fondo se inyecta inline segun el inquilino
+       (empresa_actual.banner_inicio). Aqui solo van los estilos
+       comunes + un color de fallback si la empresa no tiene banner.
+       ========================================== */
+    .hero-banner {
+        position: relative;
+        width: 100%;
+        min-height: 650px;
+        border-radius: 1rem;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+
+        /* Color por defecto si el inquilino no subio banner */
+        background-color: var(--color-navbar-bg);
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    /* Capa oscura para que el texto del saludo se lea sobre la imagen */
+    .hero-banner::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%);
+    }
+
+    .hero-banner__content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 1rem;
+        width: 100%;
+    }
+
+    .hero-banner__title {
+        color: #ffffff !important;
+        font-weight: 800;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0.25rem;
+    }
+
+    .hero-banner__subtitle {
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 767.98px) {
+        .hero-banner {
+            min-height: 200px;
+            border-radius: 0.75rem;
+        }
+    }
+</style>
+{% endblock extra_head %}
+
 {% block content %}
-<div class="container-fluid mt-4 mb-5 px-4">
-    <h2 class="text-center panel-title display-5 fw-bold text-primary mb-4">
-        Hola {{ user.first_name|default:user.username }}!
-    </h2>
-
-    {% if opciones_agrupadas %}
-    
-        <!-- ==========================================
-             VISTA MÓVIL: ACORDEÓN + APPS 
-             (Se oculta en pantallas medianas/grandes)
-             ========================================== -->
-        <div class="d-block d-md-none">
-            <div class="accordion shadow-sm mt-2 rounded-4" id="accordionMobile">
-                {% for categoria in opciones_agrupadas %}
-                <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
-                    <h2 class="accordion-header" id="heading-mobile-{{ forloop.counter }}">
-                        <!-- El primer acordeón aparece abierto por defecto gracias a la clase 'show' y quitando 'collapsed' -->
-                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold bg-white text-dark py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-mobile-{{ forloop.counter }}">
-                            <i class="fas fa-folder me-3 text-primary"></i> <span class="fs-6">{{ categoria.nombre_categoria }}</span>
-                            <span class="badge bg-primary ms-auto rounded-pill">{{ categoria.opciones|length }}</span>
-                        </button>
-                    </h2>
-                    <div id="collapse-mobile-{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionMobile">
-                        <div class="accordion-body bg-light p-3">
-                            <!-- Cuadrícula estilo App dentro del acordeón -->
-                            <div class="row g-2">
-                                {% for opcion in categoria.opciones %}
-                                <div class="col-6">
-                                    <a href="{{ opcion.url_target|default:opcion.url }}" class="text-decoration-none" {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
-                                        <div class="card h-100 text-center shadow-sm card-hover border-0 rounded-4 bg-white">
-                                            <div class="card-body d-flex flex-column justify-content-center align-items-center p-3">
-                                                <i class="{{ opcion.icono }} fa-2x mb-2 {{ opcion.icono_color_class|default:'text-primary' }}"></i>
-                                                <h6 class="card-title text-dark fw-bold mb-0" style="font-size: 0.85rem;">{{ opcion.titulo }}</h6>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+<div class="mb-4">
+    <!-- ==========================================
+         BANNER PRINCIPAL POR INQUILINO
+         La imagen sale de empresa_actual.banner_inicio (BD, por dominio).
+         Si la empresa no tiene banner, se muestra el color de fondo por defecto.
+         ========================================== -->
+    <div class="hero-banner"
+         {% if empresa_actual.banner_inicio %}style="background-image: url('{{ empresa_actual.banner_inicio.url }}');"{% endif %}>
+        <div class="hero-banner__content">
+            <h1 class="hero-banner__title display-4">
+                Hola {{ user.first_name|default:user.username }}!
+            </h1>
+            <p class="hero-banner__subtitle fs-5">
+                Bienvenido al panel de gestion de {{ titulo_web|default:nombre_empresa|default:'tu empresa' }}
+            </p>
         </div>
-
-        <!-- ==========================================
-             VISTA ESCRITORIO: PESTAÑAS LATERALES 
-             (Se oculta en celulares, se muestra en PC/Tablets)
-             ========================================== -->
-        <div class="d-none d-md-block">
-            <div class="row mt-2">
-                <!-- Columna Izquierda: Menú de Categorías -->
-                <div class="col-md-4 col-lg-3 mb-4">
-                    <div class="nav flex-column nav-pills shadow-sm rounded-4 bg-white p-2" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                        {% for categoria in opciones_agrupadas %}
-                        <button class="nav-link text-start fw-bold mb-1 rounded-pill {% if forloop.first %}active{% endif %}" id="v-pills-{{ forloop.counter }}-tab" data-bs-toggle="pill" data-bs-target="#v-pills-{{ forloop.counter }}" type="button" role="tab">
-                            {{ categoria.nombre_categoria }}
-                        </button>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <!-- Columna Derecha: Contenido de la Categoría Seleccionada -->
-                <div class="col-md-8 col-lg-9">
-                    <div class="tab-content" id="v-pills-tabContent">
-                        {% for categoria in opciones_agrupadas %}
-                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="v-pills-{{ forloop.counter }}" role="tabpanel">
-                            <div class="card shadow-sm border-0 rounded-4">
-                                <div class="card-header bg-gradient bg-primary text-white border-0 py-3 rounded-top-4">
-                                    <h5 class="mb-0 fw-bold">{{ categoria.nombre_categoria }}</h5>
-                                </div>
-                                <div class="list-group list-group-flush rounded-bottom-4">
-                                    {% for opcion in categoria.opciones %}
-                                    <a href="{{ opcion.url_target|default:opcion.url }}" class="list-group-item list-group-item-action d-flex align-items-center py-3 custom-list-item-hover border-bottom" {% if opcion.nueva_pestana %}target="_blank"{% endif %}>
-                                        <div class="rounded-circle bg-light p-3 me-3 text-center d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                            <i class="{{ opcion.icono }} fs-5 {{ opcion.icono_color_class|default:'text-primary' }}"></i>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1 fw-bold text-dark">{{ opcion.titulo }}</h6>
-                                            <small class="text-muted">{{ opcion.descripcion }}</small>
-                                        </div>
-                                        <i class="fas fa-chevron-right text-primary opacity-50 ms-2"></i>
-                                    </a>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    {% else %}
-        <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0" role="alert">
-            <i class="fas fa-exclamation-triangle me-2"></i> No hay opciones disponibles para tu perfil de usuario.
-        </div>
-    {% endif %}
+    </div>
 </div>
 {% endblock content %}
-
-{% block extra_css %}
-<style>
-    /* Efecto suave de elevación para las tarjetas móviles (Hover) */
-    .card-hover {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .card-hover:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 15px rgba(0,0,0,0.1) !important;
-        border-bottom: 3px solid var(--bs-primary) !important;
-    }
-    
-    /* Efectos para los items de las listas en PC */
-    .custom-list-item-hover {
-        border-left: 4px solid transparent;
-        transition: all 0.2s ease-in-out;
-    }
-    .custom-list-item-hover:hover {
-        background-color: var(--bs-light);
-        border-left-color: var(--bs-primary);
-        transform: translateX(3px);
-    }
-    .custom-list-item-hover:hover .text-dark {
-        color: var(--bs-primary) !important;
-    }
-
-    /* Ajustes específicos para el acordeón móvil */
-    .accordion-button:not(.collapsed) {
-        background-color: var(--bs-light); /* Fondo suave cuando está abierto */
-        color: var(--bs-primary); /* Texto azul cuando está abierto */
-        box-shadow: inset 0 -1px 0 rgba(0,0,0,.125);
-    }
-
-    /* Estilos globales de iconos para respetar tus configuraciones previas */
-    .icon-primary { color: var(--bs-primary); }
-    .icon-success { color: var(--bs-success); }
-    .icon-warning { color: var(--bs-warning); }
-    .icon-danger { color: var(--bs-danger); }
-    .icon-info { color: var(--bs-info); }
-    .icon-secondary { color: var(--bs-secondary); }
-    .icon-dark { color: var(--bs-dark); }
-</style>
-{% endblock extra_css %}

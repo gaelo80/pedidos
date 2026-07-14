@@ -1,12 +1,3 @@
-"""
-Señales para sincronizar InventarioAlmacen automáticamente.
-
-Flujo correcto:
-1. Bodega transfiere a Almacén → incrementa InventarioAlmacen.stock_actual
-2. Almacén vende → decrementa InventarioAlmacen.stock_actual
-3. Almacén recibe devolución → incrementa InventarioAlmacen.stock_actual
-"""
-
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db.models import Sum

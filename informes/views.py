@@ -63,148 +63,57 @@ def _parse_date_range_from_request(request):
     return fecha_inicio_dt, fecha_fin_dt
 
 
-@login_required
-@permission_required('informes.view_reporte_ventas_general', login_url='core:acceso_denegado')
-def reporte_ventas_general(request):
-    
-    empresa_actual = getattr(request, 'tenant', None)
-    if not empresa_actual:
-        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:index')
-
-    fecha_inicio_dt_aware, fecha_fin_dt_aware = _parse_date_range_from_request(request)
-    
-    # Subconsulta para sumar las cantidades REALMENTE despachadas (de los comprobantes) para cada pedido
-    total_unidades_despachadas_subquery = Subquery(
-        DetalleComprobanteDespacho.objects.filter(
-            comprobante_despacho__pedido_id=OuterRef('pk') 
-        )
-        .values('comprobante_despacho__pedido_id') 
-        .annotate(total_despachado=Coalesce(Sum('cantidad_despachada'), Value(0)))
-        .values('total_despachado')[:1], 
-        output_field=fields.IntegerField() 
-    )
-
-    pedidos_para_lista_general_qs = Pedido.objects.filter(
-        empresa=empresa_actual,
-        estado__in=ESTADOS_PEDIDO_REPORTEABLES,
-        fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
-    ).select_related('cliente', 'vendedor__user').annotate(
-        unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
-        total_unidades_despachadas_en_pedido=Coalesce(total_unidades_despachadas_subquery, Value(0)) 
-    )
-    
-    # === AÑADIR ESTE BLOQUE DE DEPURACIÓN ===
-    print("\n--- DEBUG: Valores de Unidades Despachadas por Pedido (Informe General) ---")
-    for pedido_debug in pedidos_para_lista_general_qs:
-        print(f"Pedido #{pedido_debug.pk}:")
-        print(f"  Unid. Solicitadas: {pedido_debug.unidades_solicitadas_en_pedido}")
-        print(f"  Unid. Despachadas (anotado): {pedido_debug.total_unidades_despachadas_en_pedido}")
-        # Verificación directa de comprobantes para el pedido
-        comprobantes_directos = ComprobanteDespacho.objects.filter(pedido=pedido_debug).annotate(
-            sum_comp_detalles=Coalesce(Sum('detalles__cantidad_despachada'), Value(0))
-        )
-        if comprobantes_directos.exists():
-            total_sum_directa_comp = sum(c.sum_comp_detalles for c in comprobantes_directos)
-            print(f"  Suma directa de comprobantes: {total_sum_directa_comp} (Comprobantes: {', '.join([str(c.pk) for c in comprobantes_directos])})")
-        else:
-            print("  No hay comprobantes de despacho para este pedido.")
-    print("----------------------------------------------------------------------\n")
-    # === FIN DEL BLOQUE DE DEPURACIÓN ===
-
-    # Para los agregados generales (tarjetas de resumen), sumamos de los Pedidos ya anotados
-    agregados_generales = pedidos_para_lista_general_qs.aggregate(
-        total_unidades_solicitadas_general=Coalesce(Sum('unidades_solicitadas_en_pedido'), Value(0)),
-        total_unidades_despachadas_general=Coalesce(Sum('total_unidades_despachadas_en_pedido'), Value(0))
-    )
-    
-    total_unidades_solicitadas_general = agregados_generales['total_unidades_solicitadas_general']
-    total_unidades_despachadas_general = agregados_generales['total_unidades_despachadas_general']
-    
-    porcentaje_despacho_general = Decimal('0.00')
-    if total_unidades_solicitadas_general > 0:
-        porcentaje_despacho_general = (Decimal(total_unidades_despachadas_general) / Decimal(total_unidades_solicitadas_general) * Decimal('100.00'))
-        porcentaje_despacho_general = porcentaje_despacho_general.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-    cantidad_pedidos_considerados_venta = pedidos_para_lista_general_qs.count()
-    
-    # Ventas por Producto
-    ventas_por_producto = DetalleComprobanteDespacho.objects.filter(
-        comprobante_despacho__pedido__in=pedidos_para_lista_general_qs.values('pk')
-    ).values(
-        'producto__referencia',  
-        'producto__color'        
-    ).annotate(
-        cantidad_total_vendida=Coalesce(Sum('cantidad_despachada'), Value(0)),
-        nombre_producto_display=Min('producto__nombre')
-    ).order_by('producto__referencia', 'producto__color')
-    
-    context = {
-        'titulo': f'Informe General de Ventas para {empresa_actual.nombre}',
-        'pedidos_list': pedidos_para_lista_general_qs,
-        'total_unidades_solicitadas_general': total_unidades_solicitadas_general,
-        'total_unidades_despachadas_general': total_unidades_despachadas_general,
-        'porcentaje_despacho_general': porcentaje_despacho_general,
-        'cantidad_pedidos': cantidad_pedidos_considerados_venta,
-        'ventas_por_producto': ventas_por_producto,
-        'fecha_inicio': fecha_inicio_dt_aware.strftime('%Y-%m-%d'),
-        'fecha_fin': fecha_fin_dt_aware.strftime('%Y-%m-%d'),
-        'app_name': 'Informes'
-    }
-    return render(request, 'informes/reporte_ventas_general.html', context)
-
 
 @login_required
 @permission_required('informes.view_reporte_ventas_vendedor', login_url='core:acceso_denied')
-def reporte_ventas_vendedor(request):
+def reporte_ventas(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:index')
-    
+
     usuario_actual = request.user
-    es_administracion_rol_actual = es_administracion(usuario_actual)
-    es_vendedor_rol_actual = es_vendedor(usuario_actual)
+    es_admin = es_administracion(usuario_actual) or usuario_actual.is_superuser
+    es_vend = es_vendedor(usuario_actual)
 
     fecha_inicio_dt_aware, fecha_fin_dt_aware = _parse_date_range_from_request(request)
 
-    # Queryset base para pedidos dentro del rango de fechas Y EMPRESA
+    # Queryset base: empresa + rango de fechas
     pedidos_base_qs = Pedido.objects.filter(
         empresa=empresa_actual,
         fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
     )
 
     vendedores_list_for_dropdown = None
-    vendedor_objeto_contexto = None   
-    pedidos_filtrados_final_qs = Pedido.objects.none() # Empezar con queryset vacío para el filtro de vendedor
+    vendedor_objeto_contexto = None
+    pedidos_filtrados_final_qs = Pedido.objects.none()
 
-    # Lógica de filtro por vendedor
-    if es_administracion_rol_actual:
+    # ------------------- CONTROL DE ACCESO / FILTRO POR VENDEDOR -------------------
+    if es_admin:
         vendedores_list_for_dropdown = Vendedor.objects.filter(
             user__empresa=empresa_actual,
             activo=True
         ).select_related('user').order_by('user__first_name', 'user__last_name')
-        
+
         vendedor_seleccionado_id_str = request.GET.get('vendedor_id')
         if vendedor_seleccionado_id_str:
             try:
                 vendedor_id_int = int(vendedor_seleccionado_id_str)
-                # Aplicar el filtro de vendedor aquí mismo para que pedidos_filtrados_final_qs contenga solo los pedidos relevantes
                 pedidos_filtrados_final_qs = pedidos_base_qs.filter(vendedor_id=vendedor_id_int)
                 vendedor_objeto_contexto = Vendedor.objects.get(pk=vendedor_id_int, user__empresa=empresa_actual)
             except (ValueError, Vendedor.DoesNotExist):
                 messages.error(request, "El vendedor seleccionado no es válido o no pertenece a esta empresa.")
                 return redirect(f"{request.path}?fecha_inicio={fecha_inicio_dt_aware.strftime('%Y-%m-%d')}&fecha_fin={fecha_fin_dt_aware.strftime('%Y-%m-%d')}")
         else:
-            # Si es admin y NO selecciona vendedor, mostrar TODOS los pedidos de la empresa en el rango de fechas
-            pedidos_filtrados_final_qs = pedidos_base_qs 
-            
-    elif es_vendedor_rol_actual:
+            # Admin sin vendedor seleccionado: todos los pedidos de la empresa
+            pedidos_filtrados_final_qs = pedidos_base_qs
+
+    elif es_vend:
         try:
             vendedor_objeto_contexto = Vendedor.objects.get(user=usuario_actual)
             if vendedor_objeto_contexto.user.empresa != empresa_actual:
                 raise PermissionDenied("Este vendedor no pertenece a tu empresa.")
-            # Aplicar filtro de vendedor para el vendedor logueado
+            # Vendedor: SIEMPRE sus propias ventas. Se ignora cualquier ?vendedor_id de la URL.
             pedidos_filtrados_final_qs = pedidos_base_qs.filter(vendedor=vendedor_objeto_contexto)
         except Vendedor.DoesNotExist:
             messages.error(request, "No se encontró un perfil de vendedor activo para su cuenta en esta empresa.")
@@ -212,102 +121,96 @@ def reporte_ventas_vendedor(request):
         except PermissionDenied as e:
             messages.error(request, str(e))
             return redirect('core:acceso_denegado')
+    else:
+        messages.warning(request, "No tiene permisos para ver este informe.")
+        return redirect('core:acceso_denied')
 
-    # Subconsulta para sumar las cantidades REALMENTE despachadas para cada pedido
-    # Se asegura que la subconsulta también filtre por el pedido principal
+    # ------------------- ANOTACIONES -------------------
     total_unidades_despachadas_subquery = Subquery(
         DetalleComprobanteDespacho.objects.filter(
-            comprobante_despacho__pedido_id=OuterRef('pk'), # Filtra por el PK del pedido principal
-            # Opcional: Si quieres que las unidades despachadas solo cuenten si el comprobante
-            # fue generado dentro del rango de fechas del informe.
-            # comprobante_despacho__fecha_hora_despacho__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware) 
+            comprobante_despacho__pedido_id=OuterRef('pk')
         )
-        .values('comprobante_despacho__pedido_id') # Agrupa por el ID del pedido del comprobante
+        .values('comprobante_despacho__pedido_id')
         .annotate(total_desp=Coalesce(Sum('cantidad_despachada'), Value(0)))
         .values('total_desp')[:1],
         output_field=fields.IntegerField()
     )
 
-    # Filtrar por estados de venta solicitada y anotar
-    # pedidos_para_lista_y_agregados contendrá solo los pedidos que cumplen todos los filtros (empresa, fecha, vendedor)
     pedidos_para_lista_y_agregados = pedidos_filtrados_final_qs.exclude(
         estado__in=['BORRADOR', 'CAMBIO_REGISTRADO']
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
-        # La subconsulta ya está relacionada con el pedido a través de OuterRef('pk')
-        total_unidades_despachadas_pedido=Coalesce(total_unidades_despachadas_subquery, Value(0)) 
+        total_unidades_despachadas_pedido=Coalesce(total_unidades_despachadas_subquery, Value(0))
     )
 
-
-
-    # Calcular agregados solicitados
-    agregados_solicitados_vendedor = DetallePedido.objects.filter(
-        pedido__in=pedidos_para_lista_y_agregados # Asegura que solo se consideran los pedidos ya filtrados
+    # ------------------- AGREGADOS -------------------
+    # Solicitado (unidades + valor $), desde DetallePedido
+    agregados_solicitados = DetallePedido.objects.filter(
+        pedido__in=pedidos_para_lista_y_agregados
     ).aggregate(
         total_unidades=Coalesce(Sum('cantidad'), Value(0)),
         valor_total=Coalesce(Sum(F('cantidad') * F('precio_unitario'), output_field=DecimalField()), Value(Decimal('0.00')))
     )
-    total_unidades_solicitadas_vendedor = agregados_solicitados_vendedor['total_unidades']
-    valor_total_ventas_solicitadas_vendedor = agregados_solicitados_vendedor['valor_total']
-    
-    
-    
-    
+    total_unidades_solicitadas = agregados_solicitados['total_unidades']
+    valor_total_ventas = agregados_solicitados['valor_total']
 
-    # Agregados de unidades despachadas basados en DetalleComprobanteDespacho
-    # Aquí sumamos las unidades despachadas SÓLO para los pedidos que YA ESTÁN en pedidos_para_lista_y_agregados
-    agregados_despachados_vendedor = DetalleComprobanteDespacho.objects.filter(
-        comprobante_despacho__pedido__in=pedidos_para_lista_y_agregados.values('pk') # Filtra por los IDs de los pedidos válidos
-    ).aggregate(
-        total_unidades=Coalesce(Sum('cantidad_despachada'), Value(0))
-    )
-    total_unidades_despachadas_vendedor = agregados_despachados_vendedor['total_unidades']
+    # Despachado, desde DetalleComprobanteDespacho
+    total_unidades_despachadas = DetalleComprobanteDespacho.objects.filter(
+        comprobante_despacho__pedido__in=pedidos_para_lista_y_agregados.values('pk')
+    ).aggregate(total=Coalesce(Sum('cantidad_despachada'), Value(0)))['total']
 
-    porcentaje_despacho_vendedor = Decimal('0.00')
-    if total_unidades_solicitadas_vendedor > 0:
-        porcentaje_despacho_vendedor = (Decimal(total_unidades_despachadas_vendedor) / Decimal(total_unidades_solicitadas_vendedor) * Decimal('100.00'))
-        porcentaje_despacho_vendedor = porcentaje_despacho_vendedor.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    porcentaje_despacho = Decimal('0.00')
+    if total_unidades_solicitadas > 0:
+        porcentaje_despacho = (Decimal(total_unidades_despachadas) / Decimal(total_unidades_solicitadas) * Decimal('100.00')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-    cantidad_pedidos_del_vendedor = pedidos_para_lista_y_agregados.count()
+    cantidad_pedidos = pedidos_para_lista_y_agregados.count()
 
-    # Lógica para el título del informe
-    titulo_informe = "Informe de Ventas"
-    vendedor_seleccionado_id_str = request.GET.get('vendedor_id') 
-    if es_administracion_rol_actual:
+    # ------------------- VENTAS POR PRODUCTO (desde lo despachado) -------------------
+    ventas_por_producto = DetalleComprobanteDespacho.objects.filter(
+        comprobante_despacho__pedido__in=pedidos_para_lista_y_agregados.values('pk')
+    ).values(
+        'producto__referencia', 'producto__color'
+    ).annotate(
+        cantidad_total_vendida=Coalesce(Sum('cantidad_despachada'), Value(0)),
+        nombre_producto_display=Min('producto__nombre')
+    ).order_by('producto__referencia', 'producto__color')
+
+    # ------------------- TÍTULO -------------------
+    if es_admin:
         if vendedor_objeto_contexto:
-            titulo_informe = f"Unidades Vendidas de: {vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username}"
-        elif vendedor_seleccionado_id_str:
-            titulo_informe = f"Informe para Vendedor ID: {vendedor_seleccionado_id_str} (No encontrado)"
+            titulo_informe = f"Ventas de: {vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username}"
         else:
-            titulo_informe = "Informe General por Vendedor" # Título por defecto si admin no selecciona
-    elif vendedor_objeto_contexto:
-         titulo_informe = f"Mis Unidades Vendidas ({vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username})"
-    else: # Si no es admin y no es vendedor logueado o no se encontró perfil
-        titulo_informe = "Informe de Ventas por Vendedor (Acceso Restringido)"
-        
-        
-    queryset_final_para_paginar = pedidos_para_lista_y_agregados 
+            titulo_informe = "Informe General de Ventas"
+    else:
+        titulo_informe = f"Mis Ventas ({vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username})"
 
-    paginator = Paginator(queryset_final_para_paginar, 2000) # muestra 2000 pedidos por página (ajusta según tus necesidades)
+    # ------------------- PAGINACIÓN -------------------
+    paginator = Paginator(pedidos_para_lista_y_agregados, 2000)
     page_number = request.GET.get('page')
     pedidos_page_obj = paginator.get_page(page_number)
 
+    vendedor_seleccionado_id_str = request.GET.get('vendedor_id')
     context = {
         'titulo': titulo_informe,
         'pedidos_list': pedidos_page_obj,
-        'total_unidades_solicitadas_vendedor': total_unidades_solicitadas_vendedor,
-        'valor_total_ventas_solicitadas_vendedor': valor_total_ventas_solicitadas_vendedor,
-        'total_unidades_despachadas_vendedor': total_unidades_despachadas_vendedor,
-        'porcentaje_despacho_vendedor': porcentaje_despacho_vendedor,
-        'cantidad_pedidos_vendedor': cantidad_pedidos_del_vendedor,
+        'total_unidades_solicitadas_vendedor': total_unidades_solicitadas,
+        'valor_total_ventas_solicitadas_vendedor': valor_total_ventas,
+        'total_unidades_despachadas_vendedor': total_unidades_despachadas,
+        'porcentaje_despacho_vendedor': porcentaje_despacho,
+        'cantidad_pedidos_vendedor': cantidad_pedidos,
+        # tarjetas "generales" (mismos valores, para compatibilidad de nombres)
+        'total_unidades_solicitadas_general': total_unidades_solicitadas,
+        'total_unidades_despachadas_general': total_unidades_despachadas,
+        'cantidad_pedidos': cantidad_pedidos,
+        'ventas_por_producto': ventas_por_producto,
         'fecha_inicio': fecha_inicio_dt_aware.strftime('%Y-%m-%d'),
         'fecha_fin': fecha_fin_dt_aware.strftime('%Y-%m-%d'),
-        'vendedores_list': vendedores_list_for_dropdown, 
+        'vendedores_list': vendedores_list_for_dropdown,
         'vendedor_id_seleccionado': int(vendedor_seleccionado_id_str) if vendedor_seleccionado_id_str and vendedor_seleccionado_id_str.isdigit() else None,
-        'es_administracion': es_administracion_rol_actual, 
+        'es_administracion': es_admin,
         'app_name': 'Informes'
     }
-    return render(request, 'informes/reporte_ventas_vendedor.html', context)
+    return render(request, 'informes/reporte_ventas.html', context)
 
 
 @login_required

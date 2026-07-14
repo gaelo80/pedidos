@@ -5,6 +5,15 @@
 
 {% block extra_head %}
     <!-- Incluye Tailwind CSS CDN (si no está ya configurado en tu proyecto) -->
+    <!-- IMPORTANTE: desactivamos 'preflight' (el reset de Tailwind) ANTES de cargar el CDN.
+         Sin esto, Tailwind reescribe los estilos ~1s después de cargar y rompe el
+         sidebar/dropdowns de Bootstrap (los submenús desaparecen al desplegarlos). -->
+    <script>
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            corePlugins: { preflight: false }
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
@@ -12,7 +21,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Color de fondo muy claro */
+            background-color: #dfe9e5ff; /* Color de fondo muy claro */
         }
         /* Estilos para Select2 con Tailwind */
         .select2-container--bootstrap-5 .select2-selection--single {
@@ -29,7 +38,7 @@
             line-height: 1.5 !important; /* leading-tight */
         }
         .select2-container--bootstrap-5 .select2-dropdown {
-            border-color: #d1d5db !important;
+            border-color: #485363 !important;
             border-radius: 0.5rem !important;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; /* shadow-md */
         }
@@ -50,8 +59,8 @@
             border: none !important;
         }
         .card-header {
-            background-color: #eff6ff !important; /* blue-50 */
-            color: #1e40af !important; /* blue-800 */
+            background-color: #bad5f8 !important; /* blue-50 */
+            color: #0c0c0c !important; /* blue-800 */
             border-bottom: 1px solid #dbeafe !important; /* blue-100 */
             padding: 1rem 1.5rem !important;
             font-size: 1.125rem !important; /* text-lg */
@@ -1196,4 +1205,45 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- ==========================================================
+     BLINDAJE DEL SIDEBAR FRENTE A TAILWIND
+     Este <style> va AL FINAL del body, DESPUÉS de que Tailwind
+     CDN inyecta su CSS en el <head>. Como en CSS gana la regla
+     con misma especificidad que aparece de último (y además
+     usamos !important + selectores muy específicos), estas
+     reglas restauran el mecanismo .collapse de Bootstrap que
+     Tailwind estaba pisando y hacía desaparecer los submenús.
+     ========================================================== -->
+<style>
+    #desktopSidebar .collapse:not(.show) {
+        display: none !important;
+    }
+    #desktopSidebar .collapse.show {
+        display: block !important;
+    }
+    #desktopSidebar .collapsing {
+        display: block !important;
+        height: auto;
+        overflow: hidden;
+        transition: height 0.35s ease;
+    }
+    /* Forzar visibilidad del CONTENIDO del sidebar (enlaces/items),
+       que Tailwind estaba ocultando o volviendo transparente. */
+    #desktopSidebar .accordion-body,
+    #desktopSidebar .list-group,
+    #desktopSidebar .list-group-item {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    #desktopSidebar .list-group-item {
+        color: var(--color-texto-secundario, #6c757d) !important;
+        background-color: transparent !important;
+    }
+    #desktopSidebar .list-group-item:hover {
+        color: var(--bs-primary, #007bff) !important;
+        background-color: rgba(0, 123, 255, 0.05) !important;
+    }
+</style>
 {% endblock %}

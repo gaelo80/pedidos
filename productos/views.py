@@ -64,34 +64,6 @@ class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredM
         context['search_query'] = self.request.GET.get('q', '')        
         return context
 
-class ProductoCreateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
-    model = Producto
-    form_class = ProductoForm
-    template_name = 'productos/producto_form.html' # Usa la plantilla que diseñamos
-    success_url = reverse_lazy('productos:producto_listado') # Redirige a la lista después de crear
-    success_message = "Producto (Variante) '%(referencia)s - %(nombre)s' creado exitosamente."
-   
-    
-    permission_required = 'productos.add_producto'
-    login_url = reverse_lazy('core:acceso_denegado')
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['empresa'] = self.request.tenant
-        return kwargs
-
-    def handle_no_permission(self):
-        messages.error(self.request, "No tienes permiso para crear nuevos productos.")
-        return redirect(self.login_url)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['titulo_form'] = "Registrar Nuevo Producto"
-        context['nombre_boton'] = "Guardar Producto"        
-        return context
-
-
-
 class ProductoUpdateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Producto
     form_class = ProductoForm
@@ -154,13 +126,8 @@ class ProductoDeleteView(TenantAwareMixin, LoginRequiredMixin, PermissionRequire
         return redirect(self.login_url)
 
     def form_valid(self, form):
-         # SuccessMessageMixin no funciona bien con DeleteView sin este truco
-         # o sobreescribiendo el método delete()
          messages.success(self.request, self.success_message)
          return super().form_valid(form)
-
-
-
 
 
 @login_required
@@ -170,8 +137,7 @@ def producto_import_view(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
-        return redirect('core:index')
-    
+        return redirect('core:index')    
     
     if request.method == 'POST':
         form = ProductoImportForm(request.POST, request.FILES, empresa=empresa_actual)
@@ -400,13 +366,13 @@ def subir_fotos_agrupadas_view(request):
     logger.debug("Renderizando plantilla con el contexto.")
     return render(request, 'productos/subir_fotos_agrupadas.html', context)
 
+
 @login_required
-@permission_required('productos.add_producto', login_url=reverse_lazy('core:acceso_denegado'))
-@transaction.atomic # <--- 2. DECORADOR PARA TRANSACCIÓN ATÓMICA ("TODO O NADA")
+@permission_required('productos.add_producto', login_url='core:acceso_denegado')
 def crear_producto_multi_talla(request):
     """
-    Vista para crear un producto con múltiples tallas a la vez.
-    Ahora con manejo de errores de duplicados y transacciones atómicas.
+    Crea un producto con una o varias tallas a la vez.
+    Sirve tanto para una única variante (una fila) como para muchas.
     """
     empresa_actual = request.tenant
     ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=7)
@@ -416,55 +382,60 @@ def crear_producto_multi_talla(request):
         talla_formset = ProductoTallaFormSet(request.POST, prefix='tallas')
 
         if base_form.is_valid() and talla_formset.is_valid():
-            
-            # <--- 3. INICIA EL BLOQUE TRY...EXCEPT
-            try:
-                datos_comunes = base_form.cleaned_data
-                productos_creados = 0
+            datos_comunes = base_form.cleaned_data
 
-                for form in talla_formset:
-                    if form.cleaned_data and form.cleaned_data.get('talla'):
-                        talla_data = form.cleaned_data
-                        
-                        Producto.objects.create(
-                            empresa=empresa_actual,
-                            referencia=datos_comunes['referencia'],
-                            nombre=datos_comunes['nombre'],
-                            descripcion=datos_comunes.get('descripcion'),
-                            color=datos_comunes.get('color'),
-                            genero=datos_comunes.get('genero'),
-                            costo=datos_comunes.get('costo'),
-                            precio_venta=datos_comunes.get('precio_venta'),
-                            unidad_medida=datos_comunes.get('unidad_medida'),
-                            ubicacion=datos_comunes.get('ubicacion'),
-                            activo=datos_comunes.get('activo', True),
-                            permitir_preventa=datos_comunes.get('permitir_preventa', False),
-                            talla=talla_data.get('talla'),
-                            codigo_barras=talla_data.get('codigo_barras')
-                        )
-                        productos_creados += 1
-                
-                if productos_creados > 0:
-                    messages.success(request, f"¡Se crearon {productos_creados} variantes de producto exitosamente!")
-                else:
-                    messages.warning(request, "No se especificó ninguna talla, no se creó ningún producto.")
-                
-                return redirect('productos:producto_listado')
+            # Recolectar primero las tallas válidas (para no abrir transacción en vano)
+            filas_talla = [
+                f.cleaned_data for f in talla_formset
+                if f.cleaned_data and f.cleaned_data.get('talla')
+            ]
 
-            except IntegrityError:
-                # <--- 4. BLOQUE QUE MANEJA EL ERROR DE DUPLICADO
-                messages.error(request, 
-                    "Error: Uno de los productos que intentaste crear (con la misma referencia, talla y color) ya existe. No se ha guardado ningún producto para evitar inconsistencias."
-                )
-                # No necesitamos hacer nada más, la transacción atómica revierte los cambios.
+            if not filas_talla:
+                messages.warning(request, "No especificaste ninguna talla, no se creó ningún producto.")
+            else:
+                try:
+                    # TODO o NADA: si una variante falla, se revierten todas.
+                    with transaction.atomic():
+                        for talla_data in filas_talla:
+                            Producto.objects.create(
+                                empresa=empresa_actual,
+                                referencia=datos_comunes['referencia'],
+                                nombre=datos_comunes['nombre'],
+                                descripcion=datos_comunes.get('descripcion'),
+                                color=datos_comunes.get('color'),
+                                genero=datos_comunes.get('genero'),
+                                costo=datos_comunes.get('costo'),
+                                precio_venta=datos_comunes.get('precio_venta'),
+                                unidad_medida=datos_comunes.get('unidad_medida'),
+                                ubicacion=datos_comunes.get('ubicacion'),
+                                activo=datos_comunes.get('activo', True),
+                                permitir_preventa=datos_comunes.get('permitir_preventa', False),
+                                talla=talla_data.get('talla'),
+                                codigo_barras=talla_data.get('codigo_barras'),
+                            )
 
-    else: # Método GET
+                    messages.success(
+                        request,
+                        f"¡Se crearon {len(filas_talla)} variante(s) de producto exitosamente!"
+                    )
+                    return redirect('productos:producto_listado')
+
+                except IntegrityError:
+                    # La transacción ya revirtió todo lo insertado.
+                    messages.error(
+                        request,
+                        "Error: una de las variantes (misma referencia, talla y color) ya existe. "
+                        "No se guardó ningún producto para evitar inconsistencias."
+                    )
+        # Si los formularios no son válidos, se cae al render final con los errores.
+
+    else:  # GET
         base_form = ProductoBaseForm()
         talla_formset = ProductoTallaFormSet(prefix='tallas')
 
     context = {
         'base_form': base_form,
         'talla_formset': talla_formset,
-        'titulo_pagina': "Crear Producto (Múltiples Tallas)",
+        'titulo_pagina': "Crear Producto",
     }
     return render(request, 'productos/producto_multi_talla_form.html', context)

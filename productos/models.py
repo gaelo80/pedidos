@@ -168,7 +168,7 @@ class Producto(models.Model):
     genero = models.CharField(
         max_length=20,
         choices=GeneroOpciones.choices,
-        default=GeneroOpciones.UNISEX,
+        default=GeneroOpciones.CABALLERO,
         verbose_name="Categoría/Género",
         help_text="Seleccione el género o categoría del producto."
     )
