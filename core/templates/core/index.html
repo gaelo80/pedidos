@@ -7,9 +7,6 @@
 <style>
     /* ==========================================
        BANNER PRINCIPAL (HERO) DEL INDEX
-       La imagen de fondo se inyecta inline segun el inquilino
-       (empresa_actual.banner_inicio). Aqui solo van los estilos
-       comunes + un color de fallback si la empresa no tiene banner.
        ========================================== */
     .hero-banner {
         position: relative;
@@ -23,14 +20,12 @@
         text-align: center;
         box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
 
-        /* Color por defecto si el inquilino no subio banner */
         background-color: var(--color-navbar-bg);
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
     }
 
-    /* Capa oscura para que el texto del saludo se lea sobre la imagen */
     .hero-banner::before {
         content: "";
         position: absolute;
@@ -64,6 +59,24 @@
             border-radius: 0.75rem;
         }
     }
+
+    /* ==========================================
+       MENÚ DE APPS (SOLO MÓVIL) - estilo Android + acordeón
+       ========================================== */
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1) !important;
+        border-bottom: 3px solid var(--bs-primary) !important;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: var(--bs-light);
+        color: var(--bs-primary);
+        box-shadow: inset 0 -1px 0 rgba(0,0,0,.125);
+    }
 </style>
 {% endblock extra_head %}
 
@@ -71,8 +84,6 @@
 <div class="mb-4">
     <!-- ==========================================
          BANNER PRINCIPAL POR INQUILINO
-         La imagen sale de empresa_actual.banner_inicio (BD, por dominio).
-         Si la empresa no tiene banner, se muestra el color de fondo por defecto.
          ========================================== -->
     <div class="hero-banner"
          {% if empresa_actual.banner_inicio %}style="background-image: url('{{ empresa_actual.banner_inicio.url }}');"{% endif %}>
@@ -86,4 +97,40 @@
         </div>
     </div>
 </div>
+
+
+{% if opciones_agrupadas %}
+    <div class="d-block d-md-none">
+        <div class="accordion shadow-sm mt-2 rounded-4" id="accordionMobile">
+            {% for categoria in opciones_agrupadas %}
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
+                <h2 class="accordion-header" id="heading-mobile-{{ forloop.counter }}">
+                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold bg-white text-dark py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-mobile-{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse-mobile-{{ forloop.counter }}">
+                        <i class="fas fa-folder me-3 text-primary"></i> <span class="fs-6">{{ categoria.nombre_categoria }}</span>
+                        <span class="badge bg-primary ms-auto rounded-pill">{{ categoria.opciones|length }}</span>
+                    </button>
+                </h2>
+                <div id="collapse-mobile-{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading-mobile-{{ forloop.counter }}" data-bs-parent="#accordionMobile">
+                    <div class="accordion-body bg-light p-3">
+                        <div class="row g-2">
+                            {% for opcion in categoria.opciones %}
+                            <div class="col-6">
+                                <a href="{{ opcion.url_target|default:opcion.url }}" class="text-decoration-none" {% if opcion.nueva_pestana %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                                    <div class="card h-100 text-center shadow-sm card-hover border-0 rounded-4 bg-white">
+                                        <div class="card-body d-flex flex-column justify-content-center align-items-center p-3">
+                                            <i class="{{ opcion.icono }} fa-2x mb-2 {{ opcion.icono_color_class|default:'text-primary' }}"></i>
+                                            <h6 class="card-title text-dark fw-bold mb-0" style="font-size: 0.85rem;">{{ opcion.titulo }}</h6>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
 {% endblock content %}
