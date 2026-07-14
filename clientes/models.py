@@ -55,6 +55,12 @@ class Empresa(models.Model):
                      Ej: {"DAMA": ["3", "5", "7"], "NIÑO": ["2", "4", "6"]}"""
     )
 
+    usa_shopify = models.BooleanField(
+        default=False,
+        verbose_name="¿Usa integración con Shopify?",
+        help_text="Activa el panel de sincronización con Shopify para esta empresa."
+    )
+
     def __str__(self):
         return self.nombre
 

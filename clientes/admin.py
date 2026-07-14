@@ -32,6 +32,10 @@ class EmpresaAdmin(ImportExportModelAdmin):
             # Y el de IVA aquí
             'fields': ('activo', 'responsable_de_iva')
         }),
+
+        ('Personalización y Web', {
+            'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web', 'usa_shopify')
+        }),
     )
     
     readonly_fields = ('fecha_creacion', 'preview_banner')
