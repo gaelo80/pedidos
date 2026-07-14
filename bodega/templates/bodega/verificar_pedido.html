@@ -26,8 +26,8 @@
             <h1 class="mb-3">{{ titulo }}</h1>
         </div>
         <div class="col-md-4 text-md-end mb-3">
-            <a href="{% url 'core:index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+            <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a la Lista de Pedidos
             </a>
         </div>
     </div>
@@ -173,7 +173,7 @@
                         title="Ver/Descargar último Comprobante de Despacho en PDF">
                             <i class="fas fa-file-pdf"></i> Ver Comprobante PDF </a>
                     {% endif %}
-                    <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="btn btn-secondary ms-2">Volver a la Lista</a>
+                    
                 {% endif %}
             </div>
         </div> {# Fin Card #}
