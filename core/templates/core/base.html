@@ -249,7 +249,7 @@
                         {% if es_vendedor or es_online %}<li><hr class="dropdown-divider"></li>{% endif %}
                         {% if es_cartera or es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_cartera' %}">Aprobación Cartera</a></li>{% endif %}
                         {% if es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Aprobación Administración</a></li>{% endif %}
-                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores (Web)</a></li>{% endif %}
+                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores Guardados</a></li>{% endif %}
                         {% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}">Borradores (Online)</a></li>{% endif %}
                         {% if es_online or es_administracion %}
                             <li><hr class="dropdown-divider"></li>
@@ -493,7 +493,7 @@
                             {% if es_online %}<a href="{% url 'pedidos_online:crear_pedido_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido Online</a>{% endif %}
                             {% if es_cartera or es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Cartera</a>{% endif %}
                             {% if es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Admin</a>{% endif %}
-                            {% if es_vendedor %}<a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Web)</a>{% endif %}
+                            {% if es_vendedor %}<a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores Guardados</a>{% endif %}
                             {% if es_online %}<a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Online)</a>{% endif %}
                             {% if es_online or es_administracion %}<a href="{% url 'pedidos_online:registrar_cambio_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Cambio (Online)</a>{% endif %}
                         </div>
@@ -539,8 +539,10 @@
                                 <a href="{% url 'recaudos:panel_administracion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Recaudos</a>
                                 <a href="{% url 'recaudos:reporte_general_recaudos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Recaudos</a>
                             {% endif %}
-                            {% if es_cartera or es_administracion %}
+                            {% if es_cartera or es_administracion or es_vendedor %}
                                 <a href="{% url 'cartera:reporte_cartera_general' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Cartera</a>
+                            {% endif %}
+                            {% if es_cartera or es_administracion %}   
                                 <a href="{% url 'cartera:importar_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cargar Cartera</a>
                             {% endif %}
                         </div>
