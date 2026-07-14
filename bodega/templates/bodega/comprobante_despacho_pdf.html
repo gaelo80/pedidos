@@ -105,6 +105,26 @@
             padding: 6px 8px;
         }
 
+        /* Bloque de total final: aparece una sola vez, al terminar la tabla. */
+        .total-final-table {
+            width: 100%;
+            margin-top: -1px; /* pega el bloque al borde inferior de la tabla */
+            page-break-inside: avoid;
+        }
+        .total-final-table td {
+            background-color: #EAEFF5;
+            font-weight: bold;
+            border: 1px solid #CCCCCC;
+            padding: 7px 8px;
+            font-size: 9pt;
+        }
+        .total-final-table .total-final-valor {
+            width: 15%;
+            text-align: center;
+            font-size: 11pt;
+            color: #333;
+        }
+
         .gracias-mensaje {
             text-align: center;
             font-size: 9pt;
@@ -184,12 +204,14 @@
             </tr>
             {% endfor %}
         </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="4" style="text-align: right;">TOTAL DE PRENDAS DESPACHADAS:</td>
-                <td class="text-center">{{ total_a_mostrar|intcomma }}</td>
-            </tr>
-        </tfoot>
+    </table>
+
+    {# Total una sola vez, al final de la tabla (no se repite por página). #}
+    <table class="total-final-table">
+        <tr>
+            <td style="text-align: right; padding-right: 12px;">TOTAL DE PRENDAS DESPACHADAS:</td>
+            <td class="total-final-valor">{{ total_a_mostrar|intcomma }}</td>
+        </tr>
     </table>
     {% else %}
         <p style="text-align: center; padding: 15px; color: #777;">No se despacharon artículos en esta operación.</p>
