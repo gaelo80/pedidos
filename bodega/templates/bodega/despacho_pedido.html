@@ -125,7 +125,7 @@
         <div class="card mb-3">
             <div class="card-body row">
                 <div class="col-md-6">
-                    <strong>Cliente:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}<br>
+                    <strong>Cliente:</strong> {% if pedido.cliente %}{{ pedido.cliente.nombre_completo }}{% elif pedido.cliente_online %}{{ pedido.cliente_online.nombre_completo }}{% else %}N/A{% endif %}<br>
                     <strong>NIT/ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}<br>
                     <strong>Fecha Pedido:</strong> {{ pedido.fecha_hora|date:"Y-m-d H:i" }}
                 </div>

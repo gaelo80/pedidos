@@ -70,7 +70,7 @@
                     <tr>
                         <td>{{ pedido_obj.fecha_hora|date:"d/m/y H:i" }}</td>
                         <td>{{ pedido_obj.pk }}</td>
-                        <td>{{ pedido_obj.cliente.nombre_completo|default:"N/A"|truncatechars:30 }}</td>
+                        <td>{% if pedido_obj.cliente %}{{ pedido_obj.cliente.nombre_completo|truncatechars:30 }}{% elif pedido_obj.cliente_online %}{{ pedido_obj.cliente_online.nombre_completo|truncatechars:30 }}{% else %}N/A{% endif %}</td>
                         <td>{{ pedido_obj.cliente.identificacion|default:"N/A" }}</td>
                         <td>{{ pedido_obj.get_estado_display }}</td>
                         <td>

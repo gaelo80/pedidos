@@ -152,7 +152,7 @@
     <tr>
         <td style="width: 50%; text-align: left; padding-right: 15px; vertical-align: top;">
             <h3>Cliente</h3>
-            <p><strong>Nombre:</strong> {{ pedido.cliente.nombre_completo|default:"N/A" }}</p>
+            <p><strong>Nombre:</strong> {% if pedido.cliente %}{{ pedido.cliente.nombre_completo }}{% elif pedido.cliente_online %}{{ pedido.cliente_online.nombre_completo }}{% else %}N/A{% endif %}</p>
             <p><strong>ID:</strong> {{ pedido.cliente.identificacion|default:"N/A" }}</p>
             {% if pedido.cliente.telefono %}
                 <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono }}</p>
