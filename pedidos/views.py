@@ -126,7 +126,7 @@ def vista_crear_pedido_web(request, pk=None):
     detalles_existentes = None
     
     if pk is not None:
-        query_params = {'pk': pk, 'estado': 'BORRADOR', 'empresa': empresa_actual}
+        query_params = {'pk': pk, 'empresa': empresa_actual}
         if vendedor and not (request.user.is_staff or es_administracion(request.user)):
             query_params['vendedor'] = vendedor
         pedido_instance = get_object_or_404(Pedido, **query_params)
