@@ -1,4 +1,6 @@
 from collections import defaultdict
+from decimal import Decimal
+from core.auth_utils import es_administracion
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse
@@ -1932,11 +1934,15 @@ def vista_informe_inventario(request):
             items = list(items_iter)
             cantidades = [0] * len(columnas_talla)
             ubicaciones = []
+            valor_costo_grupo = Decimal('0.00')
+            valor_venta_grupo = Decimal('0.00')
             for p in items:
                 idx = indice_talla[_normalizar_talla(p.talla)]
                 cantidades[idx] += p.stock_actual_calculado
                 if p.ubicacion and p.ubicacion not in ubicaciones:
                     ubicaciones.append(p.ubicacion)
+                valor_costo_grupo += Decimal(p.stock_actual_calculado) * (p.costo or Decimal('0.00'))
+                valor_venta_grupo += Decimal(p.stock_actual_calculado) * (p.precio_venta or Decimal('0.00'))
             grupos.append({
                 'referencia': ref,
                 'color': color or 'Sin Color',
@@ -1944,6 +1950,8 @@ def vista_informe_inventario(request):
                 'ubicacion': ', '.join(ubicaciones) if ubicaciones else '-',
                 'tallas_cantidades': cantidades,
                 'total': sum(cantidades),
+                'valor_costo': valor_costo_grupo,
+                'valor_venta': valor_venta_grupo,
             })
 
         total_referencias += len(grupos)
@@ -1955,7 +1963,12 @@ def vista_informe_inventario(request):
             'columnas_talla': columnas_talla,
             'grupos': grupos,
             'total_unidades_seccion': sum(g['total'] for g in grupos),
+            'valor_costo_seccion': sum((g['valor_costo'] for g in grupos), Decimal('0.00')),
+            'valor_venta_seccion': sum((g['valor_venta'] for g in grupos), Decimal('0.00')),
         })
+
+    total_valor_costo = sum((s['valor_costo_seccion'] for s in secciones), Decimal('0.00'))
+    total_valor_venta = sum((s['valor_venta_seccion'] for s in secciones), Decimal('0.00'))
 
     context = {
         'secciones': secciones,
@@ -1964,6 +1977,9 @@ def vista_informe_inventario(request):
         'total_unidades': total_unidades,
         'generos_no_reconocidos': sorted(generos_no_reconocidos),
         'total_referencias': total_referencias,
+        'total_valor_costo': total_valor_costo,
+        'total_valor_venta': total_valor_venta,
+        'es_administracion': es_administracion(request.user),
         'filtros_activos': request.GET # Para mantener los filtros en la exportación
     }
     return render(request, 'bodega/informe_inventario.html', context)

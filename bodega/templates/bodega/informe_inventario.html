@@ -44,6 +44,24 @@
                 </div>
             </div>
         </div>
+        {% if es_administracion %}
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-success rounded-3 shadow-lg">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-coins me-2"></i>Valor Inventario (Costo)</h5>
+                    <p class="card-text fs-4 fw-bold">${{ total_valor_costo|floatformat:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-warning rounded-3 shadow-lg">
+                <div class="card-body">
+                    <h5 class="card-title text-dark"><i class="fas fa-money-bill-wave me-2"></i>Valor Inventario (Venta)</h5>
+                    <p class="card-text fs-4 fw-bold text-dark">${{ total_valor_venta|floatformat:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="card shadow-lg border-0 rounded-3 mb-4">
@@ -105,6 +123,9 @@
                             <i class="fas fa-layer-group me-2"></i> {{ seccion.genero_label }}
                             <span class="badge bg-light text-dark rounded-pill ms-2">{{ seccion.grupos|length }} referencias</span>
                             <span class="badge bg-light text-dark rounded-pill ms-1">{{ seccion.total_unidades_seccion|intcomma }} unid.</span>
+                            {% if es_administracion %}
+                            <span class="badge bg-light text-dark rounded-pill ms-1">${{ seccion.valor_costo_seccion|floatformat:0|intcomma }} costo</span>
+                            {% endif %}
                         </span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
@@ -123,6 +144,10 @@
                                             <th class="text-center">{{ talla }}</th>
                                         {% endfor %}
                                         <th class="text-end">Total</th>
+                                        {% if es_administracion %}
+                                        <th class="text-end">Valor Costo</th>
+                                        <th class="text-end">Valor Venta</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -138,9 +163,22 @@
                                             </td>
                                         {% endfor %}
                                         <td class="text-end fw-bold text-primary">{{ grupo.total|intcomma }}</td>
+                                        {% if es_administracion %}
+                                        <td class="text-end text-success">${{ grupo.valor_costo|floatformat:0|intcomma }}</td>
+                                        <td class="text-end text-warning-emphasis">${{ grupo.valor_venta|floatformat:0|intcomma }}</td>
+                                        {% endif %}
                                     </tr>
                                     {% endfor %}
                                 </tbody>
+                                {% if es_administracion %}
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <td colspan="{{ seccion.columnas_talla|length|add:5 }}" class="text-end fw-bold">Subtotal sección:</td>
+                                        <td class="text-end fw-bold text-success">${{ seccion.valor_costo_seccion|floatformat:0|intcomma }}</td>
+                                        <td class="text-end fw-bold text-warning-emphasis">${{ seccion.valor_venta_seccion|floatformat:0|intcomma }}</td>
+                                    </tr>
+                                </tfoot>
+                                {% endif %}
                             </table>
                         </div>
                     </div>
