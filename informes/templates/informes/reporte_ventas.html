@@ -42,6 +42,11 @@
                         <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin|default_if_none:'' }}" class="form-control form-control-sm rounded-pill">
                     </div>
 
+                    <div class="col-md-3 col-sm-6">
+                        <label for="numero_pedido" class="form-label fw-semibold mb-1"># Pedido:</label>
+                        <input type="text" name="numero_pedido" id="numero_pedido" value="{{ numero_pedido_busqueda|default:'' }}" placeholder="Ej: 4233" class="form-control form-control-sm rounded-pill">
+                    </div>
+
                     {# Filtro de vendedor SOLO para administracion #}
                     {% if es_administracion and vendedores_list %}
                     <div class="col-md-3 col-sm-12">
@@ -53,6 +58,19 @@
                                     {{ vendedor_obj.user.get_full_name|default:vendedor_obj.user.username }}
                                 </option>
                             {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    {# Filtro de canal SOLO para administracion #}
+                    {% if es_administracion %}
+                    <div class="col-md-3 col-sm-12">
+                        <label for="canal" class="form-label fw-semibold mb-1">Canal:</label>
+                        <select name="canal" id="canal" class="form-select form-select-sm rounded-pill">
+                            <option value="" {% if not canal_seleccionado %}selected{% endif %}>-- Todos los canales --</option>
+                            <option value="ESTANDAR" {% if canal_seleccionado == "ESTANDAR" %}selected{% endif %}>Estándar</option>
+                            <option value="ONLINE" {% if canal_seleccionado == "ONLINE" %}selected{% endif %}>Online</option>
+                            <option value="WEB" {% if canal_seleccionado == "WEB" %}selected{% endif %}>Web</option>
                         </select>
                     </div>
                     {% endif %}
@@ -123,6 +141,7 @@
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 {% if es_administracion %}<th>Vendedor</th>{% endif %}
+                                {% if es_administracion %}<th>Canal</th>{% endif %}
                                 <th class="text-center">Unid. Solicitadas</th>
                                 <th class="text-center">Unid. Despachadas</th>
                                 <th>Estado</th>
@@ -136,6 +155,17 @@
                                     <td>{{ pedido.fecha_hora|date:"Y-m-d H:i" }}</td>
                                     <td>{{ pedido.destinatario.nombre_completo|default:"N/A" }}</td>
                                     {% if es_administracion %}<td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>{% endif %}
+                                    {% if es_administracion %}
+                                    <td>
+                                        {% if "Orden Shopify #" in pedido.notas %}
+                                            <span class="badge bg-dark">Web</span>
+                                        {% elif pedido.tipo_pedido == "ONLINE" %}
+                                            <span class="badge bg-info text-dark">Online</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Estándar</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
                                     <td class="text-center">{{ pedido.unidades_solicitadas_en_pedido|intcomma }}</td>
                                     <td class="text-center">{{ pedido.total_unidades_despachadas_pedido|intcomma }}</td>
                                     <td><span class="badge {% if pedido.estado == 'COMPLETADO' or pedido.estado == 'ENVIADO' %}bg-success{% elif pedido.estado == 'CANCELADO' %}bg-danger{% else %}bg-secondary{% endif %}">{{ pedido.get_estado_display|default:pedido.estado }}</span></td>
@@ -155,8 +185,8 @@
                     <nav aria-label="Paginación de Pedidos" class="mt-4">
                         <ul class="pagination justify-content-center pagination-lg">
                             {% if pedidos_list.has_previous %}
-                                <li class="page-item"><a class="page-link rounded-start-pill" href="?page=1{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Primera"><i class="fas fa-angle-double-left"></i></a></li>
-                                <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.previous_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Anterior"><i class="fas fa-angle-left"></i></a></li>
+                                <li class="page-item"><a class="page-link rounded-start-pill" href="?page=1{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}{% if request.GET.canal %}&canal={{ request.GET.canal }}{% endif %}{% if request.GET.numero_pedido %}&numero_pedido={{ request.GET.numero_pedido }}{% endif %}" aria-label="Primera"><i class="fas fa-angle-double-left"></i></a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.previous_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}{% if request.GET.canal %}&canal={{ request.GET.canal }}{% endif %}{% if request.GET.numero_pedido %}&numero_pedido={{ request.GET.numero_pedido }}{% endif %}" aria-label="Anterior"><i class="fas fa-angle-left"></i></a></li>
                             {% else %}
                                 <li class="page-item disabled"><span class="page-link rounded-start-pill"><i class="fas fa-angle-double-left"></i></span></li>
                                 <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-left"></i></span></li>
@@ -167,8 +197,8 @@
                             </li>
 
                             {% if pedidos_list.has_next %}
-                                <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.next_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Siguiente"><i class="fas fa-angle-right"></i></a></li>
-                                <li class="page-item"><a class="page-link rounded-end-pill" href="?page={{ pedidos_list.paginator.num_pages }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}" aria-label="Última"><i class="fas fa-angle-double-right"></i></a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ pedidos_list.next_page_number }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}{% if request.GET.canal %}&canal={{ request.GET.canal }}{% endif %}{% if request.GET.numero_pedido %}&numero_pedido={{ request.GET.numero_pedido }}{% endif %}" aria-label="Siguiente"><i class="fas fa-angle-right"></i></a></li>
+                                <li class="page-item"><a class="page-link rounded-end-pill" href="?page={{ pedidos_list.paginator.num_pages }}{% if request.GET.fecha_inicio %}&fecha_inicio={{ request.GET.fecha_inicio }}{% endif %}{% if request.GET.fecha_fin %}&fecha_fin={{ request.GET.fecha_fin }}{% endif %}{% if request.GET.vendedor_id %}&vendedor_id={{ request.GET.vendedor_id }}{% endif %}{% if request.GET.canal %}&canal={{ request.GET.canal }}{% endif %}{% if request.GET.numero_pedido %}&numero_pedido={{ request.GET.numero_pedido }}{% endif %}" aria-label="Última"><i class="fas fa-angle-double-right"></i></a></li>
                             {% else %}
                                 <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-right"></i></span></li>
                                 <li class="page-item disabled"><span class="page-link rounded-end-pill"><i class="fas fa-angle-double-right"></i></span></li>

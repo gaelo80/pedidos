@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction # Sigue siendo bueno para la atomicidad de la creación del movimiento
+from django.db.models import Q, F
 from .models import MovimientoInventario, DetalleIngresoBodega, ComprobanteDespacho
 # La importación de Producto desde productos.models es correcta según tu archivo
 from productos.models import Producto
@@ -158,9 +159,26 @@ def notificar_entrada_stock_a_vendedores(sender, instance, created, **kwargs):
                     logger.warning(f"No se encontró la URL 'bodega:informe_movimiento_inventario' para MovimientoInventario ID {instance.pk}.")
                     
                     
+                # Solo notificamos a los vendedores que tengan un pedido activo (no cancelado,
+                # entregado, borrador o registrado como cambio) con esta referencia exacta
+                # todavía pendiente por despachar. Antes se notificaba a TODOS los vendedores
+                # de la empresa por cualquier entrada de stock, sin importar si les interesaba.
+                from pedidos.models import DetallePedido  # import local para evitar ciclo de imports
+
+                detalles_pendientes = DetallePedido.objects.filter(
+                    producto=producto,
+                    pedido__empresa=empresa
+                ).exclude(
+                    pedido__estado__in=['CANCELADO', 'ENTREGADO', 'BORRADOR', 'CAMBIO_REGISTRADO']
+                ).filter(
+                    Q(cantidad_verificada__isnull=True) | Q(cantidad_verificada__lt=F('cantidad'))
+                ).exclude(pedido__vendedor__isnull=True)
+
+                vendedor_user_ids = detalles_pendientes.values_list('pedido__vendedor__user_id', flat=True).distinct()
+
                 vendedores_a_notificar = User.objects.filter(
-                    perfil_vendedor__isnull=False, # Asegura que el usuario tiene un perfil de vendedor
-                    empresa=empresa,              # Filtra por el campo 'empresa' directamente en el modelo User
+                    pk__in=vendedor_user_ids,
+                    empresa=empresa,
                     is_active=True
                 )
                 

@@ -48,3 +48,6 @@ AlmacenDesktop/build/
 
 # Claude
 .claude/
+
+# Backups locales de base de datos (no deben ir al repo)
+backups/

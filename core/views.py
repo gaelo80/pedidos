@@ -309,3 +309,18 @@ def manifest_view(request):
     coincida con el dominio actual de la petición.
     """
     return render(request, 'pwa/manifest.json.j2', content_type='application/manifest+json')
+
+
+def csrf_failure_view(request, reason=""):
+    """
+    Vista personalizada para fallos de verificación CSRF (CSRF_FAILURE_VIEW).
+    El caso más común: el usuario cerró sesión en otra pestaña o inició sesión
+    con otro usuario en el mismo navegador, y el formulario que tenía abierto
+    quedó con un token viejo. En vez del 403 técnico de Django, mostramos una
+    página amigable que lo manda de nuevo a iniciar sesión.
+    """
+    try:
+        login_url = reverse('login')
+    except NoReverseMatch:
+        login_url = '/accounts/login/'
+    return render(request, '403_csrf.html', {'login_url': login_url}, status=403)

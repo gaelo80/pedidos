@@ -45,7 +45,8 @@ class GlobalExceptionMiddleware:
         referer = request.META.get('HTTP_REFERER')
 
         # 3. Preparar el mensaje amigable para la interfaz
-        mensaje_error = f"Ocurrió un error inesperado procesando la solicitud: {str(exception)}"
+        # (sin el detalle técnico de la excepción: eso solo queda en el log de arriba)
+        mensaje_error = "Ocurrió un error inesperado procesando la solicitud. Ya quedó registrado — si el problema sigue, avísale al administrador."
         
         # 4. Enviar la notificación al sistema de 'messages' de Django
         messages.error(request, mensaje_error)

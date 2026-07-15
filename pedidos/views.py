@@ -1026,7 +1026,7 @@ def vista_lista_pedidos_borrador(request):
     if search_query:
         queryset = queryset.filter(Q(pk__icontains=search_query) | Q(cliente__nombre_completo__icontains=search_query)).distinct()
         
-    pedidos_list = queryset.select_related('cliente').order_by('-fecha_hora')
+    pedidos_list = queryset.select_related('cliente', 'vendedor__user').order_by('-fecha_hora')
     context = {'pedidos_list': pedidos_list, 'titulo': titulo, 'search_query': search_query}
     return render(request, 'pedidos/lista_pedidos_borrador.html', context)
 

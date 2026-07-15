@@ -78,11 +78,32 @@ def reporte_ventas(request):
 
     fecha_inicio_dt_aware, fecha_fin_dt_aware = _parse_date_range_from_request(request)
 
-    # Queryset base: empresa + rango de fechas
-    pedidos_base_qs = Pedido.objects.filter(
-        empresa=empresa_actual,
-        fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
-    )
+    # ------------------- BÚSQUEDA POR NÚMERO DE PEDIDO -------------------
+    # Si se busca un número de pedido puntual, ignoramos el rango de fechas
+    # (el pedido puede ser más viejo que la ventana de 30 días por defecto).
+    numero_pedido_busqueda = request.GET.get('numero_pedido', '').strip()
+    if numero_pedido_busqueda:
+        pedidos_base_qs = Pedido.objects.filter(empresa=empresa_actual)
+        if numero_pedido_busqueda.isdigit():
+            pedidos_base_qs = pedidos_base_qs.filter(numero_pedido_empresa=int(numero_pedido_busqueda))
+        else:
+            pedidos_base_qs = pedidos_base_qs.none()
+    else:
+        # Queryset base: empresa + rango de fechas
+        pedidos_base_qs = Pedido.objects.filter(
+            empresa=empresa_actual,
+            fecha_hora__range=(fecha_inicio_dt_aware, fecha_fin_dt_aware)
+        )
+
+    # ------------------- FILTRO POR CANAL (Estándar / Online / Web) -------------------
+    # Los pedidos de Shopify se marcan en 'notas' con "Orden Shopify #..." (ver pedidos_web/views.py).
+    canal_seleccionado = request.GET.get('canal', '')
+    if canal_seleccionado == 'ESTANDAR':
+        pedidos_base_qs = pedidos_base_qs.filter(tipo_pedido='ESTANDAR')
+    elif canal_seleccionado == 'WEB':
+        pedidos_base_qs = pedidos_base_qs.filter(tipo_pedido='ONLINE', notas__icontains='Orden Shopify #')
+    elif canal_seleccionado == 'ONLINE':
+        pedidos_base_qs = pedidos_base_qs.filter(tipo_pedido='ONLINE').exclude(notas__icontains='Orden Shopify #')
 
     vendedores_list_for_dropdown = None
     vendedor_objeto_contexto = None
@@ -141,7 +162,7 @@ def reporte_ventas(request):
     ).select_related('cliente', 'vendedor__user').annotate(
         unidades_solicitadas_en_pedido=Coalesce(Sum('detalles__cantidad'), Value(0)),
         total_unidades_despachadas_pedido=Coalesce(total_unidades_despachadas_subquery, Value(0))
-    )
+    ).order_by('-fecha_hora')
 
     # ------------------- AGREGADOS -------------------
     # Solicitado (unidades + valor $), desde DetallePedido
@@ -184,6 +205,10 @@ def reporte_ventas(request):
     else:
         titulo_informe = f"Mis Ventas ({vendedor_objeto_contexto.user.get_full_name() or vendedor_objeto_contexto.user.username})"
 
+    CANAL_LABELS = {'ESTANDAR': 'Estándar', 'ONLINE': 'Online', 'WEB': 'Web'}
+    if canal_seleccionado in CANAL_LABELS:
+        titulo_informe = f"{titulo_informe} — {CANAL_LABELS[canal_seleccionado]}"
+
     # ------------------- PAGINACIÓN -------------------
     paginator = Paginator(pedidos_para_lista_y_agregados, 2000)
     page_number = request.GET.get('page')
@@ -207,6 +232,8 @@ def reporte_ventas(request):
         'fecha_fin': fecha_fin_dt_aware.strftime('%Y-%m-%d'),
         'vendedores_list': vendedores_list_for_dropdown,
         'vendedor_id_seleccionado': int(vendedor_seleccionado_id_str) if vendedor_seleccionado_id_str and vendedor_seleccionado_id_str.isdigit() else None,
+        'canal_seleccionado': canal_seleccionado,
+        'numero_pedido_busqueda': numero_pedido_busqueda,
         'es_administracion': es_admin,
         'app_name': 'Informes'
     }

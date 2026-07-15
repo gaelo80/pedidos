@@ -24,7 +24,9 @@ from django.utils.decorators import method_decorator
 from django.contrib.auth import get_user_model
 import logging
 from django.conf import settings
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Value
+from django.db.models.functions import Coalesce
+from itertools import groupby
 from pedidos.models import DetallePedido
 from django.db.models import Sum
 from django.core.paginator import Paginator
@@ -484,16 +486,28 @@ def vista_verificar_pedido(request, pk):
             pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color', 'producto__talla')
         )
         
+        # --- Separar pendientes de ya completados (pendiente total = 0) ---
+        detalles_pendientes = []
+        detalles_completados = []
         for detalle in detalles_para_mostrar:
             talla_original = detalle.producto.talla or ''
             talla_como_texto = str(talla_original).strip()
             # Modificamos el atributo 'talla' del objeto producto en memoria
             detalle.producto.talla = TALLAS_MAPEO.get(talla_como_texto, talla_como_texto)
+
+            detalle.cantidad_ya_despachada = detalle.cantidad_verificada or 0
+            detalle.cantidad_aun_pendiente = detalle.cantidad - detalle.cantidad_ya_despachada
+
+            if detalle.cantidad_aun_pendiente > 0:
+                detalles_pendientes.append(detalle)
+            else:
+                detalles_completados.append(detalle)
         # --- FIN: Cargar Mapeo y Procesar Tallas ---
-            
+
         context = {
             'pedido': pedido,
-            'detalles_pedido': detalles_para_mostrar, # Ya tiene las tallas traducidas
+            'detalles_pendientes': detalles_pendientes,
+            'detalles_completados': detalles_completados,
             'titulo': f'Verificar pedido número {pedido.numero_pedido_empresa}'
         }
         return render(request, 'bodega/verificar_pedido.html', context)
@@ -1845,9 +1859,9 @@ def vista_informe_inventario(request):
     
     # Query base: solo productos activos de la empresa actual
     productos_queryset = Producto.objects.filter(
-        empresa=empresa_actual, 
+        empresa=empresa_actual,
         activo=True
-    ).order_by('referencia', 'color', 'talla')
+    )
 
     # Lógica de filtrado
     referencia_q = request.GET.get('referencia', '').strip()
@@ -1861,21 +1875,96 @@ def vista_informe_inventario(request):
     if ubicacion_q:
         productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
 
-    # Calcular totales (después de filtrar)
+    # Calcular totales (después de filtrar) con una sola consulta agregada,
+    # en vez de recorrer 'stock_actual' producto por producto (N+1 queries).
     total_productos = productos_queryset.count()
-    total_unidades = sum(p.stock_actual for p in productos_queryset)
-    
-    # Paginación
-    paginator = Paginator(productos_queryset, 75) # Muestra 25 productos por página
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    total_unidades = productos_queryset.aggregate(
+        total=Coalesce(Sum('movimientos__cantidad'), Value(0))
+    )['total']
+
+    # Traemos todo (ya es UNA sola consulta anotada, sin N+1) y lo organizamos
+    # en memoria por Género > Referencia+Color, con las tallas como columnas.
+    # Esto evita mezclar sistemas de tallas incompatibles (ej. Caballero 28-38
+    # con Dama 3-16) en una sola tabla plana con columnas vacías.
+    productos_lista = list(
+        productos_queryset.annotate(
+            stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
+        ).order_by('referencia', 'color', 'talla')
+    )
+
+    def _normalizar_talla(talla_val):
+        if talla_val is None or str(talla_val).strip() == '':
+            return '-'
+        return str(talla_val).strip()
+
+    def _talla_orden(talla_str):
+        try:
+            return (0, float(talla_str.replace(',', '.')))
+        except ValueError:
+            return (1, talla_str)
+
+    def _normalizar_genero(genero_val):
+        # Normaliza may/min y espacios (ej. "Dama"/"DAMA"/"dama" -> "DAMA").
+        # No corrige errores tipográficos genuinos (ej. "DAM"/"DAAM"), esos
+        # quedan en su propia sección para que se detecten y corrijan en Productos.
+        return (genero_val or '').strip().upper()
+
+    # Orden estable por género normalizado (conserva el orden referencia/color/talla
+    # ya aplicado por la consulta dentro de cada grupo de género).
+    productos_lista.sort(key=lambda p: _normalizar_genero(p.genero))
+
+    GENERO_LABELS = dict(Producto.GeneroOpciones.choices)
+    secciones = []
+    total_referencias = 0
+    generos_no_reconocidos = set()
+
+    for genero, productos_genero_iter in groupby(productos_lista, key=lambda p: _normalizar_genero(p.genero)):
+        productos_genero = list(productos_genero_iter)
+
+        columnas_talla = sorted(
+            {_normalizar_talla(p.talla) for p in productos_genero},
+            key=_talla_orden
+        )
+        indice_talla = {t: i for i, t in enumerate(columnas_talla)}
+
+        grupos = []
+        for (ref, color), items_iter in groupby(productos_genero, key=lambda p: (p.referencia, p.color)):
+            items = list(items_iter)
+            cantidades = [0] * len(columnas_talla)
+            ubicaciones = []
+            for p in items:
+                idx = indice_talla[_normalizar_talla(p.talla)]
+                cantidades[idx] += p.stock_actual_calculado
+                if p.ubicacion and p.ubicacion not in ubicaciones:
+                    ubicaciones.append(p.ubicacion)
+            grupos.append({
+                'referencia': ref,
+                'color': color or 'Sin Color',
+                'nombre': items[0].nombre,
+                'ubicacion': ', '.join(ubicaciones) if ubicaciones else '-',
+                'tallas_cantidades': cantidades,
+                'total': sum(cantidades),
+            })
+
+        total_referencias += len(grupos)
+        if genero not in GENERO_LABELS:
+            generos_no_reconocidos.add(genero)
+        secciones.append({
+            'genero': genero,
+            'genero_label': GENERO_LABELS.get(genero, genero),
+            'columnas_talla': columnas_talla,
+            'grupos': grupos,
+            'total_unidades_seccion': sum(g['total'] for g in grupos),
+        })
 
     context = {
-        'productos': page_obj, # El objeto de página, no el queryset completo
+        'secciones': secciones,
         'titulo': f'Informe de Inventario Físico ({empresa_actual.nombre})',
         'total_productos': total_productos,
         'total_unidades': total_unidades,
-        'filtros_activos': request.GET # Para mantener los filtros en la paginación y exportación
+        'generos_no_reconocidos': sorted(generos_no_reconocidos),
+        'total_referencias': total_referencias,
+        'filtros_activos': request.GET # Para mantener los filtros en la exportación
     }
     return render(request, 'bodega/informe_inventario.html', context)
 
@@ -1904,7 +1993,12 @@ def exportar_inventario_excel(request):
         productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
     if ubicacion_q:
         productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
-    
+
+    # Anotamos el stock en una sola consulta (evita N+1 al recorrer 'stock_actual' por producto)
+    productos_queryset = productos_queryset.annotate(
+        stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
+    )
+
     # Crear el archivo Excel en memoria
     workbook = openpyxl.Workbook()
     sheet = workbook.active
@@ -1923,7 +2017,7 @@ def exportar_inventario_excel(request):
             producto.color or '',
             producto.talla or '',
             producto.ubicacion or '',
-            producto.stock_actual
+            producto.stock_actual_calculado
         ])
 
     # Preparar la respuesta HTTP

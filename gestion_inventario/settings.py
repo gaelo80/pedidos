@@ -343,3 +343,6 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'login'
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 12000
+
+# Página amigable cuando falla la verificación CSRF (ej. sesión cambiada en otra pestaña)
+CSRF_FAILURE_VIEW = 'core.views.csrf_failure_view'

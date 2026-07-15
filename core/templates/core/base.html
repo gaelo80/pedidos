@@ -407,12 +407,8 @@
                         <i class="fas fa-chart-line me-1"></i> INFORMES
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownInformes">
-                        {% if es_vendedor or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas' %}">Ventas en General (Web)</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        {% if es_online or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'pedidos_online:reporte_ventas_online' %}">Informes de Ventas (Online)</a></li>
+                        {% if es_vendedor or es_online or es_administracion %}
+                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas' %}">Informe de Ventas</a></li>
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if es_cartera or es_administracion %}
@@ -685,12 +681,11 @@
                 <div id="sidebarInformes" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
-                            {% if es_vendedor or es_administracion %}
-                                <a href="{% url 'informes:reporte_ventas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informes de Ventas</a>                                
-                                <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
+                            {% if es_vendedor or es_online or es_administracion %}
+                                <a href="{% url 'informes:reporte_ventas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ventas</a>
                             {% endif %}
-                            {% if es_online or es_administracion %}
-                                <a href="{% url 'pedidos_online:reporte_ventas_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informes de Ventas (Online)</a>                                
+                            {% if es_vendedor or es_administracion %}
+                                <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
                             {% endif %}
                             {% if es_cartera or es_administracion %}
                                 <a href="{% url 'informes:informe_pedidos_rechazados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Rechazados</a>

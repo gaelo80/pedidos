@@ -136,8 +136,9 @@
         <tr>
             <!-- Ampliamos esta columna al 75% para darle más espacio al cliente -->
             <td style="width: 75%;">
-                <span style="font-size: 11pt; font-weight: bold;">CLIENTE:</span> 
+                <span style="font-size: 11pt; font-weight: bold;">CLIENTE:</span>
                 <span class="nombre-cliente" style="font-size: 12pt;">{{ pedido.destinatario.nombre_completo|default:'Sin Cliente' }}</span>
+                <span style="font-size: 10pt;">&nbsp;(C.C./NIT: {{ pedido.destinatario.identificacion|default:"No registrada" }})</span>
                 <br>
                 <span style="font-size: 11pt;"><strong>FECHA DE PEDIDO:</strong> {{ pedido.fecha_hora|date:"d/m/Y H:i" }}</span>
             </td>
@@ -153,6 +154,9 @@
                 <strong>DIR:</strong> {{ pedido.destinatario.direccion|default:"No registrada" }} &nbsp;|&nbsp;
                 <strong>CIUDAD:</strong> {% if pedido.destinatario.ciudad %}{{ pedido.destinatario.ciudad.nombre }}{% else %}No registrada{% endif %} &nbsp;|&nbsp;
                 <strong>VEND:</strong> {{ pedido.vendedor|default:"N/A" }}
+                <br>
+                <strong>TEL:</strong> {{ pedido.destinatario.telefono|default:"No registrado" }} &nbsp;|&nbsp;
+                <strong>CORREO:</strong> {{ pedido.destinatario.email|default:"No registrado" }}
             </td>
         </tr>
     </table>

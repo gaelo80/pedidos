@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db import transaction
 from django.conf import settings
-from clientes.models import Empresa
+from clientes.models import Empresa, Ciudad
 from pedidos_online.models import ClienteOnline
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
@@ -64,17 +64,36 @@ def webhook_nuevo_pedido_shopify(request):
 # --- A. Guardar Cliente ---
         cliente_data = orden.get('customer') or {}
         direccion_data = orden.get('shipping_address') or {}
-        
+
         if cliente_data:
+            # En el checkout de Shopify no existe un campo nativo de "Identificación" (cédula/NIT),
+            # así que en esta tienda se captura reutilizando el campo "Company" de la dirección de envío.
+            identificacion_real = (direccion_data.get('company') or '').strip()
+            if not identificacion_real:
+                # Sin cédula capturada: usamos el ID de cliente de Shopify para no romper la unicidad.
+                identificacion_real = f"SHOPIFY-{cliente_data.get('id')}"
+
+            # Dirección completa = calle/carrera (address1) + complemento (apto/interior, address2)
+            partes_direccion = [p for p in [direccion_data.get('address1'), direccion_data.get('address2')] if p]
+            direccion_completa = ", ".join(partes_direccion) or 'Sin dirección'
+
+            ciudad_obj = None
+            nombre_ciudad = (direccion_data.get('city') or '').strip()
+            if nombre_ciudad:
+                ciudad_obj = Ciudad.objects.filter(nombre__iexact=nombre_ciudad).first()
+                if not ciudad_obj:
+                    ciudad_obj = Ciudad.objects.create(nombre=nombre_ciudad)
+
             cliente_online, _ = ClienteOnline.objects.update_or_create(
-                identificacion=str(cliente_data.get('id')),
+                identificacion=identificacion_real,
                 empresa=empresa_actual,
                 defaults={
                     'nombre_completo': f"{cliente_data.get('first_name', '')} {cliente_data.get('last_name', '')}".strip(),
                     # Si viene null, lo cambiamos por un string vacío ''
                     'email': cliente_data.get('email') or '',
-                    'telefono': direccion_data.get('phone') or cliente_data.get('phone') or 'Sin teléfono', 
-                    'direccion': direccion_data.get('address1') or 'Sin dirección',
+                    'telefono': direccion_data.get('phone') or cliente_data.get('phone') or 'Sin teléfono',
+                    'direccion': direccion_completa,
+                    'ciudad': ciudad_obj,
                     'tipo_cliente': 'DETAL'
                 }
             )

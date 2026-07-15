@@ -1,7 +1,6 @@
 {% extends 'core/base.html' %}
 {% load static %}
 {% load core_extras %}
-{% load math_filters %}
 
 {% block page_title %}Despachar Pedido #{{ pedido.numero_pedido_empresa }}{% endblock page_title %}
 
@@ -91,9 +90,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for detalle in detalles_pedido %}
-                        {% with cantidad_ya_despachada=detalle.cantidad_verificada|default_if_none:0 %}
-                        {% with cantidad_aun_pendiente=detalle.cantidad|subtract:cantidad_ya_despachada %}
+                        {% for detalle in detalles_pendientes %}
                         <tr>
                             <td>{{ detalle.producto.referencia }}</td>
                             <td>{{ detalle.producto.nombre }}</td>
@@ -101,38 +98,82 @@
                             <td>{{ detalle.producto.color|default:"-" }}</td>
                             <td>{{ detalle.producto.ubicacion|default:"-" }}</td>
                             <td class="text-center fw-bold">{{ detalle.cantidad }}</td>
-                            <td class="text-center">{{ cantidad_ya_despachada }}</td>
+                            <td class="text-center">{{ detalle.cantidad_ya_despachada }}</td>
                             <td class="text-center">
                                 <input type="number"
                                        class="form-control form-control-sm text-center input-a-despachar"
                                        name="cantidad_a_despachar_{{ detalle.id }}"
                                        value="0"
                                        min="0"
-                                       max="{{ cantidad_aun_pendiente }}"
+                                       max="{{ detalle.cantidad_aun_pendiente }}"
                                        step="1"
                                        placeholder="Cant."
-                                       {% if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO' or cantidad_aun_pendiente <= 0 %}
-                                       disabled title="Ya no hay pendientes o pedido finalizado"
+                                       {% if pedido.estado == 'ENVIADO' or pedido.estado == 'ENTREGADO' or pedido.estado == 'CANCELADO' %}
+                                       disabled title="Pedido finalizado"
                                        {% else %}
-                                       title="Ingrese cantidad a despachar ahora (Max: {{ cantidad_aun_pendiente }})"
+                                       title="Ingrese cantidad a despachar ahora (Max: {{ detalle.cantidad_aun_pendiente }})"
                                        {% endif %}>
                             </td>
                             <td class="text-center">
-                                <span class="badge {% if cantidad_aun_pendiente <= 0 %}bg-success{% elif not detalle.verificado_bodega %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
-                                    {{ cantidad_aun_pendiente }}
+                                <span class="badge {% if not detalle.verificado_bodega %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+                                    {{ detalle.cantidad_aun_pendiente }}
                                 </span>
                             </td>
                         </tr>
-                        {% endwith %}
-                        {% endwith %}
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center text-muted fst-italic py-4">Este pedido no tiene detalles.</td>
+                            <td colspan="9" class="text-center text-muted fst-italic py-4">
+                                {% if detalles_completados %}Todos los artículos ya fueron despachados por completo.{% else %}Este pedido no tiene detalles.{% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+
+            {# ---------- Artículos ya completados (pendiente total = 0), ocultos en acordeón ---------- #}
+            {% if detalles_completados %}
+            <div class="border-top">
+                <button class="btn btn-link text-decoration-none w-100 text-start py-3 px-4" type="button" data-bs-toggle="collapse" data-bs-target="#completadosCollapse" aria-expanded="false" aria-controls="completadosCollapse">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Artículos ya completados</strong>
+                    <span class="badge bg-success rounded-pill ms-2">{{ detalles_completados|length }}</span>
+                    <i class="fas fa-chevron-down ms-2 small text-muted"></i>
+                </button>
+                <div class="collapse" id="completadosCollapse">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ref</th>
+                                    <th>Nombre</th>
+                                    <th>Talla</th>
+                                    <th>Color</th>
+                                    <th>Ubicación</th>
+                                    <th class="text-center">Pedida</th>
+                                    <th class="text-center">Despachado Antes</th>
+                                    <th class="text-center">Pendiente Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles_completados %}
+                                <tr>
+                                    <td>{{ detalle.producto.referencia }}</td>
+                                    <td>{{ detalle.producto.nombre }}</td>
+                                    <td>{{ detalle.producto.talla|default:"-" }}</td>
+                                    <td>{{ detalle.producto.color|default:"-" }}</td>
+                                    <td>{{ detalle.producto.ubicacion|default:"-" }}</td>
+                                    <td class="text-center fw-bold">{{ detalle.cantidad }}</td>
+                                    <td class="text-center">{{ detalle.cantidad_ya_despachada }}</td>
+                                    <td class="text-center"><span class="badge bg-success">{{ detalle.cantidad_aun_pendiente }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="card-footer bg-light p-4 rounded-bottom-3">
                 {# Campo de contraseña de verificación #}
@@ -175,5 +216,3 @@
 
 </div>
 {% endblock content %}
-
-{% comment %} El filtro 'subtract' de math_filters es necesario para calcular el 'max' del input {% endcomment %}

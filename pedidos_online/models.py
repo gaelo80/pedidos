@@ -28,6 +28,13 @@ class ClienteOnline(models.Model):
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
     email = models.EmailField(blank=True, verbose_name="Correo Electrónico")
     direccion = models.CharField(max_length=255, blank=True, verbose_name="Dirección")
+    ciudad = models.ForeignKey(
+        'clientes.Ciudad',
+        on_delete=models.PROTECT,
+        related_name='clientes_online',
+        null=True, blank=True,
+        verbose_name="Ciudad"
+    )
     
     # --- Campos personalizados para el canal Online ---
     tipo_cliente = models.CharField(

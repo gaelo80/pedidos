@@ -13,8 +13,8 @@ class ClienteOnlineForm(forms.ModelForm):
     class Meta:
         model = ClienteOnline
         fields = [
-            'nombre_completo', 'identificacion', 'telefono', 'email', 
-            'direccion', 'tipo_cliente', 'forma_pago_preferida'
+            'nombre_completo', 'identificacion', 'telefono', 'email',
+            'direccion', 'ciudad', 'tipo_cliente', 'forma_pago_preferida'
         ]
         widgets = {
             'nombre_completo': forms.TextInput(attrs={'class': 'form-control'}),
@@ -22,6 +22,7 @@ class ClienteOnlineForm(forms.ModelForm):
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'class': 'form-control'}),
+            'ciudad': forms.Select(attrs={'class': 'form-select'}),
             'tipo_cliente': forms.Select(attrs={'class': 'form-select'}),
             'forma_pago_preferida': forms.Select(attrs={'class': 'form-select'}),
         }

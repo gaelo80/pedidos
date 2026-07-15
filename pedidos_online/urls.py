@@ -13,10 +13,6 @@ urlpatterns = [
     # <<< NUEVA RUTA para la lista de borradores online >>>
     path('borradores/', views.lista_pedidos_borrador_online, name='lista_pedidos_borrador_online'),
 
-    # --- Informe unificado de ventas online ---
-    # (reemplaza a reporte_ventas_vendedor_online y reporte_ventas_general_online)
-    path('reportes/ventas/', views.reporte_ventas_online, name='reporte_ventas_online'),
-
     path('cambios/registrar/', views.registrar_cambio_online, name='registrar_cambio_online'),
     path('cambios/registrar/<int:pedido_id>/', views.registrar_cambio_online, name='registrar_cambio_online_from_pedido'),
     path('comprobante/<int:pk>/cambio/', views.comprobante_cambio_online, name='comprobante_cambio_online'),

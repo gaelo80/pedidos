@@ -94,7 +94,7 @@
                 Hola {{ user.first_name|default:user.username }}!
             </h1>
             <p class="hero-banner__subtitle fs-5">
-                Bienvenido al panel de gestión de {{ titulo_web|default:nombre_empresa|default:'tu empresa' }}
+                Bienvenido al panel de gestión de {% firstof titulo_web nombre_empresa 'tu empresa' %}
             </p>
         </div>
     </div>

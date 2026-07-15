@@ -47,14 +47,6 @@
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-3" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
 
     {% if pedido_obj %}
        <h3 class="mt-4 mb-2">Despachos para el Pedido: #{{ pedido_obj.numero_pedido_empresa }}</h3>

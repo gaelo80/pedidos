@@ -55,6 +55,7 @@
                         <tr class="table-primary">
                             <th>ID Pedido</th>
                             <th>Cliente</th>
+                            <th>Vendedor</th>
                             <th>Fecha Creación</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -64,6 +65,7 @@
                         <tr>
                             <th scope="row">{{ pedido.numero_pedido_empresa }}</th>
                             <td>{{ pedido.cliente.nombre_completo|default:"N/A" }}</td>
+                            <td>{{ pedido.vendedor.user.get_full_name|default:pedido.vendedor.user.username|default:"N/A" }}</td>
                             <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
                             <td class="text-center text-nowrap">
                                 <a href="{% url 'pedidos:editar_pedido_web' pk=pedido.pk %}" class="btn btn-outline-warning btn-sm rounded-pill" title="Editar Borrador">
@@ -82,7 +84,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted fst-italic py-4">
+                            <td colspan="5" class="text-center text-muted fst-italic py-4">
                                 {% if search_query %}
                                     No se encontraron borradores que coincidan con tu búsqueda.
                                 {% else %}
