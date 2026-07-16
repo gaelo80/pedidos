@@ -211,15 +211,28 @@
 
     {% if page_obj.paginator.num_pages > 1 %}
     <nav class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}">Anterior</a></li>
-            {% endif %}
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                <a class="page-link" href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}">« Primera</a>
+            </li>
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% else %}#{% endif %}">Anterior</a>
+            </li>
             <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
-            {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}">Siguiente</a></li>
-            {% endif %}
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% else %}#{% endif %}">Siguiente</a>
+            </li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}">Última »</a>
+            </li>
         </ul>
+        <form method="get" class="d-flex justify-content-center align-items-center gap-2 mt-2">
+            {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+            <label class="small text-muted mb-0" for="inputIrAPagina">Ir a la página:</label>
+            <input type="number" id="inputIrAPagina" name="page" min="1" max="{{ page_obj.paginator.num_pages }}"
+                   value="{{ page_obj.number }}" class="form-control form-control-sm" style="width: 90px;">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Ir</button>
+        </form>
     </nav>
     {% endif %}
 

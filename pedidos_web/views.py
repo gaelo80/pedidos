@@ -474,7 +474,7 @@ def gestion_catalogo_shopify(request):
         ).distinct()
 
     referencias_qs = referencias_qs.prefetch_related('fotos_agrupadas', 'variantes')
-    paginator = Paginator(referencias_qs, 20)
+    paginator = Paginator(referencias_qs, 100)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     filas = []
