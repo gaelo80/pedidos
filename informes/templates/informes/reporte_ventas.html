@@ -240,7 +240,7 @@
                             {% for item in ventas_por_producto %}
                                 <tr>
                                     <td>{{ item.producto__referencia }}</td>
-                                    <td>{{ item.producto__color|default:"Sin Color" }}</td>
+                                    <td>{{ item.producto__color__nombre|default:"Sin Color" }}</td>
                                     <td>{{ item.nombre_producto_display|default:"N/A" }}</td>
                                     <td class="text-center">{{ item.cantidad_total_vendida|intcomma }}</td>
                                 </tr>

@@ -4,24 +4,28 @@ import hashlib
 import base64
 import logging
 import os
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.utils.dateparse import parse_datetime
-from django.shortcuts import render, redirect
+from django.utils import timezone
+from django.core.paginator import Paginator
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import transaction
 from django.conf import settings
 from clientes.models import Empresa, Ciudad
 from pedidos_online.models import ClienteOnline
 from pedidos.models import Pedido, DetallePedido
-from productos.models import Producto
+from productos.models import Producto, ReferenciaColor
 from bodega.models import MovimientoInventario, Bodega
 from vendedores.models import Vendedor
+from core.auth_utils import es_administracion
 from decouple import config
 import requests
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
+from . import shopify_api
 
 
 
@@ -54,8 +58,15 @@ def webhook_nuevo_pedido_shopify(request):
         print(f"📦 ¡ATRAPADO! Todo el JSON de Shopify se guardó en: {ruta_archivo}")
         # ----------------------------------------
 
-        # Buscamos a tu Bot (Asegúrate de crearlo en el admin con este username)
-        empresa_actual = Empresa.objects.first() 
+        # La empresa se resuelve por el dominio al que Shopify le pega el webhook
+        # (el mismo TenantMiddleware que usa el resto del sistema) -- NUNCA la
+        # primera empresa de la base de datos, o los webhooks de una tienda
+        # terminarían mezclados con los pedidos de otra empresa.
+        empresa_actual = getattr(request, 'tenant', None)
+        if not empresa_actual:
+            logger.error("Webhook de pedido Shopify recibido en un dominio sin empresa asociada (Host: %s)", request.get_host())
+            return HttpResponse(status=200)
+
         vendedor_shopify = Vendedor.objects.filter(user__username='bot.shopify').first()
 
         if not vendedor_shopify:
@@ -212,7 +223,10 @@ def webhook_producto_shopify(request):
 
     try:
         producto_shopify = json.loads(data)
-        empresa_actual = Empresa.objects.first()
+        empresa_actual = getattr(request, 'tenant', None)
+        if not empresa_actual:
+            logger.error("Webhook de producto Shopify recibido en un dominio sin empresa asociada (Host: %s)", request.get_host())
+            return HttpResponse(status=200)
 
         # 2. Recorrer las variantes (tallas/colores) que crearon en Shopify
         for variant in producto_shopify.get('variants', []):
@@ -320,7 +334,7 @@ def panel_sincronizacion_shopify(request):
             if accion == 'enlazar_productos':
                 productos_actualizados = []
                 errores_shopify = []
-                url_productos = f"https://{shop_url}/admin/api/2024-01/products.json?limit=250"
+                url_productos = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/products.json?limit=250"
                 
                 try:
                     response = requests.get(url_productos, headers=headers)
@@ -372,8 +386,8 @@ def panel_sincronizacion_shopify(request):
                 else:
                     inventario_actualizado = 0
                     errores_inventario = []
-                    url_productos = f"https://{shop_url}/admin/api/2024-01/products.json?limit=250"
-                    url_set_inventory = f"https://{shop_url}/admin/api/2024-01/inventory_levels/set.json"
+                    url_productos = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/products.json?limit=250"
+                    url_set_inventory = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/inventory_levels/set.json"
                     
                     try:
                         response = requests.get(url_productos, headers=headers)
@@ -388,7 +402,10 @@ def panel_sincronizacion_shopify(request):
                                     producto_local = productos_base.filter(shopify_variant_id=variant_id).first()
                                     
                                     if producto_local and inventory_item_id:
-                                        cantidad_real = producto_local.stock 
+                                        # 'stock' es un campo estático que casi nunca se actualiza;
+                                        # el stock real de todo el sistema es 'stock_actual'
+                                        # (calculado desde los movimientos de inventario).
+                                        cantidad_real = max(producto_local.stock_actual, 0)
                                         payload_inventario = {
                                             "location_id": location_id,
                                             "inventory_item_id": inventory_item_id,
@@ -421,3 +438,244 @@ def panel_sincronizacion_shopify(request):
     context['search_query'] = search_query # Pasamos la búsqueda al HTML
 
     return render(request, 'pedidos_web/sincronizacion_shopify.html', context)
+
+
+# =========================================================================
+# GESTIÓN DE CATÁLOGO POR REFERENCIA (subir / actualizar / bajar de Shopify)
+# =========================================================================
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+def gestion_catalogo_shopify(request):
+    """
+    Lista una fila por Referencia+Color (mismo agrupador que ya usa el
+    catálogo de fotos: ReferenciaColor) con toda su información y el estado
+    de sincronización con Shopify, para subir/actualizar/bajar cada una.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:acceso_denegado')
+
+    if not empresa_actual.usa_shopify:
+        messages.error(request, "Esta empresa no tiene activada la integración con Shopify.")
+        return redirect('core:index')
+
+    search_query = request.GET.get('q', '').strip()
+
+    referencias_qs = ReferenciaColor.objects.filter(
+        empresa=empresa_actual
+    ).order_by('referencia_base', 'color')
+
+    if search_query:
+        referencias_qs = referencias_qs.filter(
+            Q(referencia_base__icontains=search_query) |
+            Q(variantes__codigo_barras__icontains=search_query)
+        ).distinct()
+
+    referencias_qs = referencias_qs.prefetch_related('fotos_agrupadas', 'variantes')
+    paginator = Paginator(referencias_qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    filas = []
+    for rc in page_obj.object_list:
+        variantes = [v for v in rc.variantes.all() if v.activo]
+        if not variantes:
+            continue
+        variantes.sort(key=lambda p: (p.talla if p.talla is not None else 0))
+        primera_foto = next(iter(rc.fotos_agrupadas.all()), None)
+        filas.append({
+            'referencia_color': rc,
+            'variantes': variantes,
+            'foto': primera_foto,
+            'nombre': variantes[0].nombre,
+            'genero': variantes[0].get_genero_display() if variantes[0].genero else '',
+            'costo': variantes[0].costo,
+            'precio_venta': variantes[0].precio_venta,
+            'stock_total': sum(v.stock_actual for v in variantes),
+            'esta_subido': bool(rc.shopify_product_id),
+        })
+
+    context = {
+        'titulo': f'Catálogo Shopify ({empresa_actual.nombre})',
+        'filas': filas,
+        'page_obj': page_obj,
+        'search_query': search_query,
+    }
+    return render(request, 'pedidos_web/gestion_catalogo_shopify.html', context)
+
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+def api_shopify_tipos_y_categorias(request):
+    """
+    Devuelve 'Tipo', 'Categoría' (taxonomía oficial), 'Etiquetas' y
+    'Colecciones' ya existentes en Shopify, para ofrecerlos en los selectores
+    en vez de que el usuario tenga que escribirlos/adivinarlos a ciegas.
+    Se consulta a Shopify en el momento (no se guarda copia local) porque es
+    una pantalla de uso ocasional, no una de alto tráfico.
+    """
+    try:
+        tipos = shopify_api.obtener_tipos_existentes()
+        categorias = shopify_api.obtener_categorias_existentes()
+        etiquetas = shopify_api.obtener_etiquetas_existentes()
+        colecciones = shopify_api.obtener_colecciones_existentes()
+        return JsonResponse({
+            'tipos': tipos, 'categorias': categorias,
+            'etiquetas': etiquetas, 'colecciones': colecciones,
+        })
+    except requests.exceptions.RequestException as e:
+        detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
+        return JsonResponse({'error': f"Shopify rechazó la consulta: {detalle[:300]}"}, status=502)
+    except Exception as e:
+        return JsonResponse({'error': f"Error inesperado: {str(e)}"}, status=500)
+
+
+def _obtener_referencia_color_de_empresa(request, referencia_color_id):
+    empresa_actual = getattr(request, 'tenant', None)
+    return get_object_or_404(ReferenciaColor, pk=referencia_color_id, empresa=empresa_actual)
+
+
+def _variantes_activas(referencia_color):
+    return list(
+        Producto.objects.filter(
+            articulo_color_fotos=referencia_color, activo=True
+        ).order_by('talla')
+    )
+
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+@require_POST
+def api_shopify_subir(request, referencia_color_id):
+    """Publica (crea, o reactiva si estaba en borrador) el producto en Shopify."""
+    referencia_color = _obtener_referencia_color_de_empresa(request, referencia_color_id)
+    variantes = _variantes_activas(referencia_color)
+
+    if not variantes:
+        messages.error(request, "Esta referencia no tiene tallas activas para subir.")
+        return redirect('pedidos_web:gestion_catalogo_shopify')
+
+    try:
+        if referencia_color.shopify_product_id:
+            # Ya existía (probablemente en borrador tras un "Bajar") -> reactivar.
+            shopify_api.reactivar_producto(referencia_color)
+            messages.success(request, f"'{referencia_color}' se reactivó en Shopify.")
+        else:
+            producto_shopify = shopify_api.crear_producto(referencia_color, variantes)
+            referencia_color.shopify_product_id = str(producto_shopify['id'])
+
+            variantes_por_sku = {v.codigo_barras: v for v in variantes if v.codigo_barras}
+            for variant_data in producto_shopify.get('variants', []):
+                variante_local = variantes_por_sku.get(variant_data.get('sku'))
+                if variante_local:
+                    variante_local.shopify_variant_id = str(variant_data.get('id'))
+                    variante_local.shopify_inventory_item_id = str(variant_data.get('inventory_item_id'))
+                    variante_local.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
+
+            messages.success(request, f"'{referencia_color}' se subió a Shopify con {len(variantes)} talla(s).")
+
+        # Sincronizar el stock real de cada variante recién enlazada.
+        location_id = shopify_api.obtener_location_id()
+        if location_id:
+            headers = shopify_api.obtener_headers()
+            for variante in variantes:
+                variante.refresh_from_db(fields=['shopify_inventory_item_id'])
+                shopify_api.sincronizar_inventario(headers, location_id, variante)
+
+        referencia_color.shopify_ultima_sincronizacion = timezone.now()
+        referencia_color.save(update_fields=['shopify_product_id', 'shopify_ultima_sincronizacion'])
+
+    except requests.exceptions.RequestException as e:
+        detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
+        messages.error(request, f"Shopify rechazó la operación: {detalle[:300]}")
+    except Exception as e:
+        messages.error(request, f"Error inesperado subiendo a Shopify: {str(e)}")
+
+    return redirect('pedidos_web:gestion_catalogo_shopify')
+
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+@require_POST
+def api_shopify_actualizar(request, referencia_color_id):
+    """
+    Guarda los campos editables (título/descripción/precio para Shopify) y,
+    si ya estaba subido, empuja esos cambios y el stock real a Shopify.
+    El EAN y las tallas nunca se tocan acá.
+    """
+    referencia_color = _obtener_referencia_color_de_empresa(request, referencia_color_id)
+    ids_colecciones_anteriores = referencia_color.shopify_colecciones_ids  # antes de sobreescribir, para el diff
+
+    referencia_color.shopify_titulo = request.POST.get('shopify_titulo', '').strip() or None
+    referencia_color.shopify_descripcion = request.POST.get('shopify_descripcion', '').strip() or None
+    precio_raw = request.POST.get('shopify_precio', '').strip()
+    referencia_color.shopify_precio = precio_raw or None
+    referencia_color.shopify_tipo = request.POST.get('shopify_tipo', '').strip() or None
+    referencia_color.shopify_categoria_id = request.POST.get('shopify_categoria_id', '').strip() or None
+    referencia_color.shopify_categoria_nombre = request.POST.get('shopify_categoria_nombre', '').strip() or None
+    referencia_color.shopify_etiquetas = ', '.join(
+        e.strip() for e in request.POST.getlist('shopify_etiquetas') if e.strip()
+    ) or None
+    referencia_color.shopify_colecciones_ids = ', '.join(request.POST.getlist('shopify_colecciones_ids')) or None
+    referencia_color.shopify_colecciones_nombres = ', '.join(request.POST.getlist('shopify_colecciones_nombres')) or None
+    referencia_color.save(update_fields=[
+        'shopify_titulo', 'shopify_descripcion', 'shopify_precio',
+        'shopify_tipo', 'shopify_categoria_id', 'shopify_categoria_nombre',
+        'shopify_etiquetas', 'shopify_colecciones_ids', 'shopify_colecciones_nombres',
+    ])
+
+    if not referencia_color.shopify_product_id:
+        messages.success(request, "Cambios guardados. Todavía no se ha subido a Shopify — usa 'Subir' para publicarlo.")
+        return redirect('pedidos_web:gestion_catalogo_shopify')
+
+    variantes = _variantes_activas(referencia_color)
+    try:
+        shopify_api.actualizar_producto(referencia_color, variantes)
+
+        ids_nuevos = [i.strip() for i in (referencia_color.shopify_colecciones_ids or '').split(',') if i.strip()]
+        ids_anteriores = [i.strip() for i in (ids_colecciones_anteriores or '').split(',') if i.strip()]
+        if ids_nuevos != ids_anteriores:
+            shopify_api.sincronizar_colecciones(referencia_color.shopify_product_id, ids_nuevos, ids_anteriores)
+
+        location_id = shopify_api.obtener_location_id()
+        if location_id:
+            headers = shopify_api.obtener_headers()
+            for variante in variantes:
+                shopify_api.sincronizar_inventario(headers, location_id, variante)
+
+        referencia_color.shopify_ultima_sincronizacion = timezone.now()
+        referencia_color.save(update_fields=['shopify_ultima_sincronizacion'])
+        messages.success(request, f"'{referencia_color}' se actualizó en Shopify.")
+    except requests.exceptions.RequestException as e:
+        detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
+        messages.error(request, f"Shopify rechazó la actualización: {detalle[:300]}")
+    except Exception as e:
+        messages.error(request, f"Error inesperado actualizando en Shopify: {str(e)}")
+
+    return redirect('pedidos_web:gestion_catalogo_shopify')
+
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+@require_POST
+def api_shopify_bajar(request, referencia_color_id):
+    """Pasa el producto a borrador en Shopify (se oculta, no se borra)."""
+    referencia_color = _obtener_referencia_color_de_empresa(request, referencia_color_id)
+
+    if not referencia_color.shopify_product_id:
+        messages.error(request, "Esta referencia todavía no se ha subido a Shopify.")
+        return redirect('pedidos_web:gestion_catalogo_shopify')
+
+    try:
+        shopify_api.archivar_producto(referencia_color)
+        referencia_color.shopify_ultima_sincronizacion = timezone.now()
+        referencia_color.save(update_fields=['shopify_ultima_sincronizacion'])
+        messages.success(request, f"'{referencia_color}' se pasó a borrador en Shopify (ya no se ve en la tienda).")
+    except requests.exceptions.RequestException as e:
+        detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
+        messages.error(request, f"Shopify rechazó la operación: {detalle[:300]}")
+    except Exception as e:
+        messages.error(request, f"Error inesperado bajando de Shopify: {str(e)}")
+
+    return redirect('pedidos_web:gestion_catalogo_shopify')

@@ -622,7 +622,7 @@ def api_get_colores_for_referencia(request, ref):
         empresa=empresa_actual,
         referencia=ref,
         activo=True
-    ).values_list('color', flat=True).distinct().order_by('color')
+    ).values_list('color__nombre', flat=True).distinct().order_by('color__nombre')
 
     results = []
     for color in colores:
@@ -637,13 +637,13 @@ def api_get_colores_for_referencia(request, ref):
 @permission_classes([IsAuthenticated])
 def api_get_tallas_for_color(request, ref, color_slug):
     empresa_actual = getattr(request, 'tenant', None)
-    color_filter = None if color_slug == '-' else color_slug
+    filtro_color = {'color__isnull': True} if color_slug == '-' else {'color__nombre': color_slug}
 
     variantes = Producto.objects.filter(
         empresa=empresa_actual,
         referencia=ref,
-        color=color_filter,
-        activo=True
+        activo=True,
+        **filtro_color
     ).order_by('talla')
 
     if not variantes.exists():

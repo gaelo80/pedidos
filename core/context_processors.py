@@ -3,6 +3,7 @@ from notificaciones.models import Notificacion
 from pedidos.models import Pedido
 from vendedores.models import Vendedor
 from .auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_factura, es_diseno, es_online, es_administrador_app, es_cajero, puede_ver_panel_django_admin
+from .models import ModuloEmpresa
 
 def empresa_context(request):
     """
@@ -70,6 +71,22 @@ def user_roles_context(request): #
     }
     
     
+def modulos_empresa_context(request):
+    """
+    Expone qué categorías completas y qué opciones individuales del panel
+    están deshabilitadas para la empresa actual, para que el menú
+    (navbar/sidebar) las oculte. El superusuario siempre ve todo.
+    """
+    if request.user.is_authenticated and request.user.is_superuser:
+        return {'categorias_desactivadas': set(), 'items_desactivados': set()}
+
+    empresa_actual = getattr(request, 'tenant', None)
+    return {
+        'categorias_desactivadas': ModuloEmpresa.categorias_desactivadas(empresa_actual),
+        'items_desactivados': ModuloEmpresa.items_desactivados(empresa_actual),
+    }
+
+
 def recordatorio_borradores_context(request):
     """
     Añade un contador de pedidos en estado BORRADOR que

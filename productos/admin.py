@@ -5,7 +5,7 @@ from import_export.widgets import ForeignKeyWidget
 from django.utils.html import format_html
 from django.contrib import messages
 from django.db import transaction
-from .models import Producto, FotoProducto, ReferenciaColor
+from .models import Producto, FotoProducto, ReferenciaColor, Color
 from bodega.models import MovimientoInventario, ConteoInventario, Bodega
 from pedidos.models import DetallePedido
 
@@ -67,6 +67,38 @@ class FotoProductoInline(admin.TabularInline): # o admin.StackedInline para otra
     previsualizacion_imagen.short_description = 'Previsualización'
     
    
+@admin.register(Color)
+class ColorAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'empresa', 'activo')
+    search_fields = ('nombre', 'empresa__nombre')
+    list_filter = ('empresa', 'activo')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request, 'tenant'):
+            return qs.filter(empresa=request.tenant)
+        return qs.none()
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and not request.user.is_superuser and hasattr(request, 'tenant'):
+            obj.empresa = request.tenant
+        super().save_model(request, obj, form, change)
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if not request.user.is_superuser:
+            new_fieldsets = []
+            for name, options in fieldsets:
+                fields = list(options.get('fields', []))
+                if 'empresa' in fields:
+                    fields.remove('empresa')
+                new_fieldsets.append((name, {'fields': tuple(fields)}))
+            return new_fieldsets
+        return fieldsets
+
+
 @admin.register(ReferenciaColor)
 class ReferenciaColorAdmin(admin.ModelAdmin):
     list_display = ('nombre_display', 'empresa', 'cantidad_fotos_display') # Añadido 'empresa'
@@ -109,7 +141,7 @@ class ReferenciaColorAdmin(admin.ModelAdmin):
 class ProductoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     list_display = ('referencia', 'nombre', 'talla', 'color', 'get_articulo_color_fotos_display', 'activo', 'stock_actual', 'permitir_preventa', 'empresa')
     list_editable = ('activo', 'permitir_preventa',)
-    search_fields = ('empresa__nombre', 'referencia', 'nombre', 'talla', 'color', 'codigo_barras', 'articulo_color_fotos__nombre_display')
+    search_fields = ('empresa__nombre', 'referencia', 'nombre', 'talla', 'color__nombre', 'codigo_barras', 'articulo_color_fotos__nombre_display')
     list_filter = ('activo', 'genero', 'empresa', 'permitir_preventa')
     autocomplete_fields = ['articulo_color_fotos']
     readonly_fields = ('stock_actual', 'fecha_creacion')
@@ -158,6 +190,9 @@ class ProductoAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         if db_field.name == "articulo_color_fotos":
             if not request.user.is_superuser and hasattr(request, 'tenant'):
                 kwargs["queryset"] = ReferenciaColor.objects.filter(empresa=request.tenant)
+        if db_field.name == "color":
+            if not request.user.is_superuser and hasattr(request, 'tenant'):
+                kwargs["queryset"] = Color.objects.filter(empresa=request.tenant)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_fieldsets(self, request, obj=None):

@@ -12,7 +12,7 @@ from django.db.models import Q, Prefetch, Max
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
-from .models import Producto, FotoProducto, ReferenciaColor
+from .models import Producto, FotoProducto, ReferenciaColor, generar_codigo_ean13
 from django.contrib.auth.decorators import login_required, permission_required
 from core.auth_utils import es_administracion, es_diseno
 from .forms import ProductoImportForm
@@ -22,7 +22,7 @@ from core.mixins import TenantAwareMixin
 from django.contrib.auth.mixins import UserPassesTestMixin
 import logging
 from django.forms import formset_factory
-from .forms import ProductoBaseForm, ProductoTallaForm, ProductoTallaEditForm
+from .forms import ProductoBaseForm, ProductoTallaEditForm
 from django.db import transaction, IntegrityError
 
 
@@ -64,12 +64,16 @@ class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredM
                 Q(referencia__icontains=query) |
                 Q(nombre__icontains=query) |
                 Q(talla__icontains=query) |
-                Q(color__icontains=query) |
+                Q(color__nombre__icontains=query) |
                 Q(codigo_barras__icontains=query)
             )
 
         # Una fila representativa por Referencia+Color (Postgres DISTINCT ON).
-        return queryset.order_by('referencia', 'color', 'talla').distinct('referencia', 'color')
+        # Se usa 'color_id' explícito (no 'color') porque Color tiene Meta.ordering
+        # propio ('nombre'): Django expandiría 'color' a 'color__nombre' al
+        # resolver el order_by, lo que ya no coincidiría con las columnas de
+        # distinct() y rompe la restricción de Postgres para DISTINCT ON.
+        return queryset.order_by('referencia', 'color_id', 'talla').distinct('referencia', 'color_id')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -129,6 +133,7 @@ def editar_producto_multi_talla(request, pk):
                     with transaction.atomic():
                         for fila in filas_a_guardar:
                             producto_id = fila.get('producto_id')
+                            es_nuevo = not producto_id
                             if producto_id:
                                 producto_obj = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
                             else:
@@ -146,7 +151,12 @@ def editar_producto_multi_talla(request, pk):
                             producto_obj.activo = datos_comunes.get('activo', True)
                             producto_obj.permitir_preventa = datos_comunes.get('permitir_preventa', False)
                             producto_obj.talla = fila.get('talla')
-                            producto_obj.codigo_barras = fila.get('codigo_barras') or None
+                            if es_nuevo:
+                                # Talla nueva: si no se escribió un código manualmente,
+                                # se genera un EAN13 automático (mismo esquema que en creación).
+                                producto_obj.codigo_barras = fila.get('codigo_barras') or generar_codigo_ean13(empresa_actual)
+                            else:
+                                producto_obj.codigo_barras = fila.get('codigo_barras') or None
                             producto_obj.save()
 
                     messages.success(request, f"'{datos_comunes['referencia']} - {datos_comunes['nombre']}' actualizado exitosamente para {len(filas_a_guardar)} talla(s).")
@@ -421,31 +431,38 @@ def eliminar_foto_ajax(request, foto_id):
 def crear_producto_multi_talla(request):
     """
     Crea un producto con una o varias tallas a la vez.
-    Sirve tanto para una única variante (una fila) como para muchas.
+    Las tallas se eligen por checkbox (reales, ya usadas por el género elegido)
+    y el código de barras EAN13 de cada variante se genera automáticamente.
     """
     empresa_actual = request.tenant
-    ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=7)
 
     if request.method == 'POST':
         base_form = ProductoBaseForm(request.POST, empresa=empresa_actual)
-        talla_formset = ProductoTallaFormSet(request.POST, prefix='tallas')
 
-        if base_form.is_valid() and talla_formset.is_valid():
+        # Recolectar y deduplicar las tallas marcadas, preservando el orden.
+        # Se calcula fuera del is_valid() para poder re-marcar los checkboxes
+        # si el formulario se vuelve a mostrar por errores en otro campo.
+        tallas_limpias = []
+        vistas = set()
+        for talla_raw in request.POST.getlist('tallas'):
+            try:
+                talla_int = int(talla_raw)
+            except (ValueError, TypeError):
+                continue
+            if talla_int not in vistas:
+                vistas.add(talla_int)
+                tallas_limpias.append(talla_int)
+
+        if base_form.is_valid():
             datos_comunes = base_form.cleaned_data
 
-            # Recolectar primero las tallas válidas (para no abrir transacción en vano)
-            filas_talla = [
-                f.cleaned_data for f in talla_formset
-                if f.cleaned_data and f.cleaned_data.get('talla')
-            ]
-
-            if not filas_talla:
-                messages.warning(request, "No especificaste ninguna talla, no se creó ningún producto.")
+            if not tallas_limpias:
+                messages.warning(request, "Debes seleccionar al menos una talla.")
             else:
                 try:
                     # TODO o NADA: si una variante falla, se revierten todas.
                     with transaction.atomic():
-                        for talla_data in filas_talla:
+                        for talla in tallas_limpias:
                             Producto.objects.create(
                                 empresa=empresa_actual,
                                 referencia=datos_comunes['referencia'],
@@ -459,13 +476,14 @@ def crear_producto_multi_talla(request):
                                 ubicacion=datos_comunes.get('ubicacion'),
                                 activo=datos_comunes.get('activo', True),
                                 permitir_preventa=datos_comunes.get('permitir_preventa', False),
-                                talla=talla_data.get('talla'),
-                                codigo_barras=talla_data.get('codigo_barras'),
+                                talla=talla,
+                                codigo_barras=generar_codigo_ean13(empresa_actual),
                             )
 
                     messages.success(
                         request,
-                        f"¡Se crearon {len(filas_talla)} variante(s) de producto exitosamente!"
+                        f"¡Se crearon {len(tallas_limpias)} variante(s) de producto exitosamente, "
+                        "con código de barras EAN13 generado automáticamente!"
                     )
                     return redirect('productos:producto_listado')
 
@@ -476,15 +494,15 @@ def crear_producto_multi_talla(request):
                         "Error: una de las variantes (misma referencia, talla y color) ya existe. "
                         "No se guardó ningún producto para evitar inconsistencias."
                     )
-        # Si los formularios no son válidos, se cae al render final con los errores.
+        # Si el formulario no es válido, se cae al render final con los errores.
 
     else:  # GET
         base_form = ProductoBaseForm(empresa=empresa_actual)
-        talla_formset = ProductoTallaFormSet(prefix='tallas')
+        tallas_limpias = []
 
     context = {
         'base_form': base_form,
-        'talla_formset': talla_formset,
         'titulo_pagina': "Crear Producto",
+        'tallas_previas': tallas_limpias,
     }
     return render(request, 'productos/producto_multi_talla_form.html', context)

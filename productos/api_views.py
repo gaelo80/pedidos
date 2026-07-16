@@ -1,11 +1,14 @@
+from io import BytesIO
 from django.contrib.auth.decorators import login_required, user_passes_test
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from productos.models import Producto
+from productos.models import Producto, Color, normalizar_nombre_color
 from rest_framework.response import Response
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
+import openpyxl
+from openpyxl.utils import get_column_letter
 
 
 NO_COLOR_SLUG = '-'
@@ -22,10 +25,10 @@ def get_colores_por_referencia(request, ref):
         return Response({"error": "No se pudo identificar la empresa."}, status=403)    
 
     colores_qs = Producto.objects.filter(
-        empresa=empresa_actual, 
+        empresa=empresa_actual,
         referencia=ref,
         activo=True
-    ).values_list('color', flat=True).distinct().order_by('color')
+    ).values_list('color__nombre', flat=True).distinct().order_by('color__nombre')
 
     colores_procesados = set() # Para evitar duplicados si hay '' y None tratados igual
     respuesta = []
@@ -56,17 +59,17 @@ def get_tallas_por_ref_color(request, ref, color_slug):
     if not empresa_actual:
         return Response({"error": "No se pudo identificar la empresa."}, status=403)
     
-    # Determinar el valor para filtrar el color en la BD
-    color_filtro = None if color_slug == NO_COLOR_SLUG else color_slug
+    # Determinar el filtro de color en la BD
+    filtro_color = {'color__isnull': True} if color_slug == NO_COLOR_SLUG else {'color__nombre': color_slug}
 
     # Buscar variantes activas que coincidan y tengan talla
     variantes = Producto.objects.filter(
         empresa=empresa_actual,
         referencia=ref,
-        color=color_filtro,
         activo=True,
-        talla__isnull=False
-    ) 
+        talla__isnull=False,
+        **filtro_color
+    )
 
     # Convertir a lista para poder ordenar y acceder al precio
     variantes_lista = list(variantes)
@@ -204,5 +207,104 @@ def buscar_referencias_api(request):
     # 3. Agrupar y preparar respuesta
     referencias_qs = referencias_qs.values('referencia').distinct().order_by('referencia')[:20]
     results = [{'id': item['referencia'], 'text': item['referencia']} for item in referencias_qs]
-    
+
     return JsonResponse({'results': results})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_crear_color(request):
+    """
+    Crea un color nuevo para la empresa, o devuelve el ya existente si el
+    nombre (normalizado) ya está registrado. Se usa desde el formulario de
+    creación/edición de productos cuando el color deseado no está en el catálogo.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return Response({"error": "No se pudo identificar la empresa."}, status=403)
+
+    nombre_normalizado = normalizar_nombre_color((request.data.get('nombre') or '').strip())
+    if not nombre_normalizado:
+        return Response({"error": "El nombre del color es obligatorio."}, status=400)
+
+    color, creado = Color.objects.get_or_create(empresa=empresa_actual, nombre=nombre_normalizado)
+    return Response({'id': color.pk, 'nombre': color.nombre, 'creado': creado})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_tallas_por_genero(request):
+    """
+    Devuelve las tallas que realmente existen hoy en productos de esta
+    empresa para un género dado, para ofrecerlas como checkboxes al crear
+    un producto nuevo. Se basa en datos reales de Producto.talla, no en la
+    configuración de columnas de los PDFs (Empresa.categorias_tallas), que
+    puede no coincidir con las tallas reales usadas (ej. UNISEX).
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return Response({"error": "No se pudo identificar la empresa."}, status=403)
+
+    genero = request.GET.get('genero')
+    if not genero:
+        return Response({"error": "Falta el parámetro 'genero'."}, status=400)
+
+    tallas = Producto.objects.filter(
+        empresa=empresa_actual, genero=genero, talla__isnull=False
+    ).values_list('talla', flat=True).distinct().order_by('talla')
+
+    return Response({'tallas': list(tallas)})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_exportar_catalogo_etiquetas(request):
+    """
+    Exporta a Excel el catálogo de productos (referencia, nombre, color,
+    talla, código de barras) para alimentar un programa externo de
+    impresión de etiquetas. Se puede pedir tanto desde el botón "Descargar
+    catálogo" del listado de productos (sesión normal del navegador) como
+    desde un script externo autenticado con JWT (mismo mecanismo que
+    AlmacenDesktop/BodegaDesktop).
+    """
+    if not request.user.has_perm('productos.view_producto'):
+        return Response({"error": "No tienes permiso para ver el catálogo de productos."}, status=403)
+
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return Response({"error": "No se pudo identificar la empresa."}, status=403)
+
+    productos = Producto.objects.filter(
+        empresa=empresa_actual, activo=True
+    ).exclude(codigo_barras__isnull=True).exclude(codigo_barras='').select_related('color').order_by(
+        'referencia', 'color__nombre', 'talla'
+    )
+
+    libro = openpyxl.Workbook()
+    hoja = libro.active
+    hoja.title = 'Catalogo Etiquetas'
+
+    encabezados = ['Referencia', 'Nombre', 'Color', 'Talla', 'Codigo de Barras']
+    hoja.append(encabezados)
+    for indice, encabezado in enumerate(encabezados, start=1):
+        hoja.column_dimensions[get_column_letter(indice)].width = max(len(encabezado) + 2, 14)
+
+    for producto in productos:
+        hoja.append([
+            producto.referencia,
+            producto.nombre,
+            producto.color.nombre if producto.color_id else '',
+            producto.talla if producto.talla is not None else '',
+            producto.codigo_barras,
+        ])
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="catalogo_etiquetas.xlsx"'
+    return response

@@ -488,7 +488,7 @@ def vista_verificar_pedido(request, pk):
         
         # Convertimos a lista para poder modificar las tallas
         detalles_para_mostrar = list(
-            pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color', 'producto__talla')
+            pedido.detalles.select_related('producto').all().order_by('producto__referencia', 'producto__color__nombre', 'producto__talla')
         )
         
         # --- Separar pendientes de ya completados (pendiente total = 0) ---
@@ -2008,9 +2008,9 @@ def exportar_inventario_excel(request):
     """
     empresa_actual = getattr(request, 'tenant', None)
     productos_queryset = Producto.objects.filter(
-        empresa=empresa_actual, 
+        empresa=empresa_actual,
         activo=True
-    ).order_by('referencia', 'color', 'talla')
+    ).order_by('referencia', 'color_id', 'talla')
 
     # Re-aplicar los mismos filtros que en la vista principal
     referencia_q = request.GET.get('referencia', '').strip()
@@ -2025,7 +2025,7 @@ def exportar_inventario_excel(request):
         productos_queryset = productos_queryset.filter(ubicacion_id=bodega_q)
 
     # Anotamos el stock en una sola consulta (evita N+1 al recorrer 'stock_actual' por producto)
-    productos_queryset = productos_queryset.select_related('ubicacion').annotate(
+    productos_queryset = productos_queryset.select_related('ubicacion', 'color').annotate(
         stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
     )
 
@@ -2035,20 +2035,55 @@ def exportar_inventario_excel(request):
     sheet.title = 'Inventario'
 
     # Escribir la cabecera
-    headers = ['Referencia', 'Descripción', 'Detalle', 'Color', 'Talla', 'Ubicación', 'Cantidad en Stock']
+    headers = [
+        'Referencia', 'Nombre', 'Descripción', 'Género', 'Color', 'Talla',
+        'Código de Barras', 'Ubicación', 'Cantidad en Stock',
+        'Costo Unitario', 'Precio de Venta Unitario',
+        'Valor Total Costo', 'Valor Total Venta',
+    ]
     sheet.append(headers)
+
+    GENERO_LABELS = dict(Producto.GeneroOpciones.choices)
+    total_valor_costo = Decimal('0.00')
+    total_valor_venta = Decimal('0.00')
 
     # Escribir los datos de los productos
     for producto in productos_queryset:
+        costo = producto.costo or Decimal('0.00')
+        precio_venta = producto.precio_venta or Decimal('0.00')
+        valor_total_costo = Decimal(producto.stock_actual_calculado) * costo
+        valor_total_venta = Decimal(producto.stock_actual_calculado) * precio_venta
+        total_valor_costo += valor_total_costo
+        total_valor_venta += valor_total_venta
+
         sheet.append([
             producto.referencia,
             producto.nombre,
             producto.descripcion or '',
-            producto.color or '',
+            GENERO_LABELS.get(producto.genero, producto.genero or ''),
+            producto.color.nombre if producto.color_id else '',
             producto.talla or '',
+            producto.codigo_barras or '',
             str(producto.ubicacion) if producto.ubicacion_id else '',
-            producto.stock_actual_calculado
+            producto.stock_actual_calculado,
+            float(costo),
+            float(precio_venta),
+            float(valor_total_costo),
+            float(valor_total_venta),
         ])
+
+    # Fila de totales al final (etiqueta en 'Ubicación', sumas en las dos
+    # columnas de valor total, el resto de columnas vacías en esta fila)
+    fila_totales_datos = [''] * len(headers)
+    fila_totales_datos[7] = 'TOTALES:'
+    fila_totales_datos[11] = float(total_valor_costo)
+    fila_totales_datos[12] = float(total_valor_venta)
+    sheet.append(fila_totales_datos)
+    for celda in sheet[sheet.max_row]:
+        celda.font = openpyxl.styles.Font(bold=True)
+
+    for indice, encabezado in enumerate(headers, start=1):
+        sheet.column_dimensions[openpyxl.utils.get_column_letter(indice)].width = max(len(encabezado) + 2, 14)
 
     # Preparar la respuesta HTTP
     response = HttpResponse(
@@ -2605,11 +2640,13 @@ def vista_ingreso_produccion(request):
     referencias_en_preventa = Producto.objects.filter(
         empresa=empresa_actual,
         permitir_preventa=True
-    ).values('referencia', 'color').distinct().order_by('referencia', 'color')
+    ).values('referencia', 'color__nombre').distinct().order_by('referencia', 'color__nombre')
 
     context = {
         'titulo': 'Ingresar Stock de Producción (por Lote)',
-        'referencias_seleccionables': list(referencias_en_preventa),
+        'referencias_seleccionables': [
+            {'referencia': r['referencia'], 'color': r['color__nombre']} for r in referencias_en_preventa
+        ],
     }
     return render(request, 'bodega/ingreso_produccion.html', context)
 
@@ -2627,13 +2664,13 @@ def api_get_tallas_para_ingreso(request):
         return JsonResponse({'error': 'Faltan parámetros'}, status=400)
 
     # El slug '-' representa los productos sin color asignado
-    color_filtro = None if color == '-' else color
+    filtro_color = {'color__isnull': True} if color == '-' else {'color__nombre': color}
 
     productos = Producto.objects.filter(
         empresa=empresa_actual,
         referencia=referencia,
-        color=color_filtro,
-        permitir_preventa=True
+        permitir_preventa=True,
+        **filtro_color
     ).order_by('talla')
 
     # Preparamos los datos para enviarlos como JSON
@@ -2661,13 +2698,13 @@ def api_get_tallas_para_ajuste(request):
     if not (referencia and color and empresa_actual):
         return JsonResponse({'error': 'Faltan parámetros'}, status=400)
 
-    color_filtro = None if color == '-' else color
+    filtro_color = {'color__isnull': True} if color == '-' else {'color__nombre': color}
 
     # A diferencia de la otra API, aquí buscamos TODAS las tallas, no solo las de preventa
     productos = Producto.objects.filter(
         empresa=empresa_actual,
         referencia=referencia,
-        color=color_filtro
+        **filtro_color
     ).order_by('talla')
 
     tallas_data = [
@@ -2735,11 +2772,13 @@ def vista_ajuste_masivo_inventario(request):
     # Para el método GET, pasamos las referencias/colores y los tipos de movimiento
     referencias_unicas = Producto.objects.filter(
         empresa=empresa_actual, activo=True
-    ).values('referencia', 'color').distinct().order_by('referencia', 'color')
+    ).values('referencia', 'color__nombre').distinct().order_by('referencia', 'color__nombre')
 
     context = {
         'titulo': 'Ajuste Masivo de Inventario',
-        'referencias_seleccionables': list(referencias_unicas),
+        'referencias_seleccionables': [
+            {'referencia': r['referencia'], 'color': r['color__nombre']} for r in referencias_unicas
+        ],
         'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO_CHOICES,
     }
     return render(request, 'bodega/ajuste_masivo_inventario.html', context)

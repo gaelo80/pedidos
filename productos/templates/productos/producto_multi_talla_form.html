@@ -75,7 +75,17 @@
                 </div>
 
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">{{ base_form.color|as_crispy_field }}</div>
+                    <div class="col-md-6">
+                        {{ base_form.color|as_crispy_field }}
+                        <a href="#" id="toggleNuevoColor" class="small d-inline-block mt-1">
+                            <i class="fas fa-plus-circle me-1"></i>¿No está tu color? Créalo aquí
+                        </a>
+                        <div id="panelNuevoColor" class="input-group input-group-sm mt-2" style="display:none;">
+                            <input type="text" id="inputNuevoColor" class="form-control" placeholder="Nombre del color nuevo">
+                            <button type="button" id="btnCrearColor" class="btn btn-outline-primary">Crear</button>
+                        </div>
+                        <div id="msgNuevoColor" class="small mt-1"></div>
+                    </div>
                     <div class="col-md-6">{{ base_form.genero|as_crispy_field }}</div>
                 </div>
 
@@ -99,8 +109,9 @@
         {# ---------- Card 2: Tallas ---------- #}
         <div class="card shadow-lg border-0 rounded-3 mb-4">
             <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
-                <h5 class="mb-0"><i class="fas fa-ruler-horizontal me-2"></i> 2. Tallas y Códigos de Barras</h5>
+                <h5 class="mb-0"><i class="fas fa-ruler-horizontal me-2"></i> 2. Tallas{% if es_edicion %} y Códigos de Barras{% endif %}</h5>
             </div>
+            {% if es_edicion %}
             <div class="card-body p-4">
                 {{ talla_formset.management_form }}
                 {{ talla_formset.non_form_errors }}
@@ -111,7 +122,7 @@
                             <tr>
                                 <th style="width: 30%;">Talla <span class="text-danger">*</span></th>
                                 <th>Código de Barras</th>
-                                {% if es_edicion %}<th style="width: 120px;">Acciones</th>{% endif %}
+                                <th style="width: 120px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -125,8 +136,10 @@
                                     <td>
                                         {{ form.codigo_barras.errors }}
                                         {{ form.codigo_barras }}
+                                        {% if not form.initial.producto_id %}
+                                        <small class="text-muted">Vacío = se genera EAN13 automático</small>
+                                        {% endif %}
                                     </td>
-                                    {% if es_edicion %}
                                     <td class="text-center">
                                         {% if form.initial.producto_id %}
                                         <a href="{% url 'productos:producto_eliminar' form.initial.producto_id %}" class="btn btn-outline-danger btn-sm rounded-pill" title="Quitar esta talla">
@@ -136,7 +149,6 @@
                                         <span class="text-muted small">Nueva</span>
                                         {% endif %}
                                     </td>
-                                    {% endif %}
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -146,6 +158,28 @@
                     Deja en blanco las filas que no uses. Solo se guardarán las filas con talla.
                 </small>
             </div>
+            {% else %}
+            <div class="card-body p-4">
+                <div id="avisoSinGenero" class="alert alert-info small mb-3">
+                    Selecciona primero el género arriba para ver las tallas ya usadas.
+                </div>
+                <div id="contenedorTallas" class="d-none mb-3">
+                    <label class="form-label fw-bold">Tallas ya usadas para este género:</label>
+                    <div id="checksTallasExistentes" class="d-flex flex-wrap gap-3"></div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">¿Necesitas una talla que no aparece?</label>
+                    <div class="input-group input-group-sm" style="max-width: 260px;">
+                        <input type="number" id="inputNuevaTalla" class="form-control" placeholder="Ej: 18">
+                        <button type="button" id="btnAgregarTalla" class="btn btn-outline-secondary">Agregar</button>
+                    </div>
+                </div>
+                <div id="checksTallasManuales" class="d-flex flex-wrap gap-3 mb-2"></div>
+                <small class="text-muted d-block mt-2">
+                    El código de barras (EAN13) de cada talla se genera automáticamente al guardar.
+                </small>
+            </div>
+            {% endif %}
         </div>
 
         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -160,3 +194,145 @@
 
 </div>
 {% endblock content %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    var csrfToken = '{{ csrf_token }}';
+
+    // --- Select2 para el campo de color ---
+    $('.select2-color').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Selecciona un color...',
+        allowClear: true
+    });
+
+    // --- "+ Nuevo Color" ---
+    var $toggleNuevoColor = $('#toggleNuevoColor');
+    var $panelNuevoColor = $('#panelNuevoColor');
+    var $inputNuevoColor = $('#inputNuevoColor');
+    var $msgNuevoColor = $('#msgNuevoColor');
+    var $selectColor = $('#id_color');
+
+    $toggleNuevoColor.on('click', function(e) {
+        e.preventDefault();
+        $panelNuevoColor.toggle();
+        if ($panelNuevoColor.is(':visible')) {
+            $inputNuevoColor.trigger('focus');
+        }
+    });
+
+    $('#btnCrearColor').on('click', function() {
+        var nombre = $inputNuevoColor.val().trim();
+        $msgNuevoColor.text('').removeClass('text-danger text-success');
+        if (!nombre) {
+            $msgNuevoColor.text('Escribe un nombre para el color.').addClass('text-danger');
+            return;
+        }
+        fetch('{% url "productos:api_crear_color" %}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify({nombre: nombre})
+        })
+            .then(function(resp) {
+                return resp.json().then(function(data) { return {ok: resp.ok, data: data}; });
+            })
+            .then(function(res) {
+                if (!res.ok) {
+                    $msgNuevoColor.text(res.data.error || 'No se pudo crear el color.').addClass('text-danger');
+                    return;
+                }
+                var idStr = String(res.data.id);
+                if ($selectColor.find('option[value="' + idStr + '"]').length === 0) {
+                    $selectColor.append(new Option(res.data.nombre, idStr, false, false));
+                }
+                $selectColor.val(idStr).trigger('change');
+                $msgNuevoColor.text(res.data.creado ? 'Color creado y seleccionado.' : 'Ese color ya existía; fue seleccionado.').addClass('text-success');
+                $inputNuevoColor.val('');
+                $panelNuevoColor.hide();
+            });
+    });
+
+    {% if not es_edicion %}
+    // --- Tallas por checkbox, reales según el género elegido ---
+    var tallasPrevias = ({{ tallas_previas|default:"[]" }}).map(Number);
+    var tallasEnManual = {};
+
+    var $selectGenero = $('#id_genero');
+    var $avisoSinGenero = $('#avisoSinGenero');
+    var $contenedorTallas = $('#contenedorTallas');
+    var $checksExistentes = $('#checksTallasExistentes');
+    var $checksManuales = $('#checksTallasManuales');
+
+    function crearCheckboxTalla(talla, marcado) {
+        var idAttr = 'talla_' + talla;
+        var $wrapper = $('<div class="form-check form-check-inline"></div>');
+        $wrapper.append(
+            '<input class="form-check-input" type="checkbox" name="tallas" value="' + talla + '" id="' + idAttr + '"' + (marcado ? ' checked' : '') + '>' +
+            '<label class="form-check-label" for="' + idAttr + '">' + talla + '</label>'
+        );
+        return $wrapper;
+    }
+
+    function agregarTallaManual(talla, marcado) {
+        if (tallasEnManual[talla]) {
+            return;
+        }
+        tallasEnManual[talla] = true;
+        $checksManuales.append(crearCheckboxTalla(talla, marcado));
+    }
+
+    function cargarTallasPorGenero(genero) {
+        $checksExistentes.empty();
+        if (!genero) {
+            $contenedorTallas.addClass('d-none');
+            $avisoSinGenero.removeClass('d-none');
+            return;
+        }
+        fetch('{% url "productos:api_tallas_por_genero" %}?genero=' + encodeURIComponent(genero))
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                $avisoSinGenero.addClass('d-none');
+                $contenedorTallas.removeClass('d-none');
+                var tallasExistentes = data.tallas || [];
+                tallasExistentes.forEach(function(t) {
+                    var marcado = tallasPrevias.indexOf(t) !== -1;
+                    $checksExistentes.append(crearCheckboxTalla(t, marcado));
+                });
+                if (!tallasExistentes.length) {
+                    $checksExistentes.html('<span class="text-muted small">Este género todavía no tiene tallas registradas. Agrega la primera abajo.</span>');
+                }
+                // Tallas marcadas antes (por un error de validación en otro campo)
+                // que no vinieron en la lista de existentes: se restauran como manuales.
+                tallasPrevias.forEach(function(t) {
+                    if (tallasExistentes.indexOf(t) === -1) {
+                        agregarTallaManual(t, true);
+                    }
+                });
+            });
+    }
+
+    if ($selectGenero.length) {
+        $selectGenero.on('change', function() {
+            $checksManuales.empty();
+            tallasEnManual = {};
+            cargarTallasPorGenero(this.value);
+        });
+        if ($selectGenero.val()) {
+            cargarTallasPorGenero($selectGenero.val());
+        }
+    }
+
+    $('#btnAgregarTalla').on('click', function() {
+        var valor = parseInt($('#inputNuevaTalla').val(), 10);
+        if (!valor) {
+            return;
+        }
+        agregarTallaManual(valor, true);
+        $('#inputNuevaTalla').val('');
+    });
+    {% endif %}
+});
+</script>
+{% endblock extra_scripts %}

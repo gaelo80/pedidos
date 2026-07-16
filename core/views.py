@@ -1,19 +1,23 @@
 # core/views.py
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+import json
 from django.conf import settings
 import os
 import base64
 import pandas as pd # DESCOMENTA ESTO si tus funciones convertir_... lo usan. Asegúrate que pandas esté instalado.
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.urls import reverse, reverse_lazy, NoReverseMatch
 from django.contrib.auth.views import LoginView
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from core.mixins import TenantAwareMixin
 from collections import defaultdict # Importación necesaria para el agrupamiento
+from clientes.models import Empresa
+from .models import ModuloEmpresa
 
 # Importa tus funciones de rol desde auth_utils.py
 from .auth_utils import (
@@ -23,6 +27,8 @@ from .auth_utils import (
     es_factura,
     es_diseno,
     es_online,
+    es_cajero,
+    es_superusuario,
     es_administracion, # Función para el grupo 'Administracion'
     es_administrador_app, # Función para el rol 'Administrador_app' (menú config)
     puede_ver_panel_django_admin, # Función para el enlace al admin de Django
@@ -40,6 +46,8 @@ ROL_CHECKERS_MAP = {
     'es_factura': es_factura,
     'es_diseno': es_diseno,
     'es_online': es_online,
+    'es_cajero': es_cajero,
+    'es_superusuario': es_superusuario,
     'es_administracion': es_administracion, # Deja una sola entrada para es_administracion
     'es_administrador_app': es_administrador_app,
     'puede_ver_panel_django_admin': puede_ver_panel_django_admin,
@@ -119,7 +127,13 @@ def vista_index(request):
     
     empresa_actual = getattr(request, 'tenant', None)
     user = request.user
-    
+    if user.is_superuser:
+        categorias_desactivadas = set()
+        items_desactivados = set()
+    else:
+        categorias_desactivadas = ModuloEmpresa.categorias_desactivadas(empresa_actual)
+        items_desactivados = ModuloEmpresa.items_desactivados(empresa_actual)
+
     print(f"DEBUG: Total de opciones cargadas desde panel_config.py: {len(PANEL_OPTIONS_CONFIG)}")
     
     # Determinar el título de la página basado en el rol principal
@@ -205,7 +219,14 @@ def vista_index(request):
                     elif not checker_func:
                         print(f"ADVERTENCIA: Función de rol '{rol_func_name}' en lista para opción '{titulo_opcion}' no encontrada en ROL_CHECKERS_MAP.")
         # --- FIN DE LA LÓGICA DE VISIBILIDAD ---
-        
+
+        # Aunque el rol/permiso coincida, si la empresa no tiene contratada la categoría
+        # completa, o desactivó puntualmente esta opción, no se muestra.
+        if mostrar_opcion and categoria_opcion in categorias_desactivadas:
+            mostrar_opcion = False
+        if mostrar_opcion and url_nombre_opcion in items_desactivados:
+            mostrar_opcion = False
+
         print(f"DEBUG: Opción '{titulo_opcion}': PermisoCfg='{perm_requerido_config}', RolCfg='{rol_requerido_config}', Mostrar={mostrar_opcion}, Categoría='{categoria_opcion}'")
 
         if mostrar_opcion:
@@ -284,6 +305,93 @@ def vista_index(request):
         'opciones_agrupadas': opciones_agrupadas_para_template, # <--- ¡NUEVA VARIABLE PARA LA PLANTILLA!
     }
     return render(request, 'core/index.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser, login_url='core:acceso_denegado')
+def gestionar_modulos_empresa(request):
+    """
+    Pantalla exclusiva del superusuario: activar/desactivar, para UNA empresa a
+    la vez, los módulos/categorías completas del panel (ej. 'Punto de Venta'
+    como app completa) y, dentro de cada categoría, opciones puntuales
+    específicas (ej. solo 'Costeo de Productos' sin afectar el resto de
+    'Productos y Catálogo'). Pensada para reflejar qué le fue vendido/
+    contratado a cada empresa.
+    """
+    empresas = Empresa.objects.all().order_by('nombre')
+
+    # Agrupa las opciones del panel por categoría, sin duplicados, para armar el checklist.
+    categorias_items = defaultdict(list)
+    vistos = set()
+    for opcion in PANEL_OPTIONS_CONFIG:
+        categoria = opcion.get('categoria', 'Otras Opciones')
+        url_nombre = opcion.get('url_nombre')
+        titulo = opcion.get('titulo', 'Opción sin título')
+        if not url_nombre or (categoria, url_nombre) in vistos:
+            continue
+        vistos.add((categoria, url_nombre))
+        categorias_items[categoria].append({'url_nombre': url_nombre, 'titulo': titulo})
+    for categoria in categorias_items:
+        categorias_items[categoria].sort(key=lambda o: o['titulo'])
+
+    empresa_seleccionada = empresas.filter(pk=request.GET.get('empresa_id')).first() or empresas.first()
+
+    categorias_desactivadas = set()
+    items_desactivados = set()
+    if empresa_seleccionada:
+        categorias_desactivadas = ModuloEmpresa.categorias_desactivadas(empresa_seleccionada)
+        items_desactivados = ModuloEmpresa.items_desactivados(empresa_seleccionada)
+
+    categorias_data = []
+    for categoria in sorted(categorias_items.keys()):
+        items = [
+            {
+                'url_nombre': item['url_nombre'],
+                'titulo': item['titulo'],
+                'activo': item['url_nombre'] not in items_desactivados,
+            }
+            for item in categorias_items[categoria]
+        ]
+        categorias_data.append({
+            'categoria': categoria,
+            'activo': categoria not in categorias_desactivadas,
+            'items': items,
+        })
+
+    context = {
+        'empresas': empresas,
+        'empresa_seleccionada': empresa_seleccionada,
+        'categorias_data': categorias_data,
+        'titulo': 'Módulos Contratados por Empresa',
+    }
+    return render(request, 'core/gestionar_modulos_empresa.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser, login_url='core:acceso_denegado')
+@require_POST
+def api_toggle_modulo_empresa(request):
+    try:
+        data = json.loads(request.body)
+        empresa_id = int(data['empresa_id'])
+        categoria = data['categoria']
+        url_nombre = (data.get('url_nombre') or '').strip()
+        activo = bool(data['activo'])
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({'status': 'error', 'msg': 'Datos inválidos.'}, status=400)
+
+    empresa = get_object_or_404(Empresa, pk=empresa_id)
+
+    if activo:
+        # "Activo" es el estado por defecto: basta con no tener fila, o borrarla si existía.
+        ModuloEmpresa.objects.filter(empresa=empresa, categoria=categoria, url_nombre=url_nombre).delete()
+    else:
+        ModuloEmpresa.objects.update_or_create(
+            empresa=empresa, categoria=categoria, url_nombre=url_nombre,
+            defaults={'activo': False, 'actualizado_por': request.user},
+        )
+
+    return JsonResponse({'status': 'ok'})
 
 
 def offline_view(request):

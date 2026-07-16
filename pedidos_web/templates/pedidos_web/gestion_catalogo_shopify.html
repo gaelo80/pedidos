@@ -1,0 +1,362 @@
+{% extends 'core/base.html' %}
+{% block page_title %}{{ titulo|default:"Catálogo Shopify" }}{% endblock page_title %}
+
+{% block content %}
+<div class="mb-5">
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-7">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fab fa-shopify me-2"></i> Catálogo Shopify
+            </h1>
+            <p class="lead text-secondary mb-0">
+                Elige qué referencias montar en la tienda. El código de barras y las tallas nunca se
+                editan aquí: de esa coincidencia dependen los pedidos que lleguen desde la web.
+            </p>
+        </div>
+        <div class="col-md-5 text-md-end mt-3 mt-md-0">
+            <button type="button" id="btnCargarTiposCategorias" class="btn btn-outline-info rounded-pill shadow-sm me-1">
+                <i class="fas fa-sync-alt me-2"></i> Cargar Clasificación de Shopify
+            </button>
+            <a href="{% url 'pedidos_web:panel_sincronizacion' %}" class="btn btn-outline-secondary rounded-pill shadow-sm">
+                <i class="fas fa-tools me-2"></i> Panel de Sincronización
+            </a>
+        </div>
+    </div>
+    <div id="msgTiposCategorias" class="mb-3"></div>
+
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-body p-4">
+            <form method="get">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="q" placeholder="Buscar por referencia o código de barras..." value="{{ search_query }}">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i> Buscar</button>
+                    {% if search_query %}
+                        <a href="{% url 'pedidos_web:gestion_catalogo_shopify' %}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if not filas %}
+        <div class="alert alert-info text-center">No hay referencias para mostrar.</div>
+    {% endif %}
+
+    {% for fila in filas %}
+    <div class="card shadow-sm border-0 rounded-3 mb-3 catalogo-shopify-fila">
+        {# ---------- Encabezado siempre visible: resumen + acciones rápidas ---------- #}
+        <div class="card-header bg-white d-flex align-items-center flex-wrap gap-3 py-3">
+            {% if fila.foto %}
+                <img src="{{ fila.foto.imagen.url }}" class="rounded" style="width:56px;height:56px;object-fit:cover;" alt="Foto">
+            {% else %}
+                <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted" style="width:56px;height:56px;">
+                    <i class="fas fa-image"></i>
+                </div>
+            {% endif %}
+
+            <div class="flex-grow-1" style="min-width: 220px;">
+                <div class="fw-bold">
+                    {{ fila.referencia_color.referencia_base }}
+                    <span class="text-muted fw-normal">— {{ fila.nombre }}</span>
+                </div>
+                <div class="small mt-1">
+                    {% if fila.referencia_color.color %}<span class="badge bg-light text-dark border me-1">{{ fila.referencia_color.color }}</span>{% endif %}
+                    {% if fila.genero %}<span class="badge bg-light text-dark border me-1">{{ fila.genero }}</span>{% endif %}
+                    <span class="text-muted">{{ fila.variantes|length }} talla(s) · stock {{ fila.stock_total }} · ${{ fila.precio_venta|floatformat:0 }}</span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                {% if fila.esta_subido %}
+                    <span class="badge bg-success">Subido</span>
+                    {% if fila.referencia_color.shopify_ultima_sincronizacion %}
+                        <span class="text-muted small d-none d-lg-inline">{{ fila.referencia_color.shopify_ultima_sincronizacion|date:"d/m/Y H:i" }}</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-secondary">No subido</span>
+                {% endif %}
+
+                <form method="post" action="{% url 'pedidos_web:api_shopify_subir' fila.referencia_color.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-sm rounded-pill" title="Subir/Reactivar en Shopify">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </button>
+                </form>
+                <form method="post" action="{% url 'pedidos_web:api_shopify_bajar' fila.referencia_color.pk %}" class="d-inline"
+                      onsubmit="return confirm('¿Pasar {{ fila.referencia_color }} a borrador en Shopify? Se ocultará de la tienda.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill" title="Bajar a borrador" {% if not fila.esta_subido %}disabled{% endif %}>
+                        <i class="fas fa-cloud-download-alt"></i>
+                    </button>
+                </form>
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="collapse" data-bs-target="#detalle{{ fila.referencia_color.pk }}">
+                    <i class="fas fa-sliders-h me-1"></i> Detalles
+                </button>
+            </div>
+        </div>
+
+        {# ---------- Detalle colapsable: info fija + edición organizada ---------- #}
+        <div id="detalle{{ fila.referencia_color.pk }}" class="collapse">
+            <div class="card-body p-4 border-top">
+                <div class="row g-4">
+
+                    <div class="col-lg-4">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-lock me-1"></i> Datos fijos</h6>
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                <tr><th>Costo</th><td>${{ fila.costo|floatformat:0 }}</td></tr>
+                                <tr><th>Precio venta (interno)</th><td>${{ fila.precio_venta|floatformat:0 }}</td></tr>
+                                <tr><th>Stock total</th><td>{{ fila.stock_total }}</td></tr>
+                                <tr>
+                                    <th>Tallas</th>
+                                    <td>
+                                        {% for v in fila.variantes %}
+                                            <span class="badge bg-light text-dark border">{{ v.talla|default:"Única" }}: {{ v.stock_actual }}</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Códigos de barras</th>
+                                    <td class="small text-muted">
+                                        {% for v in fila.variantes %}{{ v.codigo_barras|default:"—" }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>Tallas y códigos nunca se editan aquí: de esa
+                            coincidencia dependen los pedidos que lleguen desde la web.
+                        </small>
+                    </div>
+
+                    <div class="col-lg-8">
+                        <form method="post" action="{% url 'pedidos_web:api_shopify_actualizar' fila.referencia_color.pk %}">
+                            {% csrf_token %}
+
+                            <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-align-left me-1"></i> Contenido para Shopify</h6>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Título</label>
+                                    <input type="text" name="shopify_titulo" class="form-control form-control-sm"
+                                           value="{{ fila.referencia_color.shopify_titulo|default:'' }}"
+                                           placeholder="{{ fila.nombre }} (nombre interno, si se deja vacío)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Precio</label>
+                                    <input type="number" step="0.01" name="shopify_precio" class="form-control form-control-sm"
+                                           value="{{ fila.referencia_color.shopify_precio|default:'' }}"
+                                           placeholder="${{ fila.precio_venta|floatformat:0 }} (precio interno, si se deja vacío)">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold mb-1">Descripción</label>
+                                    <textarea name="shopify_descripcion" class="form-control form-control-sm" rows="2"
+                                              placeholder="Descripción interna, si se deja vacío">{{ fila.referencia_color.shopify_descripcion|default:'' }}</textarea>
+                                </div>
+                            </div>
+
+                            <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-3"><i class="fas fa-tags me-1"></i> Clasificación</h6>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Tipo</label>
+                                    <select name="shopify_tipo" class="form-select form-select-sm select2-tipo"
+                                            data-valor-actual="{{ fila.referencia_color.shopify_tipo|default:'' }}">
+                                        {% if fila.referencia_color.shopify_tipo %}
+                                            <option value="{{ fila.referencia_color.shopify_tipo }}" selected>{{ fila.referencia_color.shopify_tipo }}</option>
+                                        {% endif %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Categoría</label>
+                                    <select name="shopify_categoria_id" class="form-select form-select-sm select2-categoria"
+                                            data-valor-actual="{{ fila.referencia_color.shopify_categoria_id|default:'' }}">
+                                        {% if fila.referencia_color.shopify_categoria_id %}
+                                            <option value="{{ fila.referencia_color.shopify_categoria_id }}" selected>{{ fila.referencia_color.shopify_categoria_nombre }}</option>
+                                        {% endif %}
+                                    </select>
+                                    <input type="hidden" name="shopify_categoria_nombre" class="input-categoria-nombre"
+                                           value="{{ fila.referencia_color.shopify_categoria_nombre|default:'' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Colecciones</label>
+                                    <select name="shopify_colecciones_ids" multiple class="form-select form-select-sm select2-colecciones"
+                                            data-valores-actuales="{{ fila.referencia_color.shopify_colecciones_ids|default:'' }}"
+                                            data-nombres-actuales="{{ fila.referencia_color.shopify_colecciones_nombres|default:'' }}">
+                                    </select>
+                                    <div class="colecciones-nombres-ocultos"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold mb-1">Etiquetas adicionales</label>
+                                    <select name="shopify_etiquetas" multiple class="form-select form-select-sm select2-etiquetas"
+                                            data-valores-actuales="{{ fila.referencia_color.shopify_etiquetas|default:'' }}">
+                                    </select>
+                                    <small class="text-muted">El color ({{ fila.referencia_color.color|default:"—" }}) se agrega siempre solo.</small>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+                                <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill">
+                                    <i class="fas fa-save me-1"></i> {% if fila.esta_subido %}Actualizar en Shopify{% else %}Guardar Cambios{% endif %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}">Anterior</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}">Siguiente</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    // --- Inicializar select2 con los valores ya guardados de cada fila ---
+    $('.select2-tipo').select2({
+        theme: 'bootstrap-5', placeholder: 'Selecciona o escribe un tipo...',
+        tags: true, allowClear: true, width: '100%',
+    });
+    $('.select2-categoria').select2({
+        theme: 'bootstrap-5', placeholder: 'Selecciona una categoría...',
+        allowClear: true, width: '100%',
+    });
+
+    $('.select2-etiquetas').each(function() {
+        var $select = $(this);
+        (($select.data('valores-actuales') || '') + '').split(',').forEach(function(valor) {
+            valor = valor.trim();
+            if (valor) { $select.append(new Option(valor, valor, true, true)); }
+        });
+    }).select2({
+        theme: 'bootstrap-5', placeholder: 'Agrega etiquetas...',
+        tags: true, multiple: true, width: '100%',
+    });
+
+    $('.select2-colecciones').each(function() {
+        var $select = $(this);
+        var ids = (($select.data('valores-actuales') || '') + '').split(',').map(function(v) { return v.trim(); }).filter(Boolean);
+        var nombres = (($select.data('nombres-actuales') || '') + '').split(',').map(function(v) { return v.trim(); }).filter(Boolean);
+        ids.forEach(function(id, i) {
+            $select.append(new Option(nombres[i] || id, id, true, true));
+        });
+    }).select2({
+        theme: 'bootstrap-5', placeholder: 'Selecciona colecciones...',
+        multiple: true, width: '100%',
+    });
+
+    // Al elegir una categoría, guardamos también su nombre completo en el
+    // campo oculto de esa misma fila, para mostrarlo después sin volver a
+    // consultar Shopify.
+    $(document).on('select2:select', '.select2-categoria', function(e) {
+        var nombre = e.params.data.text;
+        $(this).closest('form').find('.input-categoria-nombre').val(nombre === e.params.data.id ? '' : nombre);
+    });
+
+    // Las colecciones seleccionadas se mandan como <option> múltiples con el
+    // mismo 'name': Django las recibe con request.POST.getlist(). Para poder
+    // guardar también el nombre (solo para mostrar), sincronizamos un select
+    // oculto paralelo con los nombres en el mismo orden.
+    function sincronizarNombresColecciones($select) {
+        var $contenedor = $select.closest('.col-md-6').find('.colecciones-nombres-ocultos');
+        $contenedor.empty();
+        $select.find('option:selected').each(function() {
+            $contenedor.append('<input type="hidden" name="shopify_colecciones_nombres" value="' + $(this).text().replace(/"/g, '&quot;') + '">');
+        });
+    }
+    $('.select2-colecciones').each(function() { sincronizarNombresColecciones($(this)); });
+    $(document).on('select2:select select2:unselect', '.select2-colecciones', function() {
+        sincronizarNombresColecciones($(this));
+    });
+
+    // --- Botón para traer del catálogo real de Shopify lo ya usado ---
+    $('#btnCargarTiposCategorias').on('click', function() {
+        var $boton = $(this);
+        var $msg = $('#msgTiposCategorias');
+        $boton.prop('disabled', true);
+        $msg.html('<div class="alert alert-info">Consultando Shopify, un momento...</div>');
+
+        fetch('{% url "pedidos_web:api_shopify_tipos_y_categorias" %}')
+            .then(function(resp) { return resp.json().then(function(data) { return {ok: resp.ok, data: data}; }); })
+            .then(function(res) {
+                if (!res.ok) {
+                    $msg.html('<div class="alert alert-danger">' + (res.data.error || 'No se pudo consultar Shopify.') + '</div>');
+                    return;
+                }
+                var tipos = res.data.tipos || [];
+                var categorias = res.data.categorias || [];
+                var etiquetas = res.data.etiquetas || [];
+                var colecciones = res.data.colecciones || [];
+
+                $('.select2-tipo').each(function() {
+                    var $select = $(this);
+                    var actual = $select.data('valor-actual');
+                    tipos.forEach(function(tipo) {
+                        if (tipo === actual) return;
+                        $select.append(new Option(tipo, tipo, false, false));
+                    });
+                });
+
+                $('.select2-categoria').each(function() {
+                    var $select = $(this);
+                    var actual = $select.data('valor-actual');
+                    categorias.forEach(function(cat) {
+                        if (cat.id === actual) return;
+                        $select.append(new Option(cat.nombre, cat.id, false, false));
+                    });
+                });
+
+                $('.select2-etiquetas').each(function() {
+                    var $select = $(this);
+                    var yaExisten = $select.find('option').map(function() { return $(this).val(); }).get();
+                    etiquetas.forEach(function(etiqueta) {
+                        if (yaExisten.indexOf(etiqueta) === -1) {
+                            $select.append(new Option(etiqueta, etiqueta, false, false));
+                        }
+                    });
+                });
+
+                $('.select2-colecciones').each(function() {
+                    var $select = $(this);
+                    var yaExisten = $select.find('option').map(function() { return $(this).val(); }).get();
+                    colecciones.forEach(function(col) {
+                        if (yaExisten.indexOf(col.id) === -1) {
+                            $select.append(new Option(col.nombre, col.id, false, false));
+                        }
+                    });
+                });
+
+                $msg.html(
+                    '<div class="alert alert-success">Se cargaron ' + tipos.length + ' tipo(s), ' +
+                    categorias.length + ' categoría(s), ' + etiquetas.length + ' etiqueta(s) y ' +
+                    colecciones.length + ' colección(es) ya usadas en tu tienda.</div>'
+                );
+            })
+            .catch(function() {
+                $msg.html('<div class="alert alert-danger">Error de conexión consultando Shopify.</div>');
+            })
+            .finally(function() {
+                $boton.prop('disabled', false);
+            });
+    });
+});
+</script>
+{% endblock extra_scripts %}

@@ -61,6 +61,26 @@ class Empresa(models.Model):
         help_text="Activa el panel de sincronización con Shopify para esta empresa."
     )
 
+    ultimo_consecutivo_ean13 = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Último Consecutivo EAN13",
+        help_text="Uso interno: no editar manualmente. Se incrementa cada vez que se genera un código EAN13 nuevo."
+    )
+
+    codigo_ean13_empresa = models.PositiveSmallIntegerField(
+        null=True, blank=True, unique=True,
+        verbose_name="Código EAN13 de Empresa",
+        help_text="Uso interno: no editar manualmente. Bloque de 3 dígitos que identifica a "
+                   "esta empresa dentro de los EAN13 generados automáticamente, para que nunca "
+                   "se crucen con los de otra empresa. Se asigna solo. Rango válido: 1-999."
+    )
+
+    def save(self, *args, **kwargs):
+        if self.codigo_ean13_empresa is None:
+            ultimo = Empresa.objects.aggregate(m=models.Max('codigo_ean13_empresa'))['m'] or 0
+            self.codigo_ean13_empresa = ultimo + 1
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.nombre
 

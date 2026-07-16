@@ -1,6 +1,6 @@
 # productos/forms.py
 from django import forms
-from .models import Producto
+from .models import Producto, Color
 from bodega.models import Bodega
 
 class ProductoImportForm(forms.Form):
@@ -46,31 +46,22 @@ class ProductoBaseForm(forms.ModelForm):
                 bodega_principal = Bodega.objects.filter(empresa=empresa_actual, es_principal=True).first()
                 if bodega_principal:
                     self.initial['ubicacion'] = bodega_principal.pk
+
+            self.fields['color'].queryset = Color.objects.filter(empresa=empresa_actual, activo=True).order_by('nombre')
         else:
             self.fields['ubicacion'].queryset = Bodega.objects.none()
+            self.fields['color'].queryset = Color.objects.none()
 
-        for field in self.fields.values():
+        self.fields['color'].required = False
+        self.fields['color'].widget.attrs['class'] = 'form-select select2-color'
+
+        for field_name, field in self.fields.items():
+            if field_name == 'color':
+                continue
             if isinstance(field.widget, forms.Select):
                 field.widget.attrs['class'] = 'form-select'
             elif not isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs['class'] = 'form-control'
-
-class ProductoTallaForm(forms.Form):
-    """
-    Formulario para una única fila de talla y código de barras.
-    Añadimos widgets para un mejor control visual en la plantilla.
-    """
-    talla = forms.IntegerField(
-        label="Talla",
-        required=True,
-        widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Talla'})
-    )
-    codigo_barras = forms.CharField(
-        label="Código de Barras",
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Código de Barras (Opcional)'})
-    )
-
 
 class ProductoTallaEditForm(forms.Form):
     """

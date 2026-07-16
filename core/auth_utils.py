@@ -80,3 +80,7 @@ def es_cajero(user):
     if user.is_superuser:
         return True
     return user.groups.filter(name='Cajero').exists()
+
+def es_superusuario(user):
+    """Devuelve True solo si el usuario es superusuario (dueño de la plataforma)."""
+    return user.is_authenticated and user.is_superuser

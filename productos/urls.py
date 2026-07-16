@@ -13,6 +13,9 @@ urlpatterns = [
     path('api/buscar-referencias/', api_views.buscar_referencias_api, name='api_buscar_referencias'),
     path('api/referencia/<str:ref>/colores/', api_views.get_colores_por_referencia, name='api_get_colores_por_referencia'),
     path('api/referencia/<str:ref>/color/<str:color_slug>/tallas/', api_views.get_tallas_por_ref_color, name='api_get_tallas_por_ref_color'),
+    path('api/color/crear/', api_views.api_crear_color, name='api_crear_color'),
+    path('api/tallas-por-genero/', api_views.api_tallas_por_genero, name='api_tallas_por_genero'),
+    path('api/exportar-catalogo-etiquetas/', api_views.api_exportar_catalogo_etiquetas, name='api_exportar_catalogo_etiquetas'),
 
     # --- Listado / CRUD ---
     path('listado/', views.ProductoListView.as_view(), name='producto_listado'),

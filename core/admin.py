@@ -1,7 +1,7 @@
 # usuarios/admin.py
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User
+from .models import User, ModuloEmpresa
 
 class CustomUserAdmin(UserAdmin):
     # Añadimos 'empresa' directamente al formulario de edición
@@ -13,3 +13,10 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'is_staff', 'empresa')
 
 admin.site.register(User, CustomUserAdmin)
+
+
+@admin.register(ModuloEmpresa)
+class ModuloEmpresaAdmin(admin.ModelAdmin):
+    list_display = ('empresa', 'categoria', 'activo', 'fecha_actualizacion', 'actualizado_por')
+    list_filter = ('categoria', 'activo', 'empresa')
+    search_fields = ('empresa__nombre', 'categoria')

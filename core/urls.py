@@ -15,4 +15,7 @@ urlpatterns = [
     path('acceso-denegado/', views.acceso_denegado_view, name='acceso_denegado'),
     path('offline/', views.offline_view, name='offline'),
 
+    path('sistema/modulos-empresa/', views.gestionar_modulos_empresa, name='gestionar_modulos_empresa'),
+    path('sistema/modulos-empresa/toggle/', views.api_toggle_modulo_empresa, name='api_toggle_modulo_empresa'),
+
 ]

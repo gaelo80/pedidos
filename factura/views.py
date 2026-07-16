@@ -165,13 +165,13 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
 
         for detalle_item in items_despachados_originales:
             producto_obj = detalle_item.producto
-            clave_agrupacion = (producto_obj.referencia, producto_obj.color or '-')
+            clave_agrupacion = (producto_obj.referencia, producto_obj.color.nombre if producto_obj.color_id else '-')
             grupo = items_agrupados_dict[clave_agrupacion]
 
             if not grupo['referencia']:
                 grupo['referencia'] = producto_obj.referencia
                 grupo['nombre'] = producto_obj.nombre
-                grupo['color'] = producto_obj.color or '-'
+                grupo['color'] = producto_obj.color.nombre if producto_obj.color_id else '-'
 
 # --- Aplicar Mapeo de Talla (PASO 8) ---
             talla_original = producto_obj.talla or 'N/A'
@@ -310,13 +310,13 @@ class DetalleDespachoFacturaView(TenantAwareMixin, LoginRequiredMixin, Permissio
 
         for detalle_item in items_despachados_originales:
             producto_obj = detalle_item.producto
-            clave_agrupacion = (producto_obj.referencia, producto_obj.color or '-')
+            clave_agrupacion = (producto_obj.referencia, producto_obj.color.nombre if producto_obj.color_id else '-')
             grupo = items_agrupados_dict[clave_agrupacion]
 
             if not grupo['referencia']:
                 grupo['referencia'] = producto_obj.referencia
                 grupo['nombre'] = producto_obj.nombre
-                grupo['color'] = producto_obj.color or '-'
+                grupo['color'] = producto_obj.color.nombre if producto_obj.color_id else '-'
 
 # --- Aplicar Mapeo de Talla (PASO 8) ---
             talla_original = producto_obj.talla or 'N/A'

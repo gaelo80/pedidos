@@ -190,11 +190,11 @@ def reporte_ventas(request):
     ventas_por_producto = DetalleComprobanteDespacho.objects.filter(
         comprobante_despacho__pedido__in=pedidos_para_lista_y_agregados.values('pk')
     ).values(
-        'producto__referencia', 'producto__color'
+        'producto__referencia', 'producto__color__nombre'
     ).annotate(
         cantidad_total_vendida=Coalesce(Sum('cantidad_despachada'), Value(0)),
         nombre_producto_display=Min('producto__nombre')
-    ).order_by('producto__referencia', 'producto__color')
+    ).order_by('producto__referencia', 'producto__color__nombre')
 
     # ------------------- TÍTULO -------------------
     if es_admin:

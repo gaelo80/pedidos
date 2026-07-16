@@ -2,9 +2,10 @@
 import json
 import openpyxl
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
@@ -18,6 +19,7 @@ from django.utils import timezone
 
 from core.auth_utils import es_cajero, es_administracion
 from core.utils import render_pdf_weasyprint, get_logo_base_64_despacho
+from core.models import ModuloEmpresa
 from bodega.models import Bodega, MovimientoInventario, SalidaInternaCabecera, SalidaInternaDetalle
 from productos.models import Producto
 from clientes.models import Cliente, Ciudad
@@ -30,6 +32,8 @@ from .forms import AbrirTurnoForm, CerrarTurnoForm
 
 CARRITO_SESSION_KEY = 'carrito_pos'
 
+MODULO_CATEGORIA = 'Punto de Venta'
+
 
 def _puede_usar_pos(user):
     return es_cajero(user) or es_administracion(user)
@@ -37,6 +41,30 @@ def _puede_usar_pos(user):
 
 def _solo_administracion(user):
     return es_administracion(user)
+
+
+def _requiere_pos(test_rol):
+    """
+    Decorador real (no solo cosmético) para las vistas de puntoventa: exige
+    login, el rol indicado (test_rol) Y que la empresa actual tenga contratado
+    el módulo 'Punto de Venta'. El superusuario siempre pasa, sin importar el
+    módulo. Reemplaza el patrón @login_required + @user_passes_test, porque
+    éste último solo recibe el user y no puede consultar la empresa (request.tenant).
+    """
+    def decorador(view_func):
+        @wraps(view_func)
+        @login_required
+        def _wrapped(request, *args, **kwargs):
+            if not test_rol(request.user):
+                return redirect('core:acceso_denegado')
+            if not request.user.is_superuser:
+                empresa_actual = getattr(request, 'tenant', None)
+                if MODULO_CATEGORIA in ModuloEmpresa.categorias_desactivadas(empresa_actual):
+                    messages.error(request, "Tu empresa no tiene habilitado el módulo de Punto de Venta.")
+                    return redirect('core:index')
+            return view_func(request, *args, **kwargs)
+        return _wrapped
+    return decorador
 
 
 def _turno_abierto_del_usuario(request, empresa_actual):
@@ -79,8 +107,7 @@ def _precio_para_bodega(producto, bodega):
 # Apertura / Cierre de turno
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def abrir_turno(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -112,8 +139,7 @@ def abrir_turno(request):
     return render(request, 'puntoventa/abrir_turno.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def cerrar_turno(request):
     empresa_actual = getattr(request, 'tenant', None)
     turno = _turno_abierto_del_usuario(request, empresa_actual)
@@ -150,8 +176,7 @@ def cerrar_turno(request):
     return render(request, 'puntoventa/cerrar_turno.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def detalle_turno(request, pk):
     empresa_actual = getattr(request, 'tenant', None)
     turno = get_object_or_404(TurnoCaja.objects.select_related('bodega', 'usuario_cajero'), pk=pk, empresa=empresa_actual)
@@ -173,8 +198,7 @@ def detalle_turno(request, pk):
     return render(request, 'puntoventa/detalle_turno.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def informe_cierre_turno(request, pk):
     """Informe imprimible (PDF) de lo que se deja en caja: desglose completo del turno."""
     empresa_actual = getattr(request, 'tenant', None)
@@ -203,8 +227,7 @@ def informe_cierre_turno(request, pk):
 # Pantalla de venta
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def vista_venta(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -224,8 +247,7 @@ def vista_venta(request):
     return render(request, 'puntoventa/vender.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def api_buscar_producto_venta(request):
     """Busca productos con stock en la bodega del turno abierto del cajero."""
     empresa_actual = getattr(request, 'tenant', None)
@@ -257,8 +279,7 @@ def api_buscar_producto_venta(request):
     return JsonResponse({'productos': resultados})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def api_buscar_cliente_venta(request):
     empresa_actual = getattr(request, 'tenant', None)
     query = request.GET.get('q', '').strip()
@@ -274,8 +295,7 @@ def api_buscar_cliente_venta(request):
     return JsonResponse({'clientes': [{'id': c.pk, 'label': f"{c.nombre_completo} ({c.identificacion})"} for c in clientes]})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_cliente_rapido(request):
     """
@@ -325,8 +345,7 @@ def api_cliente_rapido(request):
     })
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_carrito_agregar(request):
     empresa_actual = getattr(request, 'tenant', None)
@@ -359,8 +378,7 @@ def api_carrito_agregar(request):
     return JsonResponse({'status': 'ok', 'carrito': _resumen_carrito(carrito)})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_carrito_ajustar_precio(request):
     """Ajuste manual de precio para una línea del carrito. Requiere motivo obligatorio."""
@@ -396,8 +414,7 @@ def api_carrito_ajustar_precio(request):
     return JsonResponse({'status': 'ok', 'carrito': _resumen_carrito(carrito)})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_carrito_actualizar(request):
     try:
@@ -420,8 +437,7 @@ def api_carrito_actualizar(request):
     return JsonResponse({'status': 'ok', 'carrito': _resumen_carrito(carrito)})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_carrito_vaciar(request):
     _guardar_carrito(request, {})
@@ -458,14 +474,12 @@ def _resumen_carrito(carrito):
     return {'lineas': lineas, 'total': str(total)}
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def api_carrito_estado(request):
     return JsonResponse({'status': 'ok', 'carrito': _resumen_carrito(_get_carrito(request))})
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_checkout(request):
     empresa_actual = getattr(request, 'tenant', None)
@@ -610,8 +624,7 @@ def api_checkout(request):
 # Recibo
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def recibo_venta(request, pk):
     empresa_actual = getattr(request, 'tenant', None)
     venta = get_object_or_404(
@@ -635,8 +648,7 @@ def recibo_venta(request, pk):
     return render_pdf_weasyprint(request, template, context, filename_prefix=f"Recibo_POS_{venta.consecutivo}")
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_pago_subir_comprobante(request):
     """Adjunta la foto del comprobante a un pago por transferencia ya registrado."""
@@ -660,8 +672,7 @@ def api_pago_subir_comprobante(request):
 # Precios de saldo (admin)
 # ============================================================
 
-@login_required
-@user_passes_test(_solo_administracion, login_url='core:acceso_denegado')
+@_requiere_pos(_solo_administracion)
 def gestionar_precios_pos(request):
     empresa_actual = getattr(request, 'tenant', None)
     bodegas_pos = Bodega.objects.filter(empresa=empresa_actual, tipo=Bodega.TipoBodega.PUNTO_VENTA, activa=True).order_by('nombre')
@@ -676,8 +687,7 @@ def gestionar_precios_pos(request):
     return render(request, 'puntoventa/gestionar_precios.html', context)
 
 
-@login_required
-@user_passes_test(_solo_administracion, login_url='core:acceso_denegado')
+@_requiere_pos(_solo_administracion)
 def api_buscar_producto_precios(request):
     empresa_actual = getattr(request, 'tenant', None)
     bodega = get_object_or_404(Bodega, pk=request.GET.get('bodega_id'), empresa=empresa_actual)
@@ -709,8 +719,7 @@ def api_buscar_producto_precios(request):
     return JsonResponse({'productos': resultados})
 
 
-@login_required
-@user_passes_test(_solo_administracion, login_url='core:acceso_denegado')
+@_requiere_pos(_solo_administracion)
 @require_POST
 def api_precio_especial_guardar(request):
     empresa_actual = getattr(request, 'tenant', None)
@@ -735,8 +744,7 @@ def api_precio_especial_guardar(request):
     return JsonResponse({'status': 'ok', 'precio_especial': str(precio_obj.precio_especial)})
 
 
-@login_required
-@user_passes_test(_solo_administracion, login_url='core:acceso_denegado')
+@_requiere_pos(_solo_administracion)
 @require_POST
 def api_precio_especial_eliminar(request):
     empresa_actual = getattr(request, 'tenant', None)
@@ -783,8 +791,7 @@ def _ventas_filtradas(request, empresa_actual):
     return ventas.order_by('-fecha_hora')
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def historial_ventas(request):
     empresa_actual = getattr(request, 'tenant', None)
     bloqueo = _bloqueo_sin_turno(request, empresa_actual)
@@ -807,8 +814,7 @@ def historial_ventas(request):
     return render(request, 'puntoventa/historial_ventas.html', context)
 
 
-@login_required
-@user_passes_test(_solo_administracion, login_url='core:acceso_denegado')
+@_requiere_pos(_solo_administracion)
 def exportar_historial_excel(request):
     empresa_actual = getattr(request, 'tenant', None)
     ventas = _ventas_filtradas(request, empresa_actual)
@@ -841,8 +847,7 @@ def exportar_historial_excel(request):
 # Consulta de inventario (cajero)
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def consulta_inventario_pos(request):
     empresa_actual = getattr(request, 'tenant', None)
     turno = _turno_abierto_del_usuario(request, empresa_actual)
@@ -891,8 +896,7 @@ def consulta_inventario_pos(request):
 # Salidas internas desde el Punto de Venta (préstamos, a persona/empresa, baja, etc.)
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def registrar_salida_pos(request):
     empresa_actual = getattr(request, 'tenant', None)
     turno = _turno_abierto_del_usuario(request, empresa_actual)
@@ -992,8 +996,7 @@ def registrar_salida_pos(request):
     return render(request, 'puntoventa/registrar_salida.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def lista_salidas_pos(request):
     empresa_actual = getattr(request, 'tenant', None)
     bloqueo = _bloqueo_sin_turno(request, empresa_actual)
@@ -1018,8 +1021,7 @@ def lista_salidas_pos(request):
 # Devoluciones y cambios de producto en el Punto de Venta
 # ============================================================
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def api_buscar_venta_pos(request):
     """Busca una VentaPOS por su consecutivo, con el detalle de cuánto de cada línea aún se puede devolver."""
     empresa_actual = getattr(request, 'tenant', None)
@@ -1062,8 +1064,7 @@ def api_buscar_venta_pos(request):
     })
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def vista_devolucion_cambio(request):
     empresa_actual = getattr(request, 'tenant', None)
     turno = _turno_abierto_del_usuario(request, empresa_actual)
@@ -1079,8 +1080,7 @@ def vista_devolucion_cambio(request):
     return render(request, 'puntoventa/devolucion_cambio.html', context)
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 @require_POST
 def api_procesar_devolucion_cambio(request):
     empresa_actual = getattr(request, 'tenant', None)
@@ -1216,8 +1216,7 @@ def api_procesar_devolucion_cambio(request):
     })
 
 
-@login_required
-@user_passes_test(_puede_usar_pos, login_url='core:acceso_denegado')
+@_requiere_pos(_puede_usar_pos)
 def historial_devoluciones_cambios(request):
     empresa_actual = getattr(request, 'tenant', None)
     bloqueo = _bloqueo_sin_turno(request, empresa_actual)

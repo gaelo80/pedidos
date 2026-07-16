@@ -2,7 +2,6 @@
 from decimal import Decimal, InvalidOperation
 import logging
 from itertools import groupby
-from operator import attrgetter
 
 # Configura un logger para este módulo
 logger = logging.getLogger(__name__)
@@ -15,7 +14,7 @@ def preparar_datos_seccion(items_genero, columnas_fijas):
     if not items_genero or not columnas_fijas:
         return [], []
 
-    keyfunc = attrgetter('producto.referencia', 'producto.color')
+    keyfunc = lambda item: (item.producto.referencia, item.producto.color.nombre if item.producto.color_id else '')
     items_ordenados = sorted(items_genero, key=keyfunc)
     
     grupos_procesados = []

@@ -268,67 +268,74 @@
             {% if user.is_authenticated %}
                 <li class="nav-item"><a class="nav-link" href="{% url 'core:index' %}"><i class="fas fa-home me-1"></i> INICIO</a></li>
 
+                {% if 'Pedidos y Ventas' not in categorias_desactivadas %}
                 {% if es_vendedor or es_online or es_cartera or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownPedidosVentas" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-shopping-cart me-1"></i> PEDIDOS
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownPedidosVentas">
-                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:crear_pedido_web' %}">Crear nuevo pedido</a></li>{% endif %}
-                        {% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:crear_pedido_online' %}">Crear Pedido (Online)</a></li>{% endif %}
+                        {% if 'pedidos:crear_pedido_web' not in items_desactivados %}{% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:crear_pedido_web' %}">Crear nuevo pedido</a></li>{% endif %}{% endif %}
+                        {% if 'pedidos_online:crear_pedido_online' not in items_desactivados %}{% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:crear_pedido_online' %}">Crear Pedido (Online)</a></li>{% endif %}{% endif %}
                         {% if es_vendedor or es_online %}<li><hr class="dropdown-divider"></li>{% endif %}
-                        {% if es_cartera or es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_cartera' %}">Aprobación Cartera</a></li>{% endif %}
-                        {% if es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Aprobación Administración</a></li>{% endif %}
-                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores Guardados</a></li>{% endif %}
-                        {% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}">Borradores (Online)</a></li>{% endif %}
-                        {% if es_online or es_administracion %}
+                        {% if 'pedidos:lista_aprobacion_cartera' not in items_desactivados %}{% if es_cartera or es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_cartera' %}">Aprobación Cartera</a></li>{% endif %}{% endif %}
+                        {% if 'pedidos:lista_aprobacion_admin' not in items_desactivados %}{% if es_administracion %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Aprobación Administración</a></li>{% endif %}{% endif %}
+                        {% if 'pedidos:lista_pedidos_borrador' not in items_desactivados %}{% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'pedidos:lista_pedidos_borrador' %}">Borradores Guardados</a></li>{% endif %}{% endif %}
+                        {% if 'pedidos_online:lista_pedidos_borrador_online' not in items_desactivados %}{% if es_online %}<li><a class="dropdown-item" href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}">Borradores (Online)</a></li>{% endif %}{% endif %}
+                        {% if 'pedidos_online:registrar_cambio_online' not in items_desactivados %}{% if es_online or es_administracion %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'pedidos_online:registrar_cambio_online' %}">Registrar Cambio (Online)</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Clientes y Prospectos' not in categorias_desactivadas %}
                 {% if es_vendedor or es_cartera or es_administracion or es_administrador_app or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownClientes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> CLIENTES
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownClientes">
-                        {% if es_vendedor or es_cartera or es_administracion or es_factura %}<li><a class="dropdown-item" href="{% url 'clientes:cliente_listado_v2' %}">Listado de Clientes</a></li>{% endif %}
-                        {% if es_vendedor or es_administracion %}
+                        {% if 'clientes:cliente_listado_v2' not in items_desactivados %}{% if es_vendedor or es_cartera or es_administracion or es_factura %}<li><a class="dropdown-item" href="{% url 'clientes:cliente_listado_v2' %}">Listado de Clientes</a></li>{% endif %}{% endif %}
+                        {% if 'prospectos:crear_solicitud' not in items_desactivados %}{% if es_vendedor or es_administracion %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'prospectos:crear_solicitud' %}">Solicitud Cliente Nuevo</a></li>
-                        {% endif %}
-                        {% if es_cartera or es_vendedor or es_administracion %}<li><a class="dropdown-item" href="{% url 'prospectos:lista_solicitudes' %}">Prospectos Pendientes</a></li>{% endif %}
-                        {% if es_factura or es_cartera %}
+                        {% endif %}{% endif %}
+                        {% if 'prospectos:lista_solicitudes' not in items_desactivados %}{% if es_cartera or es_vendedor or es_administracion %}<li><a class="dropdown-item" href="{% url 'prospectos:lista_solicitudes' %}">Prospectos Pendientes</a></li>{% endif %}{% endif %}
+                        {% if 'clientes:cliente_listado' not in items_desactivados %}{% if es_factura or es_cartera %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'clientes:cliente_listado' %}">Gestionar Clientes</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Finanzas y Recaudos' not in categorias_desactivadas %}
                 {% if es_vendedor or es_cartera or es_administracion %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFinanzas" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-money-bill-wave me-1"></i> FINANZAS
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownFinanzas">
-                        {% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'recaudos:crear_recaudo' %}">Registrar Recaudo</a></li>{% endif %}
+                        {% if 'recaudos:crear_recaudo' not in items_desactivados %}{% if es_vendedor %}<li><a class="dropdown-item" href="{% url 'recaudos:crear_recaudo' %}">Registrar Recaudo</a></li>{% endif %}{% endif %}
                         {% if es_administracion or es_cartera %}
-                            <li><a class="dropdown-item" href="{% url 'recaudos:panel_administracion' %}">Gestionar Recaudos</a></li>
-                            <li><a class="dropdown-item" href="{% url 'recaudos:reporte_general_recaudos' %}">Informe de Recaudos</a></li>
+                            {% if 'recaudos:panel_administracion' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'recaudos:panel_administracion' %}">Gestionar Recaudos</a></li>{% endif %}
+                            {% if 'recaudos:reporte_general_recaudos' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'recaudos:reporte_general_recaudos' %}">Informe de Recaudos</a></li>{% endif %}
                         {% endif %}
                         {% if es_cartera or es_administracion %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'cartera:reporte_cartera_general' %}">Informe de Cartera</a></li>
-                            <li><a class="dropdown-item" href="{% url 'cartera:importar_cartera' %}">Cargar Cartera</a></li>
+                            {% if 'cartera:reporte_cartera_general' not in items_desactivados or 'cartera:importar_cartera' not in items_desactivados %}<li><hr class="dropdown-divider"></li>{% endif %}
+                            {% if 'cartera:reporte_cartera_general' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'cartera:reporte_cartera_general' %}">Informe de Cartera</a></li>{% endif %}
+                            {% if 'cartera:importar_cartera' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'cartera:importar_cartera' %}">Cargar Cartera</a></li>{% endif %}
                         {% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Bodega e Inventario' not in categorias_desactivadas %}
                 {% if es_bodega or es_administracion or es_administrador_app or es_diseno or es_vendedor %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBodegaInventario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -336,40 +343,42 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownBodegaInventario">
                         {% if es_bodega or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'bodega:lista_pedidos_bodega' %}">Pedidos Pendientes Despacho</a></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:vista_registrar_ingreso' %}">Registrar Ingreso</a></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:vista_conteo_inventario' %}">Realizar Conteo de Inventario</a></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:lista_salidas_internas' %}">Registrar Salida Interna</a></li>
+                            {% if 'bodega:lista_pedidos_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:lista_pedidos_bodega' %}">Pedidos Pendientes Despacho</a></li>{% endif %}
+                            {% if 'bodega:vista_registrar_ingreso' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:vista_registrar_ingreso' %}">Registrar Ingreso</a></li>{% endif %}
+                            {% if 'bodega:vista_conteo_inventario' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:vista_conteo_inventario' %}">Realizar Conteo de Inventario</a></li>{% endif %}
+                            {% if 'bodega:lista_salidas_internas' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:lista_salidas_internas' %}">Registrar Salida Interna</a></li>{% endif %}
                         {% endif %}
 
-                        {% if es_bodega or es_administracion or es_vendedor %}
+                        {% if 'devoluciones:crear_devolucion' not in items_desactivados %}{% if es_bodega or es_administracion or es_vendedor %}
                             <li><a class="dropdown-item" href="{% url 'devoluciones:crear_devolucion' %}">Registrar Devolución</a></li>
-                        {% endif %}
-                        {% if es_bodega or es_administracion or es_diseno %}
+                        {% endif %}{% endif %}
+                        {% if 'bodega:visibilidad_productos' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'bodega:visibilidad_productos' %}"><i class="fas fa-eye-slash me-1"></i> Productos vendedores externos</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                         {% if es_bodega or es_administracion or es_diseno %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}">Inventario Físico</a></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Informe de Ingresos</a></li>
+                            {% if 'bodega:informe_inventario' not in items_desactivados or 'informes:informe_ingresos_bodega' not in items_desactivados %}<li><hr class="dropdown-divider"></li>{% endif %}
+                            {% if 'bodega:informe_inventario' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}">Inventario Físico</a></li>{% endif %}
+                            {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Informe de Ingresos</a></li>{% endif %}
                         {% endif %}
                         {% if es_bodega or es_administracion %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:lista_traslados' %}"><i class="fas fa-truck-loading me-1"></i> Traslados entre Bodegas</a></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:informe_inventario_comparativo' %}"><i class="fas fa-columns me-1"></i> Comparativo de Stock por Bodega</a></li>
+                            {% if 'bodega:lista_traslados' not in items_desactivados or 'bodega:informe_inventario_comparativo' not in items_desactivados %}<li><hr class="dropdown-divider"></li>{% endif %}
+                            {% if 'bodega:lista_traslados' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:lista_traslados' %}"><i class="fas fa-truck-loading me-1"></i> Traslados entre Bodegas</a></li>{% endif %}
+                            {% if 'bodega:informe_inventario_comparativo' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:informe_inventario_comparativo' %}"><i class="fas fa-columns me-1"></i> Comparativo de Stock por Bodega</a></li>{% endif %}
                         {% endif %}
-                        {% if es_bodega or es_administracion or es_diseno %}
+                        {% if 'bodega:consulta_stock_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                             <li><a class="dropdown-item" href="{% url 'bodega:consulta_stock_bodega' %}"><i class="fas fa-bolt me-1"></i> Consulta Rápida de Stock por Bodega</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                         {% if es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'bodega:lista_bodegas' %}"><i class="fas fa-warehouse me-1"></i> Administrar Bodegas</a></li>
-                            <li><a class="dropdown-item" href="{% url 'bodega:lista_accesos_bodega' %}"><i class="fas fa-user-shield me-1"></i> Accesos por Bodega</a></li>
+                            {% if 'bodega:lista_bodegas' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:lista_bodegas' %}"><i class="fas fa-warehouse me-1"></i> Administrar Bodegas</a></li>{% endif %}
+                            {% if 'bodega:lista_accesos_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:lista_accesos_bodega' %}"><i class="fas fa-user-shield me-1"></i> Accesos por Bodega</a></li>{% endif %}
                         {% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Punto de Venta' not in categorias_desactivadas %}
                 {% if es_cajero or es_administracion %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownPuntoVenta" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -391,7 +400,9 @@
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Facturación' not in categorias_desactivadas %}
                 {% if es_factura or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFacturacion" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -399,17 +410,19 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownFacturacion">
                         {% if es_factura or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'factura:lista_despachos_a_facturar' %}">Despachos Por Facturar</a></li>
+                            {% if 'factura:lista_despachos_a_facturar' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'factura:lista_despachos_a_facturar' %}">Despachos Por Facturar</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'factura:informe_facturados_fecha' %}">Facturados por Fecha</a></li>
-                            <li><a class="dropdown-item" href="{% url 'factura:informe_despachos_cliente' %}">Facturados por Cliente</a></li>
-                            <li><a class="dropdown-item" href="{% url 'factura:informe_despachos_estado' %}">Facturados por Estado</a></li>
-                            <li><a class="dropdown-item" href="{% url 'factura:informe_despachos_pedido' %}">Facturados por Pedido</a></li>
+                            {% if 'factura:informe_facturados_fecha' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'factura:informe_facturados_fecha' %}">Facturados por Fecha</a></li>{% endif %}
+                            {% if 'factura:informe_despachos_cliente' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'factura:informe_despachos_cliente' %}">Facturados por Cliente</a></li>{% endif %}
+                            {% if 'factura:informe_despachos_estado' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'factura:informe_despachos_estado' %}">Facturados por Estado</a></li>{% endif %}
+                            {% if 'factura:informe_despachos_pedido' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'factura:informe_despachos_pedido' %}">Facturados por Pedido</a></li>{% endif %}
                         {% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
+                {% if 'Productos y Catálogo' not in categorias_desactivadas %}
                 {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownProductosCatalogo" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -417,26 +430,31 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownProductosCatalogo">
                         {% if es_diseno or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'productos:producto_listado' %}">Gestión de Productos</a></li>
-                            <li><a class="dropdown-item" href="{% url 'productos:producto_crear' %}">Crear Producto</a></li>
-                            <li><a class="dropdown-item" href="{% url 'productos:producto_subir_fotos_agrupadas' %}">Subir Fotos</a></li>
-                            <li><a class="dropdown-item" href="{% url 'costeo_jeans:panel_costeo' %}">Costeo de Productos</a></li> 
-                            {% if empresa_actual.usa_shopify %}                           
-                            <li><a class="dropdown-item" href="{% url 'pedidos_web:panel_sincronizacion' %}">Sincronizar Shopify</a></li>  
-                            {% endif %}                          
+                            {% if 'productos:producto_listado' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_listado' %}">Gestión de Productos</a></li>{% endif %}
+                            {% if 'productos:producto_crear' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_crear' %}">Crear Producto</a></li>{% endif %}
+                            {% if 'productos:producto_subir_fotos_agrupadas' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_subir_fotos_agrupadas' %}">Subir Fotos</a></li>{% endif %}
+                            {% if 'costeo_jeans:panel_costeo' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'costeo_jeans:panel_costeo' %}">Costeo de Productos</a></li>{% endif %}
+                            {% if empresa_actual.usa_shopify %}
+                            <li><a class="dropdown-item" href="{% url 'pedidos_web:panel_sincronizacion' %}">Sincronizar Shopify</a></li>
+                            {% if 'pedidos_web:gestion_catalogo_shopify' not in items_desactivados %}
+                            <li><a class="dropdown-item" href="{% url 'pedidos_web:gestion_catalogo_shopify' %}">Catálogo Shopify</a></li>
+                            {% endif %}
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
-                        {% if es_vendedor or es_administracion or es_cartera or es_online %}
+                        {% if 'catalogo:catalogo_generar_enlace_usuario' not in items_desactivados %}{% if es_vendedor or es_administracion or es_cartera or es_online %}
                             <li><a class="dropdown-item" href="{% url 'catalogo:catalogo_generar_enlace_usuario' %}">Compartir Catálogo</a></li>
-                        {% endif %}
-                        {% if es_vendedor or es_diseno or es_online or es_cartera or es_factura or es_bodega or es_administracion %}
+                        {% endif %}{% endif %}
+                        {% if 'catalogo:lista_referencias' not in items_desactivados %}{% if es_vendedor or es_diseno or es_online or es_cartera or es_factura or es_bodega or es_administracion %}
                             <li><a class="dropdown-item" href="{% url 'catalogo:lista_referencias' %}">Ver Catálogo</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
 
+                {% if 'Informes Generales' not in categorias_desactivadas %}
                 {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInformes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -444,44 +462,51 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownInformes">
                         {% if es_vendedor or es_online or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'informes:reporte_ventas' %}">Informe de Ventas</a></li>
+                            {% if 'informes:reporte_ventas' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:reporte_ventas' %}">Informe de Ventas</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if es_cartera or es_administracion %}
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_rechazados' %}">Pedidos Rechazados</a></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_aprobados_bodega' %}">Pedidos Aceptados</a></li>
+                            {% if 'informes:informe_pedidos_rechazados' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_rechazados' %}">Pedidos Rechazados</a></li>{% endif %}
+                            {% if 'informes:informe_pedidos_aprobados_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_aprobados_bodega' %}">Pedidos Aceptados</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
-                        {% if es_bodega or es_administracion or es_diseno %}
+                        {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                             <li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Ingresos a Bodega</a></li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                         {% if es_administracion or es_cartera or es_factura %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_comprobantes_despacho' %}">Comprobantes de Despacho</a></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_total_pedidos' %}">Total Pedidos</a></li>
-                            <li><a class="dropdown-item" href="{% url 'informes:informe_lista_devoluciones' %}">Devoluciones</a></li>
+                            {% if 'informes:informe_comprobantes_despacho' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_comprobantes_despacho' %}">Comprobantes de Despacho</a></li>{% endif %}
+                            {% if 'informes:informe_total_pedidos' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_total_pedidos' %}">Total Pedidos</a></li>{% endif %}
+                            {% if 'informes:informe_lista_devoluciones' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_lista_devoluciones' %}">Devoluciones</a></li>{% endif %}
                         {% endif %}
                     </ul>
                 </li>
                 {% endif %}
+                {% endif %}
 
-                {% if es_administrador_app %} 
+                {% if 'Administración del Sistema' not in categorias_desactivadas %}
+                {% if es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-cogs me-1"></i> ADMIN
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">                        
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{% url 'user_management:user_list' %}">Gestion Usuarios</a></li>
-                        <li><a class="dropdown-item" href="{% url 'user_management:group_list' %}">Gestion Grupos de Usuarios</a></li>
+                        {% if 'user_management:user_list' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'user_management:user_list' %}">Gestion Usuarios</a></li>{% endif %}
+                        {% if 'user_management:group_list' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'user_management:group_list' %}">Gestion Grupos de Usuarios</a></li>{% endif %}
                         {% if puede_ver_panel_django_admin %}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'admin:index' %}" target="_blank">Panel de Admin Django</a></li>
                         {% endif %}
+                        {% if user.is_superuser %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'core:gestionar_modulos_empresa' %}"><i class="fas fa-toggle-on me-1"></i> Módulos por Empresa</a></li>
+                        {% endif %}
                     </ul>
                 </li>
                 {% endif %}
-            {% endif %} 
+                {% endif %}
+            {% endif %}
         </ul>
 
             <ul class="navbar-nav ms-auto mb-2 mb-md-0">
@@ -541,6 +566,7 @@
             </a>
 
             <!-- PEDIDOS -->
+            {% if 'Pedidos y Ventas' not in categorias_desactivadas %}
             {% if es_vendedor or es_online or es_cartera or es_administracion or es_administrador_app %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -551,20 +577,22 @@
                 <div id="sidebarPedidos" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
-                            {% if es_vendedor %}<a href="{% url 'pedidos:crear_pedido_web' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido</a>{% endif %}
-                            {% if es_online %}<a href="{% url 'pedidos_online:crear_pedido_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido Online</a>{% endif %}
-                            {% if es_cartera or es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Cartera</a>{% endif %}
-                            {% if es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Admin</a>{% endif %}
-                            {% if es_vendedor %}<a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores Guardados</a>{% endif %}
-                            {% if es_online %}<a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Online)</a>{% endif %}
-                            {% if es_online or es_administracion %}<a href="{% url 'pedidos_online:registrar_cambio_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Cambio (Online)</a>{% endif %}
+                            {% if 'pedidos:crear_pedido_web' not in items_desactivados %}{% if es_vendedor %}<a href="{% url 'pedidos:crear_pedido_web' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido</a>{% endif %}{% endif %}
+                            {% if 'pedidos_online:crear_pedido_online' not in items_desactivados %}{% if es_online %}<a href="{% url 'pedidos_online:crear_pedido_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Nuevo Pedido Online</a>{% endif %}{% endif %}
+                            {% if 'pedidos:lista_aprobacion_cartera' not in items_desactivados %}{% if es_cartera or es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Cartera</a>{% endif %}{% endif %}
+                            {% if 'pedidos:lista_aprobacion_admin' not in items_desactivados %}{% if es_administracion %}<a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobación Admin</a>{% endif %}{% endif %}
+                            {% if 'pedidos:lista_pedidos_borrador' not in items_desactivados %}{% if es_vendedor %}<a href="{% url 'pedidos:lista_pedidos_borrador' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores Guardados</a>{% endif %}{% endif %}
+                            {% if 'pedidos_online:lista_pedidos_borrador_online' not in items_desactivados %}{% if es_online %}<a href="{% url 'pedidos_online:lista_pedidos_borrador_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Borradores (Online)</a>{% endif %}{% endif %}
+                            {% if 'pedidos_online:registrar_cambio_online' not in items_desactivados %}{% if es_online or es_administracion %}<a href="{% url 'pedidos_online:registrar_cambio_online' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Cambio (Online)</a>{% endif %}{% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- CLIENTES -->
+            {% if 'Clientes y Prospectos' not in categorias_desactivadas %}
             {% if es_vendedor or es_cartera or es_administracion or es_administrador_app or es_factura %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -575,17 +603,19 @@
                 <div id="sidebarClientes" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
-                            {% if es_vendedor or es_cartera or es_administracion or es_factura %}<a href="{% url 'clientes:cliente_listado_v2' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Listado de Clientes</a>{% endif %}
-                            {% if es_vendedor or es_administracion %}<a href="{% url 'prospectos:crear_solicitud' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Solicitud Cliente Nuevo</a>{% endif %}
-                            {% if es_cartera or es_vendedor or es_administracion %}<a href="{% url 'prospectos:lista_solicitudes' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Prospectos Pendientes</a>{% endif %}
-                            {% if es_factura or es_cartera %}<a href="{% url 'clientes:cliente_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Clientes</a>{% endif %}
+                            {% if 'clientes:cliente_listado_v2' not in items_desactivados %}{% if es_vendedor or es_cartera or es_administracion or es_factura %}<a href="{% url 'clientes:cliente_listado_v2' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Listado de Clientes</a>{% endif %}{% endif %}
+                            {% if 'prospectos:crear_solicitud' not in items_desactivados %}{% if es_vendedor or es_administracion %}<a href="{% url 'prospectos:crear_solicitud' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Solicitud Cliente Nuevo</a>{% endif %}{% endif %}
+                            {% if 'prospectos:lista_solicitudes' not in items_desactivados %}{% if es_cartera or es_vendedor or es_administracion %}<a href="{% url 'prospectos:lista_solicitudes' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Prospectos Pendientes</a>{% endif %}{% endif %}
+                            {% if 'clientes:cliente_listado' not in items_desactivados %}{% if es_factura or es_cartera %}<a href="{% url 'clientes:cliente_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Clientes</a>{% endif %}{% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- FINANZAS -->
+            {% if 'Finanzas y Recaudos' not in categorias_desactivadas %}
             {% if es_vendedor or es_cartera or es_administracion %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -596,24 +626,26 @@
                 <div id="sidebarFinanzas" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
-                            {% if es_vendedor %}<a href="{% url 'recaudos:crear_recaudo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Recaudo</a>{% endif %}
+                            {% if 'recaudos:crear_recaudo' not in items_desactivados %}{% if es_vendedor %}<a href="{% url 'recaudos:crear_recaudo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Recaudo</a>{% endif %}{% endif %}
                             {% if es_administracion or es_cartera %}
-                                <a href="{% url 'recaudos:panel_administracion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Recaudos</a>
-                                <a href="{% url 'recaudos:reporte_general_recaudos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Recaudos</a>
+                                {% if 'recaudos:panel_administracion' not in items_desactivados %}<a href="{% url 'recaudos:panel_administracion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestionar Recaudos</a>{% endif %}
+                                {% if 'recaudos:reporte_general_recaudos' not in items_desactivados %}<a href="{% url 'recaudos:reporte_general_recaudos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Recaudos</a>{% endif %}
                             {% endif %}
                             {% if es_cartera or es_administracion or es_vendedor %}
-                                <a href="{% url 'cartera:reporte_cartera_general' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Cartera</a>
+                                {% if 'cartera:reporte_cartera_general' not in items_desactivados %}<a href="{% url 'cartera:reporte_cartera_general' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Cartera</a>{% endif %}
                             {% endif %}
-                            {% if es_cartera or es_administracion %}   
-                                <a href="{% url 'cartera:importar_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cargar Cartera</a>
+                            {% if es_cartera or es_administracion %}
+                                {% if 'cartera:importar_cartera' not in items_desactivados %}<a href="{% url 'cartera:importar_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cargar Cartera</a>{% endif %}
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- BODEGA E INVENTARIO -->
+            {% if 'Bodega e Inventario' not in categorias_desactivadas %}
             {% if es_bodega or es_administracion or es_administrador_app or es_diseno or es_vendedor %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -625,42 +657,44 @@
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
                             {% if es_bodega or es_administracion %}
-                                <a href="{% url 'bodega:lista_pedidos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pendientes Despacho</a>
-                                <a href="{% url 'bodega:vista_registrar_ingreso' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Ingreso</a>
-                                <a href="{% url 'bodega:realizar_cambio_producto' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cambio de Productos</a>
-                                <a href="{% url 'bodega:ingreso_produccion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingreso desde Producción</a>
-                                <a href="{% url 'bodega:vista_conteo_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Conteo de Inventario</a>
-                                <a href="{% url 'bodega:lista_salidas_internas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Salida Interna</a>
+                                {% if 'bodega:lista_pedidos_bodega' not in items_desactivados %}<a href="{% url 'bodega:lista_pedidos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pendientes Despacho</a>{% endif %}
+                                {% if 'bodega:vista_registrar_ingreso' not in items_desactivados %}<a href="{% url 'bodega:vista_registrar_ingreso' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Ingreso</a>{% endif %}
+                                {% if 'bodega:realizar_cambio_producto' not in items_desactivados %}<a href="{% url 'bodega:realizar_cambio_producto' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cambio de Productos</a>{% endif %}
+                                {% if 'bodega:ingreso_produccion' not in items_desactivados %}<a href="{% url 'bodega:ingreso_produccion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingreso desde Producción</a>{% endif %}
+                                {% if 'bodega:vista_conteo_inventario' not in items_desactivados %}<a href="{% url 'bodega:vista_conteo_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Conteo de Inventario</a>{% endif %}
+                                {% if 'bodega:lista_salidas_internas' not in items_desactivados %}<a href="{% url 'bodega:lista_salidas_internas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Salida Interna</a>{% endif %}
                             {% endif %}
 
-                            {% if es_bodega or es_administracion or es_vendedor %}   
+                            {% if 'devoluciones:crear_devolucion' not in items_desactivados %}{% if es_bodega or es_administracion or es_vendedor %}
                                 <a href="{% url 'devoluciones:crear_devolucion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Devolución</a>
-                            {% endif %}
-                            {% if es_bodega or es_administracion or es_diseno %}
+                            {% endif %}{% endif %}
+                            {% if 'bodega:visibilidad_productos' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                                 <a href="{% url 'bodega:visibilidad_productos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ocultar Referencias a Vendedores externos</a>
-                            {% endif %}
+                            {% endif %}{% endif %}
                             {% if es_bodega or es_administracion or es_diseno %}
-                                <a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>
-                                <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ingresos</a>
+                                {% if 'bodega:informe_inventario' not in items_desactivados %}<a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>{% endif %}
+                                {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}<a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ingresos</a>{% endif %}
                             {% endif %}
                             {% if es_bodega or es_administracion %}
-                                <a href="{% url 'bodega:lista_traslados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Traslados entre Bodegas</a>
-                                <a href="{% url 'bodega:informe_inventario_comparativo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comparativo de Stock por Bodega</a>
+                                {% if 'bodega:lista_traslados' not in items_desactivados %}<a href="{% url 'bodega:lista_traslados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Traslados entre Bodegas</a>{% endif %}
+                                {% if 'bodega:informe_inventario_comparativo' not in items_desactivados %}<a href="{% url 'bodega:informe_inventario_comparativo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comparativo de Stock por Bodega</a>{% endif %}
                             {% endif %}
-                            {% if es_bodega or es_administracion or es_diseno %}
+                            {% if 'bodega:consulta_stock_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                                 <a href="{% url 'bodega:consulta_stock_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Consulta Rápida de Stock por Bodega</a>
-                            {% endif %}
+                            {% endif %}{% endif %}
                             {% if es_administracion %}
-                                <a href="{% url 'bodega:lista_bodegas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Administrar Bodegas</a>
-                                <a href="{% url 'bodega:lista_accesos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Accesos por Bodega</a>
+                                {% if 'bodega:lista_bodegas' not in items_desactivados %}<a href="{% url 'bodega:lista_bodegas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Administrar Bodegas</a>{% endif %}
+                                {% if 'bodega:lista_accesos_bodega' not in items_desactivados %}<a href="{% url 'bodega:lista_accesos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Accesos por Bodega</a>{% endif %}
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- PUNTO DE VENTA -->
+            {% if 'Punto de Venta' not in categorias_desactivadas %}
             {% if es_cajero or es_administracion %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -688,8 +722,10 @@
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- FACTURACIÓN -->
+            {% if 'Facturación' not in categorias_desactivadas %}
             {% if es_factura or es_administracion or es_administrador_app %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -701,19 +737,21 @@
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
                             {% if es_factura or es_administracion %}
-                                <a href="{% url 'factura:lista_despachos_a_facturar' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Por Facturar</a>
-                                <a href="{% url 'factura:informe_facturados_fecha' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Fecha</a>
-                                <a href="{% url 'factura:informe_despachos_cliente' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Cliente</a>
-                                <a href="{% url 'factura:informe_despachos_estado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Estado</a>
-                                <a href="{% url 'factura:informe_despachos_pedido' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Pedido</a>
+                                {% if 'factura:lista_despachos_a_facturar' not in items_desactivados %}<a href="{% url 'factura:lista_despachos_a_facturar' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Por Facturar</a>{% endif %}
+                                {% if 'factura:informe_facturados_fecha' not in items_desactivados %}<a href="{% url 'factura:informe_facturados_fecha' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Fecha</a>{% endif %}
+                                {% if 'factura:informe_despachos_cliente' not in items_desactivados %}<a href="{% url 'factura:informe_despachos_cliente' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Cliente</a>{% endif %}
+                                {% if 'factura:informe_despachos_estado' not in items_desactivados %}<a href="{% url 'factura:informe_despachos_estado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Estado</a>{% endif %}
+                                {% if 'factura:informe_despachos_pedido' not in items_desactivados %}<a href="{% url 'factura:informe_despachos_pedido' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Facturados Pedido</a>{% endif %}
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- PRODUCTOS -->
+            {% if 'Productos y Catálogo' not in categorias_desactivadas %}
             {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -725,29 +763,34 @@
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
                             {% if es_diseno or es_administracion %}
-                                <a href="{% url 'productos:producto_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión de Productos</a>
-                                <a href="{% url 'productos:producto_crear' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Crear Producto</a>
-                                <a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Subir Fotos</a>
-                                <a href="{% url 'costeo_jeans:panel_costeo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Costeo de Productos</a>
+                                {% if 'productos:producto_listado' not in items_desactivados %}<a href="{% url 'productos:producto_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión de Productos</a>{% endif %}
+                                {% if 'productos:producto_crear' not in items_desactivados %}<a href="{% url 'productos:producto_crear' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Crear Producto</a>{% endif %}
+                                {% if 'productos:producto_subir_fotos_agrupadas' not in items_desactivados %}<a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Subir Fotos</a>{% endif %}
+                                {% if 'costeo_jeans:panel_costeo' not in items_desactivados %}<a href="{% url 'costeo_jeans:panel_costeo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Costeo de Productos</a>{% endif %}
                             {% endif %}
-                            {% if empresa_actual.usa_shopify %}   
-                                {% if es_administracion %}                                                     
+                            {% if empresa_actual.usa_shopify %}
+                                {% if es_administracion %}
                                 <a href="{% url 'pedidos_web:panel_sincronizacion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Sincronizar Shopify</a>
+                                {% if 'pedidos_web:gestion_catalogo_shopify' not in items_desactivados %}
+                                <a href="{% url 'pedidos_web:gestion_catalogo_shopify' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Catálogo Shopify</a>
+                                {% endif %}
                                 {% endif %}
                             {% endif %}
-                            {% if es_vendedor or es_administracion or es_cartera or es_online %}
+                            {% if 'catalogo:catalogo_generar_enlace_usuario' not in items_desactivados %}{% if es_vendedor or es_administracion or es_cartera or es_online %}
                                 <a href="{% url 'catalogo:catalogo_generar_enlace_usuario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Compartir Catálogo</a>
-                            {% endif %}
-                            {% if es_vendedor or es_diseno or es_online or es_cartera or es_factura or es_bodega or es_administracion %}
+                            {% endif %}{% endif %}
+                            {% if 'catalogo:lista_referencias' not in items_desactivados %}{% if es_vendedor or es_diseno or es_online or es_cartera or es_factura or es_bodega or es_administracion %}
                                 <a href="{% url 'catalogo:lista_referencias' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ver Catálogo</a>
-                            {% endif %}
+                            {% endif %}{% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- INFORMES -->
+            {% if 'Informes Generales' not in categorias_desactivadas %}
              {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -758,31 +801,33 @@
                 <div id="sidebarInformes" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
                         <div class="list-group list-group-flush">
-                            {% if es_vendedor or es_online or es_administracion %}
+                            {% if 'informes:reporte_ventas' not in items_desactivados %}{% if es_vendedor or es_online or es_administracion %}
                                 <a href="{% url 'informes:reporte_ventas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ventas</a>
-                            {% endif %}
-                            {% if es_vendedor or es_administracion %}
+                            {% endif %}{% endif %}
+                            {% if 'informes:informe_lista_devoluciones' not in items_desactivados %}{% if es_vendedor or es_administracion %}
                                 <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
-                            {% endif %}
+                            {% endif %}{% endif %}
                             {% if es_cartera or es_administracion %}
-                                <a href="{% url 'informes:informe_pedidos_rechazados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Rechazados</a>
-                                <a href="{% url 'informes:informe_pedidos_aprobados_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Aceptados</a>
+                                {% if 'informes:informe_pedidos_rechazados' not in items_desactivados %}<a href="{% url 'informes:informe_pedidos_rechazados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Rechazados</a>{% endif %}
+                                {% if 'informes:informe_pedidos_aprobados_bodega' not in items_desactivados %}<a href="{% url 'informes:informe_pedidos_aprobados_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Aceptados</a>{% endif %}
                             {% endif %}
-                            {% if es_bodega or es_administracion or es_diseno %}
+                            {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                                 <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingresos a Bodega</a>
-                            {% endif %}
+                            {% endif %}{% endif %}
                             {% if es_administracion or es_cartera or es_factura %}
-                                <a href="{% url 'informes:informe_comprobantes_despacho' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comprobantes Despacho</a>
-                                <a href="{% url 'informes:informe_total_pedidos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Total Pedidos</a>
-                                <a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>
+                                {% if 'informes:informe_comprobantes_despacho' not in items_desactivados %}<a href="{% url 'informes:informe_comprobantes_despacho' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comprobantes Despacho</a>{% endif %}
+                                {% if 'informes:informe_total_pedidos' not in items_desactivados %}<a href="{% url 'informes:informe_total_pedidos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Total Pedidos</a>{% endif %}
+                                {% if 'informes:informe_lista_devoluciones' not in items_desactivados %}<a href="{% url 'informes:informe_lista_devoluciones' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devoluciones</a>{% endif %}
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- ADMINISTRACIÓN -->
+            {% if 'Administración del Sistema' not in categorias_desactivadas %}
             {% if es_administrador_app %}
             <div class="accordion-item border-0">
                 <h2 class="accordion-header">
@@ -792,16 +837,20 @@
                 </h2>
                 <div id="sidebarAdmin" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
-                        <div class="list-group list-group-flush">                            
-                            <a href="{% url 'user_management:user_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión Usuarios</a>
-                            <a href="{% url 'user_management:group_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Grupos Usuarios</a>
+                        <div class="list-group list-group-flush">
+                            {% if 'user_management:user_list' not in items_desactivados %}<a href="{% url 'user_management:user_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión Usuarios</a>{% endif %}
+                            {% if 'user_management:group_list' not in items_desactivados %}<a href="{% url 'user_management:group_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Grupos Usuarios</a>{% endif %}
                             {% if puede_ver_panel_django_admin %}
                             <a href="{% url 'admin:index' %}" target="_blank" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Django Admin</a>
+                            {% endif %}
+                            {% if user.is_superuser %}
+                            <a href="{% url 'core:gestionar_modulos_empresa' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Módulos por Empresa</a>
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endif %}
 
         </div>

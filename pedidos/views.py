@@ -971,8 +971,8 @@ def _prepare_crear_pedido_context(request, empresa_actual, pedido_instance=None,
         for detalle in detalles_existentes:
             producto = detalle.producto
             ref = producto.referencia
-            color_val = producto.color           
-            
+            color_val = producto.color.nombre if producto.color else None
+
             color_slug = '-' if not color_val else color_val
             color_display = 'Sin Color' if color_slug == '-' else color_val
             grupo_key = (ref, color_slug)
@@ -1151,7 +1151,7 @@ def vista_detalle_pedido(request, pk):
     for detalle in detalles_pedido:
         producto_obj = detalle.producto
         referencia_str = producto_obj.referencia or ""
-        color_str = producto_obj.color or ""
+        color_str = producto_obj.color.nombre if producto_obj.color else ""
         # Asegura que la talla sea un string para usarla como clave de diccionario y en el set
         # --- INICIO: CORRECCIÓN TALLAS (HTML) ---
         talla_original = str(producto_obj.talla).strip() if producto_obj.talla is not None else "N/A"
@@ -1528,7 +1528,7 @@ def vista_reporte_referencias(request):
     # --- Query principal AGRUPADA con SUMAS CONDICIONALES ---
     ventas_por_grupo = base_queryset.values(
         'producto__referencia',
-        'producto__color'
+        'producto__color__nombre'
     ).annotate(
         # Cantidad "A Bodega": Suma si NO es Borrador (de ningún tipo)
         qty_bodega=Sum(
@@ -1589,7 +1589,7 @@ def vista_reporte_referencias(request):
             total_unidades_orden=F('qty_bodega') + F('qty_borrador_online')
         ).order_by('total_unidades_orden')
     else: # Por defecto: referencia, color
-        ventas_por_grupo = ventas_por_grupo.order_by('producto__referencia', 'producto__color')
+        ventas_por_grupo = ventas_por_grupo.order_by('producto__referencia', 'producto__color__nombre')
 
     # --- Transformación de datos a formato Matriz (MODIFICADO para incluir ambos tipos) ---
     # Necesitamos obtener el desglose por tallas para AMBOS tipos de pedidos (bodega y borrador online)
@@ -1598,7 +1598,7 @@ def vista_reporte_referencias(request):
     detalles_talla_bodega_qs = base_queryset.exclude(
         pedido__estado='BORRADOR' # Excluir TODOS los borradores
     ).values(
-        'producto__referencia', 'producto__color', 'producto__talla'
+        'producto__referencia', 'producto__color__nombre', 'producto__talla'
     ).annotate(
         total_talla=Sum('cantidad')
     ).filter(total_talla__gt=0) # Solo tallas con cantidad > 0
@@ -1607,7 +1607,7 @@ def vista_reporte_referencias(request):
     detalles_talla_borrador_qs = base_queryset.filter(
         pedido__estado='BORRADOR', pedido__tipo_pedido='ONLINE' # Solo Borrador Online
     ).values(
-        'producto__referencia', 'producto__color', 'producto__talla'
+        'producto__referencia', 'producto__color__nombre', 'producto__talla'
     ).annotate(
         total_talla=Sum('cantidad')
     ).filter(total_talla__gt=0) # Solo tallas con cantidad > 0
@@ -1618,7 +1618,7 @@ def vista_reporte_referencias(request):
     # Procesar tallas "A Bodega"
     for detalle in detalles_talla_bodega_qs:
         ref = detalle['producto__referencia']
-        color = detalle['producto__color']
+        color = detalle['producto__color__nombre']
         talla = detalle['producto__talla']
         if ref is not None and talla is not None:
             talla_normalizada = str(talla).strip().split('.')[0].split(',')[0]
@@ -1628,7 +1628,7 @@ def vista_reporte_referencias(request):
     # Procesar tallas "Borrador Online"
     for detalle in detalles_talla_borrador_qs:
         ref = detalle['producto__referencia']
-        color = detalle['producto__color']
+        color = detalle['producto__color__nombre']
         talla = detalle['producto__talla']
         if ref is not None and talla is not None:
             talla_normalizada = str(talla).strip().split('.')[0].split(',')[0]
@@ -1645,8 +1645,8 @@ def vista_reporte_referencias(request):
 
     for grupo in ventas_por_grupo:
         ref = grupo['producto__referencia']
-        color = grupo['producto__color'] or 'SIN COLOR'
-        clave_grupo = (ref, grupo['producto__color']) # Usar color original (puede ser None)
+        color = grupo['producto__color__nombre'] or 'SIN COLOR'
+        clave_grupo = (ref, grupo['producto__color__nombre']) # Usar color original (puede ser None)
 
         # Obtenemos el desglose de tallas para este grupo
         tallas_grupo = detalles_talla_dict.get(clave_grupo, {})
@@ -1660,7 +1660,7 @@ def vista_reporte_referencias(request):
             'subtotal_bodega': grupo['subtotal_bodega'],
             'subtotal_borrador_online': grupo['subtotal_borrador_online'],
             # Añadimos un identificador único para el JS
-            'row_id': f"ref-{ref}-color-{grupo['producto__color'] or 'none'}"
+            'row_id': f"ref-{ref}-color-{grupo['producto__color__nombre'] or 'none'}"
         })
         gran_total_bodega_qty += grupo['qty_bodega']
         gran_total_borrador_qty += grupo['qty_borrador_online']
@@ -1722,7 +1722,7 @@ def detalle_referencia_reporte_ajax(request):
     if color == 'SIN COLOR':
         base_detalle_qs = base_detalle_qs.filter(producto__color__isnull=True)
     elif color: # Si viene un color específico
-        base_detalle_qs = base_detalle_qs.filter(producto__color=color)
+        base_detalle_qs = base_detalle_qs.filter(producto__color__nombre=color)
     # Si 'color' está vacío o no se proporciona, no filtramos por color (mostramos todos los colores de la ref)
 
     # --- Agregación Condicional por Vendedor y Tipo ---
