@@ -13,6 +13,9 @@
             </h1>
         </div>
         <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'bodega:informe_inventario_comparativo' %}" class="btn btn-outline-primary btn-lg rounded-pill shadow-sm me-2">
+                <i class="fas fa-columns me-2"></i> Comparativo por Bodega
+            </a>
             <a href="{% url 'bodega:exportar_inventario_excel' %}?{{ filtros_activos.urlencode }}" class="btn btn-success btn-lg rounded-pill shadow-sm">
                 <i class="fas fa-file-excel me-2"></i> Exportar a Excel
             </a>
@@ -80,8 +83,13 @@
                         <input type="text" name="nombre" id="nombre" class="form-control rounded-pill" value="{{ filtros_activos.nombre }}">
                     </div>
                     <div class="col-md-3">
-                        <label for="ubicacion" class="form-label fw-semibold">Ubicación</label>
-                        <input type="text" name="ubicacion" id="ubicacion" class="form-control rounded-pill" value="{{ filtros_activos.ubicacion }}">
+                        <label for="bodega" class="form-label fw-semibold">Bodega</label>
+                        <select name="bodega" id="bodega" class="form-select rounded-pill">
+                            <option value="">Todas</option>
+                            {% for b in bodegas_disponibles %}
+                                <option value="{{ b.pk }}" {% if bodega_seleccionada == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nombre }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="col-md-3 d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">

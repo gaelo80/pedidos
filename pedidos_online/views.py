@@ -25,8 +25,8 @@ from pedidos.utils import preparar_datos_seccion
 from productos.models import Producto
 from vendedores.models import Vendedor
 from clientes.models import Cliente
-from bodega.models import MovimientoInventario, ComprobanteDespacho, DetalleComprobanteDespacho
-from core.auth_utils import es_administracion, es_online, es_vendedor
+from bodega.models import MovimientoInventario, ComprobanteDespacho, DetalleComprobanteDespacho, Bodega
+from core.auth_utils import es_administracion, es_bodega, es_online, es_vendedor
 from django.core.exceptions import ValidationError
 
 # New app imports
@@ -34,6 +34,17 @@ from .models import ClienteOnline, PrecioEspecial
 from .forms import PedidoOnlineForm, ClienteOnlineForm
 
 logger = logging.getLogger(__name__)
+
+
+def _stock_para_venta_online(producto, usuario):
+    """
+    Administración y Bodega ven el stock real total; un vendedor Online solo
+    debe ver/reservar lo que está en bodegas habilitadas para el canal Online
+    (o que tenga como excepción individual vía AccesoBodega).
+    """
+    if es_administracion(usuario) or es_bodega(usuario):
+        return producto.stock_actual
+    return producto.stock_disponible_para_canal('ONLINE', usuario=usuario)
 
 @login_required
 # El permiso debería ser para pedidos_online, o un permiso más genérico si aplica
@@ -114,15 +125,16 @@ def crear_pedido_online(request, pk=None):
                             cantidad_ya_reservada = cantidades_originales.get(producto.id, 0)
 
                             # El stock real disponible para ESTE pedido es el stock actual + lo que ya habíamos reservado
-                            stock_disponible_para_este_pedido = producto.stock_actual + cantidad_ya_reservada
+                            stock_libre = _stock_para_venta_online(producto, request.user)
+                            stock_disponible_para_este_pedido = stock_libre + cantidad_ya_reservada
 
                             if cantidad_solicitada > stock_disponible_para_este_pedido:
                                 messages.error(
-                                    request, 
+                                    request,
                                     f"Stock insuficiente para '{producto.referencia}'. "
                                     f"Solicitado: {cantidad_solicitada}, "
                                     f"Disponible en total: {stock_disponible_para_este_pedido} "
-                                    f"(Stock libre: {producto.stock_actual} + Reservado por este borrador: {cantidad_ya_reservada})"
+                                    f"(Stock libre: {stock_libre} + Reservado por este borrador: {cantidad_ya_reservada})"
                                 )
                                 raise ValidationError("Fallo de stock")
 
@@ -176,6 +188,7 @@ def crear_pedido_online(request, pk=None):
                     ).delete()
 
                     # Crear o actualizar movimientos para todos los detalles actuales
+                    bodega_principal = Bodega.objects.principal(pedido.empresa)
                     for detalle in pedido.detalles.all():
                         if detalle.cantidad > 0:
                             MovimientoInventario.objects.update_or_create(
@@ -185,7 +198,8 @@ def crear_pedido_online(request, pk=None):
                                 documento_referencia=doc_ref_base,
                                 defaults={
                                     'cantidad': -detalle.cantidad,
-                                    'usuario': pedido.vendedor.user if pedido.vendedor else None
+                                    'usuario': pedido.vendedor.user if pedido.vendedor else None,
+                                    'bodega': bodega_principal,
                                 }
                             )
                     logger.info(f"Movimientos de inventario actualizados para Pedido #{pedido.numero_pedido_empresa}.")
@@ -653,7 +667,7 @@ def api_get_tallas_for_color(request, ref, color_slug):
         variantes_data.append({
             'id': variante.id,
             'talla': variante.talla,
-            'stock_actual': variante.stock_actual,
+            'stock_actual': _stock_para_venta_online(variante, request.user),
             'precio_venta': float(precio_final)
         })
     return Response({'variantes': variantes_data})
@@ -738,6 +752,7 @@ def registrar_cambio_online(request):
                         MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=producto,
+                            bodega=Bodega.objects.principal(empresa_actual),
                             tipo_movimiento='ENTRADA_CAMBIO',
                             documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa} - {producto.referencia}',
                             defaults={
@@ -754,8 +769,9 @@ def registrar_cambio_online(request):
 
                     if cantidad > 0:
                         # Verificar stock antes de descontar
-                        if cantidad > producto.stock_actual:
-                            raise Exception(f"Stock insuficiente para '{producto.referencia}'. Solicitado: {cantidad}, Disponible: {producto.stock_actual}")
+                        stock_disponible = _stock_para_venta_online(producto, request.user)
+                        if cantidad > stock_disponible:
+                            raise Exception(f"Stock insuficiente para '{producto.referencia}'. Solicitado: {cantidad}, Disponible: {stock_disponible}")
 
                         DetallePedido.objects.create(
                             pedido=cambio_pedido,
@@ -767,6 +783,7 @@ def registrar_cambio_online(request):
                         MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=producto,
+                            bodega=Bodega.objects.principal(empresa_actual),
                             tipo_movimiento='SALIDA_CAMBIO',
                             documento_referencia=f'Cambio Pedido #{cambio_pedido.numero_pedido_empresa} - {producto.referencia}',
                             defaults={

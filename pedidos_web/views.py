@@ -15,7 +15,7 @@ from clientes.models import Empresa, Ciudad
 from pedidos_online.models import ClienteOnline
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, Bodega
 from vendedores.models import Vendedor
 from decouple import config
 import requests
@@ -175,6 +175,7 @@ def webhook_nuevo_pedido_shopify(request):
                     MovimientoInventario.objects.create(
                         empresa=empresa_actual,
                         producto=producto_interno,
+                        bodega=Bodega.objects.principal(empresa_actual),
                         tipo_movimiento='SALIDA_VENTA_PENDIENTE',
                         documento_referencia=doc_ref_base,
                         cantidad=-cantidad_comprada,

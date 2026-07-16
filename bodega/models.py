@@ -23,8 +23,9 @@ class IngresoBodega(models.Model):
         documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento Referencia (Factura Compra, Remisión, etc.)")
         
         usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='ingresos_registrados', verbose_name="Usuario Registrador")
-        
-        
+        bodega = models.ForeignKey('Bodega', on_delete=models.PROTECT, related_name='ingresos', verbose_name="Bodega Destino")
+
+
         notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales")
 
         def __str__(self):
@@ -81,16 +82,127 @@ class PersonalBodega(models.Model):
     area_asignada = models.CharField(max_length=100, blank=True, null=True, help_text="Área específica de la bodega asignada")
     activo = models.BooleanField(default=True, help_text="Indica si el perfil de bodega está activo")
     # Puedes añadir más campos como 'turno', 'fecha_contratacion', etc.
-    
-    
-class Meta:
-    verbose_name = "Bodega"
-    verbose_name_plural = "Bodega"
-    ordering = ['user__username'] # Ordenar por nombre de usuario
 
-def __str__(self):
-    # Representación legible, usa el nombre de usuario asociado
-    return self.user.get_username()
+    def __str__(self):
+        # Representación legible, usa el nombre de usuario asociado
+        return self.user.get_username()
+
+    class Meta:
+        verbose_name = "Personal de Bodega"
+        verbose_name_plural = "Personal de Bodega"
+        ordering = ['user__username'] # Ordenar por nombre de usuario
+
+
+class BodegaManager(models.Manager):
+    def principal(self, empresa):
+        """Devuelve la Bodega Principal de la empresa dada (lanza DoesNotExist si no existe)."""
+        return self.get(empresa=empresa, es_principal=True)
+
+
+class Bodega(models.Model):
+    """
+    Representa una bodega/ubicación física de inventario (principal, saldos,
+    punto de venta, muestrario, etc.). Todo el inventario existente antes de
+    este modelo queda consolidado en la bodega marcada como 'es_principal'.
+    """
+    objects = BodegaManager()
+
+    class TipoBodega(models.TextChoices):
+        PRINCIPAL = 'PRINCIPAL', 'Principal'
+        SALDOS = 'SALDOS', 'Saldos y Colas'
+        PUNTO_VENTA = 'PUNTO_VENTA', 'Punto de Venta'
+        MUESTRARIO = 'MUESTRARIO', 'Muestrario'
+        TRANSITO = 'TRANSITO', 'Tránsito'
+        OTRA = 'OTRA', 'Otra'
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='bodegas',
+        verbose_name="Empresa"
+    )
+    nombre = models.CharField(max_length=100, verbose_name="Nombre")
+    codigo = models.CharField(max_length=20, verbose_name="Código")
+    tipo = models.CharField(max_length=20, choices=TipoBodega.choices, default=TipoBodega.OTRA, verbose_name="Tipo de Bodega")
+    es_principal = models.BooleanField(default=False, verbose_name="Es la Bodega Principal")
+    activa = models.BooleanField(default=True, verbose_name="Activa", help_text="Si está desmarcada, no admite movimientos nuevos, pero conserva el histórico.")
+    requiere_confirmacion_recepcion = models.BooleanField(
+        default=False,
+        verbose_name="Requiere Confirmación de Recepción",
+        help_text="Si está marcado, los traslados hacia esta bodega quedan 'En Tránsito' hasta que alguien confirme la recepción."
+    )
+
+    # --- Reglas de venta por canal (regla POR DEFECTO para ese canal; ver AccesoBodega para excepciones individuales) ---
+    disponible_venta_estandar = models.BooleanField(default=True, verbose_name="Disponible para Venta (Estándar)", help_text="Vendedores del canal estándar pueden vender/ver este stock por defecto.")
+    disponible_venta_online = models.BooleanField(default=True, verbose_name="Disponible para Venta (Online)", help_text="Vendedores del canal online pueden vender/ver este stock por defecto.")
+    disponible_venta_web = models.BooleanField(default=True, verbose_name="Disponible para Venta (Web/Shopify)", help_text="El canal Web/Shopify puede vender este stock por defecto.")
+
+    direccion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas")
+    orden = models.PositiveIntegerField(default=0, verbose_name="Orden de Visualización")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    responsable = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='bodegas_responsable',
+        verbose_name="Responsable"
+    )
+
+    def __str__(self):
+        return f"{self.nombre} ({self.codigo})"
+
+    class Meta:
+        verbose_name = "Bodega"
+        verbose_name_plural = "Bodegas"
+        ordering = ['orden', 'nombre']
+        unique_together = ('empresa', 'codigo')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa'],
+                condition=models.Q(es_principal=True),
+                name='unica_bodega_principal_por_empresa'
+            )
+        ]
+
+
+class AccesoBodega(models.Model):
+    """
+    Excepción individual de acceso de un usuario a una bodega específica.
+    Prevalece sobre los flags de canal (disponible_venta_*) de la Bodega:
+    permite que un usuario puntual sí/no vea u opere una bodega aunque la
+    regla general de su canal diga lo contrario. (La aplicación real de esta
+    regla en catálogo/pedidos/Shopify llega en una fase posterior; aquí solo
+    se administra el dato).
+    """
+    class NivelAcceso(models.TextChoices):
+        NINGUNO = 'NINGUNO', 'Ninguno (bloqueado explícitamente)'
+        CONSULTA = 'CONSULTA', 'Consulta'
+        OPERACION = 'OPERACION', 'Operación'
+        ADMIN = 'ADMIN', 'Administración'
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='accesos_bodega',
+        verbose_name="Usuario"
+    )
+    bodega = models.ForeignKey(
+        Bodega,
+        on_delete=models.CASCADE,
+        related_name='accesos',
+        verbose_name="Bodega"
+    )
+    nivel = models.CharField(max_length=20, choices=NivelAcceso.choices, default=NivelAcceso.OPERACION, verbose_name="Nivel de Acceso")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.usuario} - {self.bodega} ({self.get_nivel_display()})"
+
+    class Meta:
+        verbose_name = "Acceso a Bodega"
+        verbose_name_plural = "Accesos a Bodegas"
+        unique_together = ('usuario', 'bodega')
 
 
 class MovimientoInventario(models.Model):
@@ -120,7 +232,8 @@ class MovimientoInventario(models.Model):
         ('ENTRADA_RECHAZO_ADMIN', 'Entrada por Rechazo Pedido Admin'),
         ('SALIDA_MUESTRARIO', 'Salida para Muestrario'),
         ('SALIDA_EXHIBIDOR', 'Salida para Exhibidor'),
-        ('SALIDA_TRASLADO', 'Salida por Traslado Interno'),
+        ('SALIDA_TRASLADO', 'Salida por Traslado entre Bodegas'),
+        ('ENTRADA_TRASLADO', 'Entrada por Traslado entre Bodegas'),
         ('SALIDA_PRESTAMO', 'Salida por Préstamo'),
         ('SALIDA_DONACION_BAJA', 'Salida por Donación/Baja'),
         ('SALIDA_INTERNA_OTRA', 'Salida Interna (Otra)'),
@@ -133,6 +246,7 @@ class MovimientoInventario(models.Model):
         ('SALIDA_CAMBIO', 'Salida por Cambio de Producto'),
         ]
         producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='movimientos', verbose_name="Producto")
+        bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='movimientos', verbose_name="Bodega")
         cantidad = models.IntegerField(verbose_name="Cantidad Movida")
         tipo_movimiento = models.CharField(max_length=35, choices=TIPO_MOVIMIENTO_CHOICES, verbose_name="Tipo de Movimiento")
         fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora")
@@ -153,7 +267,7 @@ class MovimientoInventario(models.Model):
             verbose_name = "Movimiento de Inventario"
             verbose_name_plural = "Movimientos de Inventario"
             ordering = ['-fecha_hora', 'producto__nombre']
-            unique_together = ('empresa', 'documento_referencia', 'tipo_movimiento', 'producto')
+            unique_together = ('empresa', 'documento_referencia', 'tipo_movimiento', 'producto', 'bodega')
             
             
 class CabeceraConteo(models.Model):
@@ -174,6 +288,11 @@ class CabeceraConteo(models.Model):
     revisado_con = models.CharField(max_length=150, blank=True, null=True, verbose_name="Revisado Con")
     notas_generales = models.TextField(blank=True, null=True, verbose_name="Notas Generales")
     usuario_registro = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario que Registró")
+    bodega = models.ForeignKey(
+        'Bodega', on_delete=models.PROTECT, related_name='conteos', verbose_name="Bodega",
+        null=True, blank=True,
+        help_text="Vacío = conteo general (todas las bodegas de la empresa)."
+    )
     fecha_hora_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -370,11 +489,14 @@ class SalidaInternaCabecera(models.Model):
     tipo_salida = models.CharField(max_length=20, choices=TIPO_SALIDA_CHOICES, verbose_name="Tipo de Salida")
     destino_descripcion = models.CharField(max_length=255, verbose_name="Destino / Entregado A", help_text="Ej: Vendedor Juan Pérez, Tienda Centro, Evento XYZ")
     responsable_entrega = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='salidas_internas_entregadas',
         verbose_name="Responsable de Entrega (Bodega)"
+    )
+    bodega_origen = models.ForeignKey(
+        'Bodega', on_delete=models.PROTECT, related_name='salidas_internas_origen', verbose_name="Bodega de Origen"
     )
     documento_referencia_externo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Doc. Referencia Externo (Opcional)")
     estado = models.CharField(max_length=20, choices=ESTADO_SALIDA_CHOICES, default='DESPACHADA', verbose_name="Estado de la Salida")
@@ -483,3 +605,53 @@ class CambioProducto(models.Model):
 
     def __str__(self):
         return f"Cambio #{self.pk} - {self.fecha_hora.strftime('%Y-%m-%d')}"
+
+
+class TrasladoBodega(models.Model):
+    """Traslado de mercancía entre dos bodegas de la misma empresa."""
+
+    class EstadoTraslado(models.TextChoices):
+        BORRADOR = 'BORRADOR', 'Borrador'
+        EN_TRANSITO = 'EN_TRANSITO', 'En Tránsito'
+        RECIBIDO = 'RECIBIDO', 'Recibido'
+        ANULADO = 'ANULADO', 'Anulado'
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='traslados_bodega', verbose_name="Empresa")
+    bodega_origen = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='traslados_salientes', verbose_name="Bodega de Origen")
+    bodega_destino = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='traslados_entrantes', verbose_name="Bodega de Destino")
+    estado = models.CharField(max_length=20, choices=EstadoTraslado.choices, default=EstadoTraslado.BORRADOR, verbose_name="Estado")
+    documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de Referencia")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas")
+    fecha_hora_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_hora_envio = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora de Envío")
+    fecha_hora_recepcion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora de Recepción")
+    usuario_creacion = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='traslados_creados', verbose_name="Creado Por")
+    usuario_envio = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='traslados_enviados', verbose_name="Enviado Por")
+    usuario_recepcion = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='traslados_recibidos', verbose_name="Recibido Por")
+
+    def clean(self):
+        super().clean()
+        if self.bodega_origen_id and self.bodega_destino_id and self.bodega_origen_id == self.bodega_destino_id:
+            raise ValidationError("La bodega de origen y destino no pueden ser la misma.")
+
+    def __str__(self):
+        return f"Traslado #{self.pk} - {self.bodega_origen} → {self.bodega_destino} ({self.get_estado_display()})"
+
+    class Meta:
+        verbose_name = "Traslado entre Bodegas"
+        verbose_name_plural = "Traslados entre Bodegas"
+        ordering = ['-fecha_hora_creacion']
+
+
+class DetalleTrasladoBodega(models.Model):
+    traslado = models.ForeignKey(TrasladoBodega, on_delete=models.CASCADE, related_name='detalles', verbose_name="Traslado")
+    producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='en_traslados', verbose_name="Producto")
+    cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
+
+    def __str__(self):
+        return f"{self.cantidad} x {self.producto.referencia} (Traslado #{self.traslado_id})"
+
+    class Meta:
+        verbose_name = "Detalle de Traslado"
+        verbose_name_plural = "Detalles de Traslado"
+        unique_together = ('traslado', 'producto')

@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+
+{% block page_title %}{{ titulo|default:"Eliminar Bodega" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-danger text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Eliminación</h5>
+        </div>
+        <div class="card-body p-4">
+
+            {% if referencias_con_datos %}
+                <p>No es posible eliminar la bodega <strong>{{ bodega.nombre }}</strong> porque todavía tiene historial asociado:</p>
+                <ul>
+                    {% for etiqueta, cantidad in referencias_con_datos.items %}
+                        <li>{{ etiqueta }}: <strong>{{ cantidad }}</strong></li>
+                    {% endfor %}
+                </ul>
+                <p class="text-muted">Si ya no la vas a usar, desactívala en su lugar desde el listado de Bodegas — así conservas el historial pero no admite movimientos nuevos.</p>
+                <a href="{% url 'bodega:lista_bodegas' %}" class="btn btn-outline-secondary rounded-pill">
+                    <i class="fas fa-arrow-left me-2"></i> Volver
+                </a>
+            {% else %}
+                <p>¿Seguro que deseas eliminar la bodega <strong>{{ bodega.nombre }} ({{ bodega.codigo }})</strong>? No tiene historial asociado, así que se puede eliminar sin pérdida de datos.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <a href="{% url 'bodega:lista_bodegas' %}" class="btn btn-outline-secondary rounded-pill me-2">Cancelar</a>
+                    <button type="submit" class="btn btn-danger rounded-pill">
+                        <i class="fas fa-trash-alt me-2"></i> Eliminar Definitivamente
+                    </button>
+                </form>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock content %}

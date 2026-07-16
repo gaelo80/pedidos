@@ -1,7 +1,9 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, permission_required
-from devoluciones.forms import DevolucionClienteForm, DetalleDevolucionFormSet, DevolucionCliente
-from bodega.models import MovimientoInventario
+from devoluciones.forms import DevolucionClienteForm, DevolucionCliente
+from devoluciones.models import DetalleDevolucion
+from bodega.models import MovimientoInventario, Bodega
+from productos.models import Producto
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
@@ -10,9 +12,33 @@ from django.contrib import messages
 from django.db.models import Sum
 from django.template.loader import get_template
 from core.utils import get_logo_base_64_despacho
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from weasyprint import HTML
 
+
+
+@login_required
+@permission_required('devoluciones.add_devolucioncliente', login_url='core:acceso_denegado')
+def api_productos_para_devolucion(request):
+    """
+    Devuelve en JSON todos los productos activos de la empresa, para que la
+    pantalla de 'Registrar Devolución' permita marcarlos con un check en vez
+    de tener que buscarlos y añadirlos uno por uno en filas separadas.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return JsonResponse({'productos': []})
+
+    productos = Producto.objects.filter(empresa=empresa_actual, activo=True).order_by('referencia', 'color', 'talla')
+
+    data = [
+        {
+            'id': p.pk,
+            'label': f"{p.referencia} - {p.nombre} ({p.color or '-'} - Talla {p.talla or '-'})",
+        }
+        for p in productos
+    ]
+    return JsonResponse({'productos': data})
 
 
 @login_required
@@ -20,50 +46,69 @@ from weasyprint import HTML
 def vista_crear_devolucion(request):
     """
     Maneja la creación de una nueva Devolución de Cliente con sus detalles.
+
+    El vendedor solo reporta QUÉ producto y CUÁNTO devuelve el cliente; no
+    decide si queda en buen estado o no (eso lo revisa físicamente Bodega al
+    recibirla, en 'recibir_devolucion_bodega'). Por eso cada detalle se crea
+    con estado_producto='PENDIENTE' y ese campo no se pide aquí.
     """
-    
+
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:index')
-    
-    
-    
-    
+
     if request.method == 'POST':
         form = DevolucionClienteForm(request.POST, empresa=empresa_actual)
-        formset = DetalleDevolucionFormSet(request.POST, prefix='detalles', form_kwargs={'empresa': empresa_actual})
 
+        productos_incluidos = {}
+        for key in request.POST.keys():
+            if key.startswith('incluir_'):
+                try:
+                    producto_id = int(key.split('_', 1)[1])
+                    cantidad = int(request.POST.get(f'cantidad_{producto_id}', '0') or 0)
+                except (ValueError, TypeError, IndexError):
+                    continue
+                if cantidad > 0:
+                    productos_incluidos[producto_id] = cantidad
 
-        if form.is_valid() and formset.is_valid():
-            try:
-                
-                
-                with transaction.atomic():
+        if form.is_valid():
+            if not productos_incluidos:
+                messages.warning(request, "Debes marcar al menos un producto con cantidad para la devolución.")
+            else:
+                productos_map = {
+                    p.pk: p for p in Producto.objects.filter(empresa=empresa_actual, pk__in=productos_incluidos.keys())
+                }
+                try:
+                    with transaction.atomic():
+                        devolucion_header = form.save(commit=False)
+                        devolucion_header.usuario = request.user
+                        devolucion_header.fecha_hora = timezone.now()
+                        devolucion_header.empresa = empresa_actual
+                        devolucion_header.save()
 
-                    devolucion_header = form.save(commit=False)
-                    devolucion_header.usuario = request.user
-                    devolucion_header.fecha_hora = timezone.now()
-                    devolucion_header.empresa = empresa_actual
-                    devolucion_header.save()
-                    formset.instance = devolucion_header
-                    formset.save() 
-                    return redirect('devoluciones:detalle_devolucion', pk=devolucion_header.pk) # Redirige a la misma vista para limpiar
+                        for producto_id, cantidad in productos_incluidos.items():
+                            producto = productos_map.get(producto_id)
+                            if not producto:
+                                continue
+                            DetalleDevolucion.objects.create(
+                                devolucion=devolucion_header,
+                                producto=producto,
+                                cantidad=cantidad,
+                                estado_producto='PENDIENTE',
+                            )
 
-            except Exception as e:
-                messages.error(request, f"Error al guardar la devolución: {e}")
-
-
+                    messages.success(request, f"Devolución #{devolucion_header.pk} registrada con {len(productos_incluidos)} producto(s). Bodega la revisará al recibirla.")
+                    return redirect('devoluciones:detalle_devolucion', pk=devolucion_header.pk)
+                except Exception as e:
+                    messages.error(request, f"Error al guardar la devolución: {e}")
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
-    else: 
-
+    else:
         form = DevolucionClienteForm(empresa=empresa_actual)
-        formset = DetalleDevolucionFormSet(prefix='detalles', form_kwargs={'empresa': empresa_actual})
 
     context = {
         'form': form,
-        'formset': formset,
         'titulo': f'Registrar Devolución ({empresa_actual.nombre})'
     }
 
@@ -185,47 +230,72 @@ def recibir_devolucion_bodega(request, pk_devolucion):
         messages.warning(request, f"La devolución #{devolucion.pk} ya fue procesada o está en un estado no válido.")
         return redirect('devoluciones:detalle_devolucion', pk=devolucion.pk)
 
+    # Bodega DEBE elegir explícitamente uno de estos tres estados finales para
+    # cada producto tras revisarlo físicamente. 'PENDIENTE' (el estado con el
+    # que nace el detalle) nunca es un estado final válido aquí — así se evita
+    # que un producto reingrese a bodega sin que alguien lo haya revisado.
+    ESTADOS_FINALES_VALIDOS = {'BUENO', 'DEFECTUOSO', 'DESECHAR'}
+
     if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                hubo_diferencias = False
+        detalles = list(devolucion.detalles.all())
+        errores = []
+        valores_por_detalle = {}
 
-                for detalle in devolucion.detalles.all():
-                    # --- INICIO DE CAMBIOS ---
-                    # 1. Obtenemos los nuevos valores del formulario
-                    cantidad_recibida_str = request.POST.get(f'cantidad_recibida_{detalle.pk}', '0')
-                    cantidad_recibida = int(cantidad_recibida_str)
-                    estado_final_bodega = request.POST.get(f'estado_final_{detalle.pk}') # El estado que bodega decidió
+        for detalle in detalles:
+            cantidad_recibida_str = request.POST.get(f'cantidad_recibida_{detalle.pk}', '0')
+            estado_final_bodega = request.POST.get(f'estado_final_{detalle.pk}', '').strip()
 
-                    # 2. Actualizamos el detalle con los datos finales de bodega
-                    detalle.cantidad_recibida_bodega = cantidad_recibida
-                    detalle.estado_producto = estado_final_bodega # Sobrescribimos el estado
-                    detalle.save(update_fields=['cantidad_recibida_bodega', 'estado_producto'])
+            try:
+                cantidad_recibida = int(cantidad_recibida_str)
+            except (ValueError, TypeError):
+                errores.append(f"Cantidad inválida para '{detalle.producto}'.")
+                continue
 
-                    # 3. La condición para actualizar el stock ahora depende del estado final decidido en bodega
-                    if estado_final_bodega == 'BUENO' and cantidad_recibida > 0:
-                        MovimientoInventario.objects.create(
-                            empresa=empresa_actual,
-                            producto=detalle.producto,
-                            cantidad=cantidad_recibida,
-                            tipo_movimiento='ENTRADA_DEVOLUCION',
-                            documento_referencia=f"RecepDevol #{devolucion.pk}",
-                            usuario=request.user,
-                            notas=f"Recepción en bodega de devolución del cliente {devolucion.cliente.nombre_completo}"
-                        )
-                    # --- FIN DE CAMBIOS ---
+            if estado_final_bodega not in ESTADOS_FINALES_VALIDOS:
+                errores.append(f"Debes revisar y elegir un estado final para '{detalle.producto}' antes de confirmar la recepción.")
+                continue
 
-                    if detalle.cantidad != cantidad_recibida:
-                        hubo_diferencias = True
+            valores_por_detalle[detalle.pk] = (cantidad_recibida, estado_final_bodega)
 
-                devolucion.estado = 'CON_DIFERENCIAS' if hubo_diferencias else 'VERIFICADA'
-                devolucion.save(update_fields=['estado'])
+        if errores:
+            for error in errores:
+                messages.error(request, error)
+        else:
+            try:
+                with transaction.atomic():
+                    hubo_diferencias = False
 
-                messages.success(request, f"Recepción de la Devolución #{devolucion.pk} registrada. El stock ha sido actualizado según el estado final.")
-                return redirect('devoluciones:detalle_devolucion', pk=devolucion.pk)
+                    for detalle in detalles:
+                        cantidad_recibida, estado_final_bodega = valores_por_detalle[detalle.pk]
 
-        except Exception as e:
-            messages.error(request, f"Ocurrió un error inesperado al procesar la recepción: {e}")
+                        detalle.cantidad_recibida_bodega = cantidad_recibida
+                        detalle.estado_producto = estado_final_bodega  # Sobrescribimos el estado con la decisión final de Bodega
+                        detalle.save(update_fields=['cantidad_recibida_bodega', 'estado_producto'])
+
+                        # Solo un estado 'BUENO' confirmado por Bodega (tras revisión física) reingresa al stock
+                        if estado_final_bodega == 'BUENO' and cantidad_recibida > 0:
+                            MovimientoInventario.objects.create(
+                                empresa=empresa_actual,
+                                producto=detalle.producto,
+                                bodega=Bodega.objects.principal(empresa_actual),
+                                cantidad=cantidad_recibida,
+                                tipo_movimiento='ENTRADA_DEVOLUCION_CLIENTE',
+                                documento_referencia=f"RecepDevol #{devolucion.pk}",
+                                usuario=request.user,
+                                notas=f"Recepción en bodega de devolución del cliente {devolucion.cliente.nombre_completo}"
+                            )
+
+                        if detalle.cantidad != cantidad_recibida:
+                            hubo_diferencias = True
+
+                    devolucion.estado = 'CON_DIFERENCIAS' if hubo_diferencias else 'VERIFICADA'
+                    devolucion.save(update_fields=['estado'])
+
+                    messages.success(request, f"Recepción de la Devolución #{devolucion.pk} registrada. El stock ha sido actualizado según el estado final.")
+                    return redirect('devoluciones:detalle_devolucion', pk=devolucion.pk)
+
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error inesperado al procesar la recepción: {e}")
 
     context = {
         'devolucion': devolucion,

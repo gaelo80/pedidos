@@ -1,11 +1,12 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
-from import_export import resources
+from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
 from django.utils.html import format_html
 from django.contrib import messages
 from django.db import transaction
 from .models import Producto, FotoProducto, ReferenciaColor
-from bodega.models import MovimientoInventario, ConteoInventario
+from bodega.models import MovimientoInventario, ConteoInventario, Bodega
 from pedidos.models import DetallePedido
 
 @admin.action(description="⚠️ ELIMINAR productos de prueba y TODO su historial")
@@ -36,6 +37,12 @@ def eliminar_productos_con_historial(modeladmin, request, queryset):
 
 
 class ProductoResource(resources.ModelResource):
+    ubicacion = fields.Field(
+        column_name='ubicacion',
+        attribute='ubicacion',
+        widget=ForeignKeyWidget(Bodega, 'codigo')
+    )
+
     class Meta:
         model = Producto
         fields = ('id', 'referencia', 'nombre', 'descripcion', 'talla', 'color', 'genero',

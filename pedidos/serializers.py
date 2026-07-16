@@ -91,8 +91,19 @@ class PedidoSerializer(serializers.ModelSerializer):
                 # Validar stock
                 if cantidad_pedida <= 0:
                     raise ValidationError(f"La cantidad para '{producto}' debe ser mayor que cero.")
-                if cantidad_pedida > producto.stock_actual:
-                    raise ValidationError(f"Stock insuficiente para {producto}. Solicitado: {cantidad_pedida}, Disponible: {producto.stock_actual}")
+
+                usuario = getattr(request, 'user', None)
+                es_admin_o_especial = bool(usuario) and (
+                    usuario.is_superuser or
+                    usuario.groups.filter(name__icontains='bodega').exists() or
+                    usuario.groups.filter(name__icontains='online').exists()
+                )
+                stock_disponible = (
+                    producto.stock_actual if es_admin_o_especial
+                    else producto.stock_disponible_para_canal('ESTANDAR', usuario=usuario)
+                )
+                if cantidad_pedida > stock_disponible:
+                    raise ValidationError(f"Stock insuficiente para {producto}. Solicitado: {cantidad_pedida}, Disponible: {stock_disponible}")
         return data
 
     def create(self, validated_data):

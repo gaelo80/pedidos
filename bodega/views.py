@@ -3,11 +3,14 @@ from decimal import Decimal
 from core.auth_utils import es_administracion
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse
 from django.views.generic import UpdateView
 from django.views.generic import ListView
+from django.views.generic import CreateView
+from django.views.generic import DeleteView
 from django.urls import reverse_lazy
-from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario
+from bodega.models import MovimientoInventario, CabeceraConteo, ConteoInventario, Bodega, AccesoBodega, TrasladoBodega, DetalleTrasladoBodega
 from django.shortcuts import render, get_object_or_404, redirect
 from pedidos.models import Pedido
 from django.http import Http404, JsonResponse
@@ -18,7 +21,7 @@ from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from .models import BorradorDespacho, DetalleBorradorDespacho, SalidaInternaCabecera
 from .forms import DetalleIngresoModificarFormSet, SalidaInternaCabeceraForm, DetalleSalidaInternaFormSet
 import json
@@ -49,6 +52,7 @@ from factura.models import EstadoFacturaDespacho
 from .models import CambioProducto
 from django.db import transaction
 from .forms import CambioProductoForm
+from .forms import BodegaForm, AccesoBodegaForm, TrasladoBodegaForm
 from django.utils.safestring import mark_safe
 from django.core.paginator import Paginator
 from django.db.models import Q 
@@ -984,14 +988,15 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
         usuario_registro=request.user
     )
     stats = {'ajustados': 0, 'sin_cambio': 0}
+    bodega_principal = Bodega.objects.principal(empresa)
     for producto in Producto.objects.filter(empresa=empresa, activo=True):
         cantidad_fisica = datos_conteo.get(producto.pk)
         if cantidad_fisica is not None and cantidad_fisica >= 0:
-            
+
             # Lógica original: Compara contra el Stock Disponible
             stock_sistema = producto.stock_actual
             diferencia = cantidad_fisica - stock_sistema
-            
+
             ConteoInventario.objects.create(
                 empresa=empresa, cabecera_conteo=cabecera, producto=producto,
                 cantidad_sistema_antes=stock_sistema, # <-- Guarda el stock disponible
@@ -1002,7 +1007,7 @@ def _procesar_y_guardar_conteo(request, empresa, datos_generales, datos_conteo):
                 tipo_movimiento = 'ENTRADA_AJUSTE' if diferencia > 0 else 'SALIDA_AJUSTE'
                 # Prevenir duplicados: usar get_or_create con documento_referencia que incluya producto y conteo
                 MovimientoInventario.objects.get_or_create(
-                    empresa=empresa, producto=producto,
+                    empresa=empresa, producto=producto, bodega=bodega_principal,
                     tipo_movimiento=tipo_movimiento,
                     documento_referencia=f"Conteo ID {cabecera.pk} - Prod #{producto.pk}",
                     defaults={
@@ -1285,7 +1290,7 @@ def registrar_salida_interna(request):
         return redirect('core:index')
     
     if request.method == 'POST':
-        form_cabecera = SalidaInternaCabeceraForm(request.POST) # Este form no tiene campos que dependan de la empresa
+        form_cabecera = SalidaInternaCabeceraForm(request.POST, empresa=empresa_actual)
         formset_detalles = DetalleSalidaInternaFormSet(request.POST, prefix='detalles_salida', form_kwargs={'empresa': empresa_actual})
 
         if form_cabecera.is_valid() and formset_detalles.is_valid():
@@ -1294,7 +1299,9 @@ def registrar_salida_interna(request):
                     cabecera = form_cabecera.save(commit=False)
                     cabecera.responsable_entrega = request.user
                     cabecera.empresa = empresa_actual
-                    
+                    if not cabecera.bodega_origen_id:
+                        cabecera.bodega_origen = Bodega.objects.principal(empresa_actual)
+
                     if cabecera.tipo_salida == 'DONACION_BAJA':
                         cabecera.estado = 'CERRADA'
                     else:
@@ -1328,6 +1335,7 @@ def registrar_salida_interna(request):
                             MovimientoInventario.objects.get_or_create(
                                 empresa=empresa_actual,
                                 producto=detalle.producto,
+                                bodega=cabecera.bodega_origen,
                                 tipo_movimiento=tipo_mov_str,
                                 documento_referencia=f"SalidaInt #{cabecera.pk}-{detalle.producto.id}",
                                 defaults={
@@ -1359,7 +1367,7 @@ def registrar_salida_interna(request):
 
 
     else: # GET
-        form_cabecera = SalidaInternaCabeceraForm()
+        form_cabecera = SalidaInternaCabeceraForm(empresa=empresa_actual)
         formset_detalles = DetalleSalidaInternaFormSet(prefix='detalles_salida', form_kwargs={'empresa': empresa_actual})
 
     context = {
@@ -1559,6 +1567,7 @@ def registrar_devolucion_salida_interna(request, pk_cabecera):
                         MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=detalle_salida.producto,
+                            bodega=salida_interna.bodega_origen,
                             tipo_movimiento=tipo_mov_str,
                             documento_referencia=f"Dev SalidaInt #{salida_interna.pk} - Prod #{detalle_salida.producto.pk}",
                             defaults={
@@ -1771,6 +1780,7 @@ def finalizar_pedido_incompleto(request, pk):
                     MovimientoInventario.objects.create(
                         empresa=empresa_actual,
                         producto=detalle.producto,
+                        bodega=Bodega.objects.principal(empresa_actual),
                         cantidad=cantidad_pendiente, # Cantidad positiva para entrada
                         tipo_movimiento='ENTRADA_CANCELACION', # Tipo que indica que regresa por cancelación
                         documento_referencia=f"Devolución por Pedido Incompleto {pedido.pk}",
@@ -1822,6 +1832,7 @@ def cancelar_pedido_bodega(request, pk):
                     MovimientoInventario.objects.create(
                         empresa=empresa_actual,
                         producto=detalle.producto,
+                        bodega=Bodega.objects.principal(empresa_actual),
                         cantidad=cantidad_a_devolver, # Cantidad positiva para entrada
                         tipo_movimiento='ENTRADA_CANCELACION', # Tipo que indica que regresa por cancelación
                         documento_referencia=f"Devolución por Cancelación Pedido {pedido.pk}",
@@ -1868,14 +1879,14 @@ def vista_informe_inventario(request):
     # Lógica de filtrado
     referencia_q = request.GET.get('referencia', '').strip()
     nombre_q = request.GET.get('nombre', '').strip()
-    ubicacion_q = request.GET.get('ubicacion', '').strip()
+    bodega_q = request.GET.get('bodega', '').strip()
 
     if referencia_q:
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
     if nombre_q:
         productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
-    if ubicacion_q:
-        productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
+    if bodega_q:
+        productos_queryset = productos_queryset.filter(ubicacion_id=bodega_q)
 
     # Calcular totales (después de filtrar) con una sola consulta agregada,
     # en vez de recorrer 'stock_actual' producto por producto (N+1 queries).
@@ -1889,7 +1900,7 @@ def vista_informe_inventario(request):
     # Esto evita mezclar sistemas de tallas incompatibles (ej. Caballero 28-38
     # con Dama 3-16) en una sola tabla plana con columnas vacías.
     productos_lista = list(
-        productos_queryset.annotate(
+        productos_queryset.select_related('ubicacion').annotate(
             stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
         ).order_by('referencia', 'color', 'talla')
     )
@@ -1936,11 +1947,13 @@ def vista_informe_inventario(request):
             ubicaciones = []
             valor_costo_grupo = Decimal('0.00')
             valor_venta_grupo = Decimal('0.00')
+            ids_vistos = set()
             for p in items:
                 idx = indice_talla[_normalizar_talla(p.talla)]
                 cantidades[idx] += p.stock_actual_calculado
-                if p.ubicacion and p.ubicacion not in ubicaciones:
-                    ubicaciones.append(p.ubicacion)
+                if p.ubicacion_id and p.ubicacion_id not in ids_vistos:
+                    ids_vistos.add(p.ubicacion_id)
+                    ubicaciones.append(str(p.ubicacion))
                 valor_costo_grupo += Decimal(p.stock_actual_calculado) * (p.costo or Decimal('0.00'))
                 valor_venta_grupo += Decimal(p.stock_actual_calculado) * (p.precio_venta or Decimal('0.00'))
             grupos.append({
@@ -1980,6 +1993,8 @@ def vista_informe_inventario(request):
         'total_valor_costo': total_valor_costo,
         'total_valor_venta': total_valor_venta,
         'es_administracion': es_administracion(request.user),
+        'bodegas_disponibles': Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre'),
+        'bodega_seleccionada': bodega_q,
         'filtros_activos': request.GET # Para mantener los filtros en la exportación
     }
     return render(request, 'bodega/informe_inventario.html', context)
@@ -2001,17 +2016,17 @@ def exportar_inventario_excel(request):
     # Re-aplicar los mismos filtros que en la vista principal
     referencia_q = request.GET.get('referencia', '').strip()
     nombre_q = request.GET.get('nombre', '').strip()
-    ubicacion_q = request.GET.get('ubicacion', '').strip()
+    bodega_q = request.GET.get('bodega', '').strip()
 
     if referencia_q:
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
     if nombre_q:
         productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
-    if ubicacion_q:
-        productos_queryset = productos_queryset.filter(ubicacion__icontains=ubicacion_q)
+    if bodega_q:
+        productos_queryset = productos_queryset.filter(ubicacion_id=bodega_q)
 
     # Anotamos el stock en una sola consulta (evita N+1 al recorrer 'stock_actual' por producto)
-    productos_queryset = productos_queryset.annotate(
+    productos_queryset = productos_queryset.select_related('ubicacion').annotate(
         stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
     )
 
@@ -2032,7 +2047,7 @@ def exportar_inventario_excel(request):
             producto.descripcion or '',
             producto.color or '',
             producto.talla or '',
-            producto.ubicacion or '',
+            str(producto.ubicacion) if producto.ubicacion_id else '',
             producto.stock_actual_calculado
         ])
 
@@ -2044,6 +2059,64 @@ def exportar_inventario_excel(request):
     workbook.save(response)
 
     return response
+
+
+@login_required
+@permission_required('productos.view_inventory_report', login_url='core:acceso_denegado')
+def informe_inventario_comparativo(request):
+    """
+    Tabla comparativa: muestra, para cada variante de producto, cuánto stock
+    hay en CADA bodega de la empresa, una al lado de la otra (columnas),
+    para poder comparar de un vistazo dónde está el inventario.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "No se ha podido identificar la empresa para este informe.")
+        return redirect('core:index')
+
+    referencia_q = request.GET.get('referencia', '').strip()
+    nombre_q = request.GET.get('nombre', '').strip()
+
+    productos_queryset = Producto.objects.filter(empresa=empresa_actual, activo=True)
+    if referencia_q:
+        productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
+    if nombre_q:
+        productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
+    productos_queryset = productos_queryset.order_by('referencia', 'color', 'talla')
+
+    bodegas = list(Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre'))
+
+    paginator = Paginator(productos_queryset, 100)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    productos_pagina = list(page_obj.object_list)
+
+    stock_map = {}
+    if productos_pagina:
+        producto_ids = [p.pk for p in productos_pagina]
+        filas_stock = MovimientoInventario.objects.filter(
+            producto_id__in=producto_ids
+        ).values('producto_id', 'bodega_id').annotate(total=Sum('cantidad'))
+        for fila in filas_stock:
+            stock_map[(fila['producto_id'], fila['bodega_id'])] = fila['total'] or 0
+
+    filas = []
+    for producto in productos_pagina:
+        valores_por_bodega = [stock_map.get((producto.pk, b.pk), 0) for b in bodegas]
+        filas.append({
+            'producto': producto,
+            'valores': valores_por_bodega,
+            'total': sum(valores_por_bodega),
+        })
+
+    context = {
+        'titulo': f'Comparativo de Stock por Bodega ({empresa_actual.nombre})',
+        'bodegas': bodegas,
+        'filas': filas,
+        'page_obj': page_obj,
+        'filtros_activos': request.GET,
+    }
+    return render(request, 'bodega/informe_inventario_comparativo.html', context)
+
 
 class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = MovimientoInventario
@@ -2058,20 +2131,23 @@ class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, Perm
         Filtra los movimientos según los parámetros GET del formulario.
         """
         empresa_actual = self.request.tenant
-        queryset = super().get_queryset().filter(empresa=empresa_actual).select_related('producto', 'usuario')
+        queryset = super().get_queryset().filter(empresa=empresa_actual).select_related('producto', 'usuario', 'bodega')
 
         # --- APLICAMOS LOS NUEVOS FILTROS ---
         producto_id = self.request.GET.get('producto_id')
+        bodega_id = self.request.GET.get('bodega_id')
         fecha_inicio = self.request.GET.get('fecha_inicio')
         fecha_fin = self.request.GET.get('fecha_fin')
         usuario_id = self.request.GET.get('usuario_id')
 
-        if not producto_id:
-            # Si no se ha seleccionado un producto, no mostramos ningún movimiento.
+        if not producto_id and not bodega_id:
+            # Si no se ha seleccionado ni producto ni bodega, no mostramos ningún movimiento.
             return queryset.none()
 
-        # Filtro principal por producto
-        queryset = queryset.filter(producto_id=producto_id)
+        if producto_id:
+            queryset = queryset.filter(producto_id=producto_id)
+        if bodega_id:
+            queryset = queryset.filter(bodega_id=bodega_id)
 
         # Filtros opcionales
         if fecha_inicio:
@@ -2080,7 +2156,7 @@ class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, Perm
             queryset = queryset.filter(fecha_hora__date__lte=fecha_fin)
         if usuario_id:
             queryset = queryset.filter(usuario_id=usuario_id)
-            
+
         return queryset.order_by('-fecha_hora')
 
     def get_context_data(self, **kwargs):
@@ -2090,22 +2166,34 @@ class InformeMovimientoInventarioView(TenantAwareMixin, LoginRequiredMixin, Perm
         context = super().get_context_data(**kwargs)
         empresa_actual = self.request.tenant
         producto_id_seleccionado = self.request.GET.get('producto_id')
-        
-        # Pasamos la lista de productos y usuarios al template para los selectores del formulario
+        bodega_id_seleccionada = self.request.GET.get('bodega_id')
+
+        # Pasamos la lista de productos, bodegas y usuarios al template para los selectores del formulario
         context['productos_list'] = Producto.objects.filter(empresa=empresa_actual, activo=True)
+        context['bodegas_list'] = Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre')
         context['usuarios_list'] = get_user_model().objects.filter(empresa=empresa_actual, is_active=True).order_by('username')
-        
+
         context['titulo'] = 'Informe de Movimientos de Inventario'
         context['filtros_activos'] = self.request.GET # Para mantener los valores en el form
 
+        titulo_partes = []
         if producto_id_seleccionado:
             producto_seleccionado = Producto.objects.filter(pk=producto_id_seleccionado).first()
             context['producto_seleccionado'] = producto_seleccionado
             if producto_seleccionado:
-                context['titulo'] = f'Movimientos de: {producto_seleccionado.referencia}'
+                titulo_partes.append(producto_seleccionado.referencia)
                 # Calcular stock actual para el producto seleccionado
                 stock_calculado = producto_seleccionado.movimientos.aggregate(total=Sum('cantidad'))['total']
                 context['stock_actual_calculado'] = stock_calculado or 0
+
+        if bodega_id_seleccionada:
+            bodega_seleccionada = Bodega.objects.filter(pk=bodega_id_seleccionada, empresa=empresa_actual).first()
+            context['bodega_seleccionada'] = bodega_seleccionada
+            if bodega_seleccionada:
+                titulo_partes.append(bodega_seleccionada.nombre)
+
+        if titulo_partes:
+            context['titulo'] = f'Movimientos de: {" — ".join(titulo_partes)}'
 
         return context
 
@@ -2185,11 +2273,13 @@ def realizar_cambio_producto(request):
                     cambio.usuario = request.user
                     cambio.save()
 
+                    bodega_principal = Bodega.objects.principal(empresa_actual)
 
                     # Prevenir duplicados: usar get_or_create para movimientos de cambio
                     mov_entrada, _ = MovimientoInventario.objects.get_or_create(
                         empresa=empresa_actual,
                         producto=cambio.producto_entrante,
+                        bodega=bodega_principal,
                         tipo_movimiento='ENTRADA_CAMBIO',
                         documento_referencia=f"Cambio #{cambio.pk}",
                         defaults={
@@ -2202,6 +2292,7 @@ def realizar_cambio_producto(request):
                     mov_salida, _ = MovimientoInventario.objects.get_or_create(
                         empresa=empresa_actual,
                         producto=cambio.producto_saliente,
+                        bodega=bodega_principal,
                         tipo_movimiento='SALIDA_CAMBIO',
                         documento_referencia=f"Cambio #{cambio.pk}",
                         defaults={
@@ -2345,13 +2436,33 @@ def informe_movimiento_producto(request, pk):
         empresa=empresa_actual
     )
 
-    # Obtenemos todos los movimientos para este producto, ordenados del más reciente al más antiguo
+    # Desglose de stock actual por bodega (todas las bodegas de la empresa,
+    # incluyendo las que tienen 0 para que se note dónde NO hay existencias).
+    stock_por_bodega_map = {
+        fila['bodega_id']: fila['total']
+        for fila in MovimientoInventario.objects.filter(producto=producto).values('bodega_id').annotate(total=Sum('cantidad'))
+    }
+    stock_por_bodega = [
+        {'bodega': b, 'cantidad': stock_por_bodega_map.get(b.pk, 0) or 0}
+        for b in Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre')
+    ]
+
+    bodega_filtro_id = request.GET.get('bodega_id', '').strip()
+
+    # Obtenemos los movimientos para este producto, ordenados del más reciente al más antiguo
     movimientos_queryset = MovimientoInventario.objects.filter(
         producto=producto
-    ).select_related('usuario').order_by('-fecha_hora')
+    ).select_related('usuario', 'bodega').order_by('-fecha_hora')
+
+    if bodega_filtro_id:
+        movimientos_queryset = movimientos_queryset.filter(bodega_id=bodega_filtro_id)
+        # Si se filtra por una bodega específica, el saldo corriente debe
+        # partir del stock actual EN ESA BODEGA, no del stock global del producto.
+        saldo = stock_por_bodega_map.get(int(bodega_filtro_id), 0) or 0
+    else:
+        saldo = producto.stock_actual
 
     # Calcular el saldo corriendo para cada movimiento (Kardex)
-    saldo = producto.stock_actual
     movimientos_con_saldo = []
     for movimiento in movimientos_queryset:
         movimientos_con_saldo.append({
@@ -2360,7 +2471,7 @@ def informe_movimiento_producto(request, pk):
             'saldo_nuevo': saldo - movimiento.cantidad
         })
         saldo -= movimiento.cantidad
-    
+
     # Invertimos la lista para mostrar del más antiguo al más reciente en la plantilla
     movimientos_con_saldo.reverse()
 
@@ -2369,6 +2480,9 @@ def informe_movimiento_producto(request, pk):
         'producto': producto,
         'movimientos_list': movimientos_con_saldo,
         'stock_actual_verificacion': producto.stock_actual,
+        'stock_por_bodega': stock_por_bodega,
+        'bodegas_list': Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre'),
+        'bodega_filtro_id': bodega_filtro_id,
         'titulo': f"Kardex de Movimientos - {producto.referencia}",
         'empresa_actual': empresa_actual,
         'fecha_generacion': timezone.now(),
@@ -2388,6 +2502,60 @@ def informe_movimiento_producto(request, pk):
     # Por defecto, mostrar la vista en pantalla
     return render(request, 'bodega/informe_movimiento_producto.html', context)
 
+
+@login_required
+@permission_required('productos.view_inventory_report', login_url='core:acceso_denegado')
+def consulta_stock_bodega(request):
+    """
+    Consulta rápida: busca un producto por referencia, nombre o código de
+    barras y muestra al instante su stock en cada bodega, sin cargar todo
+    el historial de movimientos (a diferencia del Kardex).
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "No se ha podido identificar la empresa.")
+        return redirect('core:index')
+
+    query = request.GET.get('q', '').strip()
+    resultados = []
+
+    if query:
+        productos = Producto.objects.filter(
+            empresa=empresa_actual, activo=True
+        ).filter(
+            Q(referencia__icontains=query) | Q(nombre__icontains=query) | Q(codigo_barras__icontains=query)
+        ).select_related('ubicacion').order_by('referencia', 'color', 'talla')[:50]
+
+        bodegas = list(Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre'))
+        producto_ids = [p.pk for p in productos]
+
+        stock_map = {}
+        if producto_ids:
+            filas_stock = MovimientoInventario.objects.filter(
+                producto_id__in=producto_ids
+            ).values('producto_id', 'bodega_id').annotate(total=Sum('cantidad'))
+            for fila in filas_stock:
+                stock_map[(fila['producto_id'], fila['bodega_id'])] = fila['total'] or 0
+
+        for producto in productos:
+            desglose = [
+                {'bodega': b, 'cantidad': stock_map.get((producto.pk, b.pk), 0) or 0}
+                for b in bodegas
+            ]
+            resultados.append({
+                'producto': producto,
+                'desglose': desglose,
+                'total': sum(fila['cantidad'] for fila in desglose),
+            })
+
+    context = {
+        'titulo': 'Consulta Rápida de Stock por Bodega',
+        'query': query,
+        'resultados': resultados,
+    }
+    return render(request, 'bodega/consulta_stock_bodega.html', context)
+
+
 @login_required
 @permission_required('bodega.add_movimientoinventario', raise_exception=True)
 def vista_ingreso_produccion(request):
@@ -2395,10 +2563,11 @@ def vista_ingreso_produccion(request):
     Permite al personal de bodega ingresar stock por lotes de Referencia+Color.
     """
     empresa_actual = getattr(request, 'tenant', None)
-    
+
     if request.method == 'POST':
         with transaction.atomic(): # Usamos una transacción para asegurar que todo o nada se guarde
             productos_actualizados = 0
+            bodega_principal = Bodega.objects.principal(empresa_actual)
             # Buscamos todos los campos que empiezan con 'cantidad_'
             for key, value in request.POST.items():
                 if key.startswith('cantidad_'):
@@ -2410,10 +2579,11 @@ def vista_ingreso_produccion(request):
 
                     if cantidad > 0:
                         producto = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
-                        
+
                         MovimientoInventario.objects.create(
                             empresa=empresa_actual,
                             producto=producto,
+                            bodega=bodega_principal,
                             cantidad=cantidad,
                             tipo_movimiento='ENTRADA_PRODUCCION',
                             documento_referencia='Ingreso Producción Lote',
@@ -2532,6 +2702,7 @@ def vista_ajuste_masivo_inventario(request):
 
         with transaction.atomic():
             productos_ajustados = 0
+            bodega_principal = Bodega.objects.principal(empresa_actual)
             for key, value in request.POST.items():
                 if key.startswith('cantidad_'):
                     try:
@@ -2543,10 +2714,11 @@ def vista_ajuste_masivo_inventario(request):
 
                     if cantidad != 0:
                         producto = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
-                        
+
                         MovimientoInventario.objects.create(
                             empresa=empresa_actual,
                             producto=producto,
+                            bodega=bodega_principal,
                             cantidad=cantidad,
                             tipo_movimiento=tipo_movimiento,
                             documento_referencia=documento_referencia,
@@ -2622,5 +2794,493 @@ def toggle_visibilidad_view(request):
                 
         except Exception as e:
             return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)
-            
+
     return JsonResponse({'status': 'error', 'msg': 'Método no permitido'}, status=405)
+
+
+# ============================================================
+# CRUD de Bodegas
+# ============================================================
+
+class BodegaListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = Bodega
+    template_name = 'bodega/bodega_lista.html'
+    context_object_name = 'bodegas_list'
+    permission_required = 'bodega.view_bodega'
+    login_url = 'core:acceso_denegado'
+
+    def get_queryset(self):
+        # No usamos el bypass de superuser de TenantAwareMixin: las bodegas son
+        # siempre de UNA empresa, incluso para un superusuario administrando
+        # una empresa específica. De lo contrario se mezclarían las bodegas
+        # (incluida la Principal) de todas las empresas del sistema.
+        return Bodega.objects.filter(empresa=self.request.tenant).select_related('responsable').order_by('orden', 'nombre')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = 'Bodegas'
+        return context
+
+
+class BodegaCreateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    model = Bodega
+    form_class = BodegaForm
+    template_name = 'bodega/bodega_form.html'
+    success_url = reverse_lazy('bodega:lista_bodegas')
+    success_message = "Bodega '%(nombre)s' creada exitosamente."
+    permission_required = 'bodega.add_bodega'
+    login_url = 'core:acceso_denegado'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = self.request.tenant
+        return kwargs
+
+    def form_valid(self, form):
+        # TenantAwareMixin.form_valid usa hasattr(form.instance, 'empresa') para
+        # decidir si asigna la empresa, pero Bodega.empresa es un FK obligatorio:
+        # acceder a él en una instancia sin guardar lanza RelatedObjectDoesNotExist
+        # (que Django hace heredar de AttributeError), así que hasattr() da False
+        # y la mixin nunca llega a asignarla. Se asigna aquí explícitamente.
+        if not form.instance.pk:
+            form.instance.empresa = self.request.tenant
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = 'Crear Bodega'
+        return context
+
+
+class BodegaUpdateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = Bodega
+    form_class = BodegaForm
+    template_name = 'bodega/bodega_form.html'
+    success_url = reverse_lazy('bodega:lista_bodegas')
+    success_message = "Bodega '%(nombre)s' actualizada exitosamente."
+    permission_required = 'bodega.change_bodega'
+    login_url = 'core:acceso_denegado'
+
+    def get_queryset(self):
+        # Igual que en BodegaListView: nunca saltarse el filtro de empresa,
+        # ni para superusuarios, para no permitir editar la bodega de otra
+        # empresa cambiando el ID en la URL.
+        return Bodega.objects.filter(empresa=self.request.tenant)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['empresa'] = self.request.tenant
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = f'Editar Bodega: {self.object.nombre}'
+        return context
+
+
+@login_required
+@permission_required('bodega.change_bodega', login_url='core:acceso_denegado')
+@require_POST
+def toggle_bodega_activa(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    bodega = get_object_or_404(Bodega, pk=pk, empresa=empresa_actual)
+    if bodega.es_principal:
+        messages.error(request, "La Bodega Principal no se puede desactivar.")
+    else:
+        bodega.activa = not bodega.activa
+        bodega.save(update_fields=['activa'])
+        estado_str = 'activada' if bodega.activa else 'desactivada'
+        messages.success(request, f"Bodega '{bodega.nombre}' {estado_str} exitosamente.")
+    return redirect('bodega:lista_bodegas')
+
+
+def _referencias_bodega(bodega):
+    """
+    Cuenta los registros que dependen de esta bodega (todos con on_delete=PROTECT,
+    salvo los accesos que se borran en cascada). Si algún contador es mayor a 0,
+    la bodega no se puede eliminar sin perder historial.
+    """
+    return {
+        'Productos ubicados aquí': bodega.productos.count(),
+        'Movimientos de inventario': bodega.movimientos.count(),
+        'Ingresos a bodega': bodega.ingresos.count(),
+        'Conteos de inventario': bodega.conteos.count(),
+        'Salidas internas (origen)': bodega.salidas_internas_origen.count(),
+        'Traslados (origen)': bodega.traslados_salientes.count(),
+        'Traslados (destino)': bodega.traslados_entrantes.count(),
+    }
+
+
+@login_required
+@permission_required('bodega.delete_bodega', login_url='core:acceso_denegado')
+def eliminar_bodega(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    bodega = get_object_or_404(Bodega, pk=pk, empresa=empresa_actual)
+
+    if bodega.es_principal:
+        messages.error(request, "La Bodega Principal no se puede eliminar.")
+        return redirect('bodega:lista_bodegas')
+
+    referencias = _referencias_bodega(bodega)
+    referencias_con_datos = {k: v for k, v in referencias.items() if v > 0}
+
+    if request.method == 'POST':
+        if referencias_con_datos:
+            messages.error(
+                request,
+                f"No se puede eliminar la bodega '{bodega.nombre}' porque todavía tiene historial asociado. "
+                f"Desactívala en su lugar si ya no la vas a usar."
+            )
+            return redirect('bodega:lista_bodegas')
+
+        AccesoBodega.objects.filter(bodega=bodega).delete()
+        nombre = bodega.nombre
+        bodega.delete()
+        messages.success(request, f"Bodega '{nombre}' eliminada exitosamente.")
+        return redirect('bodega:lista_bodegas')
+
+    context = {
+        'bodega': bodega,
+        'referencias_con_datos': referencias_con_datos,
+        'titulo': f'Eliminar Bodega: {bodega.nombre}',
+    }
+    return render(request, 'bodega/bodega_confirm_delete.html', context)
+
+
+# ============================================================
+# Administración de Accesos por Bodega
+# ============================================================
+
+@login_required
+@permission_required('bodega.view_accesobodega', login_url='core:acceso_denegado')
+def lista_accesos_bodega(request):
+    empresa_actual = getattr(request, 'tenant', None)
+    accesos = AccesoBodega.objects.filter(bodega__empresa=empresa_actual).select_related('usuario', 'bodega').order_by('bodega__nombre', 'usuario__username')
+    context = {
+        'accesos_list': accesos,
+        'titulo': 'Accesos a Bodegas por Usuario',
+    }
+    return render(request, 'bodega/acceso_bodega_lista.html', context)
+
+
+@login_required
+@permission_required('bodega.add_accesobodega', login_url='core:acceso_denegado')
+def crear_acceso_bodega(request):
+    empresa_actual = getattr(request, 'tenant', None)
+    if request.method == 'POST':
+        form = AccesoBodegaForm(request.POST, empresa=empresa_actual)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Acceso a bodega registrado exitosamente.")
+                return redirect('bodega:lista_accesos_bodega')
+            except IntegrityError:
+                messages.error(request, "Ese usuario ya tiene un acceso configurado para esa bodega. Edítalo en vez de crear uno nuevo.")
+        else:
+            messages.error(request, "Por favor corrige los errores en el formulario.")
+    else:
+        form = AccesoBodegaForm(empresa=empresa_actual)
+
+    context = {
+        'form': form,
+        'titulo': 'Nuevo Acceso a Bodega',
+    }
+    return render(request, 'bodega/acceso_bodega_form.html', context)
+
+
+class AccesoBodegaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = AccesoBodega
+    template_name = 'bodega/acceso_bodega_confirm_delete.html'
+    success_url = reverse_lazy('bodega:lista_accesos_bodega')
+    permission_required = 'bodega.delete_accesobodega'
+    login_url = 'core:acceso_denegado'
+
+    def get_queryset(self):
+        empresa_actual = getattr(self.request, 'tenant', None)
+        return AccesoBodega.objects.filter(bodega__empresa=empresa_actual)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Acceso a bodega eliminado exitosamente.")
+        return super().form_valid(form)
+
+
+# ============================================================
+# Traslados entre Bodegas
+# ============================================================
+
+@login_required
+@permission_required('bodega.view_trasladobodega', login_url='core:acceso_denegado')
+def lista_traslados_bodega(request):
+    empresa_actual = getattr(request, 'tenant', None)
+    traslados = TrasladoBodega.objects.filter(empresa=empresa_actual).select_related(
+        'bodega_origen', 'bodega_destino'
+    ).order_by('-fecha_hora_creacion')
+    context = {
+        'traslados_list': traslados,
+        'titulo': 'Traslados entre Bodegas',
+    }
+    return render(request, 'bodega/traslado_lista.html', context)
+
+
+@login_required
+@permission_required('bodega.add_trasladobodega', login_url='core:acceso_denegado')
+def api_productos_con_stock_bodega(request):
+    """
+    Devuelve en JSON los productos (activos, de la empresa actual) que tienen
+    stock > 0 en la bodega indicada. Se usa para que, al escoger la Bodega de
+    Origen de un traslado, el selector de 'Productos a Trasladar' solo
+    ofrezca lo que realmente hay disponible ahí.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    bodega_id = request.GET.get('bodega_id')
+
+    if not empresa_actual or not bodega_id:
+        return JsonResponse({'productos': []})
+
+    bodega = Bodega.objects.filter(pk=bodega_id, empresa=empresa_actual).first()
+    if not bodega:
+        return JsonResponse({'productos': []})
+
+    filas_stock = MovimientoInventario.objects.filter(
+        bodega=bodega, producto__empresa=empresa_actual, producto__activo=True
+    ).values('producto_id').annotate(total=Sum('cantidad')).filter(total__gt=0)
+
+    stock_por_producto = {fila['producto_id']: fila['total'] for fila in filas_stock}
+
+    productos = Producto.objects.filter(pk__in=stock_por_producto.keys()).order_by('referencia', 'color', 'talla')
+
+    data = [
+        {
+            'id': p.pk,
+            'label': f"{p.referencia} - {p.nombre} ({p.color or '-'} - Talla {p.talla or '-'}) | Stock: {stock_por_producto[p.pk]}",
+            'stock': stock_por_producto[p.pk],
+        }
+        for p in productos
+    ]
+    return JsonResponse({'productos': data})
+
+
+@login_required
+@permission_required('bodega.add_trasladobodega', login_url='core:acceso_denegado')
+def crear_traslado_bodega(request):
+    """
+    El detalle del traslado ya no se arma línea por línea con un formset:
+    la plantilla carga (vía AJAX) todos los productos con stock en la
+    Bodega de Origen elegida y el usuario marca un check + cantidad por
+    cada uno que quiera incluir, para poder trasladar muchas referencias
+    de un tirón.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+
+    if request.method == 'POST':
+        form = TrasladoBodegaForm(request.POST, empresa=empresa_actual)
+
+        # Recolectar las filas marcadas: 'incluir_<producto_id>' presente y
+        # 'cantidad_<producto_id>' > 0.
+        productos_incluidos = {}
+        for key in request.POST.keys():
+            if key.startswith('incluir_'):
+                try:
+                    producto_id = int(key.split('_', 1)[1])
+                    cantidad = int(request.POST.get(f'cantidad_{producto_id}', '0') or 0)
+                except (ValueError, TypeError, IndexError):
+                    continue
+                if cantidad > 0:
+                    productos_incluidos[producto_id] = cantidad
+
+        if form.is_valid():
+            if not productos_incluidos:
+                messages.warning(request, "Debes marcar al menos un producto con cantidad para el traslado.")
+            else:
+                bodega_origen = form.cleaned_data['bodega_origen']
+                productos_map = {
+                    p.pk: p for p in Producto.objects.filter(empresa=empresa_actual, pk__in=productos_incluidos.keys())
+                }
+
+                # Defensa en profundidad: aunque el selector en pantalla ya
+                # solo muestra productos con stock en la bodega de origen, se
+                # vuelve a validar aquí por si el stock cambió entre que se
+                # cargó la página y se envió el formulario.
+                errores_stock = []
+                for producto_id, cantidad in productos_incluidos.items():
+                    producto = productos_map.get(producto_id)
+                    if not producto:
+                        continue
+                    stock_en_origen = MovimientoInventario.objects.filter(
+                        producto=producto, bodega=bodega_origen
+                    ).aggregate(total=Sum('cantidad'))['total'] or 0
+                    if stock_en_origen < cantidad:
+                        errores_stock.append(
+                            f"'{producto}': disponible {stock_en_origen} en '{bodega_origen.nombre}', solicitado {cantidad}."
+                        )
+
+                if errores_stock:
+                    for error in errores_stock:
+                        messages.error(request, error)
+                else:
+                    with transaction.atomic():
+                        traslado = form.save(commit=False)
+                        traslado.empresa = empresa_actual
+                        traslado.usuario_creacion = request.user
+                        traslado.save()
+
+                        for producto_id, cantidad in productos_incluidos.items():
+                            DetalleTrasladoBodega.objects.create(
+                                traslado=traslado,
+                                producto=productos_map[producto_id],
+                                cantidad=cantidad,
+                            )
+
+                    messages.success(request, f"Traslado #{traslado.pk} creado como borrador con {len(productos_incluidos)} producto(s). Envíalo cuando esté listo.")
+                    return redirect('bodega:detalle_traslado', pk=traslado.pk)
+        else:
+            messages.error(request, "Por favor corrige los errores en el formulario.")
+    else:
+        form = TrasladoBodegaForm(empresa=empresa_actual)
+
+    context = {
+        'form': form,
+        'titulo': 'Registrar Traslado entre Bodegas',
+    }
+    return render(request, 'bodega/traslado_form.html', context)
+
+
+@login_required
+@permission_required('bodega.view_trasladobodega', login_url='core:acceso_denegado')
+def detalle_traslado_bodega(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    traslado = get_object_or_404(
+        TrasladoBodega.objects.select_related('bodega_origen', 'bodega_destino').prefetch_related('detalles__producto'),
+        pk=pk, empresa=empresa_actual
+    )
+    context = {
+        'traslado': traslado,
+        'titulo': f'Traslado #{traslado.pk}',
+    }
+    return render(request, 'bodega/traslado_detalle.html', context)
+
+
+@login_required
+@permission_required('bodega.change_trasladobodega', login_url='core:acceso_denegado')
+@require_POST
+def enviar_traslado_bodega(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    traslado = get_object_or_404(
+        TrasladoBodega.objects.select_related('bodega_origen', 'bodega_destino').prefetch_related('detalles__producto'),
+        pk=pk, empresa=empresa_actual
+    )
+
+    if traslado.estado != 'BORRADOR':
+        messages.error(request, f"El traslado #{traslado.pk} ya fue enviado o no está en estado Borrador.")
+        return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+    # Validar stock disponible en la bodega de origen para cada producto
+    for detalle in traslado.detalles.all():
+        stock_en_origen = MovimientoInventario.objects.filter(
+            producto=detalle.producto, bodega=traslado.bodega_origen
+        ).aggregate(total=Sum('cantidad'))['total'] or 0
+        if stock_en_origen < detalle.cantidad:
+            messages.error(
+                request,
+                f"Stock insuficiente en '{traslado.bodega_origen.nombre}' para '{detalle.producto}'. "
+                f"Disponible: {stock_en_origen}, requerido: {detalle.cantidad}."
+            )
+            return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+    with transaction.atomic():
+        for detalle in traslado.detalles.all():
+            MovimientoInventario.objects.get_or_create(
+                empresa=empresa_actual,
+                producto=detalle.producto,
+                bodega=traslado.bodega_origen,
+                tipo_movimiento='SALIDA_TRASLADO',
+                documento_referencia=f"Traslado #{traslado.pk} - {detalle.producto.pk}",
+                defaults={
+                    'cantidad': -detalle.cantidad,
+                    'usuario': request.user,
+                    'notas': f"Salida por Traslado #{traslado.pk} hacia {traslado.bodega_destino.nombre}",
+                }
+            )
+
+        traslado.usuario_envio = request.user
+        traslado.fecha_hora_envio = timezone.now()
+
+        if traslado.bodega_destino.requiere_confirmacion_recepcion:
+            traslado.estado = 'EN_TRANSITO'
+            traslado.save()
+            messages.success(request, f"Traslado #{traslado.pk} enviado. Queda 'En Tránsito' hasta que se confirme la recepción en '{traslado.bodega_destino.nombre}'.")
+        else:
+            for detalle in traslado.detalles.all():
+                MovimientoInventario.objects.get_or_create(
+                    empresa=empresa_actual,
+                    producto=detalle.producto,
+                    bodega=traslado.bodega_destino,
+                    tipo_movimiento='ENTRADA_TRASLADO',
+                    documento_referencia=f"Traslado #{traslado.pk} - {detalle.producto.pk}",
+                    defaults={
+                        'cantidad': detalle.cantidad,
+                        'usuario': request.user,
+                        'notas': f"Entrada por Traslado #{traslado.pk} desde {traslado.bodega_origen.nombre}",
+                    }
+                )
+            traslado.estado = 'RECIBIDO'
+            traslado.usuario_recepcion = request.user
+            traslado.fecha_hora_recepcion = timezone.now()
+            traslado.save()
+            messages.success(request, f"Traslado #{traslado.pk} enviado y recibido automáticamente en '{traslado.bodega_destino.nombre}'.")
+
+    return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+
+@login_required
+@permission_required('bodega.change_trasladobodega', login_url='core:acceso_denegado')
+@require_POST
+def confirmar_recepcion_traslado_bodega(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    traslado = get_object_or_404(
+        TrasladoBodega.objects.select_related('bodega_origen', 'bodega_destino').prefetch_related('detalles__producto'),
+        pk=pk, empresa=empresa_actual
+    )
+
+    if traslado.estado != 'EN_TRANSITO':
+        messages.error(request, f"El traslado #{traslado.pk} no está pendiente de recepción.")
+        return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+    with transaction.atomic():
+        for detalle in traslado.detalles.all():
+            MovimientoInventario.objects.get_or_create(
+                empresa=empresa_actual,
+                producto=detalle.producto,
+                bodega=traslado.bodega_destino,
+                tipo_movimiento='ENTRADA_TRASLADO',
+                documento_referencia=f"Traslado #{traslado.pk} - {detalle.producto.pk}",
+                defaults={
+                    'cantidad': detalle.cantidad,
+                    'usuario': request.user,
+                    'notas': f"Entrada por Traslado #{traslado.pk} desde {traslado.bodega_origen.nombre}",
+                }
+            )
+        traslado.estado = 'RECIBIDO'
+        traslado.usuario_recepcion = request.user
+        traslado.fecha_hora_recepcion = timezone.now()
+        traslado.save()
+
+    messages.success(request, f"Recepción del Traslado #{traslado.pk} confirmada en '{traslado.bodega_destino.nombre}'.")
+    return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+
+@login_required
+@permission_required('bodega.change_trasladobodega', login_url='core:acceso_denegado')
+@require_POST
+def anular_traslado_bodega(request, pk):
+    empresa_actual = getattr(request, 'tenant', None)
+    traslado = get_object_or_404(TrasladoBodega, pk=pk, empresa=empresa_actual)
+
+    if traslado.estado != 'BORRADOR':
+        messages.error(request, f"Solo se puede anular un traslado en estado Borrador. El traslado #{traslado.pk} está '{traslado.get_estado_display()}'.")
+        return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+    traslado.estado = 'ANULADO'
+    traslado.save(update_fields=['estado'])
+    messages.success(request, f"Traslado #{traslado.pk} anulado.")
+    return redirect('bodega:detalle_traslado', pk=traslado.pk)

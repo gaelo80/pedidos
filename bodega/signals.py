@@ -44,6 +44,7 @@ def crear_movimiento_para_ingreso_detalle(sender, instance, created, **kwargs):
                 if not existe_movimiento_previo:
                     movimiento = MovimientoInventario.objects.create(
                         producto=instance.producto,
+                        bodega=instance.ingreso.bodega,
                         cantidad=instance.cantidad, # Cantidad positiva para un ingreso
                         tipo_movimiento='ENTRADA_COMPRA', # Ajusta si usas otro tipo para ingresos desde el admin
                         fecha_hora=instance.ingreso.fecha_hora, # Fecha/hora de la cabecera del ingreso

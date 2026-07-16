@@ -36,6 +36,8 @@ urlpatterns = [
      path('despacho/<int:pk>/cancelar/', views.cancelar_pedido_bodega, name='cancelar_pedido_bodega'),
      path('informe/inventario/', views.vista_informe_inventario, name='informe_inventario'),
      path('informe/inventario/exportar/', views.exportar_inventario_excel, name='exportar_inventario_excel'),
+     path('informe/inventario/comparativo/', views.informe_inventario_comparativo, name='informe_inventario_comparativo'),
+     path('consulta-stock-bodega/', views.consulta_stock_bodega, name='consulta_stock_bodega'),
      path('informe-movimientos/', views.InformeMovimientoInventarioView.as_view(), name='informe_movimiento_inventario'),
      path('salidas-internas/<int:pk>/cerrar/', views.cerrar_salida_interna, name='cerrar_salida_interna'),
      path('cambio-producto/', views.realizar_cambio_producto, name='realizar_cambio_producto'),
@@ -49,4 +51,25 @@ urlpatterns = [
      path('ajuste-masivo/', views.vista_ajuste_masivo_inventario, name='ajuste_masivo_inventario'),
      path('visibilidad/', views.visibilidad_productos_view, name='visibilidad_productos'),
      path('visibilidad/toggle/', views.toggle_visibilidad_view, name='toggle_visibilidad'),
+
+     # --- Bodegas ---
+     path('bodegas/', views.BodegaListView.as_view(), name='lista_bodegas'),
+     path('bodegas/crear/', views.BodegaCreateView.as_view(), name='crear_bodega'),
+     path('bodegas/<int:pk>/editar/', views.BodegaUpdateView.as_view(), name='editar_bodega'),
+     path('bodegas/<int:pk>/toggle-activa/', views.toggle_bodega_activa, name='toggle_bodega_activa'),
+     path('bodegas/<int:pk>/eliminar/', views.eliminar_bodega, name='eliminar_bodega'),
+
+     # --- Accesos por Bodega ---
+     path('bodegas/accesos/', views.lista_accesos_bodega, name='lista_accesos_bodega'),
+     path('bodegas/accesos/crear/', views.crear_acceso_bodega, name='crear_acceso_bodega'),
+     path('bodegas/accesos/<int:pk>/eliminar/', views.AccesoBodegaDeleteView.as_view(), name='eliminar_acceso_bodega'),
+
+     # --- Traslados entre Bodegas ---
+     path('api/productos-con-stock-bodega/', views.api_productos_con_stock_bodega, name='api_productos_con_stock_bodega'),
+     path('bodegas/traslados/', views.lista_traslados_bodega, name='lista_traslados'),
+     path('bodegas/traslados/crear/', views.crear_traslado_bodega, name='crear_traslado'),
+     path('bodegas/traslados/<int:pk>/', views.detalle_traslado_bodega, name='detalle_traslado'),
+     path('bodegas/traslados/<int:pk>/enviar/', views.enviar_traslado_bodega, name='enviar_traslado'),
+     path('bodegas/traslados/<int:pk>/confirmar-recepcion/', views.confirmar_recepcion_traslado_bodega, name='confirmar_recepcion_traslado'),
+     path('bodegas/traslados/<int:pk>/anular/', views.anular_traslado_bodega, name='anular_traslado'),
 ]

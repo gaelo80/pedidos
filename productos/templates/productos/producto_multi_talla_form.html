@@ -10,9 +10,15 @@
     <div class="row align-items-center mb-4">
         <div class="col-md-6">
             <h1 class="display-6 fw-bold mb-1 text-primary">
-                <i class="fas fa-cubes me-2"></i> Crear Producto
+                <i class="fas fa-cubes me-2"></i> {% if es_edicion %}Editar Producto{% else %}Crear Producto{% endif %}
             </h1>
-            <p class="lead text-secondary mb-0">Registra una o varias tallas de una vez.</p>
+            <p class="lead text-secondary mb-0">
+                {% if es_edicion %}
+                    Edita de una vez la información compartida y todas las tallas de esta referencia y color.
+                {% else %}
+                    Registra una o varias tallas de una vez.
+                {% endif %}
+            </p>
         </div>
         <div class="col-md-6 text-md-end mt-3 mt-md-0">
             <div class="d-inline-flex flex-wrap gap-2 justify-content-md-end">
@@ -40,7 +46,11 @@
 
     <p class="text-muted mb-4">
         <i class="fas fa-info-circle me-1"></i>
-        Completa la información base y agrega una o varias tallas. Puedes crear una sola variante (una fila) o muchas de golpe.
+        {% if es_edicion %}
+            Esta información es común a todas las tallas de esta referencia y color (excepto el código de barras). También puedes agregar tallas nuevas en las filas vacías del final.
+        {% else %}
+            Completa la información base y agrega una o varias tallas. Puedes crear una sola variante (una fila) o muchas de golpe.
+        {% endif %}
     </p>
 
     <form method="post" novalidate>
@@ -101,6 +111,7 @@
                             <tr>
                                 <th style="width: 30%;">Talla <span class="text-danger">*</span></th>
                                 <th>Código de Barras</th>
+                                {% if es_edicion %}<th style="width: 120px;">Acciones</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -109,19 +120,30 @@
                                     <td>
                                         {{ form.talla.errors }}
                                         {{ form.talla }}
-                                        {{ form.id }}
+                                        {{ form.producto_id }}
                                     </td>
                                     <td>
                                         {{ form.codigo_barras.errors }}
                                         {{ form.codigo_barras }}
                                     </td>
+                                    {% if es_edicion %}
+                                    <td class="text-center">
+                                        {% if form.initial.producto_id %}
+                                        <a href="{% url 'productos:producto_eliminar' form.initial.producto_id %}" class="btn btn-outline-danger btn-sm rounded-pill" title="Quitar esta talla">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted small">Nueva</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
                 <small class="text-muted d-block mt-2">
-                    Deja en blanco las filas que no uses. Solo se crearán las filas con talla.
+                    Deja en blanco las filas que no uses. Solo se guardarán las filas con talla.
                 </small>
             </div>
         </div>
@@ -131,7 +153,7 @@
                 <i class="fas fa-times me-2"></i>Cancelar
             </a>
             <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
-                <i class="fas fa-save me-2"></i>Guardar Producto(s)
+                <i class="fas fa-save me-2"></i>{% if es_edicion %}Guardar Cambios{% else %}Guardar Producto(s){% endif %}
             </button>
         </div>
     </form>

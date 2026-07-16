@@ -30,7 +30,7 @@ from .models import Pedido, DetallePedido
 from .forms import PedidoForm
 from productos.models import Producto
 from vendedores.models import Vendedor
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, Bodega
 from core.auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_administracion, es_factura
 from core.utils import get_logo_base_64_despacho
 from .utils import preparar_datos_seccion
@@ -93,11 +93,25 @@ class PedidoViewSet(TenantAwareMixin, viewsets.ModelViewSet):
 @login_required
 @permission_required('pedidos.add_pedido', login_url='core:acceso_denegado')
 def vista_crear_pedido_web(request, pk=None):
-    
+
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
+
+    # Admin/Bodega/Online ven el stock real total; un vendedor estándar solo
+    # debe ver/reservar lo que está en bodegas habilitadas para su canal
+    # (o que tenga como excepción individual vía AccesoBodega).
+    es_admin_o_especial = (
+        request.user.is_superuser or
+        request.user.groups.filter(name__icontains='bodega').exists() or
+        request.user.groups.filter(name__icontains='online').exists()
+    )
+
+    def _stock_para_venta(producto_obj):
+        if es_admin_o_especial:
+            return producto_obj.stock_actual
+        return producto_obj.stock_disponible_para_canal('ESTANDAR', usuario=request.user)
         
         
     vendedor = None
@@ -157,7 +171,7 @@ def vista_crear_pedido_web(request, pk=None):
                                 'producto': producto_variante,
                                 'cantidad': cantidad_pedida,
                                 'precio_unitario': producto_variante.precio_venta,
-                                'stock_disponible': producto_variante.stock_actual
+                                'stock_disponible': _stock_para_venta(producto_variante)
                             })
                         except Producto.DoesNotExist:
                             errores_generales.append(f"Producto ID {producto_id} no encontrado o inactivo.")
@@ -186,7 +200,7 @@ def vista_crear_pedido_web(request, pk=None):
                     for detalle_data_check in detalles_para_crear:
                         producto_obj = detalle_data_check['producto']
                         cantidad_pedida = detalle_data_check['cantidad']
-                        stock_disponible_real = producto_obj.stock_actual
+                        stock_disponible_real = _stock_para_venta(producto_obj)
                         
                         cantidad_ya_reservada_por_este_borrador = 0
                         # --- LÓGICA CLAVE AÑADIDA ---
@@ -447,10 +461,12 @@ def rechazar_pedido_cartera(request, pk):
             pedido.fecha_decision_cartera = timezone.now()
             pedido.save()
             
+            bodega_principal = Bodega.objects.principal(empresa_actual)
             for detalle_rechazado in pedido.detalles.all():
                 MovimientoInventario.objects.create(
                     empresa=empresa_actual,
                     producto=detalle_rechazado.producto,
+                    bodega=bodega_principal,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_CARTERA',
                     documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Rechazo Cartera)',
@@ -570,10 +586,12 @@ def rechazar_pedido_admin(request, pk):
             pedido.save()
 
             # Reintegro de Stock
+            bodega_principal = Bodega.objects.principal(empresa_actual)
             for detalle_rechazado in pedido.detalles.all():
                 MovimientoInventario.objects.create(
                     empresa=empresa_actual,
                     producto=detalle_rechazado.producto,
+                    bodega=bodega_principal,
                     cantidad=detalle_rechazado.cantidad, # Positivo
                     tipo_movimiento='ENTRADA_RECHAZO_ADMIN',
                     documento_referencia=f'Pedido #{pedido.numero_pedido_empresa} (Rechazo Admin)',

@@ -1,0 +1,211 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo|default:"Registrar Traslado" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-truck-loading me-2"></i> {{ titulo|default:"Registrar Traslado" }}
+            </h1>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'bodega:lista_traslados' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <form method="post" novalidate id="form-traslado">
+        {% csrf_token %}
+
+        <div class="card shadow-lg border-0 rounded-3 mb-4">
+            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> 1. Origen y Destino</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="{{ form.bodega_origen.id_for_label }}" class="form-label fw-semibold">{{ form.bodega_origen.label }}</label>
+                        {{ form.bodega_origen }}
+                        {% if form.bodega_origen.errors %}<div class="text-danger small mt-1">{{ form.bodega_origen.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.bodega_destino.id_for_label }}" class="form-label fw-semibold">{{ form.bodega_destino.label }}</label>
+                        {{ form.bodega_destino }}
+                        {% if form.bodega_destino.errors %}<div class="text-danger small mt-1">{{ form.bodega_destino.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.documento_referencia.id_for_label }}" class="form-label fw-semibold">{{ form.documento_referencia.label }}</label>
+                        {{ form.documento_referencia }}
+                    </div>
+                    <div class="col-12">
+                        <label for="{{ form.notas.id_for_label }}" class="form-label fw-semibold">{{ form.notas.label }}</label>
+                        {{ form.notas }}
+                    </div>
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger p-2 mt-3 mb-0">{{ form.non_field_errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-lg border-0 rounded-3">
+            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                <h5 class="mb-0"><i class="fas fa-boxes me-2"></i> 2. Productos a Trasladar</h5>
+            </div>
+            <div class="card-body p-3">
+                <p id="aviso-sin-origen" class="text-muted small mb-3">
+                    <i class="fas fa-info-circle me-1"></i> Selecciona primero la Bodega de Origen para ver los productos que tiene disponibles.
+                </p>
+
+                <div id="controles-productos" class="mb-3" style="display:none;">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-6">
+                            <input type="text" id="buscar-producto" class="form-control" placeholder="Filtrar por referencia, nombre, color o talla...">
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted small"><span id="contador-seleccionados">0</span> producto(s) seleccionado(s)</span>
+                        </div>
+                        <div class="col-md-3 text-md-end">
+                            <button type="button" id="btn-marcar-visibles" class="btn btn-outline-primary btn-sm rounded-pill">
+                                <i class="fas fa-check-double me-1"></i> Marcar todos los visibles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0" id="tabla-productos-traslado">
+                        <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>Producto</th>
+                                <th class="text-end" style="width: 110px;">Disponible</th>
+                                <th style="width: 130px;">Cantidad a Trasladar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpo-tabla-productos">
+                            <!-- Filas generadas dinámicamente por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-center bg-light py-3 rounded-bottom-3">
+                <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                    <i class="fas fa-save me-2"></i> Guardar Traslado (Borrador)
+                </button>
+            </div>
+        </div>
+    </form>
+
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    var urlBase = "{% url 'bodega:api_productos_con_stock_bodega' %}";
+    var $bodegaOrigen = $('#{{ form.bodega_origen.id_for_label }}');
+    var $aviso = $('#aviso-sin-origen');
+    var $controles = $('#controles-productos');
+    var $cuerpoTabla = $('#cuerpo-tabla-productos');
+    var $buscar = $('#buscar-producto');
+    var $contador = $('#contador-seleccionados');
+
+    function actualizarContador() {
+        $contador.text($cuerpoTabla.find('.chk-producto:checked').length);
+    }
+
+    function cargarProductos() {
+        var bodegaId = $bodegaOrigen.val();
+        $cuerpoTabla.empty();
+        actualizarContador();
+
+        if (!bodegaId) {
+            $aviso.text('Selecciona primero la Bodega de Origen para ver los productos que tiene disponibles.').show();
+            $controles.hide();
+            return;
+        }
+
+        $aviso.text('Cargando productos disponibles...').show();
+        $controles.hide();
+
+        $.getJSON(urlBase, {bodega_id: bodegaId}, function(data) {
+            var productos = data.productos || [];
+
+            if (productos.length === 0) {
+                $aviso.text('Esta bodega no tiene productos con stock disponible en este momento.').show();
+                return;
+            }
+
+            $aviso.hide();
+            $controles.show();
+
+            productos.forEach(function(p) {
+                // Construimos la fila con la API de jQuery (no concatenando strings)
+                // para que las etiquetas de producto (texto libre ingresado por el
+                // usuario) nunca puedan romper el HTML o inyectar código.
+                var $fila = $('<tr>', {class: 'fila-producto-traslado'}).data('filtro', (p.label + '').toLowerCase());
+                var $chk = $('<input>', {type: 'checkbox', class: 'form-check-input chk-producto'}).data('productoId', p.id);
+                var $cantidad = $('<input>', {type: 'number', class: 'form-control form-control-sm input-cantidad', min: 1, max: p.stock, disabled: true});
+
+                $chk.on('change', function() {
+                    if ($chk.is(':checked')) {
+                        $cantidad.prop('disabled', false).val(p.stock).trigger('focus');
+                    } else {
+                        $cantidad.prop('disabled', true).val('');
+                    }
+                    actualizarContador();
+                });
+
+                $fila.append(
+                    $('<td>').append($chk),
+                    $('<td>').text(p.label),
+                    $('<td>', {class: 'text-end'}).text(p.stock),
+                    $('<td>').append($cantidad)
+                );
+
+                $cuerpoTabla.append($fila);
+            });
+        });
+    }
+
+    $bodegaOrigen.on('change', cargarProductos);
+    if ($bodegaOrigen.val()) {
+        cargarProductos();
+    }
+
+    $buscar.on('input', function() {
+        var texto = $(this).val().toLowerCase();
+        $cuerpoTabla.find('.fila-producto-traslado').each(function() {
+            var coincide = $(this).data('filtro').indexOf(texto) !== -1;
+            $(this).toggle(coincide);
+        });
+    });
+
+    $('#btn-marcar-visibles').on('click', function() {
+        $cuerpoTabla.find('.fila-producto-traslado:visible').each(function() {
+            var $chk = $(this).find('.chk-producto');
+            if (!$chk.is(':checked')) {
+                $chk.prop('checked', true).trigger('change');
+            }
+        });
+    });
+
+    // Antes de enviar, renombramos los inputs marcados a incluir_<id> / cantidad_<id>
+    // para que el backend los reciba tal como los espera.
+    $('#form-traslado').on('submit', function() {
+        $cuerpoTabla.find('.chk-producto:checked').each(function() {
+            var id = $(this).data('productoId');
+            $(this).attr('name', 'incluir_' + id);
+            $(this).closest('tr').find('.input-cantidad').attr('name', 'cantidad_' + id);
+        });
+    });
+});
+</script>
+{% endblock %}

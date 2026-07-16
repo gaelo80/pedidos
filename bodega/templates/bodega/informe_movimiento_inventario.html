@@ -12,13 +12,22 @@
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
                 <div class="col-md-6">
-                    <label for="producto-select" class="form-label fw-semibold">Producto (Requerido):</label>
-                    <select name="producto_id" id="producto-select" class="form-select select2-field" required>
-                        <option value="">--- Seleccionar un producto ---</option>
+                    <label for="producto-select" class="form-label fw-semibold">Producto:</label>
+                    <select name="producto_id" id="producto-select" class="form-select select2-field">
+                        <option value="">--- Todos los productos ---</option>
                         {% for producto in productos_list %}
                             <option value="{{ producto.pk }}" {% if filtros_activos.producto_id == producto.pk|stringformat:"s" %}selected{% endif %}>
                                 {{ producto.referencia }} - {{ producto.nombre }} ({{ producto.color|default:'-' }} - Talla {{ producto.talla|default:'-' }})
                             </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="bodega-select" class="form-label fw-semibold">Bodega:</label>
+                    <select name="bodega_id" id="bodega-select" class="form-select">
+                        <option value="">--- Todas las bodegas ---</option>
+                        {% for bodega in bodegas_list %}
+                            <option value="{{ bodega.pk }}" {% if filtros_activos.bodega_id == bodega.pk|stringformat:"s" %}selected{% endif %}>{{ bodega.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -39,7 +48,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-6 text-end">
+                <div class="col-md-12 text-end">
                     <a href="{% url 'bodega:informe_movimiento_inventario' %}" class="btn btn-outline-secondary">Limpiar</a>
                     <button type="submit" class="btn btn-primary px-4">Buscar</button>
                 </div>
@@ -47,11 +56,18 @@
         </div>
     </div>
 
-    {% if producto_seleccionado %}
+    {% if producto_seleccionado or bodega_seleccionada %}
         <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between">
-                <span>Resultados para: <strong>{{ producto_seleccionado.nombre }} ({{ producto_seleccionado.referencia }})</strong></span>
+            <div class="card-header d-flex justify-content-between flex-wrap">
+                <span>
+                    Resultados para:
+                    {% if producto_seleccionado %}<strong>{{ producto_seleccionado.nombre }} ({{ producto_seleccionado.referencia }})</strong>{% endif %}
+                    {% if producto_seleccionado and bodega_seleccionada %} — {% endif %}
+                    {% if bodega_seleccionada %}<strong>{{ bodega_seleccionada.nombre }}</strong>{% endif %}
+                </span>
+                {% if producto_seleccionado and not bodega_seleccionada %}
                 <span>Stock Actual: <strong class="fs-5">{{ stock_actual_calculado|intcomma }}</strong></span>
+                {% endif %}
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -59,6 +75,8 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Fecha y Hora</th>
+                                {% if not producto_seleccionado %}<th>Producto</th>{% endif %}
+                                {% if not bodega_seleccionada %}<th>Bodega</th>{% endif %}
                                 <th>Tipo de Movimiento</th>
                                 <th class="text-center">Cantidad</th>
                                 <th>Usuario</th>
@@ -69,6 +87,8 @@
                             {% for movimiento in movimientos_list %}
                             <tr>
                                 <td>{{ movimiento.fecha_hora|date:"Y-m-d H:i" }}</td>
+                                {% if not producto_seleccionado %}<td>{{ movimiento.producto.referencia }} - {{ movimiento.producto.nombre }}</td>{% endif %}
+                                {% if not bodega_seleccionada %}<td>{{ movimiento.bodega.nombre|default:"-" }}</td>{% endif %}
                                 <td>{{ movimiento.get_tipo_movimiento_display }}</td>
                                 <td class="text-center {% if movimiento.cantidad > 0 %}text-success{% else %}text-danger{% endif %}">
                                     <strong>{{ movimiento.cantidad|intcomma }}</strong>
@@ -78,7 +98,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">No se encontraron movimientos para los filtros seleccionados.</td>
+                                <td colspan="6" class="text-center text-muted py-4">No se encontraron movimientos para los filtros seleccionados.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -86,10 +106,10 @@
                 </div>
             </div>
         </div>
-    {% elif filtros_activos.producto_id %}
-         <div class="alert alert-warning">No se encontró un producto con el ID seleccionado.</div>
+    {% elif filtros_activos.producto_id or filtros_activos.bodega_id %}
+         <div class="alert alert-warning">No se encontró un producto o bodega con el ID seleccionado.</div>
     {% else %}
-        <div class="alert alert-info text-center">Por favor, seleccione un producto para generar el informe.</div>
+        <div class="alert alert-info text-center">Por favor, seleccione un producto y/o una bodega para generar el informe.</div>
     {% endif %}
 
 </div>

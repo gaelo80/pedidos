@@ -100,6 +100,7 @@ class DevolucionCliente(models.Model):
 class DetalleDevolucion(models.Model):
     """Representa un producto específico dentro de una devolución."""
     ESTADO_PRODUCTO_DEVOLUCION_CHOICES = [
+        ('PENDIENTE', 'Pendiente de Revisión en Bodega'),
         ('BUENO', 'Buen estado (Reingresa a stock)'),
         ('DEFECTUOSO', 'Defectuoso (Revisión/Reparación)'),
         ('DESECHAR', 'Para Desechar'),
@@ -130,10 +131,11 @@ class DetalleDevolucion(models.Model):
     
     
     estado_producto = models.CharField(
-        max_length=15, 
-        choices=ESTADO_PRODUCTO_DEVOLUCION_CHOICES, 
-        default='BUENO', 
-        verbose_name="Estado del Producto Devuelto"
+        max_length=15,
+        choices=ESTADO_PRODUCTO_DEVOLUCION_CHOICES,
+        default='PENDIENTE',
+        verbose_name="Estado del Producto Devuelto",
+        help_text="Lo define el vendedor al crear la devolución; Bodega lo revisa físicamente y lo confirma al recibirla."
     )
     
     def clean(self):

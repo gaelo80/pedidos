@@ -3,7 +3,8 @@
 from import_export import resources, fields
 from import_export.instance_loaders import ModelInstanceLoader
 from import_export.widgets import ForeignKeyWidget, BooleanWidget
-from clientes.models import Empresa 
+from clientes.models import Empresa
+from bodega.models import Bodega
 from .models import Producto
 
 
@@ -35,6 +36,12 @@ class ProductoResource(resources.ModelResource):
         widget=BooleanWidget()
     )
 
+    ubicacion = fields.Field(
+        column_name='ubicacion',
+        attribute='ubicacion',
+        widget=ForeignKeyWidget(Bodega, 'codigo')
+    )
+
     def __init__(self, empresa=None, **kwargs):
         super().__init__(**kwargs)
         if not empresa:
@@ -61,7 +68,13 @@ class ProductoResource(resources.ModelResource):
             row['permitir_preventa'] = '1'
         else:
             row['permitir_preventa'] = '0'
-        
+
+        ubicacion_val = row.get('ubicacion')
+        if not ubicacion_val or str(ubicacion_val).strip() == '':
+            bodega_principal = Bodega.objects.filter(empresa=self.empresa_actual, es_principal=True).first()
+            row['ubicacion'] = bodega_principal.codigo if bodega_principal else None
+
+
     def get_queryset(self):
         return self.Meta.model.objects.filter(empresa=self.empresa_actual)
 

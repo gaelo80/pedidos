@@ -13,7 +13,7 @@
             <h1 class="display-6 fw-bold mb-1 text-primary">
                 <i class="fas fa-boxes me-2"></i> Gestión de Productos
             </h1>
-            <p class="lead text-secondary mb-0">Listado de variantes registradas.</p>
+            <p class="lead text-secondary mb-0">Una fila por referencia y color — dale a "Editar" para ver y modificar todas sus tallas juntas.</p>
         </div>
         <div class="col-md-5 text-md-end mt-3 mt-md-0">
             <a href="{% url 'productos:producto_crear' %}" class="btn btn-success btn-lg rounded-pill shadow-sm me-1">
@@ -59,11 +59,10 @@
                         <caption class="text-end fw-bold text-muted">Total: {{ page_obj.paginator.count|default:productos|length|intcomma }}</caption>
                         <thead class="table-group-divider">
                             <tr class="table-primary">
-                                <th>ID</th>
                                 <th>Referencia</th>
                                 <th>Nombre Producto</th>
-                                <th>Talla</th>
                                 <th>Color</th>
+                                <th>Tallas Disponibles</th>
                                 <th>Género</th>
                                 <th class="text-end">Precio Venta</th>
                                 <th class="text-center">Activo</th>
@@ -73,11 +72,15 @@
                         <tbody>
                             {% for producto_item in productos %}
                                 <tr>
-                                    <td>{{ producto_item.pk }}</td>
                                     <td>{{ producto_item.referencia }}</td>
                                     <td><a href="{% url 'productos:producto_detalle' producto_item.pk %}">{{ producto_item.nombre }}</a></td>
-                                    <td>{{ producto_item.talla|default:"N/A" }}</td>
                                     <td>{{ producto_item.color|default:"N/A" }}</td>
+                                    <td>
+                                        {% for talla in producto_item.tallas_disponibles %}
+                                            <span class="badge bg-secondary rounded-pill">{{ talla|default:"N/A" }}</span>
+                                        {% endfor %}
+                                        <span class="text-muted small d-block mt-1">{{ producto_item.total_tallas }} talla{{ producto_item.total_tallas|pluralize }}</span>
+                                    </td>
                                     <td>{{ producto_item.get_genero_display }}</td>
                                     <td class="text-end">${{ producto_item.precio_venta|floatformat:2|intcomma }}</td>
                                     <td class="text-center">
@@ -91,11 +94,8 @@
                                         <a href="{% url 'productos:producto_detalle' producto_item.pk %}" class="btn btn-outline-info btn-sm rounded-pill" title="Ver Detalles">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{% url 'productos:producto_editar' producto_item.pk %}" class="btn btn-outline-warning btn-sm rounded-pill" title="Editar">
+                                        <a href="{% url 'productos:producto_editar' producto_item.pk %}" class="btn btn-outline-warning btn-sm rounded-pill" title="Editar todas las tallas">
                                             <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a href="{% url 'productos:producto_eliminar' producto_item.pk %}" class="btn btn-outline-danger btn-sm rounded-pill" title="Eliminar">
-                                            <i class="fas fa-trash-alt"></i>
                                         </a>
                                     </td>
                                 </tr>

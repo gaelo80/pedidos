@@ -4,16 +4,69 @@
 
 {% block page_title %}{{ titulo|default:"Subir Fotos para Artículos" }} {% endblock %}
 
-{% block content %}
-<div class="mb-5">
+{% block extra_head %}
+<style>
+    .fila-referencia-fotos {
+        border-bottom: 1px solid var(--bs-border-color);
+        padding: 1rem 0;
+    }
+    .fila-referencia-fotos:last-child {
+        border-bottom: none;
+    }
+    .miniaturas-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        min-height: 70px;
+    }
+    .miniatura-item {
+        position: relative;
+        width: 70px;
+        height: 70px;
+        cursor: grab;
+    }
+    .miniatura-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 0.4rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    .miniatura-item.sortable-ghost {
+        opacity: 0.4;
+    }
+    .miniatura-item .btn-borrar-foto {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        line-height: 18px;
+        border-radius: 50%;
+        font-size: 0.7rem;
+    }
+    .miniatura-item .badge-orden {
+        position: absolute;
+        bottom: 2px;
+        left: 2px;
+        font-size: 0.65rem;
+        opacity: 0.85;
+    }
+</style>
+{% endblock extra_head %}
 
-    {# ---------- Encabezado ---------- #}
+{% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
     <div class="row align-items-center mb-4">
         <div class="col-md-8">
             <h1 class="display-6 fw-bold mb-1 text-primary">
                 <i class="fas fa-images me-2"></i> Subir Fotos de Productos
             </h1>
-            <p class="lead text-secondary mb-0">Gestiona las fotos agrupadas por referencia y color.</p>
+            <p class="lead text-secondary mb-0">
+                Busca una referencia, selecciona las imágenes y arrastra las miniaturas para ordenarlas.
+            </p>
         </div>
         <div class="col-md-4 text-md-end mt-3 mt-md-0">
             <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
@@ -22,198 +75,209 @@
         </div>
     </div>
 
-    <form method="post" enctype="multipart/form-data" id="foto-upload-form">
-        {% csrf_token %}
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-body p-3">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-md-9">
+                    <input type="text" name="q" class="form-control" placeholder="Buscar por referencia, color o nombre..." value="{{ query }}">
+                </div>
+                <div class="col-md-3 d-grid gap-2 d-md-flex">
+                    <button type="submit" class="btn btn-primary rounded-pill shadow-sm">
+                        <i class="fas fa-search me-2"></i> Buscar
+                    </button>
+                    {% if query %}
+                    <a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="btn btn-outline-secondary rounded-pill shadow-sm">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 
-        {# ---------- Paso 1: Seleccionar agrupación ---------- #}
-        <div class="card shadow-lg border-0 rounded-3 mb-4">
-            <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
-                <h5 class="mb-0"><i class="fas fa-search me-2"></i> 1. Seleccionar Referencia y Color</h5>
-            </div>
-            <div class="card-body p-4">
-                <label for="{{ form.articulo_color.id_for_label }}" class="form-label fw-semibold">
-                    {{ form.articulo_color.label }}
-                </label>
-                {{ form.articulo_color }}
-                {% if form.articulo_color.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.articulo_color.errors %}{{ error }}<br>{% endfor %}
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i> Referencias y Colores</h5>
+        </div>
+        <div class="card-body p-3">
+            {% for agrupacion in page_obj.object_list %}
+            <div class="fila-referencia-fotos row g-3 align-items-start"
+                 data-referencia-color-id="{{ agrupacion.pk }}"
+                 data-upload-url="{% url 'productos:subir_fotos_referencia_ajax' agrupacion.pk %}">
+                <div class="col-md-3">
+                    <div class="fw-semibold">{{ agrupacion.referencia_base }}</div>
+                    <div class="text-muted small">{{ agrupacion.color|default:"Sin color" }}</div>
+                    <span class="badge rounded-pill mt-1 badge-contador-fotos {% if agrupacion.fotos_agrupadas.all|length > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                        {{ agrupacion.fotos_agrupadas.all|length }} foto{{ agrupacion.fotos_agrupadas.all|length|pluralize }}
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <input type="file" class="form-control form-control-sm input-seleccionar-imagenes" accept="image/*" multiple>
+                    <div class="progress mt-1 barra-progreso-subida" style="height: 4px; display:none;">
+                        <div class="progress-bar" style="width: 0%;"></div>
                     </div>
-                {% endif %}
-                {% if form.articulo_color.help_text %}
-                    <div class="form-text">{{ form.articulo_color.help_text }}</div>
-                {% endif %}
-            </div>
-        </div>
-
-        {# ---------- Paso 2: Subir nuevas fotos ---------- #}
-        <div class="card shadow-lg border-0 rounded-3 mb-4">
-            <div class="card-header bg-gradient bg-success text-white py-3 rounded-top-3">
-                <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2"></i> 2. Subir Nuevas Fotos</h5>
-            </div>
-            <div class="card-body p-4">
-                <div class="mb-3">
-                    <label for="{{ form.imagenes.id_for_label }}" class="form-label fw-semibold">
-                        {{ form.imagenes.label }}
-                    </label>
-                    {{ form.imagenes }}
-                    {% if form.imagenes.errors %}
-                        <div class="text-danger small mt-1">
-                            {% for error in form.imagenes.errors %}{{ error }}<br>{% endfor %}
-                        </div>
-                    {% endif %}
-                    {% if form.imagenes.help_text %}
-                        <div class="form-text">{{ form.imagenes.help_text }}</div>
-                    {% endif %}
                 </div>
-
-                {# Previsualización de imágenes nuevas (antes de subir) #}
-                <div id="preview-nuevas" class="row row-cols-2 row-cols-md-4 g-3 mb-3"></div>
-
-                <div class="mb-0">
-                    <label for="{{ form.descripcion_general.id_for_label }}" class="form-label fw-semibold">
-                        {{ form.descripcion_general.label }}
-                    </label>
-                    {{ form.descripcion_general }}
-                    {% if form.descripcion_general.errors %}
-                        <div class="text-danger small mt-1">
-                            {% for error in form.descripcion_general.errors %}{{ error }}<br>{% endfor %}
+                <div class="col-md-6">
+                    <div class="miniaturas-container" id="miniaturas-{{ agrupacion.pk }}">
+                        {% for foto in agrupacion.fotos_agrupadas.all %}
+                        <div class="miniatura-item" data-foto-id="{{ foto.pk }}" title="Arrastra para reordenar">
+                            <img src="{{ foto.imagen.url }}" alt="Foto">
+                            <span class="badge bg-dark badge-orden">{{ forloop.counter }}</span>
+                            <button type="button" class="btn btn-danger btn-borrar-foto" title="Eliminar foto">&times;</button>
                         </div>
-                    {% endif %}
-                    {% if form.descripcion_general.help_text %}
-                        <div class="form-text">{{ form.descripcion_general.help_text }}</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        {# ---------- Paso 3: Fotos existentes ---------- #}
-        <div id="fotos-existentes-section" class="card shadow-lg border-0 rounded-3 mb-4"
-             style="display: {% if formset or fotos_existentes %}block{% else %}none{% endif %};">
-            <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
-                <h5 class="mb-0"><i class="fas fa-photo-video me-2"></i> 3. Fotos Existentes de esta Agrupación</h5>
-            </div>
-            <div class="card-body p-4">
-                <div id="formset-container">
-                    {{ formset.management_form }}
-                    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
-                        {% for sub_form in formset %}
-                            <div class="col" id="foto-form-{{ forloop.counter0 }}">
-                                <div class="card h-100 shadow-sm border-0 rounded-3">
-                                    <div class="card-body d-flex flex-column">
-                                        {% if sub_form.instance.imagen %}
-                                            <img src="{{ sub_form.instance.imagen.url }}" class="img-fluid mb-2 rounded" alt="Foto de Producto" style="max-height: 150px; object-fit: cover; width: 100%;">
-                                        {% else %}
-                                            <div class="text-center text-muted mb-2 py-4 border rounded">Sin imagen</div>
-                                        {% endif %}
-
-                                        <div class="mb-2">
-                                            <label for="{{ sub_form.imagen.id_for_label }}" class="form-label small fw-semibold">Cambiar imagen:</label>
-                                            {{ sub_form.imagen }}
-                                            {% for error in sub_form.imagen.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                        </div>
-                                        <div class="mb-2">
-                                            <label for="{{ sub_form.descripcion_foto.id_for_label }}" class="form-label small fw-semibold">Descripción:</label>
-                                            {{ sub_form.descripcion_foto }}
-                                            {% for error in sub_form.descripcion_foto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                        </div>
-                                        <div class="mb-2" style="max-width: 120px;">
-                                            <label for="{{ sub_form.orden.id_for_label }}" class="form-label small fw-semibold">Orden:</label>
-                                            {{ sub_form.orden }}
-                                            {% for error in sub_form.orden.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                        </div>
-
-                                        {{ sub_form.id }}
-
-                                        <div class="form-check mt-auto pt-2 border-top">
-                                            {{ sub_form.DELETE }}
-                                            <label class="form-check-label text-danger" for="{{ sub_form.DELETE.id_for_label }}">
-                                                Eliminar foto
-                                            </label>
-                                            {% for error in sub_form.DELETE.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         {% endfor %}
                     </div>
                 </div>
             </div>
+            {% empty %}
+            <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0">
+                <i class="fas fa-info-circle me-2"></i> No se encontraron referencias que coincidan con la búsqueda.
+            </div>
+            {% endfor %}
         </div>
+    </div>
 
-        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
-                <i class="fas fa-save me-2"></i> Guardar Fotos y Cambios
-            </button>
-        </div>
-    </form>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?q={{ query }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
 </div>
 {% endblock content %}
 
 {% block extra_scripts %}
 {{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const $select = $('#id_articulo_color');
-        const fotosExistentesSection = document.getElementById('fotos-existentes-section');
-        const formsetContainer = document.getElementById('formset-container');
-        const fotoUploadForm = document.getElementById('foto-upload-form');
-        const inputImagenes = document.getElementById('{{ form.imagenes.id_for_label }}');
-        const previewNuevas = document.getElementById('preview-nuevas');
-        const getFotosUrl = "{% url 'productos:producto_subir_fotos_agrupadas' %}";
+$(document).ready(function() {
+    var csrfToken = '{{ csrf_token }}';
+    var urlReordenar = "{% url 'productos:reordenar_fotos_ajax' %}";
 
-        // 1. Convertir el select en un buscador (Select2, ya cargado en base.html)
-        $select.addClass('form-select').select2({
-            theme: 'bootstrap-5',
-            placeholder: 'Escribe una referencia o color para buscar...',
-            allowClear: true,
-            width: '100%'
+    function actualizarContador($fila) {
+        var total = $fila.find('.miniatura-item').length;
+        var $badge = $fila.find('.badge-contador-fotos');
+        $badge.text(total + ' foto' + (total === 1 ? '' : 's'));
+        $badge.toggleClass('bg-success', total > 0).toggleClass('bg-secondary', total === 0);
+    }
+
+    function agregarMiniatura($contenedor, foto) {
+        var $item = $('<div>', {class: 'miniatura-item', title: 'Arrastra para reordenar'}).data('fotoId', foto.id).attr('data-foto-id', foto.id);
+        $item.append($('<img>', {src: foto.url, alt: 'Foto'}));
+        $item.append($('<span>', {class: 'badge bg-dark badge-orden'}));
+        $item.append($('<button>', {type: 'button', class: 'btn btn-danger btn-borrar-foto', title: 'Eliminar foto'}).html('&times;'));
+        $contenedor.append($item);
+    }
+
+    function renumerarBadges($contenedor) {
+        $contenedor.find('.miniatura-item').each(function(index) {
+            $(this).find('.badge-orden').text(index + 1);
+        });
+    }
+
+    function urlEliminarFoto(fotoId) {
+        return '/productos/fotos/' + fotoId + '/eliminar/';
+    }
+
+    // --- Subida de imágenes por fila (AJAX, al seleccionar archivos) ---
+    $('.input-seleccionar-imagenes').on('change', function() {
+        var $input = $(this);
+        var $fila = $input.closest('.fila-referencia-fotos');
+        var uploadUrl = $fila.data('uploadUrl');
+        var $contenedor = $fila.find('.miniaturas-container');
+        var $barra = $fila.find('.barra-progreso-subida');
+
+        var archivos = this.files;
+        if (!archivos.length) { return; }
+
+        var formData = new FormData();
+        Array.from(archivos).forEach(function(file) {
+            formData.append('imagenes', file);
         });
 
-        // 2. Al elegir una agrupación, recargar trayendo sus fotos existentes
-        $select.on('change', function() {
-            const agrupacionId = this.value;
-            if (!agrupacionId) {
-                fotosExistentesSection.style.display = 'none';
-                return;
-            }
-            formsetContainer.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Cargando fotos...</p></div>';
-            fotosExistentesSection.style.display = 'block';
-            window.location.href = `${getFotosUrl}?agrupacion_id=${agrupacionId}`;
-        });
+        $barra.show().find('.progress-bar').css('width', '30%');
 
-        // 3. Previsualizar las imágenes nuevas antes de subirlas
-        if (inputImagenes) {
-            inputImagenes.addEventListener('change', function() {
-                previewNuevas.innerHTML = '';
-                Array.from(this.files).forEach(function(file) {
-                    if (!file.type.startsWith('image/')) return;
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const col = document.createElement('div');
-                        col.className = 'col';
-                        col.innerHTML = `
-                            <div class="card h-100 shadow-sm border-0 rounded-3">
-                                <img src="${e.target.result}" class="img-fluid rounded-top" style="height:120px; object-fit:cover; width:100%;">
-                                <div class="card-body p-2">
-                                    <small class="text-muted text-truncate d-block" title="${file.name}">${file.name}</small>
-                                </div>
-                            </div>`;
-                        previewNuevas.appendChild(col);
-                    };
-                    reader.readAsDataURL(file);
+        fetch(uploadUrl, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            $barra.find('.progress-bar').css('width', '100%');
+            if (data.status === 'ok') {
+                data.fotos.forEach(function(foto) {
+                    agregarMiniatura($contenedor, foto);
                 });
-            });
-        }
+                renumerarBadges($contenedor);
+                actualizarContador($fila);
+            } else {
+                alert('Error al subir las imágenes: ' + (data.msg || 'desconocido'));
+            }
+            $input.val('');
+            setTimeout(function() { $barra.hide().find('.progress-bar').css('width', '0%'); }, 600);
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Error al subir las imágenes.');
+            $barra.hide();
+        });
+    });
 
-        // 4. Evitar enviar sin agrupación seleccionada
-        fotoUploadForm.addEventListener('submit', function(event) {
-            if (!$select.val()) {
-                alert('Por favor, selecciona una referencia y color antes de guardar las fotos.');
-                event.preventDefault();
-                $select.select2('open');
+    // --- Eliminar una foto puntual ---
+    $(document).on('click', '.btn-borrar-foto', function() {
+        if (!confirm('¿Eliminar esta foto?')) { return; }
+        var $item = $(this).closest('.miniatura-item');
+        var $fila = $item.closest('.fila-referencia-fotos');
+        var fotoId = $item.data('fotoId');
+
+        fetch(urlEliminarFoto(fotoId), {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken}
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                var $contenedor = $item.closest('.miniaturas-container');
+                $item.remove();
+                renumerarBadges($contenedor);
+                actualizarContador($fila);
+            } else {
+                alert('No se pudo eliminar la foto.');
             }
         });
     });
+
+    // --- Arrastrar para reordenar (Sortable.js) ---
+    document.querySelectorAll('.miniaturas-container').forEach(function(contenedor) {
+        new Sortable(contenedor, {
+            animation: 150,
+            onEnd: function() {
+                var $contenedor = $(contenedor);
+                renumerarBadges($contenedor);
+                var referenciaColorId = $contenedor.closest('.fila-referencia-fotos').data('referenciaColorId');
+                var ordenIds = $contenedor.find('.miniatura-item').map(function() { return $(this).data('fotoId'); }).get();
+
+                fetch(urlReordenar, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                    body: JSON.stringify({referencia_color_id: referenciaColorId, orden: ordenIds})
+                })
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    if (data.status !== 'ok') {
+                        alert('No se pudo guardar el nuevo orden.');
+                    }
+                });
+            }
+        });
+    });
+});
 </script>
-{% endblock extra_scripts %}
+{% endblock %}

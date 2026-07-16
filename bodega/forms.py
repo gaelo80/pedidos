@@ -6,6 +6,8 @@ from django.utils import timezone
 from django.forms import BaseInlineFormSet
 from django.forms import inlineformset_factory
 from .models import CambioProducto
+from .models import Bodega, AccesoBodega, TrasladoBodega
+from django.contrib.auth import get_user_model
 
 
 class IngresoBodegaForm(forms.ModelForm):
@@ -32,19 +34,27 @@ class IngresoBodegaForm(forms.ModelForm):
         model = IngresoBodega
         # Campos a mostrar en el formulario de cabecera
         # Excluimos fecha_hora y usuario (se asignan en la vista)
-        fields = ['proveedor_info', 'documento_referencia', 'notas']
-        
+        fields = ['bodega', 'proveedor_info', 'documento_referencia', 'notas']
+        widgets = {
+            'bodega': forms.Select(attrs={'class': 'form-select'}),
+        }
+
     def __init__(self, *args, **kwargs):
         """
         Este método se personaliza para manejar argumentos extra enviados desde la vista.
         """
-        # Capturamos y eliminamos el argumento 'empresa' que nos envía la vista.
-        # Aunque no usemos la variable 'empresa' directamente en este formulario,
-        # es crucial removerla de 'kwargs' para evitar el TypeError.
         empresa = kwargs.pop('empresa', None)
 
-        # Llamamos al constructor padre con los argumentos ya "limpios".
         super().__init__(*args, **kwargs)
+
+        if empresa:
+            self.fields['bodega'].queryset = Bodega.objects.filter(empresa=empresa, activa=True).order_by('orden', 'nombre')
+            if not self.instance.pk and not self.initial.get('bodega'):
+                bodega_principal = Bodega.objects.filter(empresa=empresa, es_principal=True).first()
+                if bodega_principal:
+                    self.initial['bodega'] = bodega_principal.pk
+        else:
+            self.fields['bodega'].queryset = Bodega.objects.none()
 
 
 # --- NUEVO: Formulario para UNA línea de Detalle de Ingreso ---
@@ -138,17 +148,31 @@ class SalidaInternaCabeceraForm(forms.ModelForm):
     class Meta:
         model = SalidaInternaCabecera
         fields = [
-            'tipo_salida', 'destino_descripcion', 
-            'documento_referencia_externo', 'fecha_prevista_devolucion', 
+            'bodega_origen', 'tipo_salida', 'destino_descripcion',
+            'documento_referencia_externo', 'fecha_prevista_devolucion',
             'observaciones_salida'
         ]
         widgets = {
+            'bodega_origen': forms.Select(attrs={'class': 'form-select'}),
             'tipo_salida': forms.Select(attrs={'class': 'form-select'}),
             'destino_descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Vendedor Juan Pérez, Tienda Centro'}),
             'documento_referencia_externo': forms.TextInput(attrs={'class': 'form-control'}),
             'fecha_prevista_devolucion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'observaciones_salida': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        if empresa:
+            self.fields['bodega_origen'].queryset = Bodega.objects.filter(empresa=empresa, activa=True).order_by('orden', 'nombre')
+            if not self.instance.pk and not self.initial.get('bodega_origen'):
+                bodega_principal = Bodega.objects.filter(empresa=empresa, es_principal=True).first()
+                if bodega_principal:
+                    self.initial['bodega_origen'] = bodega_principal.pk
+        else:
+            self.fields['bodega_origen'].queryset = Bodega.objects.none()
 
 class SalidaInternaDetalleForm(forms.ModelForm):
     class Meta:
@@ -309,4 +333,107 @@ class CambioProductoForm(forms.ModelForm):
                     f"No hay stock suficiente para '{producto_saliente}'. "
                     f"Stock actual: {producto_saliente.stock_actual}, se solicitan: {cantidad_saliente}."
                 ))
+        return cleaned_data
+
+
+class BodegaForm(forms.ModelForm):
+    class Meta:
+        model = Bodega
+        fields = [
+            'nombre', 'codigo', 'tipo', 'es_principal', 'activa',
+            'requiere_confirmacion_recepcion',
+            'disponible_venta_estandar', 'disponible_venta_online', 'disponible_venta_web',
+            'direccion', 'notas', 'orden', 'responsable',
+        ]
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'codigo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: PRINCIPAL, SALDOS-01'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'direccion': forms.TextInput(attrs={'class': 'form-control'}),
+            'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'responsable': forms.Select(attrs={'class': 'form-select'}),
+            'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'requiere_confirmacion_recepcion': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'disponible_venta_estandar': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'disponible_venta_online': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'disponible_venta_web': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        self.empresa = empresa
+        User = get_user_model()
+        if empresa:
+            self.fields['responsable'].queryset = User.objects.filter(empresa=empresa, is_active=True).order_by('username')
+        else:
+            self.fields['responsable'].queryset = User.objects.none()
+        self.fields['responsable'].required = False
+
+    def clean_es_principal(self):
+        es_principal = self.cleaned_data.get('es_principal')
+        if es_principal and self.empresa:
+            ya_existe_otra_principal = Bodega.objects.filter(
+                empresa=self.empresa, es_principal=True
+            ).exclude(pk=self.instance.pk).exists()
+            if ya_existe_otra_principal:
+                raise forms.ValidationError(
+                    "Ya existe otra Bodega Principal para esta empresa. "
+                    "Primero quítale la marca de 'Principal' a la actual antes de asignarla aquí."
+                )
+        return es_principal
+
+
+class AccesoBodegaForm(forms.ModelForm):
+    class Meta:
+        model = AccesoBodega
+        fields = ['usuario', 'bodega', 'nivel']
+        widgets = {
+            'usuario': forms.Select(attrs={'class': 'form-select'}),
+            'bodega': forms.Select(attrs={'class': 'form-select'}),
+            'nivel': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        User = get_user_model()
+        if empresa:
+            self.fields['usuario'].queryset = User.objects.filter(empresa=empresa, is_active=True).order_by('username')
+            self.fields['bodega'].queryset = Bodega.objects.filter(empresa=empresa).order_by('orden', 'nombre')
+        else:
+            self.fields['usuario'].queryset = User.objects.none()
+            self.fields['bodega'].queryset = Bodega.objects.none()
+
+
+class TrasladoBodegaForm(forms.ModelForm):
+    class Meta:
+        model = TrasladoBodega
+        fields = ['bodega_origen', 'bodega_destino', 'documento_referencia', 'notas']
+        widgets = {
+            'bodega_origen': forms.Select(attrs={'class': 'form-select'}),
+            'bodega_destino': forms.Select(attrs={'class': 'form-select'}),
+            'documento_referencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        if empresa:
+            qs = Bodega.objects.filter(empresa=empresa, activa=True).order_by('orden', 'nombre')
+            self.fields['bodega_origen'].queryset = qs
+            self.fields['bodega_destino'].queryset = qs
+        else:
+            self.fields['bodega_origen'].queryset = Bodega.objects.none()
+            self.fields['bodega_destino'].queryset = Bodega.objects.none()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        origen = cleaned_data.get('bodega_origen')
+        destino = cleaned_data.get('bodega_destino')
+        if origen and destino and origen.pk == destino.pk:
+            self.add_error('bodega_destino', "La bodega de destino debe ser diferente a la de origen.")
         return cleaned_data

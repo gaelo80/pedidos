@@ -354,6 +354,18 @@
                             <li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}">Inventario Físico</a></li>
                             <li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Informe de Ingresos</a></li>
                         {% endif %}
+                        {% if es_bodega or es_administracion %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'bodega:lista_traslados' %}"><i class="fas fa-truck-loading me-1"></i> Traslados entre Bodegas</a></li>
+                            <li><a class="dropdown-item" href="{% url 'bodega:informe_inventario_comparativo' %}"><i class="fas fa-columns me-1"></i> Comparativo de Stock por Bodega</a></li>
+                        {% endif %}
+                        {% if es_bodega or es_administracion or es_diseno %}
+                            <li><a class="dropdown-item" href="{% url 'bodega:consulta_stock_bodega' %}"><i class="fas fa-bolt me-1"></i> Consulta Rápida de Stock por Bodega</a></li>
+                        {% endif %}
+                        {% if es_administracion %}
+                            <li><a class="dropdown-item" href="{% url 'bodega:lista_bodegas' %}"><i class="fas fa-warehouse me-1"></i> Administrar Bodegas</a></li>
+                            <li><a class="dropdown-item" href="{% url 'bodega:lista_accesos_bodega' %}"><i class="fas fa-user-shield me-1"></i> Accesos por Bodega</a></li>
+                        {% endif %}
                     </ul>
                 </li>
                 {% endif %}
@@ -606,6 +618,17 @@
                             {% if es_bodega or es_administracion or es_diseno %}
                                 <a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>
                                 <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ingresos</a>
+                            {% endif %}
+                            {% if es_bodega or es_administracion %}
+                                <a href="{% url 'bodega:lista_traslados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Traslados entre Bodegas</a>
+                                <a href="{% url 'bodega:informe_inventario_comparativo' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Comparativo de Stock por Bodega</a>
+                            {% endif %}
+                            {% if es_bodega or es_administracion or es_diseno %}
+                                <a href="{% url 'bodega:consulta_stock_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Consulta Rápida de Stock por Bodega</a>
+                            {% endif %}
+                            {% if es_administracion %}
+                                <a href="{% url 'bodega:lista_bodegas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Administrar Bodegas</a>
+                                <a href="{% url 'bodega:lista_accesos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Accesos por Bodega</a>
                             {% endif %}
                         </div>
                     </div>

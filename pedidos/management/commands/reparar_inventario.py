@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from pedidos.models import Pedido
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, Bodega
 
 class Command(BaseCommand):
     help = 'Repara los movimientos de inventario omitidos en pedidos antiguos (Inflado de matriz)'
@@ -35,6 +35,7 @@ class Command(BaseCommand):
                         tipo_movimiento='SALIDA_VENTA_PENDIENTE',
                         documento_referencia=doc_ref,
                         producto=producto,
+                        bodega=Bodega.objects.principal(pedido.empresa),
                         cantidad=cantidad_a_descontar,
                         usuario=pedido.vendedor.user if pedido.vendedor else None
                     )

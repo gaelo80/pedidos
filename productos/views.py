@@ -1,5 +1,6 @@
 # productos/views.py
-from django.shortcuts import render, redirect
+import json
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView # Añadir DetailView si la necesitas
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin # Asumiendo que quieres proteger estas vistas
@@ -7,21 +8,21 @@ from django.contrib.auth.mixins import UserPassesTestMixin # Para permisos más 
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib import messages
 from django.shortcuts import redirect
-from django.db.models import Q
-from django.http import HttpResponse
-from .models import Producto, FotoProducto, ReferenciaColor 
-from .forms import ProductoForm 
+from django.db.models import Q, Prefetch, Max
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
+from django.core.paginator import Paginator
+from .models import Producto, FotoProducto, ReferenciaColor
 from django.contrib.auth.decorators import login_required, permission_required
 from core.auth_utils import es_administracion, es_diseno
-from .forms import ProductoForm, ProductoImportForm
+from .forms import ProductoImportForm
 from .resources import ProductoResource
 from tablib import Dataset
-from .forms import SeleccionarAgrupacionParaFotosForm, FotoProductoFormSet
 from core.mixins import TenantAwareMixin
 from django.contrib.auth.mixins import UserPassesTestMixin
 import logging
 from django.forms import formset_factory
-from .forms import ProductoBaseForm, ProductoTallaForm
+from .forms import ProductoBaseForm, ProductoTallaForm, ProductoTallaEditForm
 from django.db import transaction, IntegrityError
 
 
@@ -30,22 +31,33 @@ logger = logging.getLogger(__name__)
 
 
 class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """
+    Muestra UNA fila por Referencia+Color (no una por cada talla), para no
+    tener que revisar variante por variante. Al editar, se cargan todas las
+    tallas que ya existan para esa referencia+color (ver
+    'editar_producto_multi_talla').
+    """
     model = Producto
     template_name = 'productos/producto_list.html'
     context_object_name = 'productos'
     paginate_by = 15
-    
-    permission_required = 'productos.view_producto' 
+
+    permission_required = 'productos.view_producto'
     login_url = reverse_lazy('core:acceso_denegado')
-    
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver el listado de productos.")
         return redirect(self.login_url)
 
     def get_queryset(self):
+        # No usamos el bypass de superuser de TenantAwareMixin: el listado es
+        # siempre de UNA empresa, incluso para un superusuario administrando
+        # una empresa específica (de lo contrario se mezclarían productos de
+        # todas las empresas del sistema y 'Editar' terminaría apuntando a la
+        # variante de otra empresa, dando 404).
+        empresa_actual = self.request.tenant
+        queryset = Producto.objects.filter(empresa=empresa_actual)
 
-        queryset = super().get_queryset().order_by('referencia', 'nombre', 'color', 'talla')
         query = self.request.GET.get('q')
         if query:
             queryset = queryset.filter(
@@ -54,53 +66,128 @@ class ProductoListView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredM
                 Q(talla__icontains=query) |
                 Q(color__icontains=query) |
                 Q(codigo_barras__icontains=query)
-            ).distinct()
-        # RECOMENDACIÓN: Retornar el queryset modificado, no llamar a super() de nuevo.
-        return queryset
+            )
 
-    def get_context_data(self, **kwargs):        
-        context = super().get_context_data(**kwargs)
-        context['titulo_pagina'] = "Listado de Productos (Variantes)"
-        context['search_query'] = self.request.GET.get('q', '')        
-        return context
-
-class ProductoUpdateView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
-    model = Producto
-    form_class = ProductoForm
-    template_name = 'productos/producto_form.html' # Reutiliza la misma plantilla de formulario
-    success_url = reverse_lazy('productos:producto_listado')
-    success_message = "Producto (Variante) '%(referencia)s - %(nombre)s' actualizado exitosamente."
-    # permission_classes = [IsAuthenticated]
-    permission_required = 'productos.change_producto' # PERMISO REQUERIDO
-    login_url = reverse_lazy('core:acceso_denegado')
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['empresa'] = self.request.tenant
-        return kwargs
-
-    def handle_no_permission(self):
-        messages.error(self.request, "No tienes permiso para modificar productos.")
-        return redirect(self.login_url)
-
+        # Una fila representativa por Referencia+Color (Postgres DISTINCT ON).
+        return queryset.order_by('referencia', 'color', 'talla').distinct('referencia', 'color')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo_form'] = f"Editar Producto: {self.object.nombre} ({self.object.referencia})"
-        context['nombre_boton'] = "Actualizar Producto"
+        context['titulo_pagina'] = "Listado de Productos"
+        context['search_query'] = self.request.GET.get('q', '')
+
+        empresa_actual = self.request.tenant
+        productos_pagina = context['productos']
+
+        # Para cada fila representativa, calculamos cuántas tallas tiene y
+        # cuáles, para mostrarlo de un vistazo sin entrar a cada una.
+        for producto in productos_pagina:
+            variantes = Producto.objects.filter(
+                empresa=empresa_actual, referencia=producto.referencia, color=producto.color
+            ).order_by('talla').values_list('talla', flat=True)
+            producto.tallas_disponibles = list(variantes)
+            producto.total_tallas = len(producto.tallas_disponibles)
+
         return context
-    
-    def test_func(self):
-        return self.request.user.is_superuser or es_diseno(self.request.user)
+
+@login_required
+@permission_required('productos.change_producto', login_url='core:acceso_denegado')
+def editar_producto_multi_talla(request, pk):
+    """
+    Edita de una sola vez todas las tallas que comparten referencia+color con
+    el producto indicado (el mismo agrupamiento que ya usa la creación
+    multi-talla), ya que entre tallas solo cambian la talla y el código de
+    barras — el resto de la información es común.
+    """
+    empresa_actual = request.tenant
+    producto_ref = get_object_or_404(Producto, pk=pk, empresa=empresa_actual)
+
+    grupo_qs = Producto.objects.filter(
+        empresa=empresa_actual,
+        referencia=producto_ref.referencia,
+        color=producto_ref.color,
+    ).order_by('talla')
+
+    ProductoTallaEditFormSet = formset_factory(ProductoTallaEditForm, extra=3)
+
+    if request.method == 'POST':
+        base_form = ProductoBaseForm(request.POST, empresa=empresa_actual)
+        talla_formset = ProductoTallaEditFormSet(request.POST, prefix='tallas')
+
+        if base_form.is_valid() and talla_formset.is_valid():
+            datos_comunes = base_form.cleaned_data
+
+            filas_a_guardar = [
+                f.cleaned_data for f in talla_formset
+                if f.cleaned_data and f.cleaned_data.get('talla')
+            ]
+
+            if not filas_a_guardar:
+                messages.warning(request, "Debes conservar o agregar al menos una talla.")
+            else:
+                try:
+                    with transaction.atomic():
+                        for fila in filas_a_guardar:
+                            producto_id = fila.get('producto_id')
+                            if producto_id:
+                                producto_obj = get_object_or_404(Producto, pk=producto_id, empresa=empresa_actual)
+                            else:
+                                producto_obj = Producto(empresa=empresa_actual)
+
+                            producto_obj.referencia = datos_comunes['referencia']
+                            producto_obj.nombre = datos_comunes['nombre']
+                            producto_obj.descripcion = datos_comunes.get('descripcion')
+                            producto_obj.color = datos_comunes.get('color')
+                            producto_obj.genero = datos_comunes.get('genero')
+                            producto_obj.costo = datos_comunes.get('costo')
+                            producto_obj.precio_venta = datos_comunes.get('precio_venta')
+                            producto_obj.unidad_medida = datos_comunes.get('unidad_medida')
+                            producto_obj.ubicacion = datos_comunes.get('ubicacion')
+                            producto_obj.activo = datos_comunes.get('activo', True)
+                            producto_obj.permitir_preventa = datos_comunes.get('permitir_preventa', False)
+                            producto_obj.talla = fila.get('talla')
+                            producto_obj.codigo_barras = fila.get('codigo_barras') or None
+                            producto_obj.save()
+
+                    messages.success(request, f"'{datos_comunes['referencia']} - {datos_comunes['nombre']}' actualizado exitosamente para {len(filas_a_guardar)} talla(s).")
+                    return redirect('productos:producto_listado')
+
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "Error: una de las tallas (misma referencia, talla y color) ya existe, o el código de "
+                        "barras está repetido. No se guardó ningún cambio."
+                    )
+        else:
+            messages.error(request, "Por favor corrige los errores en el formulario.")
+    else:
+        base_form = ProductoBaseForm(instance=producto_ref, empresa=empresa_actual)
+        initial_tallas = [
+            {'producto_id': p.pk, 'talla': p.talla, 'codigo_barras': p.codigo_barras}
+            for p in grupo_qs
+        ]
+        talla_formset = ProductoTallaEditFormSet(initial=initial_tallas, prefix='tallas')
+
+    context = {
+        'base_form': base_form,
+        'talla_formset': talla_formset,
+        'titulo_pagina': f"Editar Producto: {producto_ref.referencia}",
+        'es_edicion': True,
+    }
+    return render(request, 'productos/producto_multi_talla_form.html', context)
 
 
 class ProductoDetailView(TenantAwareMixin, LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Producto
     template_name = 'productos/producto_detalle.html' # Necesitarás crear esta plantilla
     context_object_name = 'producto'
-    
+
     permission_required = 'productos.view_producto' # PERMISO REQUERIDO
     login_url = reverse_lazy('core:acceso_denegado')
+
+    def get_queryset(self):
+        # Ver nota en ProductoListView: nunca saltarse el filtro de empresa.
+        return Producto.objects.filter(empresa=self.request.tenant)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para ver el detalle de este producto.")
@@ -117,9 +204,13 @@ class ProductoDeleteView(TenantAwareMixin, LoginRequiredMixin, PermissionRequire
     template_name = 'productos/producto_confirm_delete.html' # Necesitarás crear esta plantilla
     success_url = reverse_lazy('productos:producto_listado')
     success_message = "Producto (Variante) eliminado exitosamente."
-     
+
     permission_required = 'productos.delete_producto' # PERMISO REQUERIDO
     login_url = reverse_lazy('core:acceso_denegado')
+
+    def get_queryset(self):
+        # Ver nota en ProductoListView: nunca saltarse el filtro de empresa.
+        return Producto.objects.filter(empresa=self.request.tenant)
 
     def handle_no_permission(self):
         messages.error(self.request, "No tienes permiso para eliminar productos.")
@@ -227,144 +318,102 @@ def producto_export_view(request, file_format='xlsx'):
 @login_required
 @permission_required('productos.upload_fotos_producto', login_url=reverse_lazy('core:acceso_denegado'))
 def subir_fotos_agrupadas_view(request):
+    """
+    Lista todas las Referencia+Color de la empresa, una fila por cada una,
+    con sus fotos en miniatura al final de la fila (o un aviso de que no
+    tiene ninguna). Cada fila permite seleccionar imágenes y subirlas al
+    instante (AJAX), y reordenar las miniaturas arrastrándolas con el mouse.
+    """
     empresa_actual = getattr(request, 'tenant', None)
-
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa desde el dominio.")
         return redirect('core:index')
 
-    fotos_existentes = []
-    formset_instance = None
-    agrupacion_id_preseleccionada = request.GET.get('agrupacion_id', None)
+    query = request.GET.get('q', '').strip()
 
-    url_to_redirect_base = reverse('productos:producto_subir_fotos_agrupadas')
+    agrupaciones_qs = ReferenciaColor.objects.filter(empresa=empresa_actual).prefetch_related(
+        Prefetch('fotos_agrupadas', queryset=FotoProducto.objects.order_by('orden'))
+    )
+    if query:
+        agrupaciones_qs = agrupaciones_qs.filter(
+            Q(referencia_base__icontains=query) | Q(color__icontains=query) | Q(nombre_display__icontains=query)
+        )
+    agrupaciones_qs = agrupaciones_qs.order_by('referencia_base', 'color')
 
-    if request.method == 'POST':
-        logger.debug("Procesando petición POST.")
-        form = SeleccionarAgrupacionParaFotosForm(request.POST, request.FILES, empresa=empresa_actual)
-
-        referencia_color_seleccionada = None
-        # Primero, intenta validar el formulario principal para obtener la agrupación
-        if form.is_valid():
-            referencia_color_seleccionada = form.cleaned_data['articulo_color']
-            logger.debug(f"Formulario principal es válido. Agrupación seleccionada: {referencia_color_seleccionada}")
-        else:
-            logger.debug(f"Formulario principal NO es válido. Errores: {form.errors.as_json()}")
-            # Si el formulario principal no es válido, intentamos cargar la agrupación
-            # desde el POST para que el formset tenga una instancia válida si es posible.
-            agrupacion_id_from_post = request.POST.get('articulo_color')
-            if agrupacion_id_from_post:
-                try:
-                    referencia_color_seleccionada = ReferenciaColor.objects.get(
-                        pk=agrupacion_id_from_post, empresa=empresa_actual
-                    )
-                    logger.debug(f"Agrupación recuperada del POST para el formset: {referencia_color_seleccionada}")
-                except ReferenciaColor.DoesNotExist:
-                    logger.warning(f"Agrupación ID {agrupacion_id_from_post} del POST no encontrada.")
-                    pass
-
-        # Inicializar el formset con o sin instancia, dependiendo de si se encontró una agrupación
-        if referencia_color_seleccionada:
-            formset_instance = FotoProductoFormSet(request.POST, request.FILES, instance=referencia_color_seleccionada, prefix='fotos')
-            logger.debug("Formset inicializado con instancia de ReferenciaColor.")
-        else:
-            # Si no hay agrupación seleccionada o el formulario principal tiene errores
-            # creamos un formset vacío pero con los datos del POST para que valide
-            formset_instance = FotoProductoFormSet(request.POST, request.FILES, prefix='fotos')
-            logger.debug("Formset inicializado sin instancia de ReferenciaColor.")
-
-        # Validar ambos, pero la lógica de subida de nuevas fotos será condicional
-        if form.is_valid() and formset_instance.is_valid():
-            logger.debug("Formulario principal y Formset son VÁLIDOS. Procediendo a guardar.")
-
-            # IMPORTANT: Re-confirmar la agrupación seleccionada si el formulario principal es válido
-            # Esto es redundante si ya se hizo arriba, pero asegura que `referencia_color_seleccionada`
-            # sea la instancia válida final para el guardado.
-            referencia_color_seleccionada = form.cleaned_data['articulo_color']
-            descripcion_general = form.cleaned_data.get('descripcion_general', '')
-            imagenes_subidas = request.FILES.getlist('imagenes')
-
-            fotos_creadas_count = 0
-            # SOLO PROCESAR NUEVAS IMÁGENES SI REALMENTE HAY ARCHIVOS SUBIDOS
-            if imagenes_subidas: # <--- CAMBIO CLAVE AQUI
-                for imagen_file in imagenes_subidas:
-                    try:
-                        FotoProducto.objects.create(
-                            referencia_color=referencia_color_seleccionada,
-                            imagen=imagen_file,
-                            descripcion_foto=descripcion_general
-                        )
-                        fotos_creadas_count += 1
-                    except Exception as e:
-                        messages.error(request, f"Error al guardar la imagen {imagen_file.name}: {e}")
-            else:
-                logger.debug("No se detectaron nuevas imágenes para subir.")
-
-            # Guardar cambios del formset (actualizar/eliminar fotos existentes)
-            try:
-                formset_instance.save()
-                if formset_instance.deleted_objects:
-                    messages.success(request, f"Se eliminaron {len(formset_instance.deleted_objects)} fotos existentes.")
-
-                # Mensaje para nuevas fotos, solo si se subieron
-                if fotos_creadas_count > 0:
-                    messages.success(request, f"¡{fotos_creadas_count} foto(s) subida(s) exitosamente para {referencia_color_seleccionada}!")
-                elif not formset_instance.deleted_objects and not formset_instance.changed_objects:
-                    # Si no se subieron nuevas fotos y no se eliminaron/cambiaron existentes
-                    messages.info(request, "No se realizaron cambios en las fotos.")
-                else:
-                    messages.info(request, "Se guardaron los cambios en las fotos existentes.") # Mensaje más general si hubo cambios en existentes
-
-            except Exception as e:
-                messages.error(request, f"Error al actualizar/eliminar fotos existentes: {e}")
-                # Si hay un error al guardar el formset, volvemos a renderizar con los errores
-                context = {
-                    'form': form,
-                    'formset': formset_instance,
-                    'titulo': f"Subir Fotos para: {empresa_actual.nombre}",
-                    'fotos_existentes': referencia_color_seleccionada.fotos_agrupadas.all() if referencia_color_seleccionada else [],
-                    'agrupacion_seleccionada_id': referencia_color_seleccionada.pk if referencia_color_seleccionada else None,
-                }
-                return render(request, 'productos/subir_fotos_agrupadas.html', context)
-
-            # Si todo fue bien, redirigimos
-            return redirect(f"{url_to_redirect_base}?agrupacion_id={referencia_color_seleccionada.pk}")
-
-        else: # Formulario principal o formset no válidos
-            logger.warning(f"Validación fallida. Errores del Formulario: {form.errors.as_json()}. Errores del Formset: {formset_instance.errors if formset_instance else 'No instanciado'}")
-            # Aseguramos que el formset se re-instancie correctamente para mostrar errores
-            if referencia_color_seleccionada and not formset_instance:
-                formset_instance = FotoProductoFormSet(request.POST, request.FILES, instance=referencia_color_seleccionada, prefix='fotos')
-            elif not referencia_color_seleccionada and not formset_instance:
-                formset_instance = FotoProductoFormSet(request.POST, request.FILES, prefix='fotos')
-            messages.error(request, "Por favor corrige los errores en el formulario.")
-
-    else: # Método GET
-        form = SeleccionarAgrupacionParaFotosForm(empresa=empresa_actual)
-
-        if agrupacion_id_preseleccionada:
-            try:
-                referencia_color_instance = ReferenciaColor.objects.get(
-                    pk=agrupacion_id_preseleccionada, empresa=empresa_actual
-                )
-                form.initial['articulo_color'] = referencia_color_instance
-                formset_instance = FotoProductoFormSet(instance=referencia_color_instance, prefix='fotos')
-                fotos_existentes = referencia_color_instance.fotos_agrupadas.all()
-            except ReferenciaColor.DoesNotExist:
-                messages.warning(request, "La agrupación de fotos seleccionada no existe o no pertenece a tu empresa.")
-                formset_instance = FotoProductoFormSet(prefix='fotos')
-        else:
-            formset_instance = FotoProductoFormSet(prefix='fotos')
+    paginator = Paginator(agrupaciones_qs, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     context = {
-        'form': form,
-        'formset': formset_instance,
-        'titulo': f"Subir Fotos para: {empresa_actual.nombre}",
-        'fotos_existentes': fotos_existentes,
-        'agrupacion_seleccionada_id': agrupacion_id_preseleccionada,
+        'titulo': f"Subir Fotos de Productos ({empresa_actual.nombre})",
+        'page_obj': page_obj,
+        'query': query,
     }
-    logger.debug("Renderizando plantilla con el contexto.")
     return render(request, 'productos/subir_fotos_agrupadas.html', context)
+
+
+@login_required
+@permission_required('productos.upload_fotos_producto', login_url='core:acceso_denegado')
+@require_POST
+def subir_fotos_referencia_ajax(request, referencia_color_id):
+    """Sube una o varias fotos para una Referencia+Color específica (AJAX)."""
+    empresa_actual = getattr(request, 'tenant', None)
+    referencia_color = get_object_or_404(ReferenciaColor, pk=referencia_color_id, empresa=empresa_actual)
+
+    imagenes = request.FILES.getlist('imagenes')
+    if not imagenes:
+        return JsonResponse({'status': 'error', 'msg': 'No se recibió ninguna imagen.'}, status=400)
+
+    orden_actual = referencia_color.fotos_agrupadas.aggregate(m=Max('orden'))['m']
+    siguiente_orden = (orden_actual + 1) if orden_actual is not None else 0
+
+    fotos_creadas = []
+    for imagen_file in imagenes:
+        foto = FotoProducto.objects.create(
+            referencia_color=referencia_color,
+            imagen=imagen_file,
+            orden=siguiente_orden,
+        )
+        siguiente_orden += 1
+        fotos_creadas.append({'id': foto.pk, 'url': foto.imagen.url, 'orden': foto.orden})
+
+    return JsonResponse({'status': 'ok', 'fotos': fotos_creadas})
+
+
+@login_required
+@permission_required('productos.upload_fotos_producto', login_url='core:acceso_denegado')
+@require_POST
+def reordenar_fotos_ajax(request):
+    """Recibe el nuevo orden (lista de IDs de FotoProducto) tras arrastrar las miniaturas."""
+    empresa_actual = getattr(request, 'tenant', None)
+    try:
+        data = json.loads(request.body)
+        referencia_color_id = data['referencia_color_id']
+        orden_ids = data['orden']
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({'status': 'error', 'msg': 'Datos inválidos.'}, status=400)
+
+    referencia_color = get_object_or_404(ReferenciaColor, pk=referencia_color_id, empresa=empresa_actual)
+    fotos = {f.pk: f for f in referencia_color.fotos_agrupadas.filter(pk__in=orden_ids)}
+
+    if len(fotos) != len(orden_ids):
+        return JsonResponse({'status': 'error', 'msg': 'Alguna foto no pertenece a esta referencia.'}, status=400)
+
+    with transaction.atomic():
+        for nuevo_orden, foto_id in enumerate(orden_ids):
+            FotoProducto.objects.filter(pk=foto_id).update(orden=nuevo_orden)
+
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
+@permission_required('productos.upload_fotos_producto', login_url='core:acceso_denegado')
+@require_POST
+def eliminar_foto_ajax(request, foto_id):
+    """Elimina una foto puntual (AJAX)."""
+    empresa_actual = getattr(request, 'tenant', None)
+    foto = get_object_or_404(FotoProducto, pk=foto_id, referencia_color__empresa=empresa_actual)
+    foto.delete()
+    return JsonResponse({'status': 'ok'})
 
 
 @login_required
@@ -378,7 +427,7 @@ def crear_producto_multi_talla(request):
     ProductoTallaFormSet = formset_factory(ProductoTallaForm, extra=7)
 
     if request.method == 'POST':
-        base_form = ProductoBaseForm(request.POST)
+        base_form = ProductoBaseForm(request.POST, empresa=empresa_actual)
         talla_formset = ProductoTallaFormSet(request.POST, prefix='tallas')
 
         if base_form.is_valid() and talla_formset.is_valid():
@@ -430,7 +479,7 @@ def crear_producto_multi_talla(request):
         # Si los formularios no son válidos, se cae al render final con los errores.
 
     else:  # GET
-        base_form = ProductoBaseForm()
+        base_form = ProductoBaseForm(empresa=empresa_actual)
         talla_formset = ProductoTallaFormSet(prefix='tallas')
 
     context = {

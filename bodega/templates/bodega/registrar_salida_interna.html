@@ -23,6 +23,10 @@
                 <h5 class="mb-3">1. Datos Generales</h5>
                 <div class="row g-3">
                     <div class="col-md-6">
+                        <label class="form-label">{{ form_cabecera.bodega_origen.label }}</label>
+                        {% render_field form_cabecera.bodega_origen class="form-select" %}
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">{{ form_cabecera.tipo_salida.label }}</label>
                         {% render_field form_cabecera.tipo_salida class="form-select" %}
                     </div>

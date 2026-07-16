@@ -74,7 +74,15 @@
                                         {% if detalle.producto.talla %}/ Talla: {{ detalle.producto.talla }}{% endif %}
                                     </td>
                                     <td class="text-center">{{ detalle.cantidad }}</td>
-                                    <td>{{ detalle.get_estado_producto_display }}</td>
+                                    <td>
+                                        <span class="badge rounded-pill
+                                            {% if detalle.estado_producto == 'PENDIENTE' %}bg-secondary
+                                            {% elif detalle.estado_producto == 'BUENO' %}bg-success
+                                            {% elif detalle.estado_producto == 'DEFECTUOSO' %}bg-warning text-dark
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ detalle.get_estado_producto_display }}
+                                        </span>
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>

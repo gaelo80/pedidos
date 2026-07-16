@@ -1,0 +1,93 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}{{ titulo|default:"Bodega" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-warehouse me-2"></i> {{ titulo|default:"Bodega" }}
+            </h1>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'bodega:lista_bodegas' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="row g-3">
+                    <div class="col-md-6">{{ form.nombre|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ form.codigo|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ form.tipo|as_crispy_field }}</div>
+                </div>
+
+                <hr class="my-3">
+                <h6 class="fw-bold text-secondary mb-3">Reglas de Venta por Canal (por defecto)</h6>
+                <div class="row g-3">
+                    <div class="col-md-4 form-check">
+                        {{ form.disponible_venta_estandar }}
+                        <label class="form-check-label" for="{{ form.disponible_venta_estandar.id_for_label }}">{{ form.disponible_venta_estandar.label }}</label>
+                        <div class="form-text">{{ form.disponible_venta_estandar.help_text }}</div>
+                    </div>
+                    <div class="col-md-4 form-check">
+                        {{ form.disponible_venta_online }}
+                        <label class="form-check-label" for="{{ form.disponible_venta_online.id_for_label }}">{{ form.disponible_venta_online.label }}</label>
+                        <div class="form-text">{{ form.disponible_venta_online.help_text }}</div>
+                    </div>
+                    <div class="col-md-4 form-check">
+                        {{ form.disponible_venta_web }}
+                        <label class="form-check-label" for="{{ form.disponible_venta_web.id_for_label }}">{{ form.disponible_venta_web.label }}</label>
+                        <div class="form-text">{{ form.disponible_venta_web.help_text }}</div>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+                <div class="row g-3">
+                    <div class="col-md-3 form-check">
+                        {{ form.es_principal }}
+                        <label class="form-check-label" for="{{ form.es_principal.id_for_label }}">{{ form.es_principal.label }}</label>
+                        {% if form.es_principal.errors %}<div class="text-danger small">{{ form.es_principal.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-3 form-check">
+                        {{ form.activa }}
+                        <label class="form-check-label" for="{{ form.activa.id_for_label }}">{{ form.activa.label }}</label>
+                    </div>
+                    <div class="col-md-6 form-check">
+                        {{ form.requiere_confirmacion_recepcion }}
+                        <label class="form-check-label" for="{{ form.requiere_confirmacion_recepcion.id_for_label }}">{{ form.requiere_confirmacion_recepcion.label }}</label>
+                        <div class="form-text">{{ form.requiere_confirmacion_recepcion.help_text }}</div>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+                <div class="row g-3">
+                    <div class="col-md-6">{{ form.direccion|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ form.responsable|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ form.orden|as_crispy_field }}</div>
+                    <div class="col-12">{{ form.notas|as_crispy_field }}</div>
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-3">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                        <i class="fas fa-save me-2"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock content %}

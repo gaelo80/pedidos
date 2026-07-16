@@ -4,7 +4,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.urls import reverse, NoReverseMatch
 from .models import Pedido
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, Bodega
 from productos.models import Producto  # <-- Importante añadir esto
 from notificaciones.models import Notificacion
 from django.contrib.auth.models import Group
@@ -57,12 +57,13 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
     if instance.estado == 'PENDIENTE_APROBACION_CARTERA' and instance.tipo_pedido != 'ONLINE':
         # Si no hay movimientos, creamos la reserva/salida inicial
 
+        bodega_principal = Bodega.objects.principal(instance.empresa)
         for detalle in instance.detalles.all():
             producto = detalle.producto
             cantidad_a_descontar = -detalle.cantidad
 
             tipo_mov = 'SALIDA_VENTA_PENDIENTE'
-            
+
             # MEJORA: Incluir el ID del producto o su talla para mayor claridad en reportes
             talla_display = producto.talla if hasattr(producto, 'talla') else producto.id
             doc_ref = f'Pedido #{instance.numero_pedido_empresa} (Reserva) - {producto.referencia} T-{talla_display}'
@@ -73,6 +74,7 @@ def gestionar_stock_y_notificaciones_pedido(sender, instance, **kwargs):
                 tipo_movimiento=tipo_mov,
                 documento_referencia=doc_ref,
                 producto=producto,  # <--- AHORA SÍ FILTRA POR TALLA EXACTA
+                bodega=bodega_principal,
                 defaults={
                     'cantidad': cantidad_a_descontar,
                     'usuario': instance.vendedor.user if instance.vendedor else None

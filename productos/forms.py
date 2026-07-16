@@ -1,58 +1,7 @@
 # productos/forms.py
 from django import forms
-from .models import FotoProducto, Producto, ReferenciaColor
-from django.forms import inlineformset_factory
-
-class ProductoForm(forms.ModelForm):
-    
-    class Meta:
-        model = Producto
-        fields = [
-            'referencia', 
-            'nombre', 
-            'descripcion', 
-            'talla', 
-            'color', 
-            'genero', 
-            'costo', 
-            'precio_venta', 
-            'unidad_medida', 
-            'codigo_barras', 
-            'activo', 
-            'ubicacion',
-            'permitir_preventa',
-        ]
-        widgets = {
-            'descripcion': forms.Textarea(attrs={'rows': 3}),
-            'referencia': forms.TextInput(attrs={'placeholder': 'Ej: 0808, REF001'}),
-            'nombre': forms.TextInput(attrs={'placeholder': 'Ej: Jean Clásico Caballero'}),
-            'talla': forms.TextInput(attrs={'placeholder': 'Ej: 32, M, Única'}),
-            'color': forms.TextInput(attrs={'placeholder': 'Ej: Azul Oscuro, Rojo'}),
-            'costo': forms.NumberInput(attrs={'step': '0.01', 'placeholder': '0.00'}),
-            'precio_venta': forms.NumberInput(attrs={'step': '0.01', 'placeholder': '0.00'}),
-            'codigo_barras': forms.TextInput(attrs={'placeholder': 'Escanee o ingrese el código'}),
-            'ubicacion': forms.TextInput(attrs={'placeholder': 'Ej: Estante A, Bodega 2'}),
-            
-        }
-        
-        help_texts = {
-            'genero': None,
-        }
-
-    def __init__(self, *args, **kwargs):
-        empresa_actual = kwargs.pop('empresa', None)
-        super().__init__(*args, **kwargs)
-
-        for field in self.fields.values():
-            if isinstance(field.widget, forms.CheckboxInput):
-                # Los checkboxes usan una clase diferente en Bootstrap.
-                field.widget.attrs['class'] = 'form-check-input'
-            elif isinstance(field.widget, forms.Select):
-                field.widget.attrs['class'] = 'form-select'
-            else:
-                # El resto de los inputs usan 'form-control'.
-                field.widget.attrs['class'] = 'form-control'
-
+from .models import Producto
+from bodega.models import Bodega
 
 class ProductoImportForm(forms.Form):
     """
@@ -71,106 +20,6 @@ class ProductoImportForm(forms.Form):
         # Llamamos al __init__ original sin el argumento inesperado
         super().__init__(*args, **kwargs)
     
-class MultipleFileInput(forms.ClearableFileInput):
-    """
-    Un widget personalizado que permite la subida de múltiples archivos.
-    Hereda de ClearableFileInput pero permite el atributo 'multiple'.
-    """
-    allow_multiple_selected = True
-    
-    def __init__(self, *args, **kwargs):
-        # "Atrapamos" el parámetro 'empresa' y lo quitamos de kwargs
-        self.empresa = kwargs.pop('empresa', None)
-        # Llamamos al __init__ original sin el argumento inesperado
-        super().__init__(*args, **kwargs)
-
-class MultipleFileField(forms.FileField):
-    """
-    Un campo de formulario personalizado que utiliza el widget MultipleFileInput
-    y está diseñado para manejar una lista de archivos.
-    """
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("widget", MultipleFileInput())
-        super().__init__(*args, **kwargs)
-
-    def clean(self, data, initial=None):
-        single_file_clean = super().clean
-        if isinstance(data, (list, tuple)):
-            result = [single_file_clean(d, initial) for d in data]
-        else:
-            result = single_file_clean(data, initial)
-        return result
-    
-
-class SeleccionarAgrupacionParaFotosForm(forms.Form):
-    
-    
-    imagenes = MultipleFileField(
-        label="Seleccionar Imágenes",
-        required=False
-    )
-
-    articulo_color = forms.ModelChoiceField(
-        queryset=ReferenciaColor.objects.none(),
-        label="Agrupar por Referencia y Color",
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text="Selecciona la combinación de referencia y color a la que pertenecerán las fotos."
-    )
-
-    descripcion_general = forms.CharField(
-        label="Descripción General para las Fotos",
-        required=False,
-        widget=forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
-        help_text="(Opcional) Esta descripción se aplicará a todas las fotos que subas."
-    )
-    
-   
-    def __init__(self, *args, **kwargs):
-        """
-        Filtra el queryset de 'articulo_color' para mostrar solo las opciones
-        de la empresa (tenant) actual.
-        """
-        empresa_actual = kwargs.pop('empresa', None)
-        super().__init__(*args, **kwargs)
-
-        if empresa_actual:
-            self.fields['articulo_color'].queryset = ReferenciaColor.objects.filter(
-                empresa=empresa_actual
-            ).distinct().order_by('referencia_base', 'color')
-        else:
-            # Si no hay empresa, el formulario no puede funcionar de forma segura.
-            # Podrías lanzar un error o simplemente dejar el queryset vacío.
-            self.fields['articulo_color'].queryset = ReferenciaColor.objects.none()
-            
-
-class FotoProductoForm(forms.ModelForm):
-    class Meta:
-        model = FotoProducto
-        fields = ['id', 'imagen', 'descripcion_foto', 'orden']
-        widgets = {
-            'imagen': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'descripcion_foto': forms.Textarea(attrs={'rows': 1, 'class': 'form-control'}),
-            'orden': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': 0}),
-        }
-        # 'id' se incluye implícitamente para ModelForms en update/delete
-
-    # Opcional: Para permitir eliminar una foto individual del formset
-    DELETE = forms.BooleanField(required=False, initial=False, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
-
-
-# NUEVO: Formset para FotoProducto
-# Se relaciona con ReferenciaColor
-FotoProductoFormSet = inlineformset_factory(
-    ReferenciaColor,            # Modelo padre
-    FotoProducto,               # Modelo hijo
-    form=FotoProductoForm,      # Nuestro formulario personalizado para el hijo
-    extra=0,                    # No queremos formularios vacíos por defecto para edición
-    can_delete=True,            # Permite eliminar registros existentes
-    fields=['imagen', 'descripcion_foto', 'orden'], # Campos que se manejarán por el formset
-    # max_num=10,               # Límite máximo de fotos por agrupación (opcional)
-)
-
-
 class ProductoBaseForm(forms.ModelForm):
     """
     Formulario para la información común del producto.
@@ -187,6 +36,25 @@ class ProductoBaseForm(forms.ModelForm):
         }
         # Excluimos 'talla' y 'codigo_barras' porque irán en el formset.
 
+    def __init__(self, *args, **kwargs):
+        empresa_actual = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        if empresa_actual:
+            self.fields['ubicacion'].queryset = Bodega.objects.filter(empresa=empresa_actual, activa=True).order_by('orden', 'nombre')
+            if not self.instance.pk and not self.initial.get('ubicacion'):
+                bodega_principal = Bodega.objects.filter(empresa=empresa_actual, es_principal=True).first()
+                if bodega_principal:
+                    self.initial['ubicacion'] = bodega_principal.pk
+        else:
+            self.fields['ubicacion'].queryset = Bodega.objects.none()
+
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.Select):
+                field.widget.attrs['class'] = 'form-select'
+            elif not isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs['class'] = 'form-control'
+
 class ProductoTallaForm(forms.Form):
     """
     Formulario para una única fila de talla y código de barras.
@@ -195,6 +63,26 @@ class ProductoTallaForm(forms.Form):
     talla = forms.IntegerField(
         label="Talla",
         required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Talla'})
+    )
+    codigo_barras = forms.CharField(
+        label="Código de Barras",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Código de Barras (Opcional)'})
+    )
+
+
+class ProductoTallaEditForm(forms.Form):
+    """
+    Igual que ProductoTallaForm, pero para editar tallas ya existentes:
+    trae un 'producto_id' oculto para saber qué variante actualizar, y
+    'talla' no es obligatoria para que las filas extra (para agregar tallas
+    nuevas) puedan quedar en blanco sin generar error.
+    """
+    producto_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    talla = forms.IntegerField(
+        label="Talla",
+        required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Talla'})
     )
     codigo_barras = forms.CharField(

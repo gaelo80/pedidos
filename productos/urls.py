@@ -22,7 +22,7 @@ urlpatterns = [
     # Alias antiguo, por si algún enlace todavía apunta a 'producto_crear_multi_talla'
     path('crear-multi-talla/', views.crear_producto_multi_talla, name='producto_crear_multi_talla'),
 
-    path('<int:pk>/editar/', views.ProductoUpdateView.as_view(), name='producto_editar'),
+    path('<int:pk>/editar/', views.editar_producto_multi_talla, name='producto_editar'),
     path('<int:pk>/detalle/', views.ProductoDetailView.as_view(), name='producto_detalle'),
     path('<int:pk>/eliminar/', views.ProductoDeleteView.as_view(), name='producto_eliminar'),
 
@@ -32,5 +32,8 @@ urlpatterns = [
 
     # --- Otros ---
     path('subir-fotos-agrupadas/', views.subir_fotos_agrupadas_view, name='producto_subir_fotos_agrupadas'),
+    path('fotos/<int:referencia_color_id>/subir/', views.subir_fotos_referencia_ajax, name='subir_fotos_referencia_ajax'),
+    path('fotos/reordenar/', views.reordenar_fotos_ajax, name='reordenar_fotos_ajax'),
+    path('fotos/<int:foto_id>/eliminar/', views.eliminar_foto_ajax, name='eliminar_foto_ajax'),
 
 ]

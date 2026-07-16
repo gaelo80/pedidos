@@ -176,7 +176,14 @@ class Producto(models.Model):
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     unidad_medida = models.CharField(max_length=20, default='UND')
-    ubicacion = models.CharField(max_length=100, blank=True, null=True)
+    ubicacion = models.ForeignKey(
+        'bodega.Bodega',
+        on_delete=models.PROTECT,
+        related_name='productos',
+        verbose_name="Bodega",
+        null=True,
+        blank=True,
+    )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     activo = models.BooleanField(default=True, db_index=True)
     codigo_barras = models.CharField(max_length=100, blank=True, null=True, db_index=True)
@@ -192,7 +199,55 @@ class Producto(models.Model):
             empresa=self.empresa
         ).aggregate(total=Sum('cantidad'))['total']
         return suma or 0
-    
+
+    CANAL_CAMPO_BODEGA = {
+        'ESTANDAR': 'disponible_venta_estandar',
+        'ONLINE': 'disponible_venta_online',
+        'WEB': 'disponible_venta_web',
+    }
+
+    def stock_disponible_para_canal(self, canal, usuario=None):
+        """
+        Stock vendible/reservable para un canal de venta (ESTANDAR/ONLINE/WEB):
+        solo suma las bodegas cuyo flag de canal correspondiente esté activo.
+        Si 'usuario' tiene una excepción individual (AccesoBodega) para alguna
+        bodega, esa excepción prevalece sobre el flag del canal (puede abrir
+        una bodega cerrada para su canal, o cerrarle una que sí está abierta).
+        A diferencia de 'stock_actual', esto NO cuenta lo que haya en bodegas
+        no habilitadas para ese canal (ej. una bodega de 'Saldos y Colas'
+        oculta a vendedores estándar).
+        """
+        from bodega.models import MovimientoInventario, Bodega, AccesoBodega
+
+        if not self.empresa_id:
+            return 0
+
+        campo_canal = self.CANAL_CAMPO_BODEGA.get(canal)
+        if not campo_canal:
+            raise ValueError(f"Canal de venta desconocido: {canal!r}")
+
+        bodegas_ids = set(
+            Bodega.objects.filter(empresa=self.empresa, **{campo_canal: True}).values_list('pk', flat=True)
+        )
+
+        if usuario is not None and getattr(usuario, 'pk', None):
+            accesos = AccesoBodega.objects.filter(
+                usuario=usuario, bodega__empresa=self.empresa
+            ).values_list('bodega_id', 'nivel')
+            for bodega_id, nivel in accesos:
+                if nivel == AccesoBodega.NivelAcceso.NINGUNO:
+                    bodegas_ids.discard(bodega_id)
+                else:
+                    bodegas_ids.add(bodega_id)
+
+        if not bodegas_ids:
+            return 0
+
+        suma = MovimientoInventario.objects.filter(
+            producto=self, empresa=self.empresa, bodega_id__in=bodegas_ids
+        ).aggregate(total=Sum('cantidad'))['total']
+        return suma or 0
+
     def save(self, *args, **kwargs):
         if self.empresa:
             color_para_agrupacion = self.color if self.color and self.color.strip() else None

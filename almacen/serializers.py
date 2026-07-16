@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from .models import InventarioAlmacen, FacturaAlmacen, DetalleFacturaAlmacen
-from bodega.models import MovimientoInventario
+from bodega.models import MovimientoInventario, Bodega
 
 class InventarioAlmacenSerializer(serializers.ModelSerializer):
     # Extraemos campos específicos del Producto original (la Bodega)
@@ -53,9 +53,11 @@ class FacturaAlmacenSerializer(serializers.ModelSerializer):
 
                 # Crear MovimientoInventario para registrar la venta
                 # El signal almacen/signals.py también decrementará InventarioAlmacen
+                empresa_venta = validated_data.get('vendedor').empresa if hasattr(validated_data.get('vendedor'), 'empresa') else None
                 MovimientoInventario.objects.create(
-                    empresa=validated_data.get('vendedor').empresa if hasattr(validated_data.get('vendedor'), 'empresa') else None,
+                    empresa=empresa_venta,
                     producto=detalle_obj.producto,
+                    bodega=Bodega.objects.principal(empresa_venta),
                     cantidad=-detalle_obj.cantidad,  # Negativo para salida
                     tipo_movimiento='SALIDA_VENTA_ALMACEN',
                     documento_referencia=f"FacturaAlmacen #{factura.pk}",
