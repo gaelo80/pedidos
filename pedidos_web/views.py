@@ -4,6 +4,8 @@ import hashlib
 import base64
 import logging
 import os
+import threading
+import time
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -278,166 +280,222 @@ def obtener_token_temporal(shop_url, client_id, client_secret):
         mensaje_error = f"Error interno: {str(e)}"
         return None, mensaje_error
     
+def _obtener_todos_los_productos_shopify(headers, shop_url):
+    """Recorre TODAS las páginas de productos (no solo los primeros 250)."""
+    url = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/products.json?limit=250"
+    productos = []
+    while url:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        productos.extend(response.json().get('products', []))
+        url = response.links.get('next', {}).get('url')
+    return productos
+
+
+def _actualizar_progreso_sync(empresa_id, procesados, exitosos, errores, mensaje, total=None):
+    campos = {
+        'shopify_sync_procesados': procesados,
+        'shopify_sync_exitosos': exitosos,
+        'shopify_sync_errores': errores,
+        'shopify_sync_mensaje': mensaje,
+        'shopify_sync_actualizado_en': timezone.now(),
+    }
+    if total is not None:
+        campos['shopify_sync_total'] = total
+    Empresa.objects.filter(pk=empresa_id).update(**campos)
+
+
+def _finalizar_sync(empresa_id, mensaje):
+    Empresa.objects.filter(pk=empresa_id).update(
+        shopify_sync_activo=False, shopify_sync_mensaje=mensaje, shopify_sync_actualizado_en=timezone.now(),
+    )
+
+
+def _hilo_enlazar_productos(empresa_id, headers, shop_url):
+    """Corre en un hilo aparte para no bloquear la petición (evita el timeout de nginx)."""
+    try:
+        productos_shopify = _obtener_todos_los_productos_shopify(headers, shop_url)
+        variantes = [(item, v) for item in productos_shopify for v in item.get('variants', [])]
+        total = len(variantes)
+        exitosos = 0
+        errores = 0
+
+        for indice, (item, variant) in enumerate(variantes, start=1):
+            sku_shopify = variant.get('sku') or variant.get('barcode')
+            if sku_shopify:
+                producto_local = Producto.objects.filter(
+                    empresa_id=empresa_id, activo=True, codigo_barras__iexact=sku_shopify.strip()
+                ).first()
+                if producto_local:
+                    if not producto_local.shopify_variant_id:
+                        producto_local.shopify_variant_id = str(variant.get('id'))
+                        producto_local.save(update_fields=['shopify_variant_id'])
+                        exitosos += 1
+                elif not Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).exists():
+                    errores += 1
+
+            if indice % 5 == 0 or indice == total:
+                _actualizar_progreso_sync(empresa_id, indice, exitosos, errores, f"Procesando {indice} de {total}...", total=total)
+
+        _finalizar_sync(empresa_id, f"Enlace terminado: {exitosos} producto(s) enlazado(s), {errores} sin coincidencia.")
+    except Exception as e:
+        _finalizar_sync(empresa_id, f"Error: {str(e)}")
+
+
+def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
+    """Corre en un hilo aparte para no bloquear la petición (evita el timeout de nginx)."""
+    try:
+        productos_shopify = _obtener_todos_los_productos_shopify(headers, shop_url)
+        variantes = [(item, v) for item in productos_shopify for v in item.get('variants', [])]
+        total = len(variantes)
+        url_set_inventory = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/inventory_levels/set.json"
+        exitosos = 0
+        errores = 0
+
+        for indice, (item, variant) in enumerate(variantes, start=1):
+            variant_id = str(variant.get('id'))
+            inventory_item_id = variant.get('inventory_item_id')
+            producto_local = Producto.objects.filter(
+                empresa_id=empresa_id, activo=True, shopify_variant_id=variant_id
+            ).first()
+
+            if producto_local and inventory_item_id:
+                cantidad_real = max(producto_local.stock_actual, 0)
+                payload_inventario = {
+                    "location_id": location_id,
+                    "inventory_item_id": inventory_item_id,
+                    "available": cantidad_real,
+                }
+                try:
+                    inv_response = requests.post(url_set_inventory, json=payload_inventario, headers=headers, timeout=30)
+                    if inv_response.status_code == 200:
+                        exitosos += 1
+                    else:
+                        errores += 1
+                except requests.exceptions.RequestException:
+                    errores += 1
+                time.sleep(0.3)
+
+            if indice % 5 == 0 or indice == total:
+                _actualizar_progreso_sync(empresa_id, indice, exitosos, errores, f"Procesando {indice} de {total}...", total=total)
+
+        _finalizar_sync(empresa_id, f"Inventario actualizado: {exitosos} exitoso(s), {errores} con error.")
+    except Exception as e:
+        _finalizar_sync(empresa_id, f"Error: {str(e)}")
+
+
 @login_required
 def panel_sincronizacion_shopify(request):
     # --- LÓGICA MULTI-EMPRESA ESTANDARIZADA ---
     empresa_actual = getattr(request, 'tenant', None)
-    
+
     if not empresa_actual:
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
 
     # Creamos una base de consulta filtrada dinámicamente por la empresa actual del usuario.
     productos_base = Producto.objects.filter(activo=True, empresa=empresa_actual)
-    
-    # 1. Variables base (Ahora usamos productos_base en vez de Producto.objects)
     total_productos = productos_base.count()
     sincronizados = productos_base.filter(shopify_variant_id__isnull=False).count()
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+
+        empresa_actual.refresh_from_db()
+        if empresa_actual.shopify_sync_activo:
+            messages.warning(request, "Ya hay una sincronización en curso — espera a que termine (ver la barra de progreso abajo).")
+            return redirect('pedidos_web:panel_sincronizacion')
+
+        raw_url = config('SHOPIFY_URL')
+        shop_url = raw_url.replace('https://', '').replace('http://', '').strip('/')
+        client_id = config('SHOPIFY_CLIENT_ID')
+        client_secret = config('SHOPIFY_CLIENT_SECRET')
+
+        token, mensaje_de_error = obtener_token_temporal(shop_url, client_id, client_secret)
+
+        if not token:
+            messages.error(request, f"Fallo de autenticación: {mensaje_de_error}")
+        elif accion == 'enlazar_productos':
+            headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+            empresa_actual.shopify_sync_activo = True
+            empresa_actual.shopify_sync_accion = 'enlazar_productos'
+            empresa_actual.shopify_sync_mensaje = 'Consultando productos en Shopify...'
+            empresa_actual.shopify_sync_total = 0
+            empresa_actual.shopify_sync_procesados = 0
+            empresa_actual.shopify_sync_exitosos = 0
+            empresa_actual.shopify_sync_errores = 0
+            empresa_actual.save(update_fields=[
+                'shopify_sync_activo', 'shopify_sync_accion', 'shopify_sync_mensaje',
+                'shopify_sync_total', 'shopify_sync_procesados', 'shopify_sync_exitosos', 'shopify_sync_errores',
+            ])
+            threading.Thread(target=_hilo_enlazar_productos, args=(empresa_actual.pk, headers, shop_url), daemon=True).start()
+            messages.success(request, "Se inició el enlace de productos en segundo plano — sigue el progreso abajo.")
+        elif accion == 'subir_inventario':
+            location_id = config('SHOPIFY_LOCATION_ID', default='')
+            if not location_id:
+                messages.error(request, "Falta configurar el SHOPIFY_LOCATION_ID en el archivo .env")
+            else:
+                headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+                empresa_actual.shopify_sync_activo = True
+                empresa_actual.shopify_sync_accion = 'subir_inventario'
+                empresa_actual.shopify_sync_mensaje = 'Consultando productos en Shopify...'
+                empresa_actual.shopify_sync_total = 0
+                empresa_actual.shopify_sync_procesados = 0
+                empresa_actual.shopify_sync_exitosos = 0
+                empresa_actual.shopify_sync_errores = 0
+                empresa_actual.save(update_fields=[
+                    'shopify_sync_activo', 'shopify_sync_accion', 'shopify_sync_mensaje',
+                    'shopify_sync_total', 'shopify_sync_procesados', 'shopify_sync_exitosos', 'shopify_sync_errores',
+                ])
+                threading.Thread(target=_hilo_subir_inventario, args=(empresa_actual.pk, headers, shop_url, location_id), daemon=True).start()
+                messages.success(request, "Se inició la actualización de inventario en segundo plano — sigue el progreso abajo.")
+
+        return redirect('pedidos_web:panel_sincronizacion')
+
+    search_query = request.GET.get('q', '').strip()
     huerfanos = productos_base.filter(shopify_variant_id__isnull=True)
-    
+
+    if search_query:
+        huerfanos = huerfanos.filter(
+            Q(referencia__icontains=search_query) |
+            Q(codigo_barras__icontains=search_query)
+        )
+
+    empresa_actual.refresh_from_db()
     context = {
         'total_productos': total_productos,
         'sincronizados': sincronizados,
         'pendientes': total_productos - sincronizados,
         'huerfanos': huerfanos,
-        'resultado_sync': None,
-        'resultado_inventario': None,
-        'error_api': None
+        'search_query': search_query,
+        'sync_activo': empresa_actual.shopify_sync_activo,
+        'sync_accion': empresa_actual.shopify_sync_accion,
+        'sync_total': empresa_actual.shopify_sync_total,
+        'sync_procesados': empresa_actual.shopify_sync_procesados,
+        'sync_exitosos': empresa_actual.shopify_sync_exitosos,
+        'sync_errores': empresa_actual.shopify_sync_errores,
+        'sync_mensaje': empresa_actual.shopify_sync_mensaje,
     }
-
-    if request.method == 'POST':
-        accion = request.POST.get('accion')
-        
-        # 2. Leemos tus credenciales desde el .env
-        raw_url = config('SHOPIFY_URL')
-        shop_url = raw_url.replace('https://', '').replace('http://', '').strip('/')
-        client_id = config('SHOPIFY_CLIENT_ID')
-        client_secret = config('SHOPIFY_CLIENT_SECRET') # El Secreto de tu captura de pantalla
-        
-        # 3. Canjeamos las credenciales por el token dinámico válido
-# 3. Canjeamos las credenciales por el token dinámico válido
-        token, mensaje_de_error = obtener_token_temporal(shop_url, client_id, client_secret)
-        
-        if not token:
-            # Aquí le pasamos el error exacto de Shopify a tu plantilla HTML
-            context['error_api'] = f"Fallo de Autenticación: {mensaje_de_error}"
-        else:
-            # Si Shopify nos autoriza, armamos la cabecera permitida
-            headers = {
-                "X-Shopify-Access-Token": token,
-                "Content-Type": "application/json"
-            }
-            
-            # =========================================================
-            # BOTÓN 1: ENLAZAR PRODUCTOS
-            # =========================================================
-            if accion == 'enlazar_productos':
-                productos_actualizados = []
-                errores_shopify = []
-                url_productos = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/products.json?limit=250"
-                
-                try:
-                    response = requests.get(url_productos, headers=headers)
-                    if response.status_code == 200:
-                        data_shopify = response.json()
-                        for item in data_shopify.get('products', []):
-                            for variant in item.get('variants', []):
-                                variant_id = str(variant.get('id'))
-                                sku_shopify = variant.get('sku') or variant.get('barcode')
-                                
-                                if not sku_shopify:
-                                    continue
-                                    
-                                # 1. Buscamos PRIMERO dentro del catálogo de ESTA empresa (Louisferry)
-                                producto_local = productos_base.filter(codigo_barras__iexact=sku_shopify.strip()).first()
-                                
-                                if producto_local:
-                                    if not producto_local.shopify_variant_id:
-                                        producto_local.shopify_variant_id = variant_id
-                                        producto_local.save()
-                                        productos_actualizados.append(producto_local)
-                                else:
-                                    # --- CORRECCIÓN DE LA FUGA DE DATOS MULTI-TENANT ---
-                                    # Si no está en esta empresa, verificamos globalmente si le pertenece a OTRA empresa
-                                    existe_en_otra_empresa = Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).exists()
-                                    
-                                    # Solo lo marcamos como error si NO existe en NINGUNA empresa de la base de datos
-                                    if not existe_en_otra_empresa:
-                                        errores_shopify.append({
-                                            'titulo': item.get('title'),
-                                            'sku': sku_shopify,
-                                            'motivo': 'Código no existe en el sistema local'
-                                        })
-                                        
-                        context['resultado_sync'] = {'exitosos': productos_actualizados, 'errores': errores_shopify}
-                    else:
-                        context['error_api'] = f"Error conectando a Shopify: {response.status_code}"
-                except Exception as e:
-                    context['error_api'] = f"Error al enlazar: {str(e)}"
-                    
-            # =========================================================
-            # BOTÓN 2: SUBIR INVENTARIO REAL A SHOPIFY
-            # =========================================================
-            elif accion == 'subir_inventario':
-                location_id = config('SHOPIFY_LOCATION_ID', default='') 
-                
-                if not location_id:
-                    context['error_api'] = "Falta configurar el SHOPIFY_LOCATION_ID en el archivo .env"
-                else:
-                    inventario_actualizado = 0
-                    errores_inventario = []
-                    url_productos = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/products.json?limit=250"
-                    url_set_inventory = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/inventory_levels/set.json"
-                    
-                    try:
-                        response = requests.get(url_productos, headers=headers)
-                        if response.status_code == 200:
-                            data_shopify = response.json()
-                            for item in data_shopify.get('products', []):
-                                for variant in item.get('variants', []):
-                                    variant_id = str(variant.get('id'))
-                                    inventory_item_id = variant.get('inventory_item_id')
-                                    
-                                    # Buscar solo dentro del catálogo filtrado de esta empresa
-                                    producto_local = productos_base.filter(shopify_variant_id=variant_id).first()
-                                    
-                                    if producto_local and inventory_item_id:
-                                        # 'stock' es un campo estático que casi nunca se actualiza;
-                                        # el stock real de todo el sistema es 'stock_actual'
-                                        # (calculado desde los movimientos de inventario).
-                                        cantidad_real = max(producto_local.stock_actual, 0)
-                                        payload_inventario = {
-                                            "location_id": location_id,
-                                            "inventory_item_id": inventory_item_id,
-                                            "available": cantidad_real
-                                        }
-                                        inv_response = requests.post(url_set_inventory, json=payload_inventario, headers=headers)
-                                        if inv_response.status_code == 200:
-                                            inventario_actualizado += 1
-                                        else:
-                                            errores_inventario.append(f"Fallo al actualizar stock de {producto_local.referencia}")
-                            context['resultado_inventario'] = {'exitosos': inventario_actualizado, 'errores': errores_inventario}
-                        else:
-                            context['error_api'] = f"Error al leer productos: {response.status_code}"
-                    except Exception as e:
-                        context['error_api'] = f"Error actualizando inventario: {str(e)}"
-
-    # Recalculamos los totales al final usando la misma base filtrada
-    context['sincronizados'] = productos_base.filter(shopify_variant_id__isnull=False).count()
-    context['pendientes'] = total_productos - context['sincronizados']
-    search_query = request.GET.get('q', '').strip()
-    huerfanos = productos_base.filter(shopify_variant_id__isnull=True)
-    
-    if search_query:
-        huerfanos = huerfanos.filter(
-            Q(referencia__icontains=search_query) | 
-            Q(codigo_barras__icontains=search_query)
-        )
-        
-    context['huerfanos'] = huerfanos
-    context['search_query'] = search_query # Pasamos la búsqueda al HTML
-
     return render(request, 'pedidos_web/sincronizacion_shopify.html', context)
+
+
+@login_required
+def api_shopify_sync_progreso(request):
+    """Consulta AJAX del progreso de la sincronización en curso (para la barra de progreso)."""
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return JsonResponse({'error': 'No se pudo identificar la empresa.'}, status=403)
+
+    empresa_actual.refresh_from_db()
+    return JsonResponse({
+        'activo': empresa_actual.shopify_sync_activo,
+        'accion': empresa_actual.shopify_sync_accion,
+        'total': empresa_actual.shopify_sync_total,
+        'procesados': empresa_actual.shopify_sync_procesados,
+        'exitosos': empresa_actual.shopify_sync_exitosos,
+        'errores': empresa_actual.shopify_sync_errores,
+        'mensaje': empresa_actual.shopify_sync_mensaje,
+    })
 
 
 # =========================================================================

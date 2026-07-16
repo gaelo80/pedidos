@@ -10,7 +10,7 @@
                 <p class="text-muted small">Busca productos y los conecta con este sistema.</p>
                 <form method="POST">
                     {% csrf_token %}
-                    <button type="submit" name="accion" value="enlazar_productos" class="btn btn-primary btn-lg w-100">
+                    <button type="submit" name="accion" value="enlazar_productos" id="btnEnlazarProductos" class="btn btn-primary btn-lg w-100" {% if sync_activo %}disabled{% endif %}>
                         🔄 Sincronizar Referencias
                     </button>
                 </form>
@@ -23,7 +23,7 @@
                 <p class="text-muted small">Toma las cantidades exactas de la bodega y sobreescribe el inventario en Shopify.</p>
                 <form method="POST">
                     {% csrf_token %}
-                    <button type="submit" name="accion" value="subir_inventario" class="btn btn-success btn-lg w-100">
+                    <button type="submit" name="accion" value="subir_inventario" id="btnSubirInventario" class="btn btn-success btn-lg w-100" {% if sync_activo %}disabled{% endif %}>
                         ⬆️ Actualizar Stock en Web
                     </button>
                 </form>
@@ -32,67 +32,22 @@
     </div>
 
 
-    {% if resultado_sync %}
-        <div class="alert alert-info">
-            <strong>Resultados del escaneo:</strong> Se enlazaron {{ resultado_sync.exitosos|length }} productos nuevos.
+    <div id="cajaProgresoSync" class="card shadow-sm mb-4 {% if not sync_activo and not sync_mensaje %}d-none{% endif %}">
+        <div class="card-body">
+            <h5 class="mb-2">
+                <span id="tituloProgresoSync">
+                    {% if sync_accion == 'enlazar_productos' %}🔗 Enlazando productos...{% elif sync_accion == 'subir_inventario' %}📦 Actualizando inventario...{% else %}Sincronización{% endif %}
+                </span>
+            </h5>
+            <div class="progress mb-2" style="height: 24px;">
+                <div id="barraProgresoSync" class="progress-bar {% if sync_activo %}progress-bar-striped progress-bar-animated{% else %}bg-success{% endif %}"
+                     role="progressbar" style="width: {% if sync_total %}{% widthratio sync_procesados sync_total 100 %}{% else %}0{% endif %}%;">
+                    <span id="textoProgresoSync">{{ sync_procesados }} / {{ sync_total }}</span>
+                </div>
+            </div>
+            <p id="mensajeProgresoSync" class="text-muted small mb-0">{{ sync_mensaje }}</p>
         </div>
-        
-        {% if resultado_sync.errores %}
-        <div class="alert alert-warning">
-            <h5>⚠️ Advertencias de Shopify</h5>
-            <p>Los siguientes productos están creados en la web, pero su código de barras no coincide o no existe en este sistema:</p>
-            <ul>
-                {% for error in resultado_sync.errores %}
-                    <li><strong>{{ error.titulo }}</strong> - SKU/Código: {{ error.sku }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-    {% endif %}
-
-    {% if resultado_sync %}
-        <div class="alert alert-info mt-3 shadow-sm">
-            <h5>🔗 Resultados del Enlace</h5>
-            <p>Se enlazaron <strong>{{ resultado_sync.exitosos|length }}</strong> productos nuevos.</p>
-        </div>
-        
-        {% if resultado_sync.errores %}
-        <div class="alert alert-warning mt-2">
-            <h5>⚠️ Advertencias de Shopify</h5>
-            <p>Los siguientes productos están en la web, pero su código no existe en este sistema:</p>
-            <ul>
-                {% for error in resultado_sync.errores %}
-                    <li><strong>{{ error.titulo }}</strong> - SKU: {{ error.sku }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-    {% endif %}
-
-    {% if resultado_inventario %}
-        <div class="alert alert-success mt-3 shadow-sm">
-            <h5>✅ Actualización de Inventario Finalizada</h5>
-            <p>Se sobreescribió correctamente el stock de <strong>{{ resultado_inventario.exitosos }}</strong> productos en Shopify.</p>
-        </div>
-        
-        {% if resultado_inventario.errores %}
-        <div class="alert alert-danger mt-2">
-            <strong>⚠️ Hubo problemas subiendo el stock de estos productos:</strong>
-            <ul>
-                {% for error in resultado_inventario.errores %}
-                    <li>{{ error }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-    {% endif %}
-
-    {% if error_api %}
-        <div class="alert alert-danger mt-3 shadow-sm">
-            <h5>❌ Ocurrió un problema de conexión</h5>
-            <p>{{ error_api }}</p>
-        </div>
-    {% endif %}
+    </div>
 
 <!-- NUEVA BARRA DE BÚSQUEDA -->
     <div class="card shadow-sm mb-4">
@@ -155,4 +110,65 @@
     </div>
     {% endif %}
 </div>
-{% endblock %}
+{% endblock content %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+(function() {
+    var activo = {{ sync_activo|yesno:"true,false" }};
+    var intervalo = null;
+
+    function actualizarUI(data) {
+        var $caja = document.getElementById('cajaProgresoSync');
+        var $barra = document.getElementById('barraProgresoSync');
+        var $texto = document.getElementById('textoProgresoSync');
+        var $mensaje = document.getElementById('mensajeProgresoSync');
+        var $titulo = document.getElementById('tituloProgresoSync');
+
+        $caja.classList.remove('d-none');
+
+        var porcentaje = data.total > 0 ? Math.round((data.procesados / data.total) * 100) : 0;
+        $barra.style.width = porcentaje + '%';
+        $texto.textContent = data.procesados + ' / ' + data.total;
+        $mensaje.textContent = data.mensaje || '';
+
+        if (data.accion === 'enlazar_productos') {
+            $titulo.textContent = '🔗 Enlazando productos...';
+        } else if (data.accion === 'subir_inventario') {
+            $titulo.textContent = '📦 Actualizando inventario...';
+        }
+
+        if (data.activo) {
+            $barra.classList.add('progress-bar-striped', 'progress-bar-animated');
+            $barra.classList.remove('bg-success');
+            document.getElementById('btnEnlazarProductos').disabled = true;
+            document.getElementById('btnSubirInventario').disabled = true;
+        } else {
+            $barra.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            $barra.classList.add('bg-success');
+            document.getElementById('btnEnlazarProductos').disabled = false;
+            document.getElementById('btnSubirInventario').disabled = false;
+            if (intervalo) {
+                clearInterval(intervalo);
+                intervalo = null;
+                // Recargar para refrescar los contadores de arriba (sincronizados/pendientes/huérfanos)
+                setTimeout(function() { window.location.reload(); }, 1500);
+            }
+        }
+    }
+
+    function consultarProgreso() {
+        fetch('{% url "pedidos_web:api_shopify_sync_progreso" %}')
+            .then(function(resp) { return resp.json(); })
+            .then(actualizarUI)
+            .catch(function() { /* si falla una consulta, se reintenta en la siguiente */ });
+    }
+
+    if (activo) {
+        consultarProgreso();
+        intervalo = setInterval(consultarProgreso, 2000);
+    }
+})();
+</script>
+{% endblock extra_scripts %}

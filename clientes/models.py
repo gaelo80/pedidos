@@ -75,6 +75,16 @@ class Empresa(models.Model):
                    "se crucen con los de otra empresa. Se asigna solo. Rango válido: 1-999."
     )
 
+    # --- Progreso de sincronización masiva con Shopify (corre en segundo plano) ---
+    shopify_sync_activo = models.BooleanField(default=False, verbose_name="Sincronización Shopify en curso")
+    shopify_sync_accion = models.CharField(max_length=50, blank=True, null=True, verbose_name="Acción en curso")
+    shopify_sync_total = models.PositiveIntegerField(default=0)
+    shopify_sync_procesados = models.PositiveIntegerField(default=0)
+    shopify_sync_exitosos = models.PositiveIntegerField(default=0)
+    shopify_sync_errores = models.PositiveIntegerField(default=0)
+    shopify_sync_mensaje = models.CharField(max_length=255, blank=True, null=True)
+    shopify_sync_actualizado_en = models.DateTimeField(blank=True, null=True)
+
     def save(self, *args, **kwargs):
         if self.codigo_ean13_empresa is None:
             ultimo = Empresa.objects.aggregate(m=models.Max('codigo_ean13_empresa'))['m'] or 0
