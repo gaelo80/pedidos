@@ -370,6 +370,28 @@
                 </li>
                 {% endif %}
 
+                {% if es_cajero or es_administracion %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownPuntoVenta" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cash-register me-1"></i> PUNTO DE VENTA
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownPuntoVenta">
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:abrir_turno' %}"><i class="fas fa-play-circle me-1"></i> Abrir Turno de Caja</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:vender' %}"><i class="fas fa-shopping-cart me-1"></i> Vender</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:cerrar_turno' %}"><i class="fas fa-stop-circle me-1"></i> Cerrar Turno / Arqueo</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:historial_ventas' %}"><i class="fas fa-history me-1"></i> Historial de Ventas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:consulta_inventario_pos' %}"><i class="fas fa-boxes-stacked me-1"></i> Consulta de Inventario</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:registrar_salida_pos' %}"><i class="fas fa-box-open me-1"></i> Registrar Salida</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:lista_salidas_pos' %}"><i class="fas fa-list me-1"></i> Salidas Registradas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:devolucion_cambio' %}"><i class="fas fa-right-left me-1"></i> Devolución / Cambio</a></li>
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:historial_devoluciones_cambios' %}"><i class="fas fa-history me-1"></i> Historial Devoluciones/Cambios</a></li>
+                        {% if es_administracion %}
+                        <li><a class="dropdown-item" href="{% url 'puntoventa:gestionar_precios_pos' %}"><i class="fas fa-tags me-1"></i> Precios de Saldo</a></li>
+                        {% endif %}
+                    </ul>
+                </li>
+                {% endif %}
+
                 {% if es_factura or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFacturacion" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -414,6 +436,8 @@
                 </li>
                 {% endif %}
 
+
+                {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInformes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-chart-line me-1"></i> INFORMES
@@ -439,14 +463,14 @@
                         {% endif %}
                     </ul>
                 </li>
+                {% endif %}
 
                 {% if es_administrador_app %} 
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-cogs me-1"></i> ADMIN
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
-                        <li><a class="dropdown-item" href="{% url 'pedidos:lista_aprobacion_admin' %}">Pedidos Pendientes Por Aprobar</a></li>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">                        
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'user_management:user_list' %}">Gestion Usuarios</a></li>
                         <li><a class="dropdown-item" href="{% url 'user_management:group_list' %}">Gestion Grupos de Usuarios</a></li>
@@ -636,6 +660,35 @@
             </div>
             {% endif %}
 
+            <!-- PUNTO DE VENTA -->
+            {% if es_cajero or es_administracion %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarPuntoVenta">
+                        <i class="fas fa-cash-register me-3 text-info"></i> Punto de Venta
+                    </button>
+                </h2>
+                <div id="sidebarPuntoVenta" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'puntoventa:abrir_turno' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Abrir Turno de Caja</a>
+                            <a href="{% url 'puntoventa:vender' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Vender</a>
+                            <a href="{% url 'puntoventa:cerrar_turno' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Cerrar Turno / Arqueo</a>
+                            <a href="{% url 'puntoventa:historial_ventas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Historial de Ventas</a>
+                            <a href="{% url 'puntoventa:consulta_inventario_pos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Consulta de Inventario</a>
+                            <a href="{% url 'puntoventa:registrar_salida_pos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Registrar Salida</a>
+                            <a href="{% url 'puntoventa:lista_salidas_pos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Salidas Registradas</a>
+                            <a href="{% url 'puntoventa:devolucion_cambio' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Devolución / Cambio</a>
+                            <a href="{% url 'puntoventa:historial_devoluciones_cambios' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Historial Devoluciones/Cambios</a>
+                            {% if es_administracion %}
+                            <a href="{% url 'puntoventa:gestionar_precios_pos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Precios de Saldo</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- FACTURACIÓN -->
             {% if es_factura or es_administracion or es_administrador_app %}
             <div class="accordion-item">
@@ -695,6 +748,7 @@
             {% endif %}
 
             <!-- INFORMES -->
+             {% if es_diseno or es_administracion or es_administrador_app or es_vendedor or es_online or es_cartera or es_bodega or es_factura %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarInformes">
@@ -726,6 +780,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- ADMINISTRACIÓN -->
             {% if es_administrador_app %}
@@ -737,8 +792,7 @@
                 </h2>
                 <div id="sidebarAdmin" class="accordion-collapse collapse">
                     <div class="accordion-body p-0 py-2">
-                        <div class="list-group list-group-flush">
-                            <a href="{% url 'pedidos:lista_aprobacion_admin' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Aprobar Pedidos</a>
+                        <div class="list-group list-group-flush">                            
                             <a href="{% url 'user_management:user_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión Usuarios</a>
                             <a href="{% url 'user_management:group_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Grupos Usuarios</a>
                             {% if puede_ver_panel_django_admin %}

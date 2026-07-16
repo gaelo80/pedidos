@@ -1,0 +1,70 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-0 rounded-3 mb-4">
+                <div class="card-body p-4">
+                    <div class="row g-2">
+                        <div class="col-6"><strong>Bodega:</strong> {{ turno.bodega.nombre }}</div>
+                        <div class="col-6"><strong>Apertura:</strong> {{ turno.fecha_apertura|date:"d/m/Y H:i" }}</div>
+                        <div class="col-6"><strong>Monto Inicial:</strong> ${{ turno.saldo_inicial|floatformat:0|intcomma }}</div>
+                        <div class="col-6"><strong>Total Ventas (todos los métodos):</strong> ${{ total_ventas|floatformat:0|intcomma }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-3 mb-4">
+                <div class="card-header bg-light py-2">
+                    <strong>¿Cómo se calcula el efectivo esperado?</strong>
+                </div>
+                <div class="card-body p-4">
+                    <table class="table table-sm mb-0">
+                        <tr><td>Monto inicial (caja menor)</td><td class="text-end">${{ turno.saldo_inicial|floatformat:0|intcomma }}</td></tr>
+                        <tr><td>+ Ventas en Efectivo</td><td class="text-end">${{ totales_por_metodo.EFECTIVO|floatformat:0|intcomma }}</td></tr>
+                        <tr class="text-muted"><td><small>Ventas en Tarjeta (no afecta el efectivo)</small></td><td class="text-end"><small>${{ totales_por_metodo.TARJETA|floatformat:0|intcomma }}</small></td></tr>
+                        <tr class="text-muted"><td><small>Ventas en Transferencia (no afecta el efectivo)</small></td><td class="text-end"><small>${{ totales_por_metodo.TRANSFERENCIA|floatformat:0|intcomma }}</small></td></tr>
+                        {% if total_reembolsos_efectivo %}
+                        <tr class="text-danger"><td>− Reembolsado en Efectivo (devoluciones)</td><td class="text-end">${{ total_reembolsos_efectivo|floatformat:0|intcomma }}</td></tr>
+                        {% endif %}
+                        {% if total_cobros_adicionales_efectivo %}
+                        <tr class="text-success"><td>+ Cobrado en Efectivo (diferencias de cambios)</td><td class="text-end">${{ total_cobros_adicionales_efectivo|floatformat:0|intcomma }}</td></tr>
+                        {% endif %}
+                        <tr class="border-top fw-bold"><td>= Efectivo Esperado</td><td class="text-end">${{ saldo_esperado|floatformat:0|intcomma }}</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-cash-register me-2"></i> {{ titulo }}</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info">
+                        <strong>Efectivo esperado en caja:</strong> <span class="fs-4">${{ saldo_esperado|floatformat:0|intcomma }}</span>
+                    </div>
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.saldo_final_contado.id_for_label }}" class="form-label fw-semibold">{{ form.saldo_final_contado.label }}</label>
+                            {{ form.saldo_final_contado }}
+                            {% if form.saldo_final_contado.errors %}<div class="text-danger small mt-1">{{ form.saldo_final_contado.errors }}</div>{% endif %}
+                            <div class="form-text">Cuenta físicamente el efectivo en caja y escribe el total aquí.</div>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'puntoventa:vender' %}" class="btn btn-outline-secondary rounded-pill">Cancelar</a>
+                            <button type="submit" class="btn btn-danger btn-lg rounded-pill shadow-sm">
+                                <i class="fas fa-stop me-2"></i> Cerrar Turno
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

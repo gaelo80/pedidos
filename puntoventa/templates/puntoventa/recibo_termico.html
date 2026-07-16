@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo #{{ venta.consecutivo }}</title>
+    <style type="text/css">
+        @page {
+            size: 80mm auto;
+            margin: 3mm;
+        }
+        body {
+            font-family: "Courier New", monospace;
+            font-size: 9pt;
+            color: #000;
+            margin: 0;
+            width: 74mm;
+        }
+        .centrado { text-align: center; }
+        .logo { max-width: 50mm; max-height: 20mm; margin-bottom: 2mm; }
+        hr { border: none; border-top: 1px dashed #000; margin: 2mm 0; }
+        table { width: 100%; border-collapse: collapse; }
+        td { vertical-align: top; padding: 0.5mm 0; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .small { font-size: 7.5pt; }
+    </style>
+</head>
+<body>
+    <div class="centrado">
+        {% if logo_base64 %}<img class="logo" src="data:image/png;base64,{{ logo_base64 }}" alt="Logo"><br>{% endif %}
+        <strong>{{ empresa.nombre }}</strong><br>
+        <span class="small">Recibo de Venta - Punto de Venta</span>
+    </div>
+    <hr>
+    <table class="small">
+        <tr><td>Recibo:</td><td class="text-end">#{{ venta.consecutivo }}</td></tr>
+        <tr><td>Fecha:</td><td class="text-end">{{ venta.fecha_hora|date:"d/m/Y H:i" }}</td></tr>
+        <tr><td>Bodega:</td><td class="text-end">{{ venta.turno.bodega.nombre }}</td></tr>
+        <tr><td>Cajero:</td><td class="text-end">{{ venta.turno.usuario_cajero.get_full_name|default:venta.turno.usuario_cajero.username }}</td></tr>
+        <tr><td>Cliente:</td><td class="text-end">{{ venta.cliente.nombre_completo|default:"Mostrador" }}</td></tr>
+    </table>
+    <hr>
+    <table>
+        {% for detalle in detalles %}
+        <tr>
+            <td colspan="2">{{ detalle.producto.referencia }} - {{ detalle.producto.nombre }}{% if detalle.producto.color %} ({{ detalle.producto.color }}{% if detalle.producto.talla %} - T.{{ detalle.producto.talla }}{% endif %}){% endif %}</td>
+        </tr>
+        <tr>
+            <td>{{ detalle.cantidad }} x ${{ detalle.precio_final|floatformat:0|intcomma }}</td>
+            <td class="text-end">${{ detalle.subtotal|floatformat:0|intcomma }}</td>
+        </tr>
+        {% if detalle.precio_override %}
+        <tr><td colspan="2" class="small">Precio ajustado: {{ detalle.motivo_override }}</td></tr>
+        {% endif %}
+        {% endfor %}
+    </table>
+    <hr>
+    <table>
+        <tr><td class="fw-bold">TOTAL</td><td class="text-end fw-bold">${{ venta.total_venta|floatformat:0|intcomma }}</td></tr>
+    </table>
+    <hr>
+    <table class="small">
+        {% for pago in pagos %}
+        <tr><td>{{ pago.get_metodo_pago_display }}</td><td class="text-end">${{ pago.monto|floatformat:0|intcomma }}</td></tr>
+        {% if pago.monto_recibido %}
+        <tr><td>Recibió</td><td class="text-end">${{ pago.monto_recibido|floatformat:0|intcomma }}</td></tr>
+        <tr><td>Cambio</td><td class="text-end">${{ pago.cambio|floatformat:0|intcomma }}</td></tr>
+        {% endif %}
+        {% endfor %}
+    </table>
+    {% if venta.notas %}
+    <hr>
+    <div class="small"><strong>Notas:</strong> {{ venta.notas }}</div>
+    {% endif %}
+    <hr>
+    <div class="centrado small">
+        ¡Gracias por su compra!<br>
+        {{ fecha_generacion|date:"d/m/Y H:i" }}
+    </div>
+</body>
+</html>

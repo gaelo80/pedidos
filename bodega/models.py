@@ -136,6 +136,7 @@ class Bodega(models.Model):
     disponible_venta_estandar = models.BooleanField(default=True, verbose_name="Disponible para Venta (Estándar)", help_text="Vendedores del canal estándar pueden vender/ver este stock por defecto.")
     disponible_venta_online = models.BooleanField(default=True, verbose_name="Disponible para Venta (Online)", help_text="Vendedores del canal online pueden vender/ver este stock por defecto.")
     disponible_venta_web = models.BooleanField(default=True, verbose_name="Disponible para Venta (Web/Shopify)", help_text="El canal Web/Shopify puede vender este stock por defecto.")
+    disponible_venta_puntoventa = models.BooleanField(default=True, verbose_name="Disponible para Venta (Punto de Venta)", help_text="El Punto de Venta (caja física) puede vender este stock por defecto.")
 
     direccion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas")
@@ -222,7 +223,7 @@ class MovimientoInventario(models.Model):
         ('ENTRADA_CANCELACION_INGRESO', 'Entrada por Cancelación de Ingreso'),
         ('SALIDA_VENTA_PENDIENTE', 'Salida por Venta (Pendiente Aprob)'),
         ('SALIDA_VENTA_APROBADA', 'Salida por Venta (Aprobada)'),
-        ('SALIDA_VENTA_ALMACEN', 'Salida por Venta en Almacén (Desktop)'),
+        ('SALIDA_VENTA_POS', 'Salida por Venta en Punto de Venta'),
         ('SALIDA_AJUSTE', 'Salida por Ajuste'),
         ('SALIDA_CANCELACION', 'Salida por Cancelación'),
         ('ENTRADA_PRODUCCION', 'Entrada desde Producción'),
@@ -244,6 +245,8 @@ class MovimientoInventario(models.Model):
         ('ENTRADA_DEV_INTERNA_OTRA', 'Devolución Interna (Otra)'),
         ('ENTRADA_CAMBIO', 'Entrada por Cambio de Producto'),
         ('SALIDA_CAMBIO', 'Salida por Cambio de Producto'),
+        ('ENTRADA_DEVOLUCION_POS', 'Entrada por Devolución en Punto de Venta'),
+        ('SALIDA_CAMBIO_POS', 'Salida por Cambio de Producto en Punto de Venta'),
         ]
         producto = models.ForeignKey('productos.Producto', on_delete=models.PROTECT, related_name='movimientos', verbose_name="Producto")
         bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='movimientos', verbose_name="Bodega")

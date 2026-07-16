@@ -1,0 +1,44 @@
+{% extends 'core/base.html' %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-cash-register me-2"></i> {{ titulo }}</h5>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted">Selecciona la caja/bodega de Punto de Venta y declara el efectivo con el que arrancas el turno.</p>
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="mb-3">
+                            <label for="{{ form.bodega.id_for_label }}" class="form-label fw-semibold">{{ form.bodega.label }}</label>
+                            {{ form.bodega }}
+                            {% if form.bodega.errors %}<div class="text-danger small mt-1">{{ form.bodega.errors }}</div>{% endif %}
+                            {% if not form.bodega.field.queryset.exists %}
+                                <div class="form-text text-warning">No hay bodegas de tipo "Punto de Venta" disponibles (o todas tienen un turno abierto). Crea una desde Bodegas &gt; Crear Bodega.</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.saldo_inicial.id_for_label }}" class="form-label fw-semibold">{{ form.saldo_inicial.label }}</label>
+                            {{ form.saldo_inicial }}
+                            {% if form.saldo_inicial.errors %}<div class="text-danger small mt-1">{{ form.saldo_inicial.errors }}</div>{% endif %}
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg rounded-pill shadow-sm">
+                                <i class="fas fa-play me-2"></i> Abrir Turno
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

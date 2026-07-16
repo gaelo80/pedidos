@@ -1,0 +1,146 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-1 text-primary">
+                <i class="fas fa-cash-register me-2"></i> {{ titulo }}
+            </h1>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'puntoventa:informe_cierre_turno' pk=turno.pk %}" target="_blank" class="btn btn-outline-primary btn-lg rounded-pill shadow-sm me-2">
+                <i class="fas fa-file-pdf me-2"></i> Informe de Cierre
+            </a>
+            <a href="{% url 'core:index' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-2">
+                <div class="col-md-3"><strong>Bodega:</strong> {{ turno.bodega.nombre }}</div>
+                <div class="col-md-3"><strong>Cajero:</strong> {{ turno.usuario_cajero.get_full_name|default:turno.usuario_cajero.username }}</div>
+                <div class="col-md-3">
+                    <strong>Estado:</strong>
+                    <span class="badge rounded-pill {% if turno.estado == 'ABIERTO' %}bg-success{% else %}bg-secondary{% endif %}">{{ turno.get_estado_display }}</span>
+                </div>
+                <div class="col-md-3"><strong>Apertura:</strong> {{ turno.fecha_apertura|date:"d/m/Y H:i" }}</div>
+                <div class="col-md-3"><strong>Monto Inicial:</strong> ${{ turno.saldo_inicial|floatformat:0|intcomma }}</div>
+                {% if turno.estado == 'CERRADO' %}
+                <div class="col-md-3"><strong>Cierre:</strong> {{ turno.fecha_cierre|date:"d/m/Y H:i" }}</div>
+                <div class="col-md-3"><strong>Efectivo Contado:</strong> ${{ turno.saldo_final_contado|floatformat:0|intcomma }}</div>
+                <div class="col-md-3">
+                    <strong>Diferencia:</strong>
+                    <span class="{% if turno.diferencia < 0 %}text-danger{% elif turno.diferencia > 0 %}text-warning{% else %}text-success{% endif %} fw-bold">
+                        ${{ turno.diferencia|floatformat:0|intcomma }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header bg-light py-2">
+            <strong>Desglose de Efectivo</strong>
+        </div>
+        <div class="card-body p-4">
+            <table class="table table-sm mb-0">
+                <tr><td>Monto inicial (caja menor)</td><td class="text-end">${{ turno.saldo_inicial|floatformat:0|intcomma }}</td></tr>
+                <tr><td>+ Ventas en Efectivo</td><td class="text-end">${{ totales_por_metodo.EFECTIVO|floatformat:0|intcomma }}</td></tr>
+                <tr class="text-muted"><td><small>Ventas en Tarjeta (no afecta el efectivo)</small></td><td class="text-end"><small>${{ totales_por_metodo.TARJETA|floatformat:0|intcomma }}</small></td></tr>
+                <tr class="text-muted"><td><small>Ventas en Transferencia (no afecta el efectivo)</small></td><td class="text-end"><small>${{ totales_por_metodo.TRANSFERENCIA|floatformat:0|intcomma }}</small></td></tr>
+                {% if total_reembolsos_efectivo %}
+                <tr class="text-danger"><td>− Reembolsado en Efectivo (devoluciones)</td><td class="text-end">${{ total_reembolsos_efectivo|floatformat:0|intcomma }}</td></tr>
+                {% endif %}
+                {% if total_cobros_adicionales_efectivo %}
+                <tr class="text-success"><td>+ Cobrado en Efectivo (diferencias de cambios)</td><td class="text-end">${{ total_cobros_adicionales_efectivo|floatformat:0|intcomma }}</td></tr>
+                {% endif %}
+                <tr class="border-top fw-bold"><td>= Efectivo Esperado</td><td class="text-end">${{ saldo_esperado|floatformat:0|intcomma }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    {% if devoluciones %}
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header bg-gradient bg-warning text-dark py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-right-left me-2"></i> Devoluciones / Cambios del Turno</h5>
+        </div>
+        <div class="card-body p-3">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Venta Original</th>
+                            <th class="text-end">Reembolsado (Efectivo)</th>
+                            <th class="text-end">Cobrado Adicional</th>
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in devoluciones %}
+                        <tr>
+                            <td>{{ d.get_tipo_display }}</td>
+                            <td>#{{ d.venta_original.consecutivo }}</td>
+                            <td class="text-end">${{ d.monto_reembolsado_efectivo|floatformat:0|intcomma }}</td>
+                            <td class="text-end">${{ d.monto_cobrado_adicional|floatformat:0|intcomma }}{% if d.metodo_pago_adicional %} ({{ d.get_metodo_pago_adicional_display }}){% endif %}</td>
+                            <td>{{ d.motivo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-receipt me-2"></i> Ventas del Turno</h5>
+        </div>
+        <div class="card-body p-3">
+            <div class="table-responsive">
+                <table class="table table-striped table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#Recibo</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Métodos de Pago</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas %}
+                        <tr>
+                            <td>{{ venta.consecutivo }}</td>
+                            <td>{{ venta.fecha_hora|date:"d/m/Y H:i" }}</td>
+                            <td>{{ venta.cliente.nombre_completo|default:"Mostrador" }}</td>
+                            <td>{% for pago in venta.pagos.all %}<span class="badge bg-light text-dark border">{{ pago.get_metodo_pago_display }}: ${{ pago.monto|floatformat:0|intcomma }}</span> {% endfor %}</td>
+                            <td class="text-end fw-bold">${{ venta.total_venta|floatformat:0|intcomma }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'puntoventa:recibo_venta' venta.pk %}" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">Sin ventas todavía.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock content %}

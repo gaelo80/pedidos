@@ -55,8 +55,7 @@ from .forms import CambioProductoForm
 from .forms import BodegaForm, AccesoBodegaForm, TrasladoBodegaForm
 from django.utils.safestring import mark_safe
 from django.core.paginator import Paginator
-from django.db.models import Q 
-from almacen.models import InventarioAlmacen
+from django.db.models import Q
 from django.views import View
 
 

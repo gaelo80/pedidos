@@ -1,0 +1,519 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    #resultados-busqueda {
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    .resultado-producto {
+        cursor: pointer;
+    }
+    .resultado-producto:hover {
+        background-color: var(--bs-light);
+    }
+    #carrito-lineas .input-cantidad-carrito {
+        width: 70px;
+    }
+    .precio-tachado {
+        text-decoration: line-through;
+        color: var(--bs-secondary);
+        font-size: 0.8em;
+    }
+    .fila-pago .col-recibido {
+        display: none;
+    }
+    .fila-pago.es-efectivo .col-recibido {
+        display: block;
+    }
+    .fila-pago .col-comprobante {
+        display: none;
+    }
+    .fila-pago.es-transferencia .col-comprobante {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3 mb-5 px-4">
+
+    <div class="row align-items-center mb-3">
+        <div class="col-md-8">
+            <h1 class="display-6 fw-bold mb-0 text-primary">
+                <i class="fas fa-cash-register me-2"></i> Punto de Venta
+            </h1>
+            <p class="text-muted mb-0">
+                Turno #{{ turno.pk }} — {{ turno.bodega.nombre }} — {{ turno.usuario_cajero.get_full_name|default:turno.usuario_cajero.username }}
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'puntoventa:historial_ventas' %}" class="btn btn-outline-secondary rounded-pill shadow-sm me-2">
+                <i class="fas fa-history me-2"></i> Historial
+            </a>
+            <a href="{% url 'puntoventa:cerrar_turno' %}" class="btn btn-outline-danger rounded-pill shadow-sm">
+                <i class="fas fa-stop me-2"></i> Cerrar Turno
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        {# ---------- Columna izquierda: buscador de productos ---------- #}
+        <div class="col-lg-7">
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-search me-2"></i> Buscar Producto</h5>
+                </div>
+                <div class="card-body p-3">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscador-producto" class="form-control form-control-lg" placeholder="Referencia, nombre o código de barras..." autocomplete="off" autofocus>
+                        <button type="button" id="btn-limpiar-busqueda-producto" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="resultados-busqueda" class="list-group"></div>
+                </div>
+            </div>
+        </div>
+
+        {# ---------- Columna derecha: carrito y pago ---------- #}
+        <div class="col-lg-5">
+            <div class="card shadow-lg border-0 rounded-3 mb-3">
+                <div class="card-header bg-gradient bg-info text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i> Carrito</h5>
+                </div>
+                <div class="card-body p-3">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Cliente (opcional)</label>
+                        <input type="text" id="buscador-cliente" class="form-control form-control-sm" placeholder="Buscar cliente por nombre o identificación...">
+                        <div id="resultados-cliente" class="list-group mt-1"></div>
+                        <div id="cliente-seleccionado" class="small mt-1"></div>
+                        <button type="button" id="btn-mostrar-cliente-nuevo" class="btn btn-link btn-sm p-0 mt-1">
+                            <i class="fas fa-user-plus me-1"></i> Cliente no registrado (agregar datos)
+                        </button>
+                        <div id="form-cliente-nuevo" class="border rounded p-2 mt-2" style="display:none;">
+                            <div class="row g-2">
+                                <div class="col-12"><input type="text" id="cn-nombre" class="form-control form-control-sm" placeholder="Nombre completo"></div>
+                                <div class="col-6"><input type="text" id="cn-identificacion" class="form-control form-control-sm" placeholder="Cédula (opcional)"></div>
+                                <div class="col-6"><input type="text" id="cn-telefono" class="form-control form-control-sm" placeholder="Teléfono (opcional)"></div>
+                                <div class="col-6"><input type="text" id="cn-direccion" class="form-control form-control-sm" placeholder="Dirección (opcional)"></div>
+                                <div class="col-6"><input type="email" id="cn-email" class="form-control form-control-sm" placeholder="Correo (opcional)"></div>
+                            </div>
+                            <div class="text-end mt-2">
+                                <button type="button" id="btn-cancelar-cliente-nuevo" class="btn btn-sm btn-outline-secondary">Cancelar</button>
+                                <button type="button" id="btn-guardar-cliente-nuevo" class="btn btn-sm btn-primary">Guardar Cliente</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cant.</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="carrito-lineas">
+                                <tr id="carrito-vacio"><td colspan="5" class="text-center text-muted py-3">El carrito está vacío.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Total</h5>
+                        <h4 class="mb-0 fw-bold text-primary" id="carrito-total">$0</h4>
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label small mb-0">Notas / Observaciones (opcional)</label>
+                        <textarea id="venta-notas" class="form-control form-control-sm" rows="2" placeholder="Ej: cliente pidió factura a nombre de..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-gradient bg-success text-white py-3 rounded-top-3">
+                    <h5 class="mb-0"><i class="fas fa-money-bill-wave me-2"></i> Pago</h5>
+                </div>
+                <div class="card-body p-3">
+                    <div id="pagos-lineas">
+                        <div class="row g-2 mb-2 fila-pago">
+                            <div class="col-4">
+                                <select class="form-select form-select-sm select-metodo-pago">
+                                    {% for valor, etiqueta in metodos_pago %}
+                                        <option value="{{ valor }}">{{ etiqueta }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control form-control-sm input-monto-pago" min="0" step="0.01" placeholder="Monto">
+                            </div>
+                            <div class="col-4 col-recibido">
+                                <input type="number" class="form-control form-control-sm input-recibido-pago" min="0" step="0.01" placeholder="Recibió">
+                            </div>
+                            <div class="col-12 col-comprobante">
+                                <label class="form-label small mb-0">Foto del comprobante (opcional)</label>
+                                <input type="file" accept="image/*" class="form-control form-control-sm input-comprobante-pago">
+                            </div>
+                            <div class="col-12 small text-success fw-semibold texto-cambio" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-agregar-pago" class="btn btn-outline-secondary btn-sm rounded-pill mb-3">
+                        <i class="fas fa-plus me-1"></i> Dividir Pago
+                    </button>
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span>Pagado:</span>
+                        <span id="pago-total">$0</span>
+                    </div>
+                    <div class="d-grid">
+                        <button type="button" id="btn-checkout" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                            <i class="fas fa-check-circle me-2"></i> Confirmar Venta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    var csrfToken = '{{ csrf_token }}';
+    var clienteSeleccionadoId = null;
+    var carritoTotalActual = 0;
+
+    function formatoMoneda(valor) {
+        return '$' + Math.round(parseFloat(valor)).toLocaleString('es-CO');
+    }
+
+    function post(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify(data || {})
+        }).then(function(resp) { return resp.json().then(function(json) { return {ok: resp.ok, data: json}; }); });
+    }
+
+    // --- Buscar productos ---
+    var timeoutBusqueda = null;
+    $('#buscador-producto').on('input', function() {
+        var q = $(this).val();
+        clearTimeout(timeoutBusqueda);
+        if (q.length < 2) { $('#resultados-busqueda').empty(); return; }
+        timeoutBusqueda = setTimeout(function() {
+            fetch("{% url 'puntoventa:api_buscar_producto_venta' %}?q=" + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var $cont = $('#resultados-busqueda');
+                    $cont.empty();
+                    (data.productos || []).forEach(function(p) {
+                        var $item = $('<a>', {href: '#', class: 'list-group-item list-group-item-action resultado-producto'});
+                        $item.append($('<div>', {class: 'd-flex justify-content-between'})
+                            .append($('<span>').text(p.label))
+                            .append($('<strong>').text(formatoMoneda(p.precio))));
+                        $item.append($('<small>', {class: 'text-muted'}).text('Stock en esta bodega: ' + p.stock));
+                        $item.on('click', function(e) {
+                            e.preventDefault();
+                            agregarAlCarrito(p.id);
+                        });
+                        $cont.append($item);
+                    });
+                });
+        }, 250);
+    });
+
+    $('#btn-limpiar-busqueda-producto').on('click', function() {
+        $('#buscador-producto').val('').focus();
+        $('#resultados-busqueda').empty();
+    });
+
+    // Cierra los listados de resultados al hacer clic fuera del buscador correspondiente.
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#buscador-producto, #resultados-busqueda, #btn-limpiar-busqueda-producto').length) {
+            $('#resultados-busqueda').empty();
+        }
+        if (!$(e.target).closest('#buscador-cliente, #resultados-cliente').length) {
+            $('#resultados-cliente').empty();
+        }
+    });
+
+    function agregarAlCarrito(productoId) {
+        post("{% url 'puntoventa:api_carrito_agregar' %}", {producto_id: productoId, cantidad: 1}).then(function(res) {
+            if (res.data.status === 'ok') {
+                renderCarrito(res.data.carrito);
+                $('#buscador-producto').val('').focus();
+                $('#resultados-busqueda').empty();
+            } else {
+                alert(res.data.msg);
+            }
+        });
+    }
+
+    function renderCarrito(carrito) {
+        var $tbody = $('#carrito-lineas');
+        $tbody.empty();
+        if (!carrito.lineas.length) {
+            $tbody.append('<tr id="carrito-vacio"><td colspan="5" class="text-center text-muted py-3">El carrito está vacío.</td></tr>');
+        } else {
+            carrito.lineas.forEach(function(linea) {
+                var $fila = $('<tr>');
+                $fila.append($('<td>').text(linea.label));
+                var $cantidad = $('<input>', {type: 'number', class: 'form-control form-control-sm input-cantidad-carrito', min: 1, value: linea.cantidad});
+                $cantidad.on('change', function() {
+                    post("{% url 'puntoventa:api_carrito_actualizar' %}", {producto_id: linea.producto_id, cantidad: parseInt($(this).val() || '0')})
+                        .then(function(res) { if (res.data.status === 'ok') { renderCarrito(res.data.carrito); } else { alert(res.data.msg); } });
+                });
+                $fila.append($('<td>').append($cantidad));
+
+                var $celdaPrecio = $('<td>', {class: 'text-end'});
+                if (linea.precio_override !== null && linea.precio_override !== undefined) {
+                    $celdaPrecio.append($('<div>', {class: 'precio-tachado'}).text(formatoMoneda(linea.precio_unitario)));
+                    $celdaPrecio.append($('<div>').text(formatoMoneda(linea.precio_final)));
+                } else {
+                    $celdaPrecio.text(formatoMoneda(linea.precio_final));
+                }
+                var $btnAjustar = $('<button>', {type: 'button', class: 'btn btn-link btn-sm p-0 d-block'}).html('<i class="fas fa-pen"></i> ajustar');
+                $btnAjustar.on('click', function() { abrirAjustePrecio(linea); });
+                $celdaPrecio.append($btnAjustar);
+                $fila.append($celdaPrecio);
+
+                $fila.append($('<td>', {class: 'text-end'}).text(formatoMoneda(linea.subtotal)));
+                var $btnQuitar = $('<button>', {type: 'button', class: 'btn btn-sm btn-outline-danger'}).html('&times;');
+                $btnQuitar.on('click', function() {
+                    post("{% url 'puntoventa:api_carrito_actualizar' %}", {producto_id: linea.producto_id, cantidad: 0})
+                        .then(function(res) { if (res.data.status === 'ok') { renderCarrito(res.data.carrito); } });
+                });
+                $fila.append($('<td>').append($btnQuitar));
+                $tbody.append($fila);
+            });
+        }
+        $('#carrito-total').text(formatoMoneda(carrito.total));
+        carritoTotalActual = parseFloat(carrito.total) || 0;
+        sincronizarMontoPagoUnico();
+        actualizarTotalPago();
+    }
+
+    // Si solo hay un método de pago (sin dividir), el monto es el total de la venta:
+    // no tiene sentido pedirle al cajero que lo vuelva a escribir.
+    function sincronizarMontoPagoUnico() {
+        var $filas = $('.fila-pago');
+        if ($filas.length === 1) {
+            var $input = $filas.first().find('.input-monto-pago');
+            $input.val(carritoTotalActual > 0 ? carritoTotalActual : '');
+            actualizarCambio($filas.first());
+        }
+    }
+
+    function abrirAjustePrecio(linea) {
+        var precioActual = linea.precio_override !== null && linea.precio_override !== undefined ? linea.precio_override : linea.precio_unitario;
+        var nuevo = prompt('Nuevo precio para "' + linea.label + '" (deja vacío para volver al precio original ' + formatoMoneda(linea.precio_unitario) + '):', precioActual);
+        if (nuevo === null) { return; }
+        nuevo = nuevo.trim();
+        var motivo = '';
+        if (nuevo !== '') {
+            motivo = prompt('Motivo del ajuste de precio (obligatorio):', '');
+            if (motivo === null || !motivo.trim()) {
+                alert('Debes indicar un motivo para ajustar el precio.');
+                return;
+            }
+        }
+        post("{% url 'puntoventa:api_carrito_ajustar_precio' %}", {producto_id: linea.producto_id, precio_nuevo: nuevo === '' ? null : nuevo, motivo: motivo})
+            .then(function(res) {
+                if (res.data.status === 'ok') { renderCarrito(res.data.carrito); } else { alert(res.data.msg); }
+            });
+    }
+
+    // --- Buscar cliente ---
+    var timeoutCliente = null;
+    $('#buscador-cliente').on('input', function() {
+        var q = $(this).val();
+        clearTimeout(timeoutCliente);
+        if (q.length < 2) { $('#resultados-cliente').empty(); return; }
+        timeoutCliente = setTimeout(function() {
+            fetch("{% url 'puntoventa:api_buscar_cliente_venta' %}?q=" + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var $cont = $('#resultados-cliente');
+                    $cont.empty();
+                    (data.clientes || []).forEach(function(c) {
+                        var $item = $('<a>', {href: '#', class: 'list-group-item list-group-item-action list-group-item-sm'}).text(c.label);
+                        $item.on('click', function(e) {
+                            e.preventDefault();
+                            clienteSeleccionadoId = c.id;
+                            $('#cliente-seleccionado').html('<span class="badge bg-primary">' + c.label + ' <a href="#" id="quitar-cliente" class="text-white">&times;</a></span>');
+                            $('#resultados-cliente').empty();
+                            $('#buscador-cliente').val('');
+                        });
+                        $cont.append($item);
+                    });
+                });
+        }, 250);
+    });
+
+    $(document).on('click', '#quitar-cliente', function(e) {
+        e.preventDefault();
+        clienteSeleccionadoId = null;
+        $('#cliente-seleccionado').empty();
+    });
+
+    // --- Cliente no registrado (datos opcionales) ---
+    $('#btn-mostrar-cliente-nuevo').on('click', function() {
+        $('#form-cliente-nuevo').slideDown(150);
+    });
+    $('#btn-cancelar-cliente-nuevo').on('click', function() {
+        $('#form-cliente-nuevo').slideUp(150);
+        $('#form-cliente-nuevo input').val('');
+    });
+    $('#btn-guardar-cliente-nuevo').on('click', function() {
+        var nombre = $('#cn-nombre').val().trim();
+        if (!nombre) { alert('El nombre del cliente es obligatorio.'); return; }
+        post("{% url 'puntoventa:api_cliente_rapido' %}", {
+            nombre_completo: nombre,
+            identificacion: $('#cn-identificacion').val().trim(),
+            telefono: $('#cn-telefono').val().trim(),
+            direccion: $('#cn-direccion').val().trim(),
+            email: $('#cn-email').val().trim()
+        }).then(function(res) {
+            if (res.data.status === 'ok') {
+                clienteSeleccionadoId = res.data.cliente.id;
+                $('#cliente-seleccionado').html('<span class="badge bg-primary">' + res.data.cliente.label + ' <a href="#" id="quitar-cliente" class="text-white">&times;</a></span>');
+                $('#form-cliente-nuevo').slideUp(150);
+                $('#form-cliente-nuevo input').val('');
+                if (res.data.msg) { alert(res.data.msg); }
+            } else {
+                alert(res.data.msg);
+            }
+        });
+    });
+
+    // --- Pagos (dividir pago) ---
+    $('#btn-agregar-pago').on('click', function() {
+        var $nueva = $('.fila-pago').first().clone();
+        $nueva.find('input').val('');
+        $nueva.find('.texto-cambio').hide().text('');
+        $('#pagos-lineas').append($nueva);
+        actualizarVisibilidadCamposPago($nueva);
+    });
+
+    $(document).on('change', '.select-metodo-pago', function() {
+        actualizarVisibilidadCamposPago($(this).closest('.fila-pago'));
+    });
+
+    function actualizarVisibilidadCamposPago($fila) {
+        var metodo = $fila.find('.select-metodo-pago').val();
+        var esEfectivo = metodo === 'EFECTIVO';
+        var esTransferencia = metodo === 'TRANSFERENCIA';
+        $fila.toggleClass('es-efectivo', esEfectivo);
+        $fila.toggleClass('es-transferencia', esTransferencia);
+        if (!esEfectivo) {
+            $fila.find('.input-recibido-pago').val('');
+            $fila.find('.texto-cambio').hide().text('');
+        }
+        if (!esTransferencia) {
+            $fila.find('.input-comprobante-pago').val('');
+        }
+    }
+    // Estado inicial de la fila de pago que ya viene en el HTML
+    actualizarVisibilidadCamposPago($('.fila-pago').first());
+
+    $(document).on('input', '.input-monto-pago, .input-recibido-pago', function() {
+        actualizarTotalPago();
+        actualizarCambio($(this).closest('.fila-pago'));
+    });
+
+    function actualizarCambio($fila) {
+        var monto = parseFloat($fila.find('.input-monto-pago').val() || '0');
+        var recibido = parseFloat($fila.find('.input-recibido-pago').val() || '0');
+        var $texto = $fila.find('.texto-cambio');
+        if ($fila.find('.select-metodo-pago').val() === 'EFECTIVO' && recibido > 0) {
+            var cambio = recibido - monto;
+            $texto.text('Cambio a devolver: ' + formatoMoneda(cambio < 0 ? 0 : cambio)).show();
+        } else {
+            $texto.hide().text('');
+        }
+    }
+
+    function actualizarTotalPago() {
+        var total = 0;
+        $('.input-monto-pago').each(function() { total += parseFloat($(this).val() || '0'); });
+        $('#pago-total').text(formatoMoneda(total));
+    }
+
+    // --- Checkout ---
+    $('#btn-checkout').on('click', function() {
+        var pagos = [];
+        var filasConPago = [];
+        var error = null;
+        $('.fila-pago').each(function() {
+            var $fila = $(this);
+            var metodo = $fila.find('.select-metodo-pago').val();
+            var monto = parseFloat($fila.find('.input-monto-pago').val() || '0');
+            if (monto <= 0) { return; }
+            var pago = {metodo_pago: metodo, monto: monto};
+            if (metodo === 'EFECTIVO') {
+                var recibido = $fila.find('.input-recibido-pago').val();
+                if (recibido !== '') {
+                    recibido = parseFloat(recibido);
+                    if (recibido < monto) { error = 'El monto recibido no puede ser menor al monto en efectivo.'; }
+                    pago.monto_recibido = recibido;
+                }
+            }
+            pagos.push(pago);
+            filasConPago.push($fila);
+        });
+
+        if (error) { alert(error); return; }
+        if (!pagos.length) {
+            alert('Ingresa al menos un monto de pago.');
+            return;
+        }
+
+        post("{% url 'puntoventa:api_checkout' %}", {cliente_id: clienteSeleccionadoId, pagos: pagos, notas: $('#venta-notas').val()}).then(function(res) {
+            if (res.data.status === 'ok') {
+                subirComprobantesTransferencia(res.data.pagos_creados, filasConPago).then(function() {
+                    window.open(res.data.recibo_url, '_blank');
+                    window.location.reload();
+                });
+            } else {
+                alert(res.data.msg);
+            }
+        });
+    });
+
+    // Después de confirmar la venta, sube la foto del comprobante de cada pago
+    // por transferencia que tenga un archivo seleccionado.
+    function subirComprobantesTransferencia(pagosCreados, filasConPago) {
+        var subidas = [];
+        (pagosCreados || []).forEach(function(pagoCreado, i) {
+            var $fila = filasConPago[i];
+            if (!$fila || pagoCreado.metodo_pago !== 'TRANSFERENCIA') { return; }
+            var archivo = $fila.find('.input-comprobante-pago')[0].files[0];
+            if (!archivo) { return; }
+            var formData = new FormData();
+            formData.append('pago_id', pagoCreado.pago_id);
+            formData.append('archivo', archivo);
+            subidas.push(fetch("{% url 'puntoventa:api_pago_subir_comprobante' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrfToken},
+                body: formData
+            }));
+        });
+        return Promise.all(subidas);
+    }
+
+    // Estado inicial del carrito (por si el cajero recarga la página)
+    fetch("{% url 'puntoventa:api_carrito_estado' %}").then(function(r) { return r.json(); }).then(function(data) {
+        if (data.status === 'ok') { renderCarrito(data.carrito); }
+    });
+});
+</script>
+{% endblock %}

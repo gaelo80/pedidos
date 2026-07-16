@@ -72,3 +72,11 @@ def es_online(user):
     if user.is_superuser:
         return True
     return user.groups.filter(name='Online').exists()
+
+def es_cajero(user):
+    """Devuelve True si el usuario es superusuario o pertenece al grupo 'Cajero'."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name='Cajero').exists()

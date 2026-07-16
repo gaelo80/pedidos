@@ -204,6 +204,7 @@ class Producto(models.Model):
         'ESTANDAR': 'disponible_venta_estandar',
         'ONLINE': 'disponible_venta_online',
         'WEB': 'disponible_venta_web',
+        'PUNTOVENTA': 'disponible_venta_puntoventa',
     }
 
     def stock_disponible_para_canal(self, canal, usuario=None):

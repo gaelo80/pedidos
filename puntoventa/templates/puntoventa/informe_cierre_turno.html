@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Informe de Cierre - Turno #{{ turno.pk }}</title>
+    <style type="text/css">
+        @page {
+            size: letter;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: "Helvetica", Arial, sans-serif;
+            font-size: 10pt;
+            color: #333;
+        }
+        .logo { max-height: 25mm; }
+        h1 { font-size: 16pt; margin: 0 0 4px 0; }
+        h3 { font-size: 12pt; margin-top: 18px; margin-bottom: 6px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { padding: 5px 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background-color: #f5f5f5; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .total-row td { border-top: 2px solid #333; font-size: 11pt; }
+        .text-danger { color: #b02a37; }
+        .text-success { color: #146c43; }
+        .text-muted { color: #777; font-size: 9pt; }
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <div>
+            {% if logo_base64 %}<img class="logo" src="data:image/png;base64,{{ logo_base64 }}" alt="Logo"><br>{% endif %}
+            <h1>{{ empresa.nombre }}</h1>
+            <div>Informe de Cierre de Turno - Punto de Venta</div>
+        </div>
+        <div class="text-end">
+            <div><strong>Turno #{{ turno.pk }}</strong></div>
+            <div>Bodega: {{ turno.bodega.nombre }}</div>
+            <div>Cajero: {{ turno.usuario_cajero.get_full_name|default:turno.usuario_cajero.username }}</div>
+            <div>Apertura: {{ turno.fecha_apertura|date:"d/m/Y H:i" }}</div>
+            {% if turno.fecha_cierre %}<div>Cierre: {{ turno.fecha_cierre|date:"d/m/Y H:i" }}</div>{% endif %}
+        </div>
+    </div>
+
+    <h3>Desglose de Efectivo</h3>
+    <table>
+        <tr><td>Monto inicial (caja menor)</td><td class="text-end">${{ turno.saldo_inicial|floatformat:0|intcomma }}</td></tr>
+        <tr><td>+ Ventas en Efectivo</td><td class="text-end">${{ totales_por_metodo.EFECTIVO|floatformat:0|intcomma }}</td></tr>
+        <tr class="text-muted"><td>Ventas en Tarjeta (no afecta el efectivo)</td><td class="text-end">${{ totales_por_metodo.TARJETA|floatformat:0|intcomma }}</td></tr>
+        <tr class="text-muted"><td>Ventas en Transferencia (no afecta el efectivo)</td><td class="text-end">${{ totales_por_metodo.TRANSFERENCIA|floatformat:0|intcomma }}</td></tr>
+        {% if total_reembolsos_efectivo %}
+        <tr class="text-danger"><td>− Reembolsado en Efectivo (devoluciones)</td><td class="text-end">${{ total_reembolsos_efectivo|floatformat:0|intcomma }}</td></tr>
+        {% endif %}
+        {% if total_cobros_adicionales_efectivo %}
+        <tr class="text-success"><td>+ Cobrado en Efectivo (diferencias de cambios)</td><td class="text-end">${{ total_cobros_adicionales_efectivo|floatformat:0|intcomma }}</td></tr>
+        {% endif %}
+        <tr class="total-row"><td class="fw-bold">= Efectivo Esperado</td><td class="text-end fw-bold">${{ saldo_esperado|floatformat:0|intcomma }}</td></tr>
+        {% if turno.estado == 'CERRADO' %}
+        <tr><td>Efectivo Contado</td><td class="text-end">${{ turno.saldo_final_contado|floatformat:0|intcomma }}</td></tr>
+        <tr class="total-row"><td class="fw-bold">Diferencia</td><td class="text-end fw-bold">${{ turno.diferencia|floatformat:0|intcomma }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="text-muted">Turno aún abierto — pendiente de contar y cerrar.</td></tr>
+        {% endif %}
+    </table>
+
+    <h3>Ventas del Turno ({{ ventas|length }})</h3>
+    <table>
+        <thead>
+            <tr><th>#Recibo</th><th>Fecha</th><th>Cliente</th><th>Métodos de Pago</th><th class="text-end">Total</th></tr>
+        </thead>
+        <tbody>
+            {% for venta in ventas %}
+            <tr>
+                <td>{{ venta.consecutivo }}</td>
+                <td>{{ venta.fecha_hora|date:"d/m/Y H:i" }}</td>
+                <td>{{ venta.cliente.nombre_completo|default:"Mostrador" }}</td>
+                <td>{% for pago in venta.pagos.all %}{{ pago.get_metodo_pago_display }}: ${{ pago.monto|floatformat:0|intcomma }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                <td class="text-end">${{ venta.total_venta|floatformat:0|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">Sin ventas en este turno.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if devoluciones %}
+    <h3>Devoluciones / Cambios del Turno ({{ devoluciones|length }})</h3>
+    <table>
+        <thead>
+            <tr><th>Tipo</th><th>Venta Original</th><th class="text-end">Reembolsado (Efectivo)</th><th class="text-end">Cobrado Adicional</th><th>Motivo</th></tr>
+        </thead>
+        <tbody>
+            {% for d in devoluciones %}
+            <tr>
+                <td>{{ d.get_tipo_display }}</td>
+                <td>#{{ d.venta_original.consecutivo }}</td>
+                <td class="text-end">${{ d.monto_reembolsado_efectivo|floatformat:0|intcomma }}</td>
+                <td class="text-end">${{ d.monto_cobrado_adicional|floatformat:0|intcomma }}{% if d.metodo_pago_adicional %} ({{ d.get_metodo_pago_adicional_display }}){% endif %}</td>
+                <td>{{ d.motivo }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <p style="margin-top: 30px; text-align: center; color: #777;">Generado el {{ fecha_generacion|date:"d/m/Y H:i" }}</p>
+</body>
+</html>

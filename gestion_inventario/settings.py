@@ -153,8 +153,8 @@ INSTALLED_APPS = [
         'recaudos',
         'notificaciones',
         'pedidos_online',
-        'almacen.apps.AlmacenConfig',
         'pedidos_web',
+        'puntoventa',
 
 
         # APLICACIONES DE TERCERO
@@ -326,11 +326,6 @@ LOGGING = {
             'propagate': False,
         },
         'bodega.models': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'almacen.signals': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
