@@ -5,7 +5,6 @@ import base64
 import logging
 import os
 import threading
-import time
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -345,45 +344,40 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
 def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
     """
     Corre en un hilo aparte para no bloquear la petición (evita el timeout de
-    nginx). Solo cuenta el stock de las bodegas habilitadas para venta web
+    nginx). Empuja el inventario en LOTES por GraphQL (en vez de una llamada
+    REST por variante), lo que reduce cientos de llamadas a un puñado. Solo
+    cuenta el stock de las bodegas habilitadas para venta web
     ('disponible_venta_web'), no el de toda la empresa.
     """
     try:
         productos_shopify = _obtener_todos_los_productos_shopify(headers, shop_url)
-        variantes = [(item, v) for item in productos_shopify for v in item.get('variants', [])]
-        total = len(variantes)
-        url_set_inventory = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/inventory_levels/set.json"
-        exitosos = 0
-        errores = 0
+        variant_ids_shopify = {
+            str(v.get('id')) for item in productos_shopify for v in item.get('variants', [])
+        }
 
-        for indice, (item, variant) in enumerate(variantes, start=1):
-            variant_id = str(variant.get('id'))
-            inventory_item_id = variant.get('inventory_item_id')
-            producto_local = Producto.objects.filter(
-                empresa_id=empresa_id, activo=True, shopify_variant_id=variant_id
-            ).first()
+        productos_a_sincronizar = list(
+            Producto.objects.filter(
+                empresa_id=empresa_id, activo=True, shopify_variant_id__in=variant_ids_shopify
+            )
+        )
+        total = len(productos_a_sincronizar)
+        _actualizar_progreso_sync(empresa_id, 0, 0, 0, f"Sincronizando {total} variante(s) en lotes...", total=total)
 
-            if producto_local and inventory_item_id:
-                cantidad_real = max(producto_local.stock_disponible_para_canal('WEB'), 0)
-                payload_inventario = {
-                    "location_id": location_id,
-                    "inventory_item_id": inventory_item_id,
-                    "available": cantidad_real,
-                }
-                try:
-                    inv_response = requests.post(url_set_inventory, json=payload_inventario, headers=headers, timeout=30)
-                    if inv_response.status_code == 200:
-                        exitosos += 1
-                    else:
-                        errores += 1
-                except requests.exceptions.RequestException:
-                    errores += 1
-                time.sleep(0.3)
+        exitosos_total = 0
+        errores_total = 0
+        tamano_lote = shopify_api._TAMANO_LOTE_INVENTARIO
+        for inicio in range(0, total, tamano_lote):
+            lote = productos_a_sincronizar[inicio:inicio + tamano_lote]
+            exitosos_lote, errores_lote = shopify_api.sincronizar_inventario_lote(lote, location_id)
+            exitosos_total += exitosos_lote
+            errores_total += errores_lote
+            procesados = min(inicio + tamano_lote, total)
+            _actualizar_progreso_sync(
+                empresa_id, procesados, exitosos_total, errores_total,
+                f"Procesando {procesados} de {total}...", total=total,
+            )
 
-            if indice % 5 == 0 or indice == total:
-                _actualizar_progreso_sync(empresa_id, indice, exitosos, errores, f"Procesando {indice} de {total}...", total=total)
-
-        _finalizar_sync(empresa_id, f"Inventario actualizado: {exitosos} exitoso(s), {errores} con error.")
+        _finalizar_sync(empresa_id, f"Inventario actualizado: {exitosos_total} exitoso(s), {errores_total} con error.")
     except Exception as e:
         _finalizar_sync(empresa_id, f"Error: {str(e)}")
 

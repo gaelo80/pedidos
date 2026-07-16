@@ -15,6 +15,7 @@ desde el storage configurado y mandándolos codificados en el payload.
 """
 import base64
 import logging
+import uuid
 
 import requests
 from decouple import config
@@ -456,3 +457,88 @@ def sincronizar_inventario(headers, location_id, producto):
     }
     response = requests.post(_url_admin('inventory_levels/set.json'), json=payload, headers=headers, timeout=30)
     response.raise_for_status()
+
+
+_QUERY_CANTIDADES_ACTUALES = """
+query($ids: [ID!]!, $locationId: ID!) {
+  nodes(ids: $ids) {
+    ... on InventoryItem {
+      id
+      inventoryLevel(locationId: $locationId) {
+        quantities(names: ["available"]) { quantity }
+      }
+    }
+  }
+}
+"""
+
+_MUTATION_SET_QUANTITIES = """
+mutation($input: InventorySetQuantitiesInput!, $key: String!) {
+  inventorySetQuantities(input: $input) @idempotent(key: $key) {
+    userErrors { field message }
+  }
+}
+"""
+
+# Tamaño de lote para las mutaciones masivas de inventario -- conservador
+# para no acercarse a los límites de costo de la API GraphQL de Shopify.
+_TAMANO_LOTE_INVENTARIO = 100
+
+
+def sincronizar_inventario_lote(productos, location_id):
+    """
+    Empuja el stock de MUCHAS variantes de una sola vez usando la mutación
+    GraphQL 'inventorySetQuantities' (en lotes), en vez de una llamada REST
+    por variante. Reduce cientos/miles de llamadas a solo un puñado.
+
+    'productos' es una lista de Producto ya enlazados (con
+    shopify_inventory_item_id). Devuelve (exitosos, errores).
+    """
+    location_gid = f"gid://shopify/Location/{location_id}"
+    productos_validos = [p for p in productos if p.shopify_inventory_item_id]
+
+    exitosos = 0
+    errores = 0
+
+    for inicio in range(0, len(productos_validos), _TAMANO_LOTE_INVENTARIO):
+        lote = productos_validos[inicio:inicio + _TAMANO_LOTE_INVENTARIO]
+        ids_gid = [f"gid://shopify/InventoryItem/{p.shopify_inventory_item_id}" for p in lote]
+
+        try:
+            datos_actuales = graphql(_QUERY_CANTIDADES_ACTUALES, {'ids': ids_gid, 'locationId': location_gid})
+        except Exception:
+            errores += len(lote)
+            continue
+
+        actual_por_id = {}
+        for nodo in datos_actuales.get('nodes', []):
+            if nodo and nodo.get('inventoryLevel'):
+                cantidades = nodo['inventoryLevel']['quantities']
+                actual_por_id[nodo['id']] = cantidades[0]['quantity'] if cantidades else 0
+
+        quantities_payload = []
+        for p, id_gid in zip(lote, ids_gid):
+            cantidad_real = max(p.stock_disponible_para_canal('WEB'), 0)
+            quantities_payload.append({
+                'inventoryItemId': id_gid,
+                'locationId': location_gid,
+                'quantity': cantidad_real,
+                'changeFromQuantity': actual_por_id.get(id_gid, 0),
+            })
+
+        variables = {
+            'input': {'reason': 'correction', 'name': 'available', 'quantities': quantities_payload},
+            'key': str(uuid.uuid4()),
+        }
+
+        try:
+            resultado = graphql(_MUTATION_SET_QUANTITIES, variables)
+            errores_lote = resultado['inventorySetQuantities']['userErrors']
+            if errores_lote:
+                errores += len(lote)
+            else:
+                exitosos += len(lote)
+        except Exception:
+            errores += len(lote)
+
+    return exitosos, errores
