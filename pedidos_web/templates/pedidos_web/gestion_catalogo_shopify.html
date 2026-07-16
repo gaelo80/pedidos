@@ -65,7 +65,7 @@
                 <div class="small mt-1">
                     {% if fila.referencia_color.color %}<span class="badge bg-light text-dark border me-1">{{ fila.referencia_color.color }}</span>{% endif %}
                     {% if fila.genero %}<span class="badge bg-light text-dark border me-1">{{ fila.genero }}</span>{% endif %}
-                    <span class="text-muted">{{ fila.variantes|length }} talla(s) · stock {{ fila.stock_total }} · ${{ fila.precio_venta|floatformat:0 }}</span>
+                    <span class="text-muted">{{ fila.variantes|length }} talla(s) · stock web {{ fila.stock_total }} · ${{ fila.precio_venta|floatformat:0 }}</span>
                 </div>
             </div>
 
@@ -109,7 +109,7 @@
                             <tbody>
                                 <tr><th>Costo</th><td>${{ fila.costo|floatformat:0 }}</td></tr>
                                 <tr><th>Precio venta (interno)</th><td>${{ fila.precio_venta|floatformat:0 }}</td></tr>
-                                <tr><th>Stock total</th><td>{{ fila.stock_total }}</td></tr>
+                                <tr><th>Stock disponible para Web</th><td>{{ fila.stock_total }} <span class="text-muted small">(bodegas habilitadas para venta web)</span></td></tr>
                                 <tr>
                                     <th>Tallas</th>
                                     <td>

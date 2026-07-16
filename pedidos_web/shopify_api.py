@@ -440,10 +440,15 @@ def _cambiar_estado_producto(referencia_color, estado):
 
 
 def sincronizar_inventario(headers, location_id, producto):
-    """Empuja el stock real (stock_actual) de una variante ya enlazada."""
+    """
+    Empuja el stock real de una variante ya enlazada, usando solo las
+    bodegas habilitadas para venta web ('disponible_venta_web'). Así una
+    bodega que no esté marcada para venta web (ej. saldos, mayoreo) nunca
+    infla el stock que se muestra en la tienda.
+    """
     if not producto.shopify_inventory_item_id:
         return
-    cantidad_real = max(producto.stock_actual, 0)
+    cantidad_real = max(producto.stock_disponible_para_canal('WEB'), 0)
     payload = {
         'location_id': location_id,
         'inventory_item_id': producto.shopify_inventory_item_id,

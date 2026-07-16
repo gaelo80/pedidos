@@ -343,7 +343,11 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
 
 
 def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
-    """Corre en un hilo aparte para no bloquear la petición (evita el timeout de nginx)."""
+    """
+    Corre en un hilo aparte para no bloquear la petición (evita el timeout de
+    nginx). Solo cuenta el stock de las bodegas habilitadas para venta web
+    ('disponible_venta_web'), no el de toda la empresa.
+    """
     try:
         productos_shopify = _obtener_todos_los_productos_shopify(headers, shop_url)
         variantes = [(item, v) for item in productos_shopify for v in item.get('variants', [])]
@@ -360,7 +364,7 @@ def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
             ).first()
 
             if producto_local and inventory_item_id:
-                cantidad_real = max(producto_local.stock_actual, 0)
+                cantidad_real = max(producto_local.stock_disponible_para_canal('WEB'), 0)
                 payload_inventario = {
                     "location_id": location_id,
                     "inventory_item_id": inventory_item_id,
@@ -550,7 +554,7 @@ def gestion_catalogo_shopify(request):
             'genero': variantes[0].get_genero_display() if variantes[0].genero else '',
             'costo': variantes[0].costo,
             'precio_venta': variantes[0].precio_venta,
-            'stock_total': sum(v.stock_actual for v in variantes),
+            'stock_total': sum(v.stock_disponible_para_canal('WEB') for v in variantes),
             'esta_subido': bool(rc.shopify_product_id),
         })
 
