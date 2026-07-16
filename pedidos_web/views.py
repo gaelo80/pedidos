@@ -351,6 +351,11 @@ def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
     """
     try:
         productos_shopify = _obtener_todos_los_productos_shopify(headers, shop_url)
+
+        empresa = Empresa.objects.filter(pk=empresa_id).first()
+        _actualizar_progreso_sync(empresa_id, 0, 0, 0, "Revisando y corrigiendo el catálogo...", total=0)
+        reporte_auditoria = shopify_api.auditar_y_corregir_catalogo(empresa, productos_shopify)
+
         variant_ids_shopify = {
             str(v.get('id')) for item in productos_shopify for v in item.get('variants', [])
         }
@@ -377,7 +382,15 @@ def _hilo_subir_inventario(empresa_id, headers, shop_url, location_id):
                 f"Procesando {procesados} de {total}...", total=total,
             )
 
-        _finalizar_sync(empresa_id, f"Inventario actualizado: {exitosos_total} exitoso(s), {errores_total} con error.")
+        mensaje = f"Inventario actualizado: {exitosos_total} exitoso(s), {errores_total} con error."
+        if reporte_auditoria['titulos_corregidos']:
+            mensaje += f" Títulos corregidos automáticamente: {len(reporte_auditoria['titulos_corregidos'])}."
+        if reporte_auditoria['pendientes_revision_manual']:
+            mensaje += (
+                f" {len(reporte_auditoria['pendientes_revision_manual'])} color(es) siguen sin subir "
+                "a Shopify (revisar en Catálogo Shopify)."
+            )
+        _finalizar_sync(empresa_id, mensaje)
     except Exception as e:
         _finalizar_sync(empresa_id, f"Error: {str(e)}")
 

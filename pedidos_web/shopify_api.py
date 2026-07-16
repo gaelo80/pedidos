@@ -542,3 +542,141 @@ def sincronizar_inventario_lote(productos, location_id):
             errores += len(lote)
 
     return exitosos, errores
+
+
+def _color_correcto_en_titulo(titulo_actual, color_correcto, colores_conocidos):
+    """
+    Corrige automáticamente el color mencionado en un título de Shopify.
+
+    Si el título menciona otro color conocido (ej. "blanco" cuando en
+    realidad es "negro"), lo reemplaza preservando el estilo de mayúsculas
+    del texto que rodea. Si no menciona ningún color reconocido, agrega el
+    color correcto al final -- nunca deja el título sin tocar cuando se sabe
+    que está mal, porque un título sin color es indistinguible de otro color
+    de la misma referencia en la tienda.
+    """
+    color_correcto_norm = color_correcto.strip().upper()
+    titulo_upper = titulo_actual.upper()
+
+    for otro_color in sorted(colores_conocidos, key=len, reverse=True):
+        otro_color = (otro_color or '').strip()
+        if not otro_color or otro_color.upper() == color_correcto_norm:
+            continue
+        indice = titulo_upper.find(otro_color.upper())
+        if indice == -1:
+            continue
+        fragmento_original = titulo_actual[indice:indice + len(otro_color)]
+        if fragmento_original.isupper():
+            reemplazo = color_correcto.upper()
+        elif fragmento_original.istitle():
+            reemplazo = color_correcto.title()
+        else:
+            reemplazo = color_correcto.lower()
+        return titulo_actual[:indice] + reemplazo + titulo_actual[indice + len(otro_color):]
+
+    return f"{titulo_actual} - {color_correcto.title()}"
+
+
+def auditar_y_corregir_catalogo(empresa, productos_shopify):
+    """
+    Revisa cada ReferenciaColor de la empresa que ya tiene variantes activas
+    y las compara contra el catálogo REAL de Shopify (por código de
+    barras, no por los IDs guardados -- así se detectan enlaces que quedaron
+    desactualizados). Corrige automáticamente:
+      - IDs de enlace (producto/variante/inventory_item) desactualizados.
+      - Títulos que mencionan un color distinto al real (ej. un producto de
+        TAUPE titulado "BEIGE" porque alguien lo escribió mal a mano).
+
+    NO crea productos nuevos en Shopify: los colores que nunca se subieron
+    quedan reportados en 'pendientes_revision_manual' para que la
+    administradora los suba ella misma (los precios de un color nuevo no
+    siempre son los mismos que en bodega).
+
+    Devuelve un reporte con lo corregido y lo que sigue pendiente.
+    """
+    from productos.models import Color, ReferenciaColor
+
+    productos_por_id = {p['id']: p for p in productos_shopify}
+    indice_barcode = {}
+    for p in productos_shopify:
+        for v in p.get('variants', []):
+            bc = v.get('barcode')
+            if bc:
+                indice_barcode[bc] = p['id']
+
+    colores_conocidos = list(Color.objects.filter(empresa=empresa).values_list('nombre', flat=True))
+
+    titulos_corregidos = []
+    enlaces_reparados = []
+    pendientes_manual = []
+
+    for rc in ReferenciaColor.objects.filter(empresa=empresa):
+        variantes = list(rc.variantes.filter(activo=True))
+        barcodes = [p.codigo_barras for p in variantes if p.codigo_barras]
+        if not barcodes:
+            continue
+
+        ids_encontrados = {indice_barcode[b] for b in barcodes if b in indice_barcode}
+        faltantes = [b for b in barcodes if b not in indice_barcode]
+
+        if not ids_encontrados:
+            pendientes_manual.append({
+                'referencia': rc.referencia_base, 'color': rc.color,
+                'motivo': 'No se ha subido a Shopify todavía',
+            })
+            continue
+
+        if len(ids_encontrados) > 1 or faltantes:
+            pendientes_manual.append({
+                'referencia': rc.referencia_base, 'color': rc.color,
+                'motivo': f'{len(faltantes)} talla(s) de este color no están creadas en Shopify',
+            })
+            continue
+
+        shopify_id = next(iter(ids_encontrados))
+        producto_shopify = productos_por_id[shopify_id]
+
+        # Reparar enlaces desactualizados (variant_id / inventory_item_id).
+        variantes_shopify_por_barcode = {
+            v['barcode']: v for v in producto_shopify.get('variants', []) if v.get('barcode')
+        }
+        for producto in variantes:
+            v = variantes_shopify_por_barcode.get(producto.codigo_barras)
+            if not v:
+                continue
+            necesita_guardar = (
+                str(producto.shopify_variant_id or '') != str(v['id'])
+                or not producto.shopify_inventory_item_id
+            )
+            if necesita_guardar:
+                producto.shopify_variant_id = str(v['id'])
+                producto.shopify_inventory_item_id = str(v.get('inventory_item_id') or '')
+                producto.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
+                enlaces_reparados.append({'referencia': rc.referencia_base, 'color': rc.color, 'talla': producto.talla})
+
+        if str(rc.shopify_product_id or '') != str(shopify_id):
+            rc.shopify_product_id = shopify_id
+            rc.save(update_fields=['shopify_product_id'])
+
+        titulo_actual = producto_shopify.get('title') or ''
+        color_correcto = (rc.color or '').strip()
+        if color_correcto and color_correcto.upper() not in titulo_actual.upper():
+            titulo_nuevo = _color_correcto_en_titulo(titulo_actual, color_correcto, colores_conocidos)
+            try:
+                rc.shopify_titulo = titulo_nuevo
+                rc.save(update_fields=['shopify_titulo'])
+                actualizar_producto(rc, variantes)
+                titulos_corregidos.append({
+                    'referencia': rc.referencia_base, 'color': rc.color,
+                    'anterior': titulo_actual, 'nuevo': titulo_nuevo,
+                })
+            except Exception as e:
+                logger.error(
+                    f"No se pudo auto-corregir el título de {rc.referencia_base} {rc.color}: {e}"
+                )
+
+    return {
+        'titulos_corregidos': titulos_corregidos,
+        'enlaces_reparados': enlaces_reparados,
+        'pendientes_revision_manual': pendientes_manual,
+    }
