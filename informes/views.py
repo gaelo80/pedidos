@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import timedelta, datetime as dt
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from core.auth_utils import es_administracion, es_bodega, es_vendedor, es_diseno, es_cartera, es_factura # Asegúrate de que todas estas funciones están disponibles
+from core.auth_utils import es_administracion, es_bodega, es_vendedor, es_diseno, es_cartera, es_factura, es_online # Asegúrate de que todas estas funciones están disponibles
 from bodega.models import IngresoBodega, ComprobanteDespacho, DetalleComprobanteDespacho # AÑADIDO DetalleComprobanteDespacho
 from pedidos.models import Pedido, DetallePedido
 from vendedores.models import Vendedor
@@ -65,7 +65,7 @@ def _parse_date_range_from_request(request):
 
 
 @login_required
-@permission_required('informes.view_reporte_ventas_vendedor', login_url='core:acceso_denied')
+@permission_required('informes.view_reporte_ventas_vendedor', login_url='core:acceso_denegado')
 def reporte_ventas(request):
     empresa_actual = getattr(request, 'tenant', None)
     if not empresa_actual:
@@ -74,7 +74,7 @@ def reporte_ventas(request):
 
     usuario_actual = request.user
     es_admin = es_administracion(usuario_actual) or usuario_actual.is_superuser
-    es_vend = es_vendedor(usuario_actual)
+    es_vend = es_vendedor(usuario_actual) or es_online(usuario_actual)
 
     fecha_inicio_dt_aware, fecha_fin_dt_aware = _parse_date_range_from_request(request)
 
@@ -144,7 +144,7 @@ def reporte_ventas(request):
             return redirect('core:acceso_denegado')
     else:
         messages.warning(request, "No tiene permisos para ver este informe.")
-        return redirect('core:acceso_denied')
+        return redirect('core:acceso_denegado')
 
     # ------------------- ANOTACIONES -------------------
     total_unidades_despachadas_subquery = Subquery(
