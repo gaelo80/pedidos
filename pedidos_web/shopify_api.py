@@ -19,6 +19,7 @@ import uuid
 
 import requests
 from decouple import config
+from django.db import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -698,10 +699,23 @@ def auditar_y_corregir_catalogo(empresa, productos_shopify):
                 or not producto.shopify_inventory_item_id
             )
             if necesita_guardar:
-                producto.shopify_variant_id = str(v['id'])
-                producto.shopify_inventory_item_id = str(v.get('inventory_item_id') or '')
-                producto.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
-                enlaces_reparados.append({'referencia': rc.referencia_base, 'color': rc.color, 'talla': producto.talla})
+                try:
+                    producto.shopify_variant_id = str(v['id'])
+                    producto.shopify_inventory_item_id = str(v.get('inventory_item_id') or '')
+                    producto.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
+                    enlaces_reparados.append({'referencia': rc.referencia_base, 'color': rc.color, 'talla': producto.talla})
+                except IntegrityError:
+                    # Ese shopify_variant_id ya está asignado a otro producto
+                    # (dato inconsistente en Shopify). Se reporta y se sigue,
+                    # en vez de abortar la auditoría completa.
+                    logger.error(
+                        f"No se pudo reparar el enlace de {rc.referencia_base} {rc.color} "
+                        f"talla {producto.talla}: shopify_variant_id {v['id']} ya está en uso."
+                    )
+                    pendientes_manual.append({
+                        'referencia': rc.referencia_base, 'color': rc.color,
+                        'motivo': f"variant_id {v['id']} duplicado en Shopify (revisar manualmente)",
+                    })
 
         if str(rc.shopify_product_id or '') != str(shopify_id):
             rc.shopify_product_id = shopify_id

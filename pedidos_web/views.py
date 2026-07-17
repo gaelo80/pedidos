@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.conf import settings
 from clientes.models import Empresa, Ciudad
 from pedidos_online.models import ClienteOnline
@@ -320,16 +320,31 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
         errores = 0
 
         for indice, (item, variant) in enumerate(variantes, start=1):
-            sku_shopify = variant.get('sku') or variant.get('barcode')
+            # Se prefiere 'barcode' sobre 'sku': es el campo que este sistema
+            # controla de forma consistente; el 'sku' puede haber quedado
+            # desactualizado por una edición manual o un error histórico.
+            sku_shopify = variant.get('barcode') or variant.get('sku')
             if sku_shopify:
                 producto_local = Producto.objects.filter(
                     empresa_id=empresa_id, activo=True, codigo_barras__iexact=sku_shopify.strip()
                 ).first()
                 if producto_local:
                     if not producto_local.shopify_variant_id:
-                        producto_local.shopify_variant_id = str(variant.get('id'))
-                        producto_local.save(update_fields=['shopify_variant_id'])
-                        exitosos += 1
+                        try:
+                            producto_local.shopify_variant_id = str(variant.get('id'))
+                            producto_local.save(update_fields=['shopify_variant_id'])
+                            exitosos += 1
+                        except IntegrityError:
+                            # Ese shopify_variant_id ya está en uso por otro producto
+                            # (dato inconsistente en Shopify: dos variantes con el
+                            # mismo código). Se registra como error y se sigue con
+                            # el resto, en vez de abortar todo el enlace.
+                            errores += 1
+                            logger.error(
+                                f"No se pudo enlazar {producto_local.referencia} talla "
+                                f"{producto_local.talla}: shopify_variant_id "
+                                f"{variant.get('id')} ya está en uso por otro producto."
+                            )
                 elif not Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).exists():
                     errores += 1
 
