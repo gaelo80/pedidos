@@ -1,5 +1,5 @@
 from django import forms
-from .models import Insumo, Proceso, Confeccionista, Costeo, DetalleInsumo, DetalleProceso, CostoFijo,TarifaConfeccionista
+from .models import Insumo, Proceso, Confeccionista, Costeo, DetalleInsumo, DetalleProceso, CostoFijo,TarifaConfeccionista, DetalleCantidadTalla
 from django.forms import inlineformset_factory
 from .models import MovimientoInsumo
 from productos.models import ReferenciaColor
@@ -92,11 +92,12 @@ class CosteoModelForm(forms.ModelForm):
     """
     class Meta:
         model = Costeo
-        fields = ['referencia_color', 'referencia', 'cantidad_producida', 'margen_deseado', 'porcentaje_descuento_cliente', 'porcentaje_comision_vendedor']
+        # 'cantidad_producida' NO se pide directo -- se calcula sumando el
+        # desglose por talla (ver DetalleTallaFormSet más abajo).
+        fields = ['referencia_color', 'referencia', 'margen_deseado', 'porcentaje_descuento_cliente', 'porcentaje_comision_vendedor']
         widgets = {
             'referencia_color': forms.Select(attrs={'class': 'form-select select2-referencia-color', 'data-placeholder': 'Buscar referencia y color en el catálogo...'}),
             'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jean Clásico 101 (se autocompleta si eliges arriba)'}),
-            'cantidad_producida': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1000'}),
             'margen_deseado': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 40.00', 'step': '0.01'}),
             'porcentaje_descuento_cliente': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 10.00'}),
             'porcentaje_comision_vendedor': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 6.00'}),
@@ -104,7 +105,6 @@ class CosteoModelForm(forms.ModelForm):
         labels = {
             'referencia_color': 'Referencia del catálogo (opcional)',
             'referencia': 'Referencia del Producto',
-            'cantidad_producida': 'Cantidad a Producir (Unidades)',
             'margen_deseado': '% Margen de Utilidad Deseado (sobre el precio de venta)',
             'porcentaje_descuento_cliente': '% Descuento Cliente',
             'porcentaje_comision_vendedor': '% Comisión Vendedor',
@@ -146,6 +146,21 @@ class DetalleInsumoForm(forms.ModelForm):
          
             
             
+class DetalleCantidadTallaForm(forms.ModelForm):
+    class Meta:
+        model = DetalleCantidadTalla
+        fields = ['talla', 'cantidad']
+        widgets = {
+            'talla': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 28'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 50'}),
+        }
+
+
+DetalleTallaFormSet = inlineformset_factory(
+    Costeo, DetalleCantidadTalla, form=DetalleCantidadTallaForm, extra=1, can_delete=True
+)
+
+
 class DetalleProcesoForm(forms.ModelForm):
     class Meta:
         model = DetalleProceso

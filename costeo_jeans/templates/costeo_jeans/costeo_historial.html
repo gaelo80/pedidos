@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load humanize %}
 
-{% block title %}Historial de Costeos{% endblock %}
+{% block page_title %}Historial de Costeos{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -27,6 +27,11 @@
                     <button type="submit" class="btn btn-primary w-100">Filtrar</button>
                 </div>
             </form>
+            <div class="mt-3 text-end">
+                <a href="{% url 'costeo_jeans:costeo_historial_exportar_excel' %}?{{ request.GET.urlencode }}" class="btn btn-outline-success btn-sm">
+                    <i class="fas fa-file-excel"></i> Exportar a Excel
+                </a>
+            </div>
         </div>
     </div>
 
@@ -39,9 +44,12 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Referencia</th>
+                            <th>Estado</th>
                             <th>Cantidad</th>
                             <th>Costo Unit.</th>
-                            <th class="text-success">Utilidad Unit.</th> <th class="text-success">Margen</th> <th class="text-center">Acciones</th>
+                            <th class="text-success">Utilidad Unit.</th>
+                            <th class="text-success">Margen</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -49,29 +57,34 @@
                         <tr>
                             <td>{{ costeo.fecha|date:"Y-m-d" }}</td>
                             <td>{{ costeo.referencia }}</td>
+                            <td>
+                                <span class="badge {% if costeo.estado == 'FINALIZADO' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ costeo.get_estado_display }}
+                                </span>
+                            </td>
                             <td>{{ costeo.cantidad_producida }}</td>
                             <td>${{ costeo.costo_unitario|floatformat:0|intcomma }}</td>
-                            <td class="text-success">${{ costeo.utilidad_unitaria|floatformat:0|intcomma }}</td> <td class="text-success">{{ costeo.margen_utilidad|floatformat:2 }}%</td> <td class="text-center">
+                            <td class="text-success">${{ costeo.utilidad_unitaria|floatformat:0|intcomma }}</td>
+                            <td class="text-success">{{ costeo.margen_utilidad|floatformat:2 }}%</td>
+                            <td class="text-center">
                                 <a href="{% url 'costeo_jeans:costeo_summary' costeo.pk %}" class="btn btn-info btn-sm" title="Ver Resumen">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <td class="text-center">
-                                    <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.pk %}" class="btn btn-danger btn-sm" title="Exportar a PDF">
-                                        <i class="fas fa-file-pdf"></i>
-                                    </a>
-                                </td>
+                                <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.pk %}" class="btn btn-danger btn-sm" title="Exportar a PDF">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center">No se encontraron costeos con los filtros aplicados.</td>
+                            <td colspan="8" class="text-center">No se encontraron costeos con los filtros aplicados.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
 
-            </div> {% if is_paginated %}
+            {% if is_paginated %}
                 <nav aria-label="Paginación">
                     <ul class="pagination justify-content-center mt-4">
                         {% if page_obj.has_previous %}
@@ -99,14 +112,7 @@
                         {% endif %}
                     </ul>
                 </nav>
-                {% endif %}
-                </div>
-            </div>
-
-
-
-
-
+            {% endif %}
         </div>
     </div>
 </div>

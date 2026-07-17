@@ -39,11 +39,14 @@ urlpatterns = [
     path('<int:costeo_id>/editar/paso1/', views.costeo_update_step1, name='costeo_update_step1'),
     path('<int:costeo_id>/editar/paso2/', views.costeo_update_step2, name='costeo_update_step2'),
     path('<int:costeo_id>/actualizar-catalogo/', views.costeo_actualizar_catalogo, name='costeo_actualizar_catalogo'),
+    path('<int:costeo_id>/finalizar/', views.costeo_finalizar, name='costeo_finalizar'),
+    path('<int:costeo_id>/reabrir/', views.costeo_reabrir, name='costeo_reabrir'),
     path('api/buscar-referencia-color/', views.api_buscar_referencia_color, name='api_buscar_referencia_color'),
 
 
     # Historial
     path('historial/', views.CosteoHistoryListView.as_view(), name='costeo_historial'),
+    path('historial/exportar/', views.costeo_historial_exportar_excel, name='costeo_historial_exportar_excel'),
     path('informes/', views.InformesView.as_view(), name='informes'),
     
     # ---TARIFAS ---

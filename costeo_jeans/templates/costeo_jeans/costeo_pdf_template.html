@@ -125,6 +125,20 @@
             <div><strong>Fecha de Emisión:</strong> {{ costeo.fecha|date:"d \d\e F \d\e Y" }}</div>
         </section>
 
+        {% if costeo.detalle_tallas.exists %}
+        <h3>Desglose de Producción por Talla</h3>
+        <table>
+            <thead>
+                <tr><th>Talla</th><th class="text-right">Cantidad</th></tr>
+            </thead>
+            <tbody>
+                {% for dt in costeo.detalle_tallas.all %}
+                <tr><td>{{ dt.talla }}</td><td class="text-right">{{ dt.cantidad }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
         <h3>Detalle de Insumos</h3>
         <table>
             <thead>
@@ -142,7 +156,7 @@
                     <td>{{ item.insumo.nombre }}{% if item.porcentaje_desperdicio %} (+{{ item.porcentaje_desperdicio }}% desperdicio){% endif %}</td>
                     <td class="text-right">{{ item.consumo_unitario }} {{ item.insumo.get_unidad_medida_display }}</td>
                     <td class="text-right">{{ item.cantidad|floatformat:2|intcomma }} {{ item.insumo.get_unidad_medida_display }}</td>
-                    <td class="text-right">${{ item.insumo.costo_unitario|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}</td>
+                    <td class="text-right">${{ item.costo_unitario_registrado|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}</td>
                     <td class="text-right">${{ item.costo_total|floatformat:0|intcomma }}</td>
                 </tr>
                 {% endfor %}

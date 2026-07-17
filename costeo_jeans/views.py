@@ -1,8 +1,10 @@
+from io import BytesIO
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import Q
 from django.db.models import Sum
@@ -15,19 +17,39 @@ from django.template.loader import render_to_string
 from weasyprint import HTML
 from django.contrib import messages
 from django.http import JsonResponse
+import openpyxl
+from openpyxl.utils import get_column_letter
+from core.auth_utils import es_diseno, es_administracion
 from productos.models import ReferenciaColor, Producto
-from .models import Insumo, MovimientoInsumo, Proceso, Confeccionista, Costeo, CostoFijo, DetalleCostoFijo
+from .models import Insumo, MovimientoInsumo, Proceso, Confeccionista, Costeo, CostoFijo, DetalleCostoFijo, DetalleCantidadTalla
 from .forms import (
     InsumoForm, MovimientoInsumoForm, ProcesoForm, ConfeccionistaForm, CostoFijoForm,
-    CosteoModelForm, DetalleInsumoFormSet, DetalleProcesoFormSet, AjustePrecioForm,
+    CosteoModelForm, DetalleInsumoFormSet, DetalleProcesoFormSet, AjustePrecioForm, DetalleTallaFormSet,
     DetalleInsumo, DetalleProceso, TarifaConfeccionista, TarifaConfeccionistaForm,
 )
 
-# ... (Otras vistas sin cambios) ...
-class PanelCosteoView(LoginRequiredMixin, TemplateView):
+
+def _es_diseno_o_admin(user):
+    return es_diseno(user) or es_administracion(user)
+
+
+_rol_requerido = user_passes_test(_es_diseno_o_admin, login_url='core:acceso_denegado')
+
+
+class CosteoRolMixin(UserPassesTestMixin):
+    """Mismo patrón de clientes/views.py: acceso restringido a Diseño/Administración."""
+    def test_func(self):
+        return _es_diseno_o_admin(self.request.user)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tienes permiso para acceder a esta sección de Costeo.")
+        return redirect('core:index')
+
+
+class PanelCosteoView(LoginRequiredMixin, CosteoRolMixin, TemplateView):
     template_name = 'costeo_jeans/panel_costeo.html'
 
-class InsumoListView(LoginRequiredMixin, ListView):
+class InsumoListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = Insumo
     template_name = 'costeo_jeans/insumo_list.html'
     context_object_name = 'insumos'
@@ -42,7 +64,7 @@ class InsumoListView(LoginRequiredMixin, ListView):
 
 
 
-class InsumoCreateView(LoginRequiredMixin, CreateView):
+class InsumoCreateView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = Insumo
     form_class = InsumoForm
     template_name = 'costeo_jeans/insumo_form.html'
@@ -63,7 +85,7 @@ class InsumoCreateView(LoginRequiredMixin, CreateView):
     
     
     
-class InsumoUpdateView(LoginRequiredMixin, UpdateView):
+class InsumoUpdateView(LoginRequiredMixin, CosteoRolMixin, UpdateView):
     model = Insumo
     form_class = InsumoForm
     template_name = 'costeo_jeans/insumo_form.html'
@@ -78,7 +100,7 @@ class InsumoUpdateView(LoginRequiredMixin, UpdateView):
         context['titulo'] = 'Editar Insumo'
         context['boton'] = 'Actualizar Insumo'
         return context
-class InsumoDeleteView(LoginRequiredMixin, DeleteView):
+class InsumoDeleteView(LoginRequiredMixin, CosteoRolMixin, DeleteView):
     model = Insumo
     template_name = 'costeo_jeans/insumo_confirm_delete.html'
     success_url = reverse_lazy('costeo_jeans:insumo_list')
@@ -87,7 +109,7 @@ class InsumoDeleteView(LoginRequiredMixin, DeleteView):
         if empresa_actual:
             return Insumo.objects.filter(empresa=empresa_actual)
         return Insumo.objects.none()
-class ProcesoListView(LoginRequiredMixin, ListView):
+class ProcesoListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = Proceso
     template_name = 'costeo_jeans/proceso_list.html'
     context_object_name = 'procesos'
@@ -97,7 +119,7 @@ class ProcesoListView(LoginRequiredMixin, ListView):
         if empresa_actual:
             return Proceso.objects.filter(empresa=empresa_actual).order_by('nombre')
         return Proceso.objects.none()
-class ProcesoCreateView(LoginRequiredMixin, CreateView):
+class ProcesoCreateView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = Proceso
     form_class = ProcesoForm
     template_name = 'costeo_jeans/proceso_form.html'
@@ -110,7 +132,7 @@ class ProcesoCreateView(LoginRequiredMixin, CreateView):
         context['titulo'] = 'Añadir Nuevo Proceso'
         context['boton'] = 'Guardar Proceso'
         return context
-class ProcesoUpdateView(LoginRequiredMixin, UpdateView):
+class ProcesoUpdateView(LoginRequiredMixin, CosteoRolMixin, UpdateView):
     model = Proceso
     form_class = ProcesoForm
     template_name = 'costeo_jeans/proceso_form.html'
@@ -125,7 +147,7 @@ class ProcesoUpdateView(LoginRequiredMixin, UpdateView):
         context['titulo'] = 'Editar Proceso'
         context['boton'] = 'Actualizar Proceso'
         return context
-class ProcesoDeleteView(LoginRequiredMixin, DeleteView):
+class ProcesoDeleteView(LoginRequiredMixin, CosteoRolMixin, DeleteView):
     model = Proceso
     template_name = 'costeo_jeans/proceso_confirm_delete.html'
     success_url = reverse_lazy('costeo_jeans:proceso_list')
@@ -134,7 +156,7 @@ class ProcesoDeleteView(LoginRequiredMixin, DeleteView):
         if empresa_actual:
             return Proceso.objects.filter(empresa=empresa_actual)
         return Proceso.objects.none()
-class ConfeccionistaListView(LoginRequiredMixin, ListView):
+class ConfeccionistaListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = Confeccionista
     template_name = 'costeo_jeans/confeccionista_list.html'
     context_object_name = 'confeccionistas'
@@ -144,7 +166,7 @@ class ConfeccionistaListView(LoginRequiredMixin, ListView):
         if empresa_actual:
             return Confeccionista.objects.filter(empresa=empresa_actual).order_by('nombre')
         return Confeccionista.objects.none()
-class ConfeccionistaCreateView(LoginRequiredMixin, CreateView):
+class ConfeccionistaCreateView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = Confeccionista
     form_class = ConfeccionistaForm
     template_name = 'costeo_jeans/confeccionista_form.html'
@@ -157,7 +179,7 @@ class ConfeccionistaCreateView(LoginRequiredMixin, CreateView):
         context['titulo'] = 'Añadir Nuevo Confeccionista'
         context['boton'] = 'Guardar Confeccionista'
         return context
-class ConfeccionistaUpdateView(LoginRequiredMixin, UpdateView):
+class ConfeccionistaUpdateView(LoginRequiredMixin, CosteoRolMixin, UpdateView):
     model = Confeccionista
     form_class = ConfeccionistaForm
     template_name = 'costeo_jeans/confeccionista_form.html'
@@ -172,7 +194,7 @@ class ConfeccionistaUpdateView(LoginRequiredMixin, UpdateView):
         context['titulo'] = 'Editar Confeccionista'
         context['boton'] = 'Actualizar Confeccionista'
         return context
-class ConfeccionistaDeleteView(LoginRequiredMixin, DeleteView):
+class ConfeccionistaDeleteView(LoginRequiredMixin, CosteoRolMixin, DeleteView):
     model = Confeccionista
     template_name = 'costeo_jeans/confeccionista_confirm_delete.html'
     success_url = reverse_lazy('costeo_jeans:confeccionista_list')
@@ -181,7 +203,7 @@ class ConfeccionistaDeleteView(LoginRequiredMixin, DeleteView):
         if empresa_actual:
             return Confeccionista.objects.filter(empresa=empresa_actual)
         return Confeccionista.objects.none()
-class CostoFijoListView(LoginRequiredMixin, ListView):
+class CostoFijoListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = CostoFijo
     template_name = 'costeo_jeans/costofijo_list.html'
     context_object_name = 'costos_fijos'
@@ -190,7 +212,7 @@ class CostoFijoListView(LoginRequiredMixin, ListView):
         if empresa_actual:
             return CostoFijo.objects.filter(empresa=empresa_actual).order_by('nombre')
         return CostoFijo.objects.none()
-class CostoFijoCreateView(LoginRequiredMixin, CreateView):
+class CostoFijoCreateView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = CostoFijo
     form_class = CostoFijoForm
     template_name = 'costeo_jeans/costofijo_form.html'
@@ -203,7 +225,7 @@ class CostoFijoCreateView(LoginRequiredMixin, CreateView):
         context['titulo'] = 'Añadir Nuevo Costo Fijo'
         context['boton'] = 'Guardar Costo'
         return context
-class CostoFijoUpdateView(LoginRequiredMixin, UpdateView):
+class CostoFijoUpdateView(LoginRequiredMixin, CosteoRolMixin, UpdateView):
     model = CostoFijo
     form_class = CostoFijoForm
     template_name = 'costeo_jeans/costofijo_form.html'
@@ -218,7 +240,7 @@ class CostoFijoUpdateView(LoginRequiredMixin, UpdateView):
         context['titulo'] = 'Editar Costo Fijo'
         context['boton'] = 'Actualizar Costo'
         return context
-class CostoFijoDeleteView(LoginRequiredMixin, DeleteView):
+class CostoFijoDeleteView(LoginRequiredMixin, CosteoRolMixin, DeleteView):
     model = CostoFijo
     template_name = 'costeo_jeans/costofijo_confirm_delete.html'
     success_url = reverse_lazy('costeo_jeans:costofijo_list')
@@ -230,24 +252,34 @@ class CostoFijoDeleteView(LoginRequiredMixin, DeleteView):
     
 
 @login_required
+@_rol_requerido
 def costeo_create_step1(request):
     empresa_actual = getattr(request, 'tenant', None)
     if request.method == 'POST':
         form = CosteoModelForm(request.POST, empresa=empresa_actual)
-        if form.is_valid():
-            costeo = form.save(commit=False)
-            if empresa_actual:
+        # Formset validado contra una instancia sin guardar todavía -- solo
+        # para chequear la forma de los datos antes de tocar la base de datos.
+        talla_formset = DetalleTallaFormSet(request.POST, instance=Costeo(empresa=empresa_actual), prefix='tallas')
+        if form.is_valid() and talla_formset.is_valid() and empresa_actual:
+            with transaction.atomic():
+                costeo = form.save(commit=False)
                 costeo.empresa = empresa_actual
                 costeo.save()
-                return redirect('costeo_jeans:costeo_create_step2', costeo_id=costeo.id)
-            else:
-                form.add_error(None, "Error: No se pudo determinar la empresa para tu usuario.")
+                talla_formset.instance = costeo
+                talla_formset.save()
+                costeo.cantidad_producida = costeo.detalle_tallas.aggregate(total=Sum('cantidad'))['total'] or 0
+                costeo.save(update_fields=['cantidad_producida'])
+            return redirect('costeo_jeans:costeo_create_step2', costeo_id=costeo.id)
+        elif not empresa_actual:
+            form.add_error(None, "Error: No se pudo determinar la empresa para tu usuario.")
     else:
         form = CosteoModelForm(empresa=empresa_actual)
-    return render(request, 'costeo_jeans/costeo_create_step1.html', {'form': form})
+        talla_formset = DetalleTallaFormSet(instance=Costeo(empresa=empresa_actual), prefix='tallas')
+    return render(request, 'costeo_jeans/costeo_create_step1.html', {'form': form, 'talla_formset': talla_formset})
 
 
 @login_required
+@_rol_requerido
 def costeo_create_step2(request, costeo_id):
     empresa_actual = getattr(request, 'tenant', None)
     costeo = get_object_or_404(Costeo, id=costeo_id, empresa=empresa_actual)
@@ -304,12 +336,14 @@ def costeo_create_step2(request, costeo_id):
 
 
 @login_required
+@_rol_requerido
 def costeo_summary(request, costeo_id):
     empresa_actual = getattr(request, 'tenant', None)
 
     costeo = get_object_or_404(
         Costeo.objects.select_related('referencia_color').prefetch_related(
             'detalle_insumos__insumo',
+            'detalle_tallas',
             # Precargamos la tarifa, y a través de ella, el proceso y el confeccionista
             'detalle_procesos__tarifa__proceso',
             'detalle_procesos__tarifa__confeccionista',
@@ -318,8 +352,12 @@ def costeo_summary(request, costeo_id):
         id=costeo_id,
         empresa=empresa_actual
     )
+    esta_finalizado = costeo.estado == Costeo.EstadoCosteo.FINALIZADO
 
     if request.method == 'POST':
+        if esta_finalizado:
+            messages.error(request, "Este costeo está Finalizado y no se puede editar. Reábrelo primero si necesitas ajustarlo.")
+            return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
         ajuste_form = AjustePrecioForm(request.POST, instance=costeo)
         if ajuste_form.is_valid():
             ajuste_form.save()
@@ -327,10 +365,17 @@ def costeo_summary(request, costeo_id):
     else:
         ajuste_form = AjustePrecioForm(instance=costeo)
 
-    return render(request, 'costeo_jeans/costeo_summary.html', {'costeo': costeo, 'ajuste_form': ajuste_form})
+    context = {
+        'costeo': costeo,
+        'ajuste_form': ajuste_form,
+        'esta_finalizado': esta_finalizado,
+        'puede_reabrir': esta_finalizado and es_administracion(request.user),
+    }
+    return render(request, 'costeo_jeans/costeo_summary.html', context)
 
 
 @login_required
+@_rol_requerido
 def api_buscar_referencia_color(request):
     """Autocompletar (Select2) de referencia+color reales del catálogo, para enlazar un costeo."""
     empresa_actual = getattr(request, 'tenant', None)
@@ -349,18 +394,25 @@ def api_buscar_referencia_color(request):
 
 
 @login_required
+@_rol_requerido
 def costeo_actualizar_catalogo(request, costeo_id):
     """
     Actualiza el costo/precio de venta de todas las tallas (Producto) de la
     referencia+color enlazada, con el resultado de este costeo. Nunca
     automático: siempre muestra antes/después y exige confirmación explícita
     (el mismo criterio usado esta sesión para no sobreescribir precios
-    reales en lote sin que alguien lo vea y lo apruebe primero).
+    reales en lote sin que alguien lo vea y lo apruebe primero). Solo se
+    permite sobre un costeo Finalizado -- no tiene sentido empujar al
+    catálogo un costo que todavía es un borrador en progreso.
     """
     empresa_actual = getattr(request, 'tenant', None)
     costeo = get_object_or_404(
         Costeo.objects.select_related('referencia_color'), id=costeo_id, empresa=empresa_actual
     )
+
+    if costeo.estado != Costeo.EstadoCosteo.FINALIZADO:
+        messages.error(request, "Solo puedes actualizar el catálogo con un costeo Finalizado.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
 
     if not costeo.referencia_color:
         messages.error(request, "Este costeo no está enlazado a ninguna referencia del catálogo -- no hay a quién actualizarle el costo/precio.")
@@ -391,31 +443,159 @@ def costeo_actualizar_catalogo(request, costeo_id):
     }
     return render(request, 'costeo_jeans/costeo_actualizar_catalogo_confirmar.html', context)
 
-class CosteoHistoryListView(LoginRequiredMixin, ListView):    
+
+@login_required
+@_rol_requerido
+@require_POST
+def costeo_finalizar(request, costeo_id):
+    """
+    Pasa el costeo a Finalizado: bloquea su edición y descuenta los insumos
+    usados del inventario (una sola vez, controlado por
+    Costeo.stock_descontado -- ver nota en models.py sobre por qué esto ya
+    no es una señal).
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    costeo = get_object_or_404(Costeo.objects.prefetch_related('detalle_insumos__insumo'), id=costeo_id, empresa=empresa_actual)
+
+    if costeo.estado == Costeo.EstadoCosteo.FINALIZADO:
+        messages.info(request, "Este costeo ya estaba Finalizado.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+    if not costeo.detalle_insumos.exists() and not costeo.detalle_procesos.exists():
+        messages.error(request, "Agrega al menos un insumo o proceso antes de finalizar el costeo.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+    with transaction.atomic():
+        if not costeo.stock_descontado:
+            for detalle in costeo.detalle_insumos.all():
+                MovimientoInsumo.objects.create(
+                    insumo=detalle.insumo,
+                    tipo=MovimientoInsumo.Tipo.SALIDA,
+                    cantidad=detalle.cantidad,
+                    descripcion=f"Uso en producción para costeo: {costeo.referencia}",
+                    costeo_relacionado=costeo,
+                )
+            costeo.stock_descontado = True
+        costeo.estado = Costeo.EstadoCosteo.FINALIZADO
+        costeo.save(update_fields=['estado', 'stock_descontado'])
+
+    messages.success(request, "Costeo finalizado. Se descontaron los insumos del inventario y el costeo quedó bloqueado para edición.")
+    return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+@require_POST
+def costeo_reabrir(request, costeo_id):
+    """
+    Solo Administración: regresa el costeo a Borrador y revierte el
+    descuento de inventario con movimientos de ENTRADA de reversión (nunca
+    se borran movimientos -- mismo criterio append-only que usa
+    MovimientoInventario en la app bodega).
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    costeo = get_object_or_404(Costeo, id=costeo_id, empresa=empresa_actual)
+
+    if costeo.estado != Costeo.EstadoCosteo.FINALIZADO:
+        messages.info(request, "Este costeo no está Finalizado.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+    with transaction.atomic():
+        if costeo.stock_descontado:
+            salidas = MovimientoInsumo.objects.filter(costeo_relacionado=costeo, tipo=MovimientoInsumo.Tipo.SALIDA)
+            for salida in salidas:
+                MovimientoInsumo.objects.create(
+                    insumo=salida.insumo,
+                    tipo=MovimientoInsumo.Tipo.ENTRADA,
+                    cantidad=salida.cantidad,
+                    descripcion=f"Reversión por reapertura de Costeo #{costeo.pk} ({costeo.referencia})",
+                    costeo_relacionado=costeo,
+                )
+            costeo.stock_descontado = False
+        costeo.estado = Costeo.EstadoCosteo.BORRADOR
+        costeo.save(update_fields=['estado', 'stock_descontado'])
+
+    messages.success(request, "Costeo reabierto. Los insumos descontados fueron devueltos al inventario.")
+    return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+
+def _costeos_historial_filtrados(request):
+    """Mismo filtro (referencia/fecha) que usa CosteoHistoryListView, reutilizado por la exportación a Excel."""
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        return Costeo.objects.none()
+    queryset = Costeo.objects.filter(empresa=empresa_actual).order_by('-fecha')
+    query_ref = request.GET.get('referencia')
+    query_date = request.GET.get('fecha')
+    if query_ref:
+        queryset = queryset.filter(referencia__icontains=query_ref)
+    if query_date:
+        queryset = queryset.filter(fecha=query_date)
+    return queryset
+
+
+class CosteoHistoryListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = Costeo
     template_name = 'costeo_jeans/costeo_historial.html'
     context_object_name = 'costeos'
     paginate_by = 20
     def get_queryset(self):
-        empresa_actual = getattr(self.request, 'tenant', None)
-        if not empresa_actual:
-            return Costeo.objects.none()
-        queryset = Costeo.objects.filter(empresa=empresa_actual).order_by('-fecha')
-        query_ref = self.request.GET.get('referencia')
-        query_date = self.request.GET.get('fecha')
-        if query_ref:
-            queryset = queryset.filter(referencia__icontains=query_ref)
-        if query_date:
-            queryset = queryset.filter(fecha=query_date)
-        return queryset
+        return _costeos_historial_filtrados(self.request)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_ref'] = self.request.GET.get('referencia', '')
         context['search_date'] = self.request.GET.get('fecha', '')
         return context
-    
-    
-class InformesView(LoginRequiredMixin, TemplateView):
+
+
+@login_required
+@_rol_requerido
+def costeo_historial_exportar_excel(request):
+    """Exporta el historial de costeos (con los mismos filtros activos) a Excel."""
+    costeos = _costeos_historial_filtrados(request)
+
+    libro = openpyxl.Workbook()
+    hoja = libro.active
+    hoja.title = 'Historial de Costeos'
+
+    encabezados = [
+        'Referencia', 'Fecha', 'Estado', 'Cantidad Producida', 'Costo Unitario', 'Costo Total',
+        'Margen Deseado %', 'Precio de Venta', 'Utilidad Unitaria', 'Margen Utilidad %',
+        'Utilidad Neta Unitaria', 'Margen Neto %',
+    ]
+    hoja.append(encabezados)
+    for indice, encabezado in enumerate(encabezados, start=1):
+        hoja.column_dimensions[get_column_letter(indice)].width = max(len(encabezado) + 2, 16)
+
+    for costeo in costeos:
+        hoja.append([
+            costeo.referencia,
+            costeo.fecha.strftime('%Y-%m-%d'),
+            costeo.get_estado_display(),
+            costeo.cantidad_producida,
+            float(costeo.costo_unitario),
+            float(costeo.costo_total),
+            float(costeo.margen_deseado),
+            float(costeo.precio_venta_unitario),
+            float(costeo.utilidad_unitaria),
+            float(costeo.margen_utilidad),
+            float(costeo.utilidad_neta_unitaria),
+            float(costeo.margen_neto),
+        ])
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="historial_costeos.xlsx"'
+    return response
+
+
+class InformesView(LoginRequiredMixin, CosteoRolMixin, TemplateView):
     template_name = 'costeo_jeans/informes.html'
 
     def get_context_data(self, **kwargs):
@@ -502,6 +682,7 @@ class InformesView(LoginRequiredMixin, TemplateView):
     
     
 @login_required
+@_rol_requerido
 def export_costeo_pdf(request, costeo_id):
     """
     Genera y descarga un PDF para un costeo específico.
@@ -511,12 +692,13 @@ def export_costeo_pdf(request, costeo_id):
     # Obtenemos el objeto costeo con todos sus detalles (igual que en la vista de resumen)
     costeo = get_object_or_404(
         Costeo.objects.prefetch_related(
-            'detalle_insumos__insumo', 
+            'detalle_insumos__insumo',
+            'detalle_tallas',
             'detalle_procesos__tarifa__proceso',
             'detalle_procesos__tarifa__confeccionista',
             'detalle_costos_fijos__costo_fijo'
-        ), 
-        id=costeo_id, 
+        ),
+        id=costeo_id,
         empresa=empresa_actual
     )
 
@@ -534,46 +716,71 @@ def export_costeo_pdf(request, costeo_id):
 
 
 @login_required
+@_rol_requerido
 def costeo_update_step1(request, costeo_id):
     """
-    Paso 1 para EDITAR un costeo existente (datos principales).
+    Paso 1 para EDITAR un costeo existente (datos principales + desglose por talla).
     """
     empresa_actual = getattr(request, 'tenant', None)
     costeo = get_object_or_404(Costeo, id=costeo_id, empresa=empresa_actual)
 
+    if costeo.estado == Costeo.EstadoCosteo.FINALIZADO:
+        messages.error(request, "Este costeo está Finalizado y no se puede editar. Reábrelo primero si necesitas ajustarlo.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
     if request.method == 'POST':
         # Pasamos 'instance=costeo' para que el formulario actualice el objeto existente
         form = CosteoModelForm(request.POST, instance=costeo, empresa=empresa_actual)
-        if form.is_valid():
-            form.save()
+        talla_formset = DetalleTallaFormSet(request.POST, instance=costeo, prefix='tallas')
+        if form.is_valid() and talla_formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                talla_formset.save()
+                nueva_cantidad = costeo.detalle_tallas.aggregate(total=Sum('cantidad'))['total'] or 0
+                if nueva_cantidad != costeo.cantidad_producida:
+                    costeo.cantidad_producida = nueva_cantidad
+                    costeo.save(update_fields=['cantidad_producida'])
+                    # Los insumos ya cargados calculan su 'cantidad' a partir
+                    # de costeo.cantidad_producida -- si cambió, hay que
+                    # re-guardarlos para que no queden con un total viejo.
+                    for detalle in costeo.detalle_insumos.all():
+                        detalle.save()
             return redirect('costeo_jeans:costeo_update_step2', costeo_id=costeo.id)
     else:
         # Pasamos 'instance=costeo' para que el formulario se cargue con los datos existentes
         form = CosteoModelForm(instance=costeo, empresa=empresa_actual)
+        talla_formset = DetalleTallaFormSet(instance=costeo, prefix='tallas')
 
     return render(request, 'costeo_jeans/costeo_create_step1.html', {
         'form': form,
+        'talla_formset': talla_formset,
         'titulo': f'Editando Costeo: {costeo.referencia}' # Título personalizado para la edición
     })
 
 
 @login_required
+@_rol_requerido
 def costeo_update_step2(request, costeo_id):
     empresa_actual = getattr(request, 'tenant', None)
     costeo = get_object_or_404(Costeo, id=costeo_id, empresa=empresa_actual)
+
+    if costeo.estado == Costeo.EstadoCosteo.FINALIZADO:
+        messages.error(request, "Este costeo está Finalizado y no se puede editar. Reábrelo primero si necesitas ajustarlo.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
     insumos = Insumo.objects.filter(empresa=empresa_actual)
     insumo_categorias = {insumo.id: insumo.categoria for insumo in insumos}
 
     insumo_formset = DetalleInsumoFormSet(
-        request.POST or None, 
-        instance=costeo, 
-        prefix='insumos', 
+        request.POST or None,
+        instance=costeo,
+        prefix='insumos',
         form_kwargs={'empresa': empresa_actual}
     )
     proceso_formset = DetalleProcesoFormSet(
-        request.POST or None, 
-        instance=costeo, 
-        prefix='procesos', 
+        request.POST or None,
+        instance=costeo,
+        prefix='procesos',
         form_kwargs={'empresa': empresa_actual}
     )
 
@@ -595,7 +802,7 @@ def costeo_update_step2(request, costeo_id):
     }
     return render(request, 'costeo_jeans/costeo_create_step2.html', context)
 
-class TarifaListView(LoginRequiredMixin, ListView):
+class TarifaListView(LoginRequiredMixin, CosteoRolMixin, ListView):
     model = TarifaConfeccionista
     template_name = 'costeo_jeans/tarifa_list.html'
     context_object_name = 'tarifas'
@@ -607,7 +814,7 @@ class TarifaListView(LoginRequiredMixin, ListView):
             return TarifaConfeccionista.objects.filter(empresa=empresa_actual).select_related('confeccionista', 'proceso').order_by('confeccionista__nombre')
         return TarifaConfeccionista.objects.none()
 
-class TarifaCreateView(LoginRequiredMixin, CreateView):
+class TarifaCreateView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = TarifaConfeccionista
     form_class = TarifaConfeccionistaForm
     template_name = 'costeo_jeans/tarifa_form.html'
@@ -628,7 +835,7 @@ class TarifaCreateView(LoginRequiredMixin, CreateView):
         context['boton'] = 'Guardar Tarifa'
         return context
 
-class TarifaUpdateView(LoginRequiredMixin, UpdateView):
+class TarifaUpdateView(LoginRequiredMixin, CosteoRolMixin, UpdateView):
     model = TarifaConfeccionista
     form_class = TarifaConfeccionistaForm
     template_name = 'costeo_jeans/tarifa_form.html'
@@ -651,7 +858,7 @@ class TarifaUpdateView(LoginRequiredMixin, UpdateView):
         context['boton'] = 'Actualizar Tarifa'
         return context
 
-class TarifaDeleteView(LoginRequiredMixin, DeleteView):
+class TarifaDeleteView(LoginRequiredMixin, CosteoRolMixin, DeleteView):
     model = TarifaConfeccionista
     template_name = 'costeo_jeans/tarifa_confirm_delete.html'
     success_url = reverse_lazy('costeo_jeans:tarifa_list')
@@ -662,7 +869,7 @@ class TarifaDeleteView(LoginRequiredMixin, DeleteView):
             return TarifaConfeccionista.objects.filter(empresa=empresa_actual)
         return TarifaConfeccionista.objects.none()
     
-class InsumoDetailView(LoginRequiredMixin, DetailView):
+class InsumoDetailView(LoginRequiredMixin, CosteoRolMixin, DetailView):
     model = Insumo
     template_name = 'costeo_jeans/insumo_detail.html'
     context_object_name = 'insumo'
@@ -674,7 +881,7 @@ class InsumoDetailView(LoginRequiredMixin, DetailView):
         return context
 
 # --- NUEVA VISTA: Para registrar entradas (compras) ---
-class RegistrarEntradaInsumoView(LoginRequiredMixin, CreateView):
+class RegistrarEntradaInsumoView(LoginRequiredMixin, CosteoRolMixin, CreateView):
     model = MovimientoInsumo
     form_class = MovimientoInsumoForm
     template_name = 'costeo_jeans/movimiento_insumo_form.html'
@@ -693,6 +900,7 @@ class RegistrarEntradaInsumoView(LoginRequiredMixin, CreateView):
 
 # --- NUEVA VISTA: Para generar el PDF de movimientos ---
 @login_required
+@_rol_requerido
 def export_movimientos_pdf(request, pk):
     insumo = get_object_or_404(Insumo, pk=pk, empresa=getattr(request, 'tenant', None))
     movimientos = MovimientoInsumo.objects.filter(insumo=insumo)

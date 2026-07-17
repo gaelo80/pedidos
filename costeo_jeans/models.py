@@ -5,7 +5,6 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import F
-from django.db import transaction
 
 # Tasa de IVA colombiana usada en el costo de los procesos de confección
 # (ver DetalleProceso.valor_iva). Aparte para que quede nombrada, no como
@@ -94,9 +93,16 @@ class Costeo(models.Model):
         related_name='costeos',
         help_text="Referencia+color real del catálogo (opcional -- déjalo vacío si aún no existe como producto)."
     )
-    cantidad_producida = models.PositiveIntegerField()
+    cantidad_producida = models.PositiveIntegerField(
+        default=0, editable=False,
+        help_text="Se calcula solo, sumando el desglose de producción por talla."
+    )
     fecha = models.DateField(auto_now_add=True)
     costo_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    stock_descontado = models.BooleanField(
+        default=False, editable=False,
+        help_text="Indica si ya se descontaron los insumos del inventario para este costeo (se activa al Finalizar, se revierte al Reabrir)."
+    )
 
     margen_deseado = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('40.00'),
@@ -208,6 +214,24 @@ class Costeo(models.Model):
     
        
     
+class DetalleCantidadTalla(models.Model):
+    """
+    Desglose de la producción por talla (ej. 50 unidades talla 28, 80 talla
+    30...). 'cantidad_producida' del Costeo se calcula sumando estas filas
+    -- no se pide como un solo número suelto.
+    """
+    costeo = models.ForeignKey(Costeo, on_delete=models.CASCADE, related_name='detalle_tallas')
+    talla = models.CharField(max_length=20, help_text="Ej: 28, 30, S, M...")
+    cantidad = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+
+    class Meta:
+        unique_together = ('costeo', 'talla')
+        ordering = ['id']
+
+    def __str__(self):
+        return f"Talla {self.talla}: {self.cantidad} unidades"
+
+
 class TarifaConfeccionista(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     confeccionista = models.ForeignKey(Confeccionista, on_delete=models.CASCADE, related_name='tarifas')
@@ -252,12 +276,19 @@ class DetalleInsumo(models.Model):
         help_text="Cantidad total calculada para toda la producción (incluye el % de desperdicio)."
     )
 
+    # Precio del insumo CONGELADO al momento de crear esta línea -- igual que
+    # DetalleProceso.costo_unitario_registrado. Sin esto, si el precio del
+    # insumo cambia después, todos los costeos viejos cambiarían de costo
+    # en silencio.
+    costo_unitario_registrado = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
+
     @property
     def costo_total(self):
-        # Esta propiedad ya es correcta, usa la cantidad total.
-        return self.cantidad * self.insumo.costo_unitario
+        return self.cantidad * self.costo_unitario_registrado
 
     def save(self, *args, **kwargs):
+        if self.pk is None:
+            self.costo_unitario_registrado = self.insumo.costo_unitario
         # Consumo neto + desperdicio, multiplicado por toda la producción.
         consumo_con_desperdicio = self.consumo_unitario * (
             Decimal('1.00') + (self.porcentaje_desperdicio or Decimal('0.00')) / Decimal('100')
@@ -337,26 +368,16 @@ def on_detalle_proceso_change(sender, instance, **kwargs):
 @receiver([post_save, post_delete], sender=DetalleCostoFijo)
 def on_detalle_costo_fijo_change(sender, instance, **kwargs):
     update_costeo_total(instance)
-    
-@receiver(post_save, sender=Costeo)
-def on_costeo_finalize(sender, instance, created, **kwargs):
-    """
-    Cuando un Costeo se finaliza, crea movimientos de SALIDA para los insumos.
-    El stock se actualizará automáticamente gracias a la señal de MovimientoInsumo.
-    """
-    if not created and instance.estado == Costeo.EstadoCosteo.FINALIZADO:
-        with transaction.atomic():
-            # Evita que se ejecute múltiples veces
-            if not MovimientoInsumo.objects.filter(costeo_relacionado=instance).exists():
-                for detalle in instance.detalle_insumos.all():
-                    MovimientoInsumo.objects.create(
-                        insumo=detalle.insumo,
-                        tipo=MovimientoInsumo.Tipo.SALIDA,
-                        cantidad=detalle.cantidad,
-                        descripcion=f"Uso en producción para costeo: {instance.referencia}",
-                        costeo_relacionado=instance
-                    )
-                
+
+# NOTA: el descuento de insumos al finalizar un costeo (y su reversión al
+# reabrirlo) ya NO vive en una señal -- se maneja explícitamente en
+# costeo_jeans.views.costeo_finalizar / costeo_reabrir, usando el campo
+# Costeo.stock_descontado como bandera de estado. La señal vieja basada en
+# "existen movimientos para este costeo" no distinguía un Reabrir de un
+# Finalizar normal, así que un Reabrir + Finalizar de nuevo nunca volvía a
+# descontar stock.
+
+
 class MovimientoInsumo(models.Model):
     class Tipo(models.TextChoices):
         ENTRADA = 'ENTRADA', 'Entrada (Compra/Ingreso)'

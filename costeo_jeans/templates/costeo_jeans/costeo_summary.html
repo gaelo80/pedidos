@@ -7,13 +7,32 @@
 <div class="container bg-light text-dark p-4 rounded shadow-sm">
     <h2 class="border-bottom pb-2 mb-3" style="color: black;">
         Resumen del Costeo: {{ costeo.referencia }}
+        {% if esta_finalizado %}<span class="badge bg-success">Finalizado</span>{% else %}<span class="badge bg-secondary">Borrador</span>{% endif %}
         {% if costeo.referencia_color %}<span class="badge bg-info text-dark">Enlazado al catálogo: {{ costeo.referencia_color }}</span>{% endif %}
     </h2>
+
+    {% if esta_finalizado %}
+    <div class="alert alert-success">
+        <i class="fas fa-lock me-1"></i> Este costeo está <strong>Finalizado</strong>: se descontaron los insumos del inventario y ya no se puede editar.
+        {% if puede_reabrir %}Si necesitas corregir algo, usa el botón "Reabrir" abajo.{% endif %}
+    </div>
+    {% endif %}
 
     <div class="row mb-4">
         <div class="col-md-6"><strong>Cantidad Producida:</strong> {{ costeo.cantidad_producida }} unidades</div>
         <div class="col-md-6"><strong>Fecha de Creación:</strong> {{ costeo.fecha|date:"d \d\e F \d\e Y" }}</div>
     </div>
+
+    {% if costeo.detalle_tallas.exists %}
+    <div class="mb-4">
+        <h4>Desglose de Producción por Talla</h4>
+        <div class="d-flex flex-wrap gap-2">
+            {% for dt in costeo.detalle_tallas.all %}
+            <span class="badge bg-dark fs-6">Talla {{ dt.talla }}: {{ dt.cantidad }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <div class="mb-4">
         <h4>Materiales (Insumos)</h4>
@@ -23,7 +42,7 @@
                 <span>
                     {{ item.insumo.nombre }}: {{ item.consumo_unitario }} {{ item.insumo.get_unidad_medida_display }} por prenda
                     {% if item.porcentaje_desperdicio %}(+{{ item.porcentaje_desperdicio }}% desperdicio){% endif %}
-                    → {{ item.cantidad }} {{ item.insumo.get_unidad_medida_display }} en total x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}
+                    → {{ item.cantidad }} {{ item.insumo.get_unidad_medida_display }} en total x ${{ item.costo_unitario_registrado|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}
                 </span>
                 <span class="badge bg-primary rounded-pill fs-6">${{ item.costo_total|floatformat:0|intcomma }}</span>
             </li>
@@ -65,6 +84,9 @@
         <div class="col-md-6">
             <div class="bg-white p-3 rounded h-100">
                 <h5 class="text-muted">AJUSTAR MARGEN / PRECIO</h5>
+                {% if esta_finalizado %}
+                <p class="text-muted"><i class="fas fa-lock me-1"></i> Bloqueado -- este costeo está Finalizado.</p>
+                {% else %}
                 <p class="small text-muted">
                     El precio de venta se calcula solo: <strong>Precio = Costo ÷ (1 − margen/100)</strong>.
                     Solo diligencia "Precio manual" si necesitas forzar un valor distinto (ej. para igualar precio de mercado).
@@ -74,6 +96,7 @@
                     {{ ajuste_form.as_p }}
                     <button type="submit" class="btn btn-outline-primary btn-sm"><i class="fas fa-sync-alt"></i> Recalcular</button>
                 </form>
+                {% endif %}
             </div>
         </div>
         <div class="col-md-6 text-end bg-white p-3 rounded">
@@ -145,12 +168,25 @@
     </div>
 
     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+        {% if not esta_finalizado %}
         <a href="{% url 'costeo_jeans:costeo_update_step1' costeo.id %}" class="btn btn-warning"><i class="fas fa-pencil-alt"></i> Editar Costeo</a>
-        {% if costeo.referencia_color %}
+        {% endif %}
+        {% if costeo.referencia_color and esta_finalizado %}
         <a href="{% url 'costeo_jeans:costeo_actualizar_catalogo' costeo.id %}" class="btn btn-outline-success"><i class="fas fa-store"></i> Actualizar costo/precio en catálogo</a>
         {% endif %}
         <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.id %}" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Exportar a PDF</a>
-        <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-primary">Finalizar y Volver al Panel</a>
+        {% if not esta_finalizado %}
+        <form method="post" action="{% url 'costeo_jeans:costeo_finalizar' costeo.id %}" onsubmit="return confirm('¿Finalizar este costeo? Se descontarán los insumos del inventario y ya no se podrá editar (salvo que lo reabras).');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success"><i class="fas fa-check-circle"></i> Finalizar Costeo</button>
+        </form>
+        {% elif puede_reabrir %}
+        <form method="post" action="{% url 'costeo_jeans:costeo_reabrir' costeo.id %}" onsubmit="return confirm('¿Reabrir este costeo? Se devolverán los insumos descontados al inventario.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-warning"><i class="fas fa-unlock"></i> Reabrir</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-primary">Volver al Panel</a>
     </div>
 </div>
 {% endblock %}

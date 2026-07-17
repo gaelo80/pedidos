@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-9">
             <div class="card bg-light text-dark">
                 <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
                 <div class="card-header">
@@ -19,6 +19,46 @@
                     <form method="post">
                         {% csrf_token %}
                         {{ form.as_p }}
+
+                        <hr>
+                        <h5>Desglose de Producción por Talla</h5>
+                        <p class="text-muted small">La cantidad total a producir se calcula sumando estas filas.</p>
+                        {{ talla_formset.management_form }}
+                        {% if talla_formset.non_form_errors %}
+                            <div class="alert alert-danger">{{ talla_formset.non_form_errors }}</div>
+                        {% endif %}
+                        <div id="tallas-form-list">
+                            {% for tf in talla_formset %}
+                            <div class="form-row-item talla-form-row d-flex align-items-center mb-2 p-2 bg-white rounded">
+                                <div class="me-2" style="width: 40%;">
+                                    <label class="small mb-0">{{ tf.talla.label }}</label>
+                                    {{ tf.talla }}
+                                    {{ tf.id }}
+                                    {{ tf.talla.errors }}
+                                </div>
+                                <div class="me-2" style="width: 40%;">
+                                    <label class="small mb-0">{{ tf.cantidad.label }}</label>
+                                    {{ tf.cantidad }}
+                                    {{ tf.cantidad.errors }}
+                                </div>
+                                <div class="text-center" style="width: 20%;">
+                                    {% if tf.instance.pk %}<label class="small mb-0 d-block">Eliminar</label>{{ tf.DELETE }}{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" id="add-tallas-form" class="btn btn-outline-primary btn-sm mb-3"><i class="fas fa-plus"></i> Añadir Talla</button>
+
+                        <template id="talla-form-template">
+                            {% with talla_formset.empty_form as tf %}
+                            <div class="form-row-item talla-form-row d-flex align-items-center mb-2 p-2 bg-white rounded">
+                                <div class="me-2" style="width: 40%;">{{ tf.talla }}{{ tf.id }}</div>
+                                <div class="me-2" style="width: 40%;">{{ tf.cantidad }}</div>
+                                <div class="text-center" style="width: 20%;"><button type="button" class="btn btn-danger btn-sm remove-form-row">X</button></div>
+                            </div>
+                            {% endwith %}
+                        </template>
+
                         <div class="d-flex justify-content-end mt-4">
                             <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">Siguiente: Añadir Detalles <i class="fas fa-arrow-right"></i></button>
@@ -48,6 +88,30 @@ $(document).ready(function() {
         },
         minimumInputLength: 1,
         width: '100%'
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addBtn = document.getElementById('add-tallas-form');
+    const formList = document.getElementById('tallas-form-list');
+    const templateNode = document.getElementById('talla-form-template');
+    const totalFormsInput = document.getElementById('id_tallas-TOTAL_FORMS');
+    if (!addBtn || !formList || !templateNode) { return; }
+    const template = templateNode.innerHTML;
+
+    addBtn.addEventListener('click', function() {
+        let formNum = parseInt(totalFormsInput.value);
+        let newFormHtml = template.replace(/__prefix__/g, formNum);
+        const newDiv = document.createElement('div');
+        newDiv.innerHTML = newFormHtml;
+        formList.appendChild(newDiv.firstElementChild);
+        totalFormsInput.value = formNum + 1;
+    });
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('remove-form-row')) {
+            e.target.closest('.talla-form-row').remove();
+        }
     });
 });
 </script>
