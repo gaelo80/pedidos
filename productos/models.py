@@ -166,6 +166,13 @@ class ReferenciaColor(models.Model):
         blank=True, null=True,
         verbose_name="Última sincronización con Shopify"
     )
+    shopify_borrador_por_agotado = models.BooleanField(
+        default=False,
+        verbose_name="En borrador por falta de stock",
+        help_text="Marca si el sistema pasó este producto a borrador automáticamente "
+                   "por quedarse sin stock disponible para Web. Permite reactivarlo "
+                   "solo (sin tocar productos que la administradora archivó por otro motivo)."
+    )
 
     def __str__(self):
         empresa_str = self.empresa.nombre if self.empresa else "Sin Empresa"

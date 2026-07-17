@@ -15,7 +15,7 @@ import logging
 import threading
 
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 from bodega.models import MovimientoInventario
@@ -91,4 +91,15 @@ def _hilo_sincronizar_productos(producto_ids, empresa_id):
 def sincronizar_shopify_en_tiempo_real(sender, instance, created, **kwargs):
     if not created:
         return
+    _programar_sincronizacion(instance.producto)
+
+
+@receiver(post_delete, sender=MovimientoInventario)
+def sincronizar_shopify_en_tiempo_real_al_eliminar(sender, instance, **kwargs):
+    """
+    Al cancelar/borrar un pedido, algunos flujos revierten la reserva de
+    stock BORRANDO el movimiento original (en vez de crear uno de reversión),
+    lo cual no dispara 'post_save'. Sin este receptor, Shopify nunca se
+    enteraba de que el stock volvió a bodega.
+    """
     _programar_sincronizacion(instance.producto)

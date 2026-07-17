@@ -629,6 +629,7 @@ def api_shopify_subir(request, referencia_color_id):
         if referencia_color.shopify_product_id:
             # Ya existía (probablemente en borrador tras un "Bajar") -> reactivar.
             shopify_api.reactivar_producto(referencia_color)
+            referencia_color.shopify_borrador_por_agotado = False
             messages.success(request, f"'{referencia_color}' se reactivó en Shopify.")
         else:
             producto_shopify = shopify_api.crear_producto(referencia_color, variantes)
@@ -653,7 +654,9 @@ def api_shopify_subir(request, referencia_color_id):
                 shopify_api.sincronizar_inventario(headers, location_id, variante)
 
         referencia_color.shopify_ultima_sincronizacion = timezone.now()
-        referencia_color.save(update_fields=['shopify_product_id', 'shopify_ultima_sincronizacion'])
+        referencia_color.save(update_fields=[
+            'shopify_product_id', 'shopify_ultima_sincronizacion', 'shopify_borrador_por_agotado',
+        ])
 
     except requests.exceptions.RequestException as e:
         detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
@@ -739,7 +742,10 @@ def api_shopify_bajar(request, referencia_color_id):
     try:
         shopify_api.archivar_producto(referencia_color)
         referencia_color.shopify_ultima_sincronizacion = timezone.now()
-        referencia_color.save(update_fields=['shopify_ultima_sincronizacion'])
+        # Se resetea a False: este borrador lo pidió la administradora, no la
+        # automatización por falta de stock, así que no debe reactivarse solo.
+        referencia_color.shopify_borrador_por_agotado = False
+        referencia_color.save(update_fields=['shopify_ultima_sincronizacion', 'shopify_borrador_por_agotado'])
         messages.success(request, f"'{referencia_color}' se pasó a borrador en Shopify (ya no se ve en la tienda).")
     except requests.exceptions.RequestException as e:
         detalle = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)

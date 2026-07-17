@@ -541,7 +541,56 @@ def sincronizar_inventario_lote(productos, location_id):
         except Exception:
             errores += len(lote)
 
+    _sincronizar_estado_por_stock_agotado(productos_validos)
+
     return exitosos, errores
+
+
+def _sincronizar_estado_por_stock_agotado(productos):
+    """
+    Después de empujar inventario, revisa cada ReferenciaColor afectada: si
+    TODAS sus variantes activas quedaron en 0 stock disponible para Web, el
+    producto pasa a borrador en Shopify (no se ve en la tienda); si vuelve a
+    tener stock, se reactiva. No crea ni borra nada, solo cambia el estado
+    'active'/'draft' de productos ya subidos.
+
+    Solo se llama a la API de Shopify cuando el estado REALMENTE cambia
+    (se compara contra 'shopify_borrador_por_agotado', no contra Shopify),
+    para no agregar cientos de llamadas extra a una sincronización masiva.
+    Esto también evita reactivar un producto que la administradora archivó
+    manualmente por otro motivo (nunca lo marcamos nosotros como tal).
+    """
+    referencias_color_ids = {
+        p.articulo_color_fotos_id for p in productos if p.articulo_color_fotos_id
+    }
+    if not referencias_color_ids:
+        return
+
+    from productos.models import ReferenciaColor
+
+    referencias_color = ReferenciaColor.objects.filter(
+        pk__in=referencias_color_ids, shopify_product_id__isnull=False
+    )
+    for rc in referencias_color:
+        variantes = list(rc.variantes.filter(activo=True, shopify_variant_id__isnull=False))
+        if not variantes:
+            continue
+        stock_total = sum(max(p.stock_disponible_para_canal('WEB'), 0) for p in variantes)
+        agotado = stock_total <= 0
+        if agotado == rc.shopify_borrador_por_agotado:
+            continue  # ya está en el estado que le corresponde, no llamar a la API
+        try:
+            if agotado:
+                archivar_producto(rc)
+            else:
+                reactivar_producto(rc)
+            rc.shopify_borrador_por_agotado = agotado
+            rc.save(update_fields=['shopify_borrador_por_agotado'])
+        except Exception as e:
+            logger.error(
+                f"No se pudo sincronizar el estado (borrador/activo) de "
+                f"{rc.referencia_base} {rc.color}: {e}"
+            )
 
 
 def _color_correcto_en_titulo(titulo_actual, color_correcto, colores_conocidos):
