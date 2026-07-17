@@ -1,6 +1,6 @@
 {% extends "core/base.html" %}
 
-{% block title %}Nuevo Costeo - Paso 1{% endblock %}
+{% block page_title %}{{ titulo|default:"Nuevo Costeo - Paso 1" }}{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -9,7 +9,11 @@
             <div class="card bg-light text-dark">
                 <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
                 <div class="card-header">
-                    <h3 class="card-title">Nuevo Costeo: Información del Producto</h3>
+                    <h3 class="card-title">{{ titulo|default:"Nuevo Costeo: Información del Producto" }}</h3>
+                    <p class="text-muted small mb-0">
+                        Aquí solo se define QUÉ y CUÁNTO se va a producir, y qué margen de utilidad se quiere.
+                        El precio de venta se calcula al final, después de cargar los costos reales -- no antes.
+                    </p>
                 </div>
                 <div class="card-body">
                     <form method="post">
@@ -25,4 +29,26 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('.select2-referencia-color').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar referencia y color en el catálogo...',
+        allowClear: true,
+        ajax: {
+            url: "{% url 'costeo_jeans:api_buscar_referencia_color' %}",
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { return {term: params.term || ''}; },
+            processResults: function(data) { return {results: data.results}; }
+        },
+        minimumInputLength: 1,
+        width: '100%'
+    });
+});
+</script>
 {% endblock %}

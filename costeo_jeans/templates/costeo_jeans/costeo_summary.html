@@ -1,11 +1,14 @@
 {% extends "core/base.html" %}
 {% load static humanize %}
 
-{% block title %}Resumen del Costeo: {{ costeo.referencia }}{% endblock %}
+{% block page_title %}Resumen del Costeo: {{ costeo.referencia }}{% endblock %}
 
 {% block content %}
 <div class="container bg-light text-dark p-4 rounded shadow-sm">
-    <h2 class="border-bottom pb-2 mb-3" style="color: black;">Resumen del Costeo: {{ costeo.referencia }}</h2>
+    <h2 class="border-bottom pb-2 mb-3" style="color: black;">
+        Resumen del Costeo: {{ costeo.referencia }}
+        {% if costeo.referencia_color %}<span class="badge bg-info text-dark">Enlazado al catálogo: {{ costeo.referencia_color }}</span>{% endif %}
+    </h2>
 
     <div class="row mb-4">
         <div class="col-md-6"><strong>Cantidad Producida:</strong> {{ costeo.cantidad_producida }} unidades</div>
@@ -13,11 +16,15 @@
     </div>
 
     <div class="mb-4">
-        <h4>Detalle de Insumos</h4>
+        <h4>Materiales (Insumos)</h4>
         <ul class="list-group">
         {% for item in costeo.detalle_insumos.all %}
             <li class="list-group-item d-flex justify-content-between align-items-center fs-6">
-                <span>{{ item.insumo.nombre }}: {{ item.cantidad }} x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}</span>
+                <span>
+                    {{ item.insumo.nombre }}: {{ item.consumo_unitario }} x unidad
+                    {% if item.porcentaje_desperdicio %}(+{{ item.porcentaje_desperdicio }}% desperdicio){% endif %}
+                    = {{ item.cantidad }} {{ item.insumo.get_unidad_medida_display }} x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}
+                </span>
                 <span class="badge bg-primary rounded-pill fs-6">${{ item.costo_total|floatformat:0|intcomma }}</span>
             </li>
         {% endfor %}
@@ -25,7 +32,7 @@
     </div>
 
     <div class="mb-4">
-        <h4>Detalle de Procesos</h4>
+        <h4>Mano de Obra (Procesos)</h4>
         <ul class="list-group">
         {% for detalle in costeo.detalle_procesos.all %}
             <li class="list-group-item fs-6">
@@ -41,7 +48,7 @@
     </div>
 
     <div class="mb-4">
-        <h4>Costos Fijos y Generales</h4>
+        <h4>Costos Indirectos (Fijos y Generales)</h4>
         <ul class="list-group">
         {% for item in costeo.detalle_costos_fijos.all %}
             <li class="list-group-item d-flex justify-content-between align-items-center fs-6">
@@ -54,15 +61,53 @@
 
     <hr>
 
-
-
+    <div class="row">
+        <div class="col-md-6">
+            <div class="bg-white p-3 rounded h-100">
+                <h5 class="text-muted">AJUSTAR MARGEN / PRECIO</h5>
+                <p class="small text-muted">
+                    El precio de venta se calcula solo: <strong>Precio = Costo ÷ (1 − margen/100)</strong>.
+                    Solo diligencia "Precio manual" si necesitas forzar un valor distinto (ej. para igualar precio de mercado).
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    {{ ajuste_form.as_p }}
+                    <button type="submit" class="btn btn-outline-primary btn-sm"><i class="fas fa-sync-alt"></i> Recalcular</button>
+                </form>
+            </div>
+        </div>
         <div class="col-md-6 text-end bg-white p-3 rounded">
             <h5 class="text-muted">RESUMEN FINANCIERO</h5>
             <table class="table table-sm table-borderless text-end">
                 <tbody>
                     <tr>
-                        <td>Precio de Venta Base:</td>
-                        <td class="fw-bold">${{ costeo.precio_venta_unitario|floatformat:0|intcomma }}</td>
+                        <td>Costo Total de Producción:</td>
+                        <td class="fw-bold">${{ costeo.costo_total|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr class="table-light">
+                        <td>Costo por Prenda:</td>
+                        <td class="fw-bold">${{ costeo.costo_unitario|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><hr class="my-1"></td>
+                    </tr>
+                    <tr>
+                        <td>Margen Deseado:</td>
+                        <td>{{ costeo.margen_deseado|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <td>Precio de Venta Sugerido:</td>
+                        <td>${{ costeo.precio_venta_sugerido|floatformat:0|intcomma }}</td>
+                    </tr>
+                    {% if costeo.precio_venta_manual %}
+                    <tr>
+                        <td class="text-warning-emphasis">Precio Manual (forzado):</td>
+                        <td class="text-warning-emphasis fw-bold">${{ costeo.precio_venta_manual|floatformat:0|intcomma }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="table-primary">
+                        <td>Precio de Venta (usado):</td>
+                        <td class="fw-bold fs-5">${{ costeo.precio_venta_unitario|floatformat:0|intcomma }}</td>
                     </tr>
                     <tr>
                         <td>(-) Descuento Cliente ({{ costeo.porcentaje_descuento_cliente }}%):</td>
@@ -97,12 +142,13 @@
                 <strong class="fs-5"> {{ costeo.margen_neto|floatformat:2 }}%</strong>
             </div>
         </div>
-
-
-
+    </div>
 
     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
         <a href="{% url 'costeo_jeans:costeo_update_step1' costeo.id %}" class="btn btn-warning"><i class="fas fa-pencil-alt"></i> Editar Costeo</a>
+        {% if costeo.referencia_color %}
+        <a href="{% url 'costeo_jeans:costeo_actualizar_catalogo' costeo.id %}" class="btn btn-outline-success"><i class="fas fa-store"></i> Actualizar costo/precio en catálogo</a>
+        {% endif %}
         <a href="{% url 'costeo_jeans:export_costeo_pdf' costeo.id %}" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Exportar a PDF</a>
         <a href="{% url 'costeo_jeans:panel_costeo' %}" class="btn btn-primary">Finalizar y Volver al Panel</a>
     </div>

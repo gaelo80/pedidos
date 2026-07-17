@@ -195,7 +195,25 @@
             <table class="summary-table">
                 <tbody>
                     <tr>
-                        <td>Precio de Venta Base:</td>
+                        <td>Costo Total de Producción:</td>
+                        <td class="text-right">${{ costeo.costo_total|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td>Margen Deseado:</td>
+                        <td class="text-right">{{ costeo.margen_deseado|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <td>Precio de Venta Sugerido:</td>
+                        <td class="text-right">${{ costeo.precio_venta_sugerido|floatformat:0|intcomma }}</td>
+                    </tr>
+                    {% if costeo.precio_venta_manual %}
+                    <tr>
+                        <td>Precio Manual (forzado):</td>
+                        <td class="text-right">${{ costeo.precio_venta_manual|floatformat:0|intcomma }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td>Precio de Venta (usado):</td>
                         <td class="text-right highlight">${{ costeo.precio_venta_unitario|floatformat:0|intcomma }}</td>
                     </tr>
                     <tr>

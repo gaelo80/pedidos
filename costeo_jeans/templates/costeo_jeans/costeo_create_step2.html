@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block title %}{% if costeo.pk %}Editar Costeo{% else %}Nuevo Costeo{% endif %} - Paso 2{% endblock %}
+{% block page_title %}{% if costeo.pk %}Editar Costeo{% else %}Nuevo Costeo{% endif %} - Paso 2{% endblock %}
 
 {% block content %}
 <style>
@@ -44,16 +44,21 @@
                     {% for form in insumo_formset %}
                     <div class="form-row-item insumo-form-row">
                         <div class="row w-100 align-items-center">
-                            <div class="col-md-6 form-group">
+                            <div class="col-md-5 form-group">
                                 <label for="{{ form.insumo.id_for_label }}">{{ form.insumo.label }}</label>
                                 {{ form.insumo }}
                                 {{ form.id }} {# Campo oculto con el ID del detalle #}
                                 {{ form.insumo.errors }}
                             </div>
-                            <div class="col-md-5 form-group">
+                            <div class="col-md-3 form-group">
                                 <label for="{{ form.consumo_unitario.id_for_label }}">{{ form.consumo_unitario.label }}</label>
                                 {{ form.consumo_unitario }}
                                 {{ form.consumo_unitario.errors }}
+                            </div>
+                            <div class="col-md-3 form-group">
+                                <label for="{{ form.porcentaje_desperdicio.id_for_label }}">{{ form.porcentaje_desperdicio.label }}</label>
+                                {{ form.porcentaje_desperdicio }}
+                                {{ form.porcentaje_desperdicio.errors }}
                             </div>
                             <div class="col-md-1 text-center">
                                 {% if form.instance.pk %}<label>Eliminar</label><div>{{ form.DELETE }}</div>{% endif %}
@@ -109,12 +114,15 @@
         {% with insumo_formset.empty_form as form %}
         <div class="form-row-item insumo-form-row">
             <div class="row w-100 align-items-center">
-                <div class="col-md-6 form-group">
+                <div class="col-md-5 form-group">
                     {{ form.insumo }}
                     {{ form.id }}
                 </div>
-                <div class="col-md-5 form-group">
+                <div class="col-md-3 form-group">
                     {{ form.consumo_unitario }}
+                </div>
+                <div class="col-md-3 form-group">
+                    {{ form.porcentaje_desperdicio }}
                 </div>
                 <div class="col-md-1 text-center">
                     <button type="button" class="btn btn-danger remove-form-row">X</button>

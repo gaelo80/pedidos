@@ -1,0 +1,68 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block page_title %}Actualizar catálogo - {{ costeo.referencia }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-store me-2"></i>Actualizar costo/precio en el catálogo</h4>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Esto va a actualizar el costo y el precio de venta de
+                        <strong>todas las tallas activas</strong> de
+                        <strong>{{ costeo.referencia_color }}</strong> con el resultado de este costeo.
+                        Revisa la comparación antes de confirmar -- esta acción sobreescribe los valores actuales.
+                    </p>
+
+                    <div class="alert alert-info">
+                        <strong>Nuevo costo:</strong> ${{ nuevo_costo|floatformat:0|intcomma }} &nbsp;|&nbsp;
+                        <strong>Nuevo precio de venta:</strong> ${{ nuevo_precio|floatformat:0|intcomma }}
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Talla</th>
+                                    <th class="text-end">Costo actual</th>
+                                    <th class="text-end">Costo nuevo</th>
+                                    <th class="text-end">Precio actual</th>
+                                    <th class="text-end">Precio nuevo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in productos_afectados %}
+                                <tr>
+                                    <td>{{ p.talla|default:"-" }}</td>
+                                    <td class="text-end text-muted">${{ p.costo|floatformat:0|intcomma }}</td>
+                                    <td class="text-end fw-bold">${{ nuevo_costo|floatformat:0|intcomma }}</td>
+                                    <td class="text-end text-muted">${{ p.precio_venta|floatformat:0|intcomma }}</td>
+                                    <td class="text-end fw-bold">${{ nuevo_precio|floatformat:0|intcomma }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center text-muted py-3">No hay tallas activas para esta referencia+color.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <a href="{% url 'costeo_jeans:costeo_summary' costeo.id %}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-success" {% if not productos_afectados %}disabled{% endif %}>
+                                <i class="fas fa-check-circle me-1"></i> Confirmar y actualizar {{ productos_afectados|length }} talla(s)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

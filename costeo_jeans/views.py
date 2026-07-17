@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.db.models import Sum, Avg, F, DecimalField, ExpressionWrapper
+from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 from django.core.serializers.json import DjangoJSONEncoder
 import json
@@ -13,10 +13,13 @@ from django.views.generic import DetailView
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
+from django.contrib import messages
+from django.http import JsonResponse
+from productos.models import ReferenciaColor, Producto
 from .models import Insumo, MovimientoInsumo, Proceso, Confeccionista, Costeo, CostoFijo, DetalleCostoFijo
 from .forms import (
     InsumoForm, MovimientoInsumoForm, ProcesoForm, ConfeccionistaForm, CostoFijoForm,
-    CosteoModelForm, DetalleInsumoFormSet, DetalleProcesoFormSet,
+    CosteoModelForm, DetalleInsumoFormSet, DetalleProcesoFormSet, AjustePrecioForm,
     DetalleInsumo, DetalleProceso, TarifaConfeccionista, TarifaConfeccionistaForm,
 )
 
@@ -24,17 +27,11 @@ from .forms import (
 class PanelCosteoView(LoginRequiredMixin, TemplateView):
     template_name = 'costeo_jeans/panel_costeo.html'
 
-# --- VISTA DE INSUMOS CON DEPURACIÓN ---
 class InsumoListView(LoginRequiredMixin, ListView):
     model = Insumo
     template_name = 'costeo_jeans/insumo_list.html'
     context_object_name = 'insumos'
     paginate_by = 10
-
-    def get(self, request, *args, **kwargs):
-        # --- MENSAJE DE DEPURACIÓN EN LA TERMINAL ---
-        print("--- DEBUG: Ejecutando la vista InsumoListView. Si ves esto, views.py está actualizado. ---")
-        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         empresa_actual = getattr(self.request, 'tenant', None)
@@ -234,11 +231,11 @@ class CostoFijoDeleteView(LoginRequiredMixin, DeleteView):
 
 @login_required
 def costeo_create_step1(request):
+    empresa_actual = getattr(request, 'tenant', None)
     if request.method == 'POST':
-        form = CosteoModelForm(request.POST)
+        form = CosteoModelForm(request.POST, empresa=empresa_actual)
         if form.is_valid():
             costeo = form.save(commit=False)
-            empresa_actual = getattr(request, 'tenant', None)
             if empresa_actual:
                 costeo.empresa = empresa_actual
                 costeo.save()
@@ -246,7 +243,7 @@ def costeo_create_step1(request):
             else:
                 form.add_error(None, "Error: No se pudo determinar la empresa para tu usuario.")
     else:
-        form = CosteoModelForm()
+        form = CosteoModelForm(empresa=empresa_actual)
     return render(request, 'costeo_jeans/costeo_create_step1.html', {'form': form})
 
 
@@ -309,21 +306,90 @@ def costeo_create_step2(request, costeo_id):
 @login_required
 def costeo_summary(request, costeo_id):
     empresa_actual = getattr(request, 'tenant', None)
-    
+
     costeo = get_object_or_404(
-        Costeo.objects.prefetch_related(
-            'detalle_insumos__insumo', 
-            # --- LÍNEA CORREGIDA ---
-            # Ahora precargamos la tarifa, y a través de ella, el proceso y el confeccionista
+        Costeo.objects.select_related('referencia_color').prefetch_related(
+            'detalle_insumos__insumo',
+            # Precargamos la tarifa, y a través de ella, el proceso y el confeccionista
             'detalle_procesos__tarifa__proceso',
             'detalle_procesos__tarifa__confeccionista',
             'detalle_costos_fijos__costo_fijo'
-        ), 
-        id=costeo_id, 
+        ),
+        id=costeo_id,
         empresa=empresa_actual
     )
-    
-    return render(request, 'costeo_jeans/costeo_summary.html', {'costeo': costeo})
+
+    if request.method == 'POST':
+        ajuste_form = AjustePrecioForm(request.POST, instance=costeo)
+        if ajuste_form.is_valid():
+            ajuste_form.save()
+            return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+    else:
+        ajuste_form = AjustePrecioForm(instance=costeo)
+
+    return render(request, 'costeo_jeans/costeo_summary.html', {'costeo': costeo, 'ajuste_form': ajuste_form})
+
+
+@login_required
+def api_buscar_referencia_color(request):
+    """Autocompletar (Select2) de referencia+color reales del catálogo, para enlazar un costeo."""
+    empresa_actual = getattr(request, 'tenant', None)
+    term = request.GET.get('term', '').strip()
+    if not empresa_actual or len(term) < 1:
+        return JsonResponse({'results': []})
+
+    referencias = ReferenciaColor.objects.filter(
+        Q(referencia_base__icontains=term) | Q(color__icontains=term),
+        empresa=empresa_actual
+    ).order_by('referencia_base', 'color')[:20]
+
+    return JsonResponse({'results': [
+        {'id': rc.pk, 'text': f"{rc.referencia_base} - {rc.color or 'Sin color'}"} for rc in referencias
+    ]})
+
+
+@login_required
+def costeo_actualizar_catalogo(request, costeo_id):
+    """
+    Actualiza el costo/precio de venta de todas las tallas (Producto) de la
+    referencia+color enlazada, con el resultado de este costeo. Nunca
+    automático: siempre muestra antes/después y exige confirmación explícita
+    (el mismo criterio usado esta sesión para no sobreescribir precios
+    reales en lote sin que alguien lo vea y lo apruebe primero).
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    costeo = get_object_or_404(
+        Costeo.objects.select_related('referencia_color'), id=costeo_id, empresa=empresa_actual
+    )
+
+    if not costeo.referencia_color:
+        messages.error(request, "Este costeo no está enlazado a ninguna referencia del catálogo -- no hay a quién actualizarle el costo/precio.")
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+    productos_afectados = list(Producto.objects.filter(
+        empresa=empresa_actual, articulo_color_fotos=costeo.referencia_color, activo=True
+    ))
+    nuevo_costo = costeo.costo_unitario
+    nuevo_precio = costeo.precio_venta_unitario
+
+    if request.method == 'POST':
+        Producto.objects.filter(
+            empresa=empresa_actual, articulo_color_fotos=costeo.referencia_color, activo=True
+        ).update(costo=nuevo_costo, precio_venta=nuevo_precio)
+        messages.success(
+            request,
+            f"Costo (${nuevo_costo:,.2f}) y precio de venta (${nuevo_precio:,.2f}) actualizados en "
+            f"{len(productos_afectados)} talla(s) de {costeo.referencia_color}."
+        )
+        return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
+
+    context = {
+        'costeo': costeo,
+        'productos_afectados': productos_afectados,
+        'nuevo_costo': nuevo_costo,
+        'nuevo_precio': nuevo_precio,
+    }
+    return render(request, 'costeo_jeans/costeo_actualizar_catalogo_confirmar.html', context)
 
 class CosteoHistoryListView(LoginRequiredMixin, ListView):    
     model = Costeo
@@ -362,16 +428,29 @@ class InformesView(LoginRequiredMixin, TemplateView):
             context['no_data'] = True
             return context
 
-        # --- 1. KPIs Generales (sin cambios) ---
+        # --- 1. KPIs Generales ---
+        # Costo unitario promedio ponderado: Sum(costo_total)/Sum(unidades) --
+        # NO Avg(costo_total)/Avg(unidades) (eso sería un promedio de
+        # promedios, sesgado si los costeos tienen tamaños de producción
+        # muy distintos).
         kpis = costeos.aggregate(
             costo_total_general=Sum('costo_total'),
             unidades_totales=Sum('cantidad_producida'),
-            costo_unitario_promedio=ExpressionWrapper(
-                Avg('costo_total') / Avg('cantidad_producida'),
-                output_field=DecimalField()
-            )
+        )
+        kpis['costo_unitario_promedio'] = (
+            kpis['costo_total_general'] / kpis['unidades_totales']
+            if kpis['unidades_totales'] else 0
         )
         context['kpis'] = kpis
+
+        # --- 1b. KPIs de precio de venta y utilidad (propiedades Python,
+        # no se pueden agregar en SQL -- se calculan iterando una sola vez). ---
+        costeos_lista = list(costeos)
+        precios = [c.precio_venta_unitario for c in costeos_lista if c.precio_venta_unitario]
+        margenes = [c.margen_utilidad for c in costeos_lista if c.precio_venta_unitario]
+        context['precio_venta_promedio'] = sum(precios) / len(precios) if precios else 0
+        context['margen_promedio'] = sum(margenes) / len(margenes) if margenes else 0
+        context['utilidad_total_estimada'] = sum(c.utilidad_total for c in costeos_lista)
 
         # --- 2. NUEVOS KPIs ADICIONALES ---
         # Conteo de referencias de producto únicas
@@ -394,15 +473,18 @@ class InformesView(LoginRequiredMixin, TemplateView):
             "data": [float(total_insumos), float(total_procesos), float(total_fijos)],
         })
 
-        # --- 4. Datos para Gráfico de Evolución de Costos Unitarios (sin cambios) ---
-        evolucion_costos = costeos.annotate(
+        # --- 4. Datos para Gráfico de Evolución de Costos Unitarios ---
+        # Igual que el KPI general: promedio ponderado por mes (Sum/Sum), no
+        # promedio de promedios.
+        evolucion_costos = list(costeos.annotate(
             mes=TruncMonth('fecha')
         ).values('mes').annotate(
-            costo_promedio=ExpressionWrapper(
-                Avg('costo_total') / Avg('cantidad_producida'),
-                output_field=DecimalField()
-            )
-        ).order_by('mes')
+            costo_total_mes=Sum('costo_total'),
+            unidades_mes=Sum('cantidad_producida'),
+        ).order_by('mes'))
+
+        for e in evolucion_costos:
+            e['costo_promedio'] = e['costo_total_mes'] / e['unidades_mes'] if e['unidades_mes'] else None
 
         evolucion_data = {
             "labels": [e['mes'].strftime('%b %Y') for e in evolucion_costos],
@@ -410,8 +492,8 @@ class InformesView(LoginRequiredMixin, TemplateView):
         }
         context['evolucion_costos_data'] = json.dumps(evolucion_data, cls=DjangoJSONEncoder)
 
-        # --- 5. Top 5 Referencias más costosas (sin cambios) ---
-        costeos_validos = [c for c in costeos if c.cantidad_producida > 0]
+        # --- 5. Top 5 Referencias más costosas ---
+        costeos_validos = [c for c in costeos_lista if c.cantidad_producida > 0]
         top_costosos = sorted(costeos_validos, key=lambda c: c.costo_unitario, reverse=True)[:5]
         context['top_costosos'] = top_costosos
 
@@ -461,13 +543,13 @@ def costeo_update_step1(request, costeo_id):
 
     if request.method == 'POST':
         # Pasamos 'instance=costeo' para que el formulario actualice el objeto existente
-        form = CosteoModelForm(request.POST, instance=costeo)
+        form = CosteoModelForm(request.POST, instance=costeo, empresa=empresa_actual)
         if form.is_valid():
             form.save()
             return redirect('costeo_jeans:costeo_update_step2', costeo_id=costeo.id)
     else:
         # Pasamos 'instance=costeo' para que el formulario se cargue con los datos existentes
-        form = CosteoModelForm(instance=costeo)
+        form = CosteoModelForm(instance=costeo, empresa=empresa_actual)
 
     return render(request, 'costeo_jeans/costeo_create_step1.html', {
         'form': form,
@@ -496,33 +578,14 @@ def costeo_update_step2(request, costeo_id):
     )
 
     if request.method == 'POST':
-        # --- INICIO DE MENSAJES DE DIAGNÓSTICO ---
-        print("==============================================")
-        print("--- SE RECIBIÓ UN POST PARA GUARDAR CAMBIOS ---")
-
         is_insumos_valid = insumo_formset.is_valid()
         is_procesos_valid = proceso_formset.is_valid()
-
-        print(f"¿Formset de Insumos es válido? -> {is_insumos_valid}")
-        if not is_insumos_valid:
-            print("ERRORES DE INSUMOS:", insumo_formset.errors)
-
-        print(f"¿Formset de Procesos es válido? -> {is_procesos_valid}")
-        if not is_procesos_valid:
-            print("ERRORES DE PROCESOS:", proceso_formset.errors)
-
-        # --- FIN DE MENSAJES DE DIAGNÓSTICO ---
 
         if is_insumos_valid and is_procesos_valid:
             with transaction.atomic():
                 insumo_formset.save()
                 proceso_formset.save()
-            print("--- FORMULARIOS VÁLIDOS, REDIRIGIENDO ---")
-            print("==============================================")
             return redirect('costeo_jeans:costeo_summary', costeo_id=costeo.id)
-        else:
-            print("--- FORMULARIOS INVÁLIDOS, MOSTRANDO ERRORES ---")
-            print("==============================================")
 
     context = {
         'costeo': costeo,

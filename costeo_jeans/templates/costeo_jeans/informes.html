@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load humanize %}
 
-{% block title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -59,6 +59,33 @@
                     {% else %}
                         <p class="card-text fs-5 fw-bold">N/A</p>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #8e44ad;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-tag"></i> Precio de Venta Promedio</h5>
+                    <p class="card-text fs-3 fw-bold">${{ precio_venta_promedio|floatformat:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #16a085;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-percentage"></i> Margen de Utilidad Promedio</h5>
+                    <p class="card-text fs-3 fw-bold">{{ margen_promedio|floatformat:2 }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg col-md-6">
+            <div class="card text-white h-100" style="background-color: #d35400;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-coins"></i> Utilidad Total Estimada</h5>
+                    <p class="card-text fs-3 fw-bold">${{ utilidad_total_estimada|floatformat:0|intcomma }}</p>
                 </div>
             </div>
         </div>

@@ -38,6 +38,8 @@ urlpatterns = [
     path('<int:costeo_id>/exportar/pdf/', views.export_costeo_pdf, name='export_costeo_pdf'),
     path('<int:costeo_id>/editar/paso1/', views.costeo_update_step1, name='costeo_update_step1'),
     path('<int:costeo_id>/editar/paso2/', views.costeo_update_step2, name='costeo_update_step2'),
+    path('<int:costeo_id>/actualizar-catalogo/', views.costeo_actualizar_catalogo, name='costeo_actualizar_catalogo'),
+    path('api/buscar-referencia-color/', views.api_buscar_referencia_color, name='api_buscar_referencia_color'),
 
 
     # Historial

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from core.models import Empresa
 from django.db.models.signals import post_save, post_delete
@@ -6,6 +7,12 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import F
 from django.db import transaction
 
+# Tasa de IVA colombiana usada en el costo de los procesos de confección
+# (ver DetalleProceso.valor_iva). Aparte para que quede nombrada, no como
+# un número suelto en medio de una fórmula.
+TASA_IVA_COLOMBIA = Decimal('0.19')
+
+
 # --- NUEVO MODELO: COSTO FIJO ---
 class CostoFijo(models.Model):
     class TipoCosto(models.TextChoices):
@@ -13,7 +20,10 @@ class CostoFijo(models.Model):
         VALOR_FIJO_UNIDAD = 'FIJO_UNIDAD', '$ Valor Fijo por Unidad'
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100, help_text="Ej: Gastos Administrativos, Ganancia, Transporte")
+    nombre = models.CharField(
+        max_length=100,
+        help_text="Ej: Gastos Administrativos, Transporte, Empaque. La ganancia/margen ya NO va aquí -- se define en 'Margen Deseado' al crear cada costeo."
+    )
     tipo = models.CharField(max_length=20, choices=TipoCosto.choices)
     valor = models.DecimalField(
         max_digits=10,
@@ -79,17 +89,26 @@ class Costeo(models.Model):
         FINALIZADO = 'FINALIZADO', 'Finalizado'
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, db_index=True)
     referencia = models.CharField(max_length=100)
+    referencia_color = models.ForeignKey(
+        'productos.ReferenciaColor', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='costeos',
+        help_text="Referencia+color real del catálogo (opcional -- déjalo vacío si aún no existe como producto)."
+    )
     cantidad_producida = models.PositiveIntegerField()
     fecha = models.DateField(auto_now_add=True)
     costo_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    
-    precio_venta_unitario = models.DecimalField(
-        max_digits=12, 
-        decimal_places=2, 
-        default=0.00,
-        help_text="Precio de venta final de cada unidad."
+
+    margen_deseado = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('40.00'),
+        validators=[MinValueValidator(0), MaxValueValidator(Decimal('99.99'))],
+        help_text="% de utilidad deseado SOBRE EL PRECIO DE VENTA final (no sobre el costo). El precio de venta se calcula solo: Precio = Costo ÷ (1 − margen/100)."
     )
-    
+    precio_venta_manual = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        verbose_name="Precio de venta (manual)",
+        help_text="Opcional. Solo diligéncialo si necesitas FORZAR un precio distinto al sugerido (ej. para igualar un precio de mercado). Si lo dejas vacío, se usa el precio sugerido calculado a partir del costo y el margen deseado."
+    )
+
     porcentaje_descuento_cliente = models.DecimalField(
         max_digits=5, decimal_places=2, default=0.00,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
@@ -100,13 +119,40 @@ class Costeo(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Porcentaje de comisión para el vendedor (ej: 6 para 6%)."
     )
-    estado = models.CharField(max_length=20, choices=EstadoCosteo.choices, default=EstadoCosteo.BORRADOR) 
-      
+    estado = models.CharField(max_length=20, choices=EstadoCosteo.choices, default=EstadoCosteo.BORRADOR)
+
     @property
     def costo_unitario(self):
         if self.cantidad_producida and self.cantidad_producida > 0:
             return self.costo_total / self.cantidad_producida
         return 0
+
+    @property
+    def precio_venta_sugerido(self):
+        """
+        Precio de venta calculado a partir del costo y el margen deseado
+        (nunca al revés): Precio = Costo ÷ (1 − margen/100).
+        """
+        costo = self.costo_unitario
+        if not costo:
+            return Decimal('0.00')
+        margen = self.margen_deseado or Decimal('0.00')
+        if margen >= 100:
+            return costo
+        return costo / (Decimal('1.00') - (margen / Decimal('100')))
+
+    @property
+    def precio_venta_unitario(self):
+        """
+        Precio de venta efectivo: el manual si el usuario decidió forzar uno,
+        si no el sugerido (costo + margen deseado). Se mantiene este nombre
+        (antes era el campo de entrada) para no romper el resto del código
+        (templates, PDF, informes) que ya lo consume.
+        """
+        if self.precio_venta_manual is not None:
+            return self.precio_venta_manual
+        return self.precio_venta_sugerido
+
     def __str__(self):
         return f"Costeo {self.referencia} - {self.fecha}"
 
@@ -127,10 +173,6 @@ class Costeo(models.Model):
             return (self.utilidad_unitaria / self.precio_venta_unitario) * 100
         return 0
 
-    def __str__(self):
-        return f"Costeo {self.referencia} - {self.fecha}"
-    
-    
     @property
     def valor_descuento_unitario(self):
         """Calcula el monto del descuento al cliente por unidad."""
@@ -190,18 +232,24 @@ class DetalleInsumo(models.Model):
     # NUEVO CAMPO: Este es el que el usuario llenará.
     # Ej: 0.8 para 0.8 metros de tela por jean, o 6 para 6 botones por jean.
     consumo_unitario = models.DecimalField(
-        max_digits=10, 
-        decimal_places=4, 
-        help_text="Cantidad o metros necesarios para UNA SOLA UNIDAD del producto.",
+        max_digits=10,
+        decimal_places=4,
+        help_text="Cantidad o metros necesarios para UNA SOLA UNIDAD del producto (consumo neto, sin desperdicio).",
         default=0
     )
-    
+
+    porcentaje_desperdicio = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="% de merma/desperdicio sobre el consumo neto (ej. 10 para 10%). Estándar en tela por ancho de rollo/trazo de corte; en avíos normalmente 0."
+    )
+
     # CAMPO EXISTENTE: Ahora será calculado automáticamente.
     cantidad = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        editable=False, 
-        help_text="Cantidad total calculada para toda la producción."
+        max_digits=10,
+        decimal_places=2,
+        editable=False,
+        help_text="Cantidad total calculada para toda la producción (incluye el % de desperdicio)."
     )
 
     @property
@@ -210,14 +258,11 @@ class DetalleInsumo(models.Model):
         return self.cantidad * self.insumo.costo_unitario
 
     def save(self, *args, **kwargs):
-        # Lógica de cálculo automático antes de guardar
-        if self.insumo.categoria == Insumo.CategoriaInsumo.TELA:
-            # Para tela, es consumo * cantidad total de prendas
-            self.cantidad = self.consumo_unitario * self.costeo.cantidad_producida
-        else:
-            # Para avíos (botones, hilos), asumimos que el consumo es por unidad también.
-            self.cantidad = self.consumo_unitario * self.costeo.cantidad_producida
-
+        # Consumo neto + desperdicio, multiplicado por toda la producción.
+        consumo_con_desperdicio = self.consumo_unitario * (
+            Decimal('1.00') + (self.porcentaje_desperdicio or Decimal('0.00')) / Decimal('100')
+        )
+        self.cantidad = consumo_con_desperdicio * self.costeo.cantidad_producida
         super().save(*args, **kwargs)
     
     
@@ -248,9 +293,8 @@ class DetalleProceso(models.Model):
         
     @property
     def valor_iva(self):
-        # Asumimos una tasa de IVA del 19%
         if self.aplica_iva_registrado:
-            return self.costo_subtotal * 0.19
+            return self.costo_subtotal * TASA_IVA_COLOMBIA
         return 0
 
     @property

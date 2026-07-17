@@ -2,6 +2,7 @@ from django import forms
 from .models import Insumo, Proceso, Confeccionista, Costeo, DetalleInsumo, DetalleProceso, CostoFijo,TarifaConfeccionista
 from django.forms import inlineformset_factory
 from .models import MovimientoInsumo
+from productos.models import ReferenciaColor
 
 # ... (InsumoForm, ProcesoForm, ConfeccionistaForm sin cambios)
 class InsumoForm(forms.ModelForm):
@@ -27,12 +28,10 @@ class ProcesoForm(forms.ModelForm):
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Lavado a piedra'}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
-            'costo': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Costo del proceso'}),
         }
         labels = {
             'nombre': 'Nombre del Proceso',
             'tipo': 'Tipo de Proceso',
-            'costo': 'Costo ($)',
         }
 class ConfeccionistaForm(forms.ModelForm):
     class Meta:
@@ -83,38 +82,58 @@ class CostoFijoForm(forms.ModelForm):
             'incluir_por_defecto': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
-# --- Formularios del Asistente (sin cambios) ---
+# --- Formularios del Asistente ---
 class CosteoModelForm(forms.ModelForm):
+    """
+    Paso 1 del asistente. A propósito NO pide precio de venta: eso se
+    calcula al final (costo + margen deseado). Aquí solo se pide lo que
+    se sabe de entrada: qué se va a producir, cuánto, y qué margen se
+    quiere ganar.
+    """
     class Meta:
         model = Costeo
-        fields = ['referencia', 'cantidad_producida', 'precio_venta_unitario', 'porcentaje_descuento_cliente', 'porcentaje_comision_vendedor']
+        fields = ['referencia_color', 'referencia', 'cantidad_producida', 'margen_deseado', 'porcentaje_descuento_cliente', 'porcentaje_comision_vendedor']
         widgets = {
-            'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jean Clásico 101'}),
+            'referencia_color': forms.Select(attrs={'class': 'form-select select2-referencia-color', 'data-placeholder': 'Buscar referencia y color en el catálogo...'}),
+            'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jean Clásico 101 (se autocompleta si eliges arriba)'}),
             'cantidad_producida': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1000'}),
-            'precio_venta_unitario': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 85000.00'}),
+            'margen_deseado': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 40.00', 'step': '0.01'}),
             'porcentaje_descuento_cliente': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 10.00'}),
             'porcentaje_comision_vendedor': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 6.00'}),
         }
         labels = {
+            'referencia_color': 'Referencia del catálogo (opcional)',
             'referencia': 'Referencia del Producto',
             'cantidad_producida': 'Cantidad a Producir (Unidades)',
-            'precio_venta_unitario': 'Precio de Venta por Unidad ($)',
+            'margen_deseado': '% Margen de Utilidad Deseado (sobre el precio de venta)',
             'porcentaje_descuento_cliente': '% Descuento Cliente',
             'porcentaje_comision_vendedor': '% Comisión Vendedor',
         }
-        
-        
-        
-        
-        
-        
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        self.fields['referencia_color'].required = False
+        if empresa:
+            self.fields['referencia_color'].queryset = ReferenciaColor.objects.filter(empresa=empresa).select_related().order_by('referencia_base', 'color')
+        else:
+            self.fields['referencia_color'].queryset = ReferenciaColor.objects.none()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        referencia_color = cleaned_data.get('referencia_color')
+        if referencia_color and not cleaned_data.get('referencia'):
+            cleaned_data['referencia'] = referencia_color.referencia_base
+        return cleaned_data
+
 class DetalleInsumoForm(forms.ModelForm):
     class Meta:
-        model = DetalleInsumo       
-        fields = ['insumo', 'consumo_unitario']
+        model = DetalleInsumo
+        fields = ['insumo', 'consumo_unitario', 'porcentaje_desperdicio']
         widgets = {
             'insumo': forms.Select(attrs={'class': 'form-select insumo-select'}), # Añadimos una clase para JS
             'consumo_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'porcentaje_desperdicio': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -167,3 +186,17 @@ class MovimientoInsumoForm(forms.ModelForm):
 
 DetalleInsumoFormSet = inlineformset_factory(Costeo, DetalleInsumo, form=DetalleInsumoForm, extra=1, can_delete=True)
 DetalleProcesoFormSet = inlineformset_factory(Costeo, DetalleProceso, form=DetalleProcesoForm, extra=1, can_delete=True)
+
+
+class AjustePrecioForm(forms.ModelForm):
+    """
+    Formulario del resumen/finalización: permite ajustar el margen deseado
+    y, opcionalmente, forzar un precio manual distinto al sugerido.
+    """
+    class Meta:
+        model = Costeo
+        fields = ['margen_deseado', 'precio_venta_manual']
+        widgets = {
+            'margen_deseado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precio_venta_manual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Dejar vacío para usar el precio sugerido'}),
+        }
