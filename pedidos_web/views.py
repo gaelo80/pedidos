@@ -27,7 +27,7 @@ from core.auth_utils import es_administracion
 from decouple import config
 import requests
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Q
+from django.db.models import Q, Sum
 from . import shopify_api
 
 
@@ -560,15 +560,32 @@ def gestion_catalogo_shopify(request):
         ).distinct()
 
     referencias_qs = referencias_qs.prefetch_related('fotos_agrupadas', 'variantes')
-    paginator = Paginator(referencias_qs, 100)
-    page_obj = paginator.get_page(request.GET.get('page'))
+
+    # Stock disponible para Web de TODOS los productos de la empresa, en una
+    # sola consulta agrupada (en vez de una consulta por producto): solo
+    # cuenta las bodegas habilitadas para el canal 'WEB', igual que
+    # stock_disponible_para_canal('WEB'), pero sin repetir la búsqueda de
+    # bodegas ni el aggregate en cada fila.
+    bodegas_web_ids = list(
+        Bodega.objects.filter(empresa=empresa_actual, disponible_venta_web=True).values_list('pk', flat=True)
+    )
+    stock_web_por_producto = {}
+    if bodegas_web_ids:
+        stock_web_por_producto = dict(
+            MovimientoInventario.objects.filter(
+                empresa=empresa_actual, bodega_id__in=bodegas_web_ids
+            ).values('producto_id').annotate(total=Sum('cantidad')).values_list('producto_id', 'total')
+        )
 
     filas = []
-    for rc in page_obj.object_list:
+    for rc in referencias_qs:
         variantes = [v for v in rc.variantes.all() if v.activo]
         if not variantes:
             continue
         variantes.sort(key=lambda p: (p.talla if p.talla is not None else 0))
+        stock_total = sum(max(stock_web_por_producto.get(v.pk, 0), 0) for v in variantes)
+        if stock_total <= 0:
+            continue  # sin existencias para Web: no hace falta mostrarla aquí
         primera_foto = next(iter(rc.fotos_agrupadas.all()), None)
         filas.append({
             'referencia_color': rc,
@@ -578,13 +595,16 @@ def gestion_catalogo_shopify(request):
             'genero': variantes[0].get_genero_display() if variantes[0].genero else '',
             'costo': variantes[0].costo,
             'precio_venta': variantes[0].precio_venta,
-            'stock_total': sum(v.stock_disponible_para_canal('WEB') for v in variantes),
+            'stock_total': stock_total,
             'esta_subido': bool(rc.shopify_product_id),
         })
 
+    paginator = Paginator(filas, 100)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     context = {
         'titulo': f'Catálogo Shopify ({empresa_actual.nombre})',
-        'filas': filas,
+        'filas': page_obj.object_list,
         'page_obj': page_obj,
         'search_query': search_query,
     }
