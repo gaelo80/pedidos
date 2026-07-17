@@ -65,9 +65,9 @@ class Insumo(models.Model):
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     def __str__(self):
-        return f"{self.nombre} (${self.costo_unitario})"
-    
-    
+        return f"{self.nombre} ({self.get_unidad_medida_display()}) - ${self.costo_unitario}/{self.get_unidad_medida_display()}"
+
+
     
     
 

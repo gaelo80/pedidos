@@ -21,9 +21,9 @@
         {% for item in costeo.detalle_insumos.all %}
             <li class="list-group-item d-flex justify-content-between align-items-center fs-6">
                 <span>
-                    {{ item.insumo.nombre }}: {{ item.consumo_unitario }} x unidad
+                    {{ item.insumo.nombre }}: {{ item.consumo_unitario }} {{ item.insumo.get_unidad_medida_display }} por prenda
                     {% if item.porcentaje_desperdicio %}(+{{ item.porcentaje_desperdicio }}% desperdicio){% endif %}
-                    = {{ item.cantidad }} {{ item.insumo.get_unidad_medida_display }} x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}
+                    → {{ item.cantidad }} {{ item.insumo.get_unidad_medida_display }} en total x ${{ item.insumo.costo_unitario|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}
                 </span>
                 <span class="badge bg-primary rounded-pill fs-6">${{ item.costo_total|floatformat:0|intcomma }}</span>
             </li>

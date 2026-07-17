@@ -130,7 +130,8 @@
             <thead>
                 <tr>
                     <th>Descripción</th>
-                    <th class="text-right">Cantidad</th>
+                    <th class="text-right">Consumo x Prenda</th>
+                    <th class="text-right">Cantidad Total</th>
                     <th class="text-right">Costo Unitario</th>
                     <th class="text-right">Costo Total</th>
                 </tr>
@@ -138,9 +139,10 @@
             <tbody>
                 {% for item in costeo.detalle_insumos.all %}
                 <tr>
-                    <td>{{ item.insumo.nombre }}</td>
-                    <td class="text-right">{{ item.cantidad|floatformat:2|intcomma }}</td>
-                    <td class="text-right">${{ item.insumo.costo_unitario|floatformat:0|intcomma }}</td>
+                    <td>{{ item.insumo.nombre }}{% if item.porcentaje_desperdicio %} (+{{ item.porcentaje_desperdicio }}% desperdicio){% endif %}</td>
+                    <td class="text-right">{{ item.consumo_unitario }} {{ item.insumo.get_unidad_medida_display }}</td>
+                    <td class="text-right">{{ item.cantidad|floatformat:2|intcomma }} {{ item.insumo.get_unidad_medida_display }}</td>
+                    <td class="text-right">${{ item.insumo.costo_unitario|floatformat:0|intcomma }}/{{ item.insumo.get_unidad_medida_display }}</td>
                     <td class="text-right">${{ item.costo_total|floatformat:0|intcomma }}</td>
                 </tr>
                 {% endfor %}
