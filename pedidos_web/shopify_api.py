@@ -478,6 +478,37 @@ def actualizar_producto(referencia_color, variantes):
     return producto_actualizado
 
 
+def corregir_titulo_sin_tocar_precio(referencia_color, variantes):
+    """
+    Corrige título/descripción/tipo/etiquetas en Shopify SIN enviar precio.
+
+    Se usa desde la auto-corrección automática del catálogo (por ejemplo, al
+    reparar un título con el color equivocado): a diferencia de
+    'actualizar_producto', nunca sobreescribe el precio real que haya en la
+    tienda con el precio interno de bodega -- son precios distintos
+    (venta al por mayor vs. venta web) y solo deben cambiar cuando la
+    administradora lo pide explícitamente desde "Guardar Cambios".
+    """
+    headers = obtener_headers()
+    titulo, descripcion = _titulo_y_descripcion(referencia_color, variantes)
+
+    payload = {
+        'product': {
+            'id': int(referencia_color.shopify_product_id),
+            'title': titulo,
+            'body_html': descripcion,
+            'product_type': referencia_color.shopify_tipo or '',
+            'tags': _construir_tags(referencia_color),
+        }
+    }
+    response = requests.put(
+        _url_admin(f'products/{referencia_color.shopify_product_id}.json'),
+        json=payload, headers=headers, timeout=60,
+    )
+    response.raise_for_status()
+    return response.json()['product']
+
+
 def archivar_producto(referencia_color):
     """Pasa el producto a 'draft' en Shopify (se oculta de la tienda, no se borra)."""
     return _cambiar_estado_producto(referencia_color, 'draft')
@@ -786,7 +817,7 @@ def auditar_y_corregir_catalogo(empresa, productos_shopify):
             try:
                 rc.shopify_titulo = titulo_nuevo
                 rc.save(update_fields=['shopify_titulo'])
-                actualizar_producto(rc, variantes)
+                corregir_titulo_sin_tocar_precio(rc, variantes)
                 titulos_corregidos.append({
                     'referencia': rc.referencia_base, 'color': rc.color,
                     'anterior': titulo_actual, 'nuevo': titulo_nuevo,
