@@ -277,18 +277,21 @@ def api_exportar_catalogo_etiquetas(request):
     hoja = libro.active
     hoja.title = 'Catalogo Etiquetas'
 
-    encabezados = ['Referencia', 'Nombre', 'Color', 'Talla', 'Codigo de Barras']
+    encabezados = ['Referencia', 'Nombre', 'Color', 'Talla', 'Codigo de Barras', 'Referencia.Color.Talla']
     hoja.append(encabezados)
     for indice, encabezado in enumerate(encabezados, start=1):
         hoja.column_dimensions[get_column_letter(indice)].width = max(len(encabezado) + 2, 14)
 
     for producto in productos:
+        color_nombre = producto.color.nombre if producto.color_id else ''
+        talla = producto.talla if producto.talla is not None else ''
         hoja.append([
             producto.referencia,
             producto.nombre,
-            producto.color.nombre if producto.color_id else '',
-            producto.talla if producto.talla is not None else '',
+            color_nombre,
+            talla,
             producto.codigo_barras,
+            f"{producto.referencia}.{color_nombre}.{talla}",
         ])
 
     buffer = BytesIO()
