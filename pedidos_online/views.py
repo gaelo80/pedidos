@@ -228,9 +228,9 @@ def crear_pedido_online(request, pk=None):
     if pedido_instance:
         detalles_data = [{
             'producto_id': d.producto.id, 'ref': d.producto.referencia, 'nombre': d.producto.nombre,
-            'color': d.producto.color or '-', 'talla': d.producto.talla, 'cantidad': d.cantidad,
+            'color': d.producto.color.nombre if d.producto.color_id else '-', 'talla': d.producto.talla, 'cantidad': d.cantidad,
             'precio_unitario': float(d.precio_unitario)
-        } for d in pedido_instance.detalles.select_related('producto').all()]
+        } for d in pedido_instance.detalles.select_related('producto', 'producto__color').all()]
         detalles_existentes_json = json.dumps(detalles_data)
     elif request.method == 'POST' and 'detalles_para_crear' in locals() and detalles_para_crear:
         # Caso POST FALLIDO en pedido NUEVO (p. ej. stock insuficiente):
@@ -238,7 +238,7 @@ def crear_pedido_online(request, pk=None):
         # para que el JavaScript vuelva a pintar la tabla y no se pierda el trabajo.
         detalles_data = [{
             'producto_id': d['producto'].id, 'ref': d['producto'].referencia, 'nombre': d['producto'].nombre,
-            'color': d['producto'].color or '-', 'talla': d['producto'].talla, 'cantidad': d['cantidad'],
+            'color': d['producto'].color.nombre if d['producto'].color_id else '-', 'talla': d['producto'].talla, 'cantidad': d['cantidad'],
             'precio_unitario': float(d['precio_unitario'])
         } for d in detalles_para_crear]
         detalles_existentes_json = json.dumps(detalles_data)
@@ -856,11 +856,11 @@ def api_get_pedido_detalles(request, pedido_id):
     try:
         pedido = Pedido.objects.get(pk=pedido_id, empresa=empresa_actual, tipo_pedido='ONLINE')
         detalles_data = []
-        for detalle in pedido.detalles.select_related('producto').all():
+        for detalle in pedido.detalles.select_related('producto', 'producto__color').all():
             detalles_data.append({
                 'producto_id': detalle.producto.id,
                 'referencia': detalle.producto.referencia,
-                'color': detalle.producto.color or '-',
+                'color': detalle.producto.color.nombre if detalle.producto.color_id else '-',
                 'talla': detalle.producto.talla,
                 'cantidad': detalle.cantidad,
                 'precio_unitario': float(detalle.precio_unitario)
