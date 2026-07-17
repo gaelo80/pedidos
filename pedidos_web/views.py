@@ -717,6 +717,9 @@ def api_shopify_actualizar(request, referencia_color_id):
     referencia_color = _obtener_referencia_color_de_empresa(request, referencia_color_id)
     ids_colecciones_anteriores = referencia_color.shopify_colecciones_ids  # antes de sobreescribir, para el diff
 
+    # DEBUG TEMPORAL: diagnosticar por qué precio/categoría no llegan desde el navegador.
+    logger.warning(f"DEBUG api_shopify_actualizar POST recibido para rc={referencia_color_id}: {dict(request.POST)}")
+
     referencia_color.shopify_titulo = request.POST.get('shopify_titulo', '').strip() or None
     referencia_color.shopify_descripcion = request.POST.get('shopify_descripcion', '').strip() or None
     precio_raw = request.POST.get('shopify_precio', '').strip()
