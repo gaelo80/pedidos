@@ -411,11 +411,12 @@ class AccesoBodegaForm(forms.ModelForm):
 class TrasladoBodegaForm(forms.ModelForm):
     class Meta:
         model = TrasladoBodega
-        fields = ['bodega_origen', 'bodega_destino', 'documento_referencia', 'notas']
+        # 'documento_referencia' ya no se pide -- se genera solo al guardar
+        # (ver TrasladoBodega.save()).
+        fields = ['bodega_origen', 'bodega_destino', 'notas']
         widgets = {
             'bodega_origen': forms.Select(attrs={'class': 'form-select'}),
             'bodega_destino': forms.Select(attrs={'class': 'form-select'}),
-            'documento_referencia': forms.TextInput(attrs={'class': 'form-control'}),
             'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 

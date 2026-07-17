@@ -39,8 +39,8 @@
                         {% if form.bodega_destino.errors %}<div class="text-danger small mt-1">{{ form.bodega_destino.errors }}</div>{% endif %}
                     </div>
                     <div class="col-md-4">
-                        <label for="{{ form.documento_referencia.id_for_label }}" class="form-label fw-semibold">{{ form.documento_referencia.label }}</label>
-                        {{ form.documento_referencia }}
+                        <label class="form-label fw-semibold">Documento de Referencia</label>
+                        <input type="text" class="form-control" value="Se asigna automáticamente al guardar" disabled>
                     </div>
                     <div class="col-12">
                         <label for="{{ form.notas.id_for_label }}" class="form-label fw-semibold">{{ form.notas.label }}</label>

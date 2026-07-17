@@ -21,6 +21,64 @@
         </div>
     </div>
 
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Opciones de Filtro</h5>
+        </div>
+        <div class="card-body p-4">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label for="fecha_inicio" class="form-label fw-semibold">Desde</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control rounded-pill" value="{{ filtros_activos.fecha_inicio }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="fecha_fin" class="form-label fw-semibold">Hasta</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control rounded-pill" value="{{ filtros_activos.fecha_fin }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="bodega" class="form-label fw-semibold">Bodega</label>
+                        <select name="bodega" id="bodega" class="form-select rounded-pill">
+                            <option value="">Origen o destino</option>
+                            {% for b in bodegas_disponibles %}
+                                <option value="{{ b.pk }}" {% if filtros_activos.bodega == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="estado" class="form-label fw-semibold">Estado</label>
+                        <select name="estado" id="estado" class="form-select rounded-pill">
+                            <option value="">Todos</option>
+                            {% for valor, etiqueta in estados_traslado %}
+                                <option value="{{ valor }}" {% if filtros_activos.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="referencia" class="form-label fw-semibold">Referencia</label>
+                        <input type="text" name="referencia" id="referencia" class="form-control rounded-pill" placeholder="Ref. o nombre" value="{{ filtros_activos.referencia }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="documento" class="form-label fw-semibold">Documento</label>
+                        <input type="text" name="documento" id="documento" class="form-control rounded-pill" placeholder="TRA-00001" value="{{ filtros_activos.documento }}">
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-3 d-grid gap-2">
+                        <button type="submit" class="btn btn-primary rounded-pill shadow-sm">
+                            <i class="fas fa-search me-2"></i> Buscar
+                        </button>
+                    </div>
+                    <div class="col-md-3 d-grid gap-2">
+                        <a href="{% url 'bodega:lista_traslados' %}" class="btn btn-outline-secondary rounded-pill shadow-sm">
+                            <i class="fas fa-eraser me-2"></i> Limpiar
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {% if traslados_list %}
     <div class="card shadow-lg border-0 rounded-3">
         <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">
@@ -31,7 +89,7 @@
                 <table class="table table-striped table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th>
+                            <th>Documento</th>
                             <th>Fecha Creación</th>
                             <th>Origen</th>
                             <th>Destino</th>
@@ -42,7 +100,7 @@
                     <tbody>
                         {% for traslado in traslados_list %}
                         <tr>
-                            <td>{{ traslado.pk }}</td>
+                            <td>{{ traslado.documento_referencia|default:traslado.pk }}</td>
                             <td>{{ traslado.fecha_hora_creacion|date:"d/m/Y H:i" }}</td>
                             <td>{{ traslado.bodega_origen.nombre }}</td>
                             <td>{{ traslado.bodega_destino.nombre }}</td>
@@ -59,17 +117,51 @@
                                 <a href="{% url 'bodega:detalle_traslado' traslado.pk %}" class="btn btn-outline-primary btn-sm rounded-pill shadow-sm">
                                     <i class="fas fa-eye"></i> Detalle
                                 </a>
+                                <a href="{% url 'bodega:generar_pdf_traslado' traslado.pk %}" target="_blank" class="btn btn-outline-danger btn-sm rounded-pill shadow-sm">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+                <nav aria-label="Paginación de traslados" class="mt-4">
+                    <ul class="pagination justify-content-center pagination-sm">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}" aria-label="Anterior">
+                                    <i class="fas fa-angle-left"></i> Anterior
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link"><i class="fas fa-angle-left"></i> Anterior</span></li>
+                        {% endif %}
+
+                        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}" aria-label="Siguiente">
+                                    Siguiente <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">Siguiente <i class="fas fa-angle-right"></i></span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <div class="text-center mt-2">
+                    <small class="text-muted">Total: {{ page_obj.paginator.count }} traslado(s)</small>
+                </div>
+            {% endif %}
         </div>
     </div>
     {% else %}
         <div class="alert alert-warning text-center py-4 rounded-3 shadow-sm border-0" role="alert">
-            <i class="fas fa-info-circle me-2"></i> No hay traslados registrados todavía.
+            <i class="fas fa-info-circle me-2"></i> No hay traslados que coincidan con el filtro.
         </div>
     {% endif %}
 

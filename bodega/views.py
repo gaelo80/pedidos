@@ -3072,9 +3072,40 @@ def lista_traslados_bodega(request):
     traslados = TrasladoBodega.objects.filter(empresa=empresa_actual).select_related(
         'bodega_origen', 'bodega_destino'
     ).order_by('-fecha_hora_creacion')
+
+    fecha_inicio = request.GET.get('fecha_inicio', '').strip()
+    fecha_fin = request.GET.get('fecha_fin', '').strip()
+    bodega_q = request.GET.get('bodega', '').strip()
+    referencia_q = request.GET.get('referencia', '').strip()
+    estado_q = request.GET.get('estado', '').strip()
+    documento_q = request.GET.get('documento', '').strip()
+
+    if fecha_inicio:
+        traslados = traslados.filter(fecha_hora_creacion__date__gte=fecha_inicio)
+    if fecha_fin:
+        traslados = traslados.filter(fecha_hora_creacion__date__lte=fecha_fin)
+    if bodega_q:
+        traslados = traslados.filter(Q(bodega_origen_id=bodega_q) | Q(bodega_destino_id=bodega_q))
+    if referencia_q:
+        traslados = traslados.filter(
+            Q(detalles__producto__referencia__icontains=referencia_q) |
+            Q(detalles__producto__nombre__icontains=referencia_q)
+        ).distinct()
+    if estado_q:
+        traslados = traslados.filter(estado=estado_q)
+    if documento_q:
+        traslados = traslados.filter(documento_referencia__icontains=documento_q)
+
+    paginator = Paginator(traslados, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     context = {
-        'traslados_list': traslados,
+        'traslados_list': page_obj.object_list,
+        'page_obj': page_obj,
         'titulo': 'Traslados entre Bodegas',
+        'bodegas_disponibles': Bodega.objects.filter(empresa=empresa_actual).order_by('orden', 'nombre'),
+        'estados_traslado': TrasladoBodega.EstadoTraslado.choices,
+        'filtros_activos': request.GET,
     }
     return render(request, 'bodega/traslado_lista.html', context)
 
@@ -3341,3 +3372,33 @@ def anular_traslado_bodega(request, pk):
     traslado.save(update_fields=['estado'])
     messages.success(request, f"Traslado #{traslado.pk} anulado.")
     return redirect('bodega:detalle_traslado', pk=traslado.pk)
+
+
+@login_required
+@permission_required('bodega.view_trasladobodega', login_url='core:acceso_denegado')
+def generar_pdf_traslado_bodega(request, pk):
+    """Comprobante de traslado con espacio para firma de quien entrega
+    (Bodega Origen) y quien recibe (Bodega Destino)."""
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+
+    traslado = get_object_or_404(
+        TrasladoBodega.objects.select_related(
+            'bodega_origen', 'bodega_destino', 'usuario_creacion', 'usuario_envio', 'usuario_recepcion'
+        ).prefetch_related('detalles__producto__color'),
+        pk=pk, empresa=empresa_actual
+    )
+
+    detalles_items = list(traslado.detalles.select_related('producto', 'producto__color').all())
+    context_pdf = {
+        'traslado': traslado,
+        'detalles_items': detalles_items,
+        'total_unidades': sum(d.cantidad for d in detalles_items),
+        'logo_base64': get_logo_base_64_despacho(empresa=empresa_actual),
+        'fecha_generacion': timezone.now(),
+    }
+
+    filename = f"Comprobante_Traslado_{empresa_actual.pk}_{traslado.pk}"
+    return render_pdf_weasyprint(request, 'bodega/traslado_pdf.html', context_pdf, filename_prefix=filename)

@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib import admin
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -623,7 +623,12 @@ class TrasladoBodega(models.Model):
     bodega_origen = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='traslados_salientes', verbose_name="Bodega de Origen")
     bodega_destino = models.ForeignKey(Bodega, on_delete=models.PROTECT, related_name='traslados_entrantes', verbose_name="Bodega de Destino")
     estado = models.CharField(max_length=20, choices=EstadoTraslado.choices, default=EstadoTraslado.BORRADOR, verbose_name="Estado")
-    documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de Referencia")
+    numero_traslado_empresa = models.PositiveIntegerField(
+        verbose_name="Número de Traslado por Empresa", null=True, blank=True, editable=False
+    )
+    documento_referencia = models.CharField(
+        max_length=100, blank=True, null=True, editable=False, verbose_name="Documento de Referencia"
+    )
     notas = models.TextField(blank=True, null=True, verbose_name="Notas")
     fecha_hora_creacion = models.DateTimeField(auto_now_add=True)
     fecha_hora_envio = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora de Envío")
@@ -636,6 +641,24 @@ class TrasladoBodega(models.Model):
         super().clean()
         if self.bodega_origen_id and self.bodega_destino_id and self.bodega_origen_id == self.bodega_destino_id:
             raise ValidationError("La bodega de origen y destino no pueden ser la misma.")
+
+    def save(self, *args, **kwargs):
+        # El documento de referencia se genera solo, en vez de que el usuario
+        # lo escriba a mano -- mismo patrón de numeración consecutiva por
+        # empresa que 'Pedido.numero_pedido_empresa'.
+        if self.pk is None and self.numero_traslado_empresa is None:
+            with transaction.atomic():
+                ultimo = (
+                    TrasladoBodega.objects.filter(empresa=self.empresa)
+                    .select_for_update()
+                    .order_by('-numero_traslado_empresa')
+                    .first()
+                )
+                self.numero_traslado_empresa = (
+                    ultimo.numero_traslado_empresa + 1 if ultimo and ultimo.numero_traslado_empresa else 1
+                )
+            self.documento_referencia = f"TRA-{self.numero_traslado_empresa:05d}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Traslado #{self.pk} - {self.bodega_origen} → {self.bodega_destino} ({self.get_estado_display()})"

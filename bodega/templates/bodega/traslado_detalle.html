@@ -8,10 +8,13 @@
     <div class="row align-items-center mb-4">
         <div class="col-md-8">
             <h1 class="display-6 fw-bold mb-0 text-primary">
-                <i class="fas fa-truck-loading me-2"></i> Traslado #{{ traslado.pk }}
+                <i class="fas fa-truck-loading me-2"></i> Traslado {{ traslado.documento_referencia|default:traslado.pk }}
             </h1>
         </div>
         <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'bodega:generar_pdf_traslado' traslado.pk %}" target="_blank" class="btn btn-outline-danger btn-lg rounded-pill shadow-sm me-2">
+                <i class="fas fa-file-pdf me-2"></i> Generar PDF
+            </a>
             <a href="{% url 'bodega:lista_traslados' %}" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm">
                 <i class="fas fa-arrow-left me-2"></i> Volver
             </a>

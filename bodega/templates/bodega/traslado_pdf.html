@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Traslado {{ traslado.documento_referencia|default:traslado.pk }}</title>
+    <style>
+        @page { size: letter; margin: 1.5cm; }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .header-table td {
+            vertical-align: top;
+            padding: 5px;
+        }
+        .company-info {
+            width: 55%;
+            font-size: 9.5pt;
+        }
+        .document-info {
+            width: 45%;
+            text-align: right;
+        }
+        .logo {
+            max-width: 180px;
+            max-height: 50px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 18pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+            margin-bottom: 5px;
+        }
+        .document-info p {
+            margin: 2px 0;
+            font-size: 10pt;
+        }
+        .document-info .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .document-info strong {
+            color: #000;
+        }
+
+        .info-section {
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
+            padding: 10px 0;
+            margin-bottom: 25px;
+        }
+        .info-section table {
+            width: 100%;
+        }
+        .info-section td {
+            padding: 3px 5px;
+            font-size: 9.5pt;
+        }
+        .info-section td strong {
+            font-weight: bold;
+        }
+
+        h3 {
+            font-size: 12pt;
+            color: #000;
+            margin-bottom: 5px;
+            margin-top: 20px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .items-table th, .items-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .items-table thead th {
+            background-color: #f2f2f2;
+            font-size: 8pt;
+            text-transform: uppercase;
+            color: #333;
+            border-bottom-width: 2px;
+            border-color: #333;
+            font-weight: bold;
+        }
+        .items-table .text-center { text-align: center; }
+        .items-table tbody td:first-child { font-weight: bold; }
+        .items-table tbody tr:nth-child(even) { background-color: #fcfcfc; }
+        .items-table tfoot td {
+            font-weight: bold;
+            border-top: 2px solid #333;
+            border-bottom: none;
+        }
+
+        .observaciones-generales {
+            margin-top: 25px;
+            margin-bottom: 30px;
+        }
+        .observaciones-generales p {
+            font-size: 9pt;
+            font-style: italic;
+            color: #555;
+        }
+
+        .signatures {
+            margin-top: 70px;
+            page-break-inside: avoid;
+            width: 100%;
+        }
+        .signatures td {
+            width: 50%;
+            padding: 0 20px;
+            text-align: center;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 50px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .signature-label {
+            font-size: 9pt;
+            margin-top: 5px;
+            color: #555;
+        }
+        .signature-name {
+            font-size: 8.5pt;
+            color: #333;
+            margin-top: 2px;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: -1cm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td class="company-info">
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo de la Empresa" class="logo">{% endif %}
+                <p style="font-weight:bold; margin:0;">{{ traslado.empresa.nombre }}</p>
+                {% if traslado.empresa.nit %}<p style="margin:0;">NIT: {{ traslado.empresa.nit }}</p>{% endif %}
+                {% if traslado.empresa.direccion %}<p style="margin:0;">{{ traslado.empresa.direccion }}</p>{% endif %}
+                {% if traslado.empresa.ciudad %}<p style="margin:0;">{{ traslado.empresa.ciudad.nombre }}</p>{% endif %}
+            </td>
+            <td class="document-info">
+                <h1>COMPROBANTE DE TRASLADO</h1>
+                <p><span class="label">Documento:</span> {{ traslado.documento_referencia|default:traslado.pk }}</p>
+                <p><span class="label">Fecha creación:</span> {{ traslado.fecha_hora_creacion|date:"d/m/Y H:i" }}</p>
+                <p><span class="label">Estado:</span> <strong>{{ traslado.get_estado_display }}</strong></p>
+            </td>
+        </tr>
+    </table>
+
+    <div class="info-section">
+        <table style="width:100%;">
+            <tr>
+                <td style="width:25%;"><strong>Bodega Origen:</strong></td>
+                <td style="width:25%;">{{ traslado.bodega_origen.nombre }}</td>
+                <td style="width:25%;"><strong>Bodega Destino:</strong></td>
+                <td style="width:25%;">{{ traslado.bodega_destino.nombre }}</td>
+            </tr>
+            <tr>
+                <td><strong>Creado por:</strong></td>
+                <td>{{ traslado.usuario_creacion.get_full_name|default:traslado.usuario_creacion.username|default:"-" }}</td>
+                <td><strong>Fecha de envío:</strong></td>
+                <td>{{ traslado.fecha_hora_envio|date:"d/m/Y H:i"|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Enviado por:</strong></td>
+                <td>{{ traslado.usuario_envio.get_full_name|default:traslado.usuario_envio.username|default:"-" }}</td>
+                <td><strong>Fecha de recepción:</strong></td>
+                <td>{{ traslado.fecha_hora_recepcion|date:"d/m/Y H:i"|default:"-" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Productos Trasladados</h3>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Ref.</th>
+                <th>Producto</th>
+                <th>Color</th>
+                <th>Talla</th>
+                <th class="text-center">Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles_items %}
+            <tr>
+                <td>{{ detalle.producto.referencia|default:"-" }}</td>
+                <td>{{ detalle.producto.nombre|default:"-" }}</td>
+                <td>{{ detalle.producto.color|default:"-" }}</td>
+                <td>{{ detalle.producto.talla|default:"-" }}</td>
+                <td class="text-center">{{ detalle.cantidad|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center" style="padding: 20px;">No hay productos en este traslado.</td></tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4" style="text-align:right;">Total unidades:</td>
+                <td class="text-center">{{ total_unidades|intcomma }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if traslado.notas %}
+        <div class="observaciones-generales">
+            <h3>Notas</h3>
+            <p>{{ traslado.notas|linebreaksbr }}</p>
+        </div>
+    {% endif %}
+
+    <table class="signatures">
+        <tr>
+            <td>
+                <p class="signature-line"></p>
+                <p class="signature-label">Entregado por ({{ traslado.bodega_origen.nombre }})</p>
+                {% if traslado.usuario_envio %}<p class="signature-name">{{ traslado.usuario_envio.get_full_name|default:traslado.usuario_envio.username }}</p>{% endif %}
+            </td>
+            <td>
+                <p class="signature-line"></p>
+                <p class="signature-label">Recibido por ({{ traslado.bodega_destino.nombre }})</p>
+                {% if traslado.usuario_recepcion %}<p class="signature-name">{{ traslado.usuario_recepcion.get_full_name|default:traslado.usuario_recepcion.username }}</p>{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        Comprobante generado el {{ fecha_generacion|date:"d/m/Y H:i" }}
+    </div>
+</body>
+</html>

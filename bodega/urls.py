@@ -72,4 +72,5 @@ urlpatterns = [
      path('bodegas/traslados/<int:pk>/enviar/', views.enviar_traslado_bodega, name='enviar_traslado'),
      path('bodegas/traslados/<int:pk>/confirmar-recepcion/', views.confirmar_recepcion_traslado_bodega, name='confirmar_recepcion_traslado'),
      path('bodegas/traslados/<int:pk>/anular/', views.anular_traslado_bodega, name='anular_traslado'),
+     path('bodegas/traslados/<int:pk>/pdf/', views.generar_pdf_traslado_bodega, name='generar_pdf_traslado'),
 ]
