@@ -180,6 +180,37 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalAjustePrecio" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="form-ajuste-precio">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-pen me-2"></i>Ajustar precio</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3" id="ajuste-precio-producto-label"></p>
+                        <div class="mb-3">
+                            <label for="ajuste-precio-nuevo" class="form-label fw-semibold">Nuevo precio</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="ajuste-precio-nuevo" required>
+                            <div class="form-text">Precio original: <span id="ajuste-precio-original"></span>. Deja este campo en blanco y da clic en "Quitar ajuste" para volver al precio original.</div>
+                        </div>
+                        <div class="mb-2">
+                            <label for="ajuste-precio-motivo" class="form-label fw-semibold">Motivo del ajuste <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="ajuste-precio-motivo" rows="2" required placeholder="Ej: descuento por promoción, producto con defecto, etc."></textarea>
+                            <div class="invalid-feedback">Debes indicar un motivo para ajustar el precio.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-quitar-ajuste-precio">Quitar ajuste</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock content %}
 
@@ -313,24 +344,50 @@ $(document).ready(function() {
         }
     }
 
+    var $modalAjustePrecio = $('#modalAjustePrecio');
+    var modalAjustePrecioInstance = new bootstrap.Modal($modalAjustePrecio[0]);
+    var lineaEnAjuste = null;
+
     function abrirAjustePrecio(linea) {
+        lineaEnAjuste = linea;
         var precioActual = linea.precio_override !== null && linea.precio_override !== undefined ? linea.precio_override : linea.precio_unitario;
-        var nuevo = prompt('Nuevo precio para "' + linea.label + '" (deja vacío para volver al precio original ' + formatoMoneda(linea.precio_unitario) + '):', precioActual);
-        if (nuevo === null) { return; }
-        nuevo = nuevo.trim();
-        var motivo = '';
-        if (nuevo !== '') {
-            motivo = prompt('Motivo del ajuste de precio (obligatorio):', '');
-            if (motivo === null || !motivo.trim()) {
-                alert('Debes indicar un motivo para ajustar el precio.');
-                return;
-            }
-        }
-        post("{% url 'puntoventa:api_carrito_ajustar_precio' %}", {producto_id: linea.producto_id, precio_nuevo: nuevo === '' ? null : nuevo, motivo: motivo})
+        $('#ajuste-precio-producto-label').text(linea.label);
+        $('#ajuste-precio-original').text(formatoMoneda(linea.precio_unitario));
+        $('#ajuste-precio-nuevo').val(precioActual).removeClass('is-invalid');
+        $('#ajuste-precio-motivo').val(linea.motivo_override || '').removeClass('is-invalid');
+        modalAjustePrecioInstance.show();
+    }
+
+    function enviarAjustePrecio(precioNuevo, motivo) {
+        post("{% url 'puntoventa:api_carrito_ajustar_precio' %}", {producto_id: lineaEnAjuste.producto_id, precio_nuevo: precioNuevo, motivo: motivo || ''})
             .then(function(res) {
-                if (res.data.status === 'ok') { renderCarrito(res.data.carrito); } else { alert(res.data.msg); }
+                if (res.data.status === 'ok') {
+                    renderCarrito(res.data.carrito);
+                    modalAjustePrecioInstance.hide();
+                } else {
+                    alert(res.data.msg);
+                }
             });
     }
+
+    $('#form-ajuste-precio').on('submit', function(e) {
+        e.preventDefault();
+        var motivo = $('#ajuste-precio-motivo').val().trim();
+        var precioNuevo = $('#ajuste-precio-nuevo').val();
+        // Igual que el backend: si hay precio, el motivo es obligatorio.
+        // Se valida acá primero para dar feedback inmediato, sin depender
+        // solo de la respuesta del servidor.
+        if (!motivo) {
+            $('#ajuste-precio-motivo').addClass('is-invalid');
+            return;
+        }
+        $('#ajuste-precio-motivo').removeClass('is-invalid');
+        enviarAjustePrecio(precioNuevo, motivo);
+    });
+
+    $('#btn-quitar-ajuste-precio').on('click', function() {
+        enviarAjustePrecio(null, null);
+    });
 
     // --- Buscar cliente ---
     var timeoutCliente = null;
