@@ -236,6 +236,64 @@ def obtener_colecciones_existentes():
     return sorted(colecciones, key=lambda c: c['nombre'])
 
 
+_QUERY_PRODUCTO_DETALLE = """
+query($id: ID!) {
+  product(id: $id) {
+    title
+    descriptionHtml
+    productType
+    tags
+    category { id fullName }
+    variants(first: 1) { edges { node { price } } }
+    collections(first: 50) { edges { node { id title } } }
+  }
+}
+"""
+
+
+def obtener_producto_detalle(shopify_product_id, color=None):
+    """
+    Trae del catálogo REAL de Shopify (no de lo guardado localmente) el
+    título, descripción, precio, tipo, categoría, etiquetas y colecciones
+    actuales de un producto ya subido. Se usa para mostrar en la pantalla
+    de edición lo que de verdad hay en la tienda, en vez de un campo local
+    que puede llevar tiempo sin tocarse.
+    """
+    datos = graphql(_QUERY_PRODUCTO_DETALLE, {'id': f"gid://shopify/Product/{shopify_product_id}"})
+    producto = datos['product']
+
+    precio = None
+    variantes_edges = producto.get('variants', {}).get('edges', [])
+    if variantes_edges:
+        precio = variantes_edges[0]['node']['price']
+
+    categoria = producto.get('category')
+
+    # El color se agrega siempre como etiqueta automática (_construir_tags);
+    # se excluye acá para no duplicarlo en el campo de "etiquetas adicionales".
+    color_norm = (color or '').strip().upper()
+    etiquetas = [
+        t.strip() for t in (producto.get('tags') or [])
+        if t.strip().upper() != color_norm
+    ]
+
+    colecciones = [
+        {'id': edge['node']['id'], 'nombre': edge['node']['title']}
+        for edge in producto.get('collections', {}).get('edges', [])
+    ]
+
+    return {
+        'titulo': producto.get('title') or '',
+        'descripcion': producto.get('descriptionHtml') or '',
+        'precio': precio,
+        'tipo': producto.get('productType') or '',
+        'categoria_id': categoria['id'] if categoria else '',
+        'categoria_nombre': categoria['fullName'] if categoria else '',
+        'etiquetas': etiquetas,
+        'colecciones': colecciones,
+    }
+
+
 _MUTATION_COLECCION_AGREGAR = """
 mutation($id: ID!, $productIds: [ID!]!) {
   collectionAddProducts(id: $id, productIds: $productIds) {

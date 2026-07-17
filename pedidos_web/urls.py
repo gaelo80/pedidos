@@ -11,6 +11,7 @@ urlpatterns = [
 
     path('admin/shopify/catalogo/', views.gestion_catalogo_shopify, name='gestion_catalogo_shopify'),
     path('admin/shopify/catalogo/tipos-y-categorias/', views.api_shopify_tipos_y_categorias, name='api_shopify_tipos_y_categorias'),
+    path('admin/shopify/catalogo/<int:referencia_color_id>/detalle/', views.api_shopify_producto_detalle, name='api_shopify_producto_detalle'),
     path('admin/shopify/catalogo/<int:referencia_color_id>/subir/', views.api_shopify_subir, name='api_shopify_subir'),
     path('admin/shopify/catalogo/<int:referencia_color_id>/actualizar/', views.api_shopify_actualizar, name='api_shopify_actualizar'),
     path('admin/shopify/catalogo/<int:referencia_color_id>/bajar/', views.api_shopify_bajar, name='api_shopify_bajar'),

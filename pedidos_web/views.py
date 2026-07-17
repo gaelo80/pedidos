@@ -622,6 +622,30 @@ def _obtener_referencia_color_de_empresa(request, referencia_color_id):
     return get_object_or_404(ReferenciaColor, pk=referencia_color_id, empresa=empresa_actual)
 
 
+@login_required
+@user_passes_test(es_administracion, login_url='core:acceso_denegado')
+def api_shopify_producto_detalle(request, referencia_color_id):
+    """
+    Trae del catálogo REAL de Shopify (no de lo guardado localmente) el
+    título, descripción, precio y clasificación actuales de una referencia
+    ya subida, para mostrarlos al abrir su panel de Detalles.
+    """
+    referencia_color = _obtener_referencia_color_de_empresa(request, referencia_color_id)
+    if not referencia_color.shopify_product_id:
+        return JsonResponse({'error': 'Esta referencia todavía no se ha subido a Shopify.'}, status=400)
+
+    try:
+        detalle = shopify_api.obtener_producto_detalle(
+            referencia_color.shopify_product_id, referencia_color.color
+        )
+        return JsonResponse(detalle)
+    except requests.exceptions.RequestException as e:
+        detalle_error = getattr(e.response, 'text', str(e)) if getattr(e, 'response', None) is not None else str(e)
+        return JsonResponse({'error': f"Shopify rechazó la consulta: {detalle_error[:300]}"}, status=502)
+    except Exception as e:
+        return JsonResponse({'error': f"Error inesperado: {str(e)}"}, status=500)
+
+
 def _variantes_activas(referencia_color):
     return list(
         Producto.objects.filter(

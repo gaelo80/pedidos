@@ -96,7 +96,10 @@
                         <i class="fas fa-cloud-download-alt"></i>
                     </button>
                 </form>
-                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="collapse" data-bs-target="#detalle{{ fila.referencia_color.pk }}">
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill btn-detalle-referencia"
+                        data-target="#detalle{{ fila.referencia_color.pk }}"
+                        data-subido="{% if fila.esta_subido %}1{% else %}0{% endif %}"
+                        data-url-detalle="{% url 'pedidos_web:api_shopify_producto_detalle' fila.referencia_color.pk %}">
                     <i class="fas fa-sliders-h me-1"></i> Detalles
                 </button>
             </div>
@@ -137,10 +140,16 @@
                     </div>
 
                     <div class="col-lg-8">
-                        <form method="post" action="{% url 'pedidos_web:api_shopify_actualizar' fila.referencia_color.pk %}">
+                        <form method="post" action="{% url 'pedidos_web:api_shopify_actualizar' fila.referencia_color.pk %}" class="form-actualizar-shopify">
                             {% csrf_token %}
                             <input type="hidden" name="pagina_actual" value="{{ page_obj.number }}">
                             <input type="hidden" name="busqueda_actual" value="{{ search_query }}">
+
+                            {% if fila.esta_subido %}
+                            <div class="spinner-carga-shopify small text-muted mb-2" style="display:none;">
+                                <i class="fas fa-spinner fa-spin me-1"></i> Cargando lo que hay ahora mismo en Shopify...
+                            </div>
+                            {% endif %}
 
                             <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-align-left me-1"></i> Contenido para Shopify</h6>
                             <div class="row g-2 mb-3">
@@ -324,6 +333,86 @@ $(document).ready(function() {
         sincronizarNombresColecciones($(this));
     });
 
+    // --- Botón "Detalles": si la referencia ya está subida, trae lo que hay
+    // AHORA MISMO en Shopify (título, descripción, precio, clasificación)
+    // antes de mostrar el panel, para no mostrar datos locales desactualizados. ---
+    $(document).on('click', '.btn-detalle-referencia', function() {
+        var $boton = $(this);
+        var $detalle = $($boton.data('target'));
+        if (!$detalle.length) return;
+
+        var instancia = bootstrap.Collapse.getOrCreateInstance($detalle[0], {toggle: false});
+
+        if ($detalle.hasClass('show')) {
+            instancia.hide();
+            return;
+        }
+        instancia.show();
+
+        var estaSubido = $boton.data('subido') == 1;
+        if (!estaSubido || $boton.data('ya-cargado')) {
+            return; // nada que traer de Shopify, o ya se trajo antes
+        }
+        $boton.data('ya-cargado', true);
+
+        var $form = $detalle.find('form.form-actualizar-shopify');
+        var $spinner = $form.find('.spinner-carga-shopify');
+        $spinner.show();
+
+        fetch($boton.data('url-detalle'))
+            .then(function(resp) { return resp.json().then(function(data) { return {ok: resp.ok, data: data}; }); })
+            .then(function(res) {
+                if (!res.ok) {
+                    $spinner.html('<span class="text-danger">' + (res.data.error || 'No se pudo consultar Shopify.') + '</span>');
+                    return;
+                }
+                var d = res.data;
+
+                $form.find('[name="shopify_titulo"]').val(d.titulo);
+                $form.find('[name="shopify_descripcion"]').val(d.descripcion);
+                if (d.precio) {
+                    $form.find('[name="shopify_precio"]').val(d.precio);
+                }
+
+                var $tipo = $form.find('.select2-tipo');
+                if (d.tipo) {
+                    if ($tipo.find('option[value="' + d.tipo + '"]').length === 0) {
+                        $tipo.append(new Option(d.tipo, d.tipo, false, false));
+                    }
+                    $tipo.val(d.tipo).trigger('change');
+                }
+
+                var $categoria = $form.find('.select2-categoria');
+                if (d.categoria_id) {
+                    if ($categoria.find('option[value="' + d.categoria_id + '"]').length === 0) {
+                        $categoria.append(new Option(d.categoria_nombre, d.categoria_id, false, false));
+                    }
+                    $categoria.val(d.categoria_id).trigger('change');
+                    $form.find('.input-categoria-nombre').val(d.categoria_nombre);
+                }
+
+                var $etiquetas = $form.find('.select2-etiquetas');
+                $etiquetas.find('option').remove();
+                (d.etiquetas || []).forEach(function(et) {
+                    $etiquetas.append(new Option(et, et, true, true));
+                });
+                $etiquetas.trigger('change');
+
+                var $colecciones = $form.find('.select2-colecciones');
+                $colecciones.find('option').remove();
+                (d.colecciones || []).forEach(function(col) {
+                    $colecciones.append(new Option(col.nombre, col.id, true, true));
+                });
+                $colecciones.trigger('change');
+                sincronizarNombresColecciones($colecciones);
+
+                $spinner.hide();
+            })
+            .catch(function() {
+                $spinner.html('<span class="text-danger">Error de conexión consultando Shopify.</span>');
+            });
+    });
+
     // --- Botón para traer del catálogo real de Shopify lo ya usado ---
     $('#btnCargarTiposCategorias').on('click', function() {
         var $boton = $(this);
@@ -350,6 +439,10 @@ $(document).ready(function() {
                         if (tipo === actual) return;
                         $select.append(new Option(tipo, tipo, false, false));
                     });
+                    // Select2 no detecta solo los <option> agregados por fuera de su
+                    // API; sin este 'trigger', la lista desplegable se queda vacía
+                    // aunque el <select> ya tenga las opciones nuevas por dentro.
+                    $select.trigger('change');
                 });
 
                 $('.select2-categoria').each(function() {
@@ -359,6 +452,7 @@ $(document).ready(function() {
                         if (cat.id === actual) return;
                         $select.append(new Option(cat.nombre, cat.id, false, false));
                     });
+                    $select.trigger('change');
                 });
 
                 $('.select2-etiquetas').each(function() {
@@ -369,6 +463,7 @@ $(document).ready(function() {
                             $select.append(new Option(etiqueta, etiqueta, false, false));
                         }
                     });
+                    $select.trigger('change');
                 });
 
                 $('.select2-colecciones').each(function() {
@@ -379,6 +474,7 @@ $(document).ready(function() {
                             $select.append(new Option(col.nombre, col.id, false, false));
                         }
                     });
+                    $select.trigger('change');
                 });
 
                 $msg.html(
