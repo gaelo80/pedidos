@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from pedidos.models import Pedido, DetallePedido
-from bodega.models import BorradorDespacho, DetalleBorradorDespacho, ComprobanteDespacho, DetalleComprobanteDespacho, MovimientoInventario
+from bodega.models import BorradorDespacho, DetalleBorradorDespacho, ComprobanteDespacho, DetalleComprobanteDespacho, MovimientoInventario, Bodega
 from factura.models import EstadoFacturaDespacho
 from .api_serializers import PedidoBodegaListSerializer, PedidoBodegaDetalleSerializer, ComprobanteDespachoSerializer
 
@@ -403,6 +403,8 @@ class FinalizarIncompletoAPIView(APIView):
                 # Eliminar borrador
                 BorradorDespacho.objects.filter(pedido=pedido).delete()
 
+                bodega_principal = Bodega.objects.principal(empresa_actual)
+
                 # Crear movimientos de devolución para stock pendiente
                 for detalle in pedido.detalles.all():
                     cantidad_pendiente = detalle.cantidad - (detalle.cantidad_verificada or 0)
@@ -410,6 +412,7 @@ class FinalizarIncompletoAPIView(APIView):
                         MovimientoInventario.objects.get_or_create(
                             empresa=empresa_actual,
                             producto=detalle.producto,
+                            bodega=bodega_principal,
                             tipo_movimiento='ENTRADA_CANCELACION',
                             documento_referencia=f"Devolución por Pedido Incompleto {pedido.pk}-{detalle.producto.id}",
                             defaults={
@@ -468,11 +471,14 @@ class CancelarPedidoAPIView(APIView):
                 # Eliminar borrador
                 BorradorDespacho.objects.filter(pedido=pedido).delete()
 
+                bodega_principal = Bodega.objects.principal(empresa_actual)
+
                 # Crear movimientos de devolución para TODO el stock
                 for detalle in pedido.detalles.all():
                     MovimientoInventario.objects.get_or_create(
                         empresa=empresa_actual,
                         producto=detalle.producto,
+                        bodega=bodega_principal,
                         tipo_movimiento='ENTRADA_CANCELACION',
                         documento_referencia=f"Devolución por Cancelación Pedido {pedido.pk}-{detalle.producto.id}",
                         defaults={
