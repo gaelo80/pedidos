@@ -5,6 +5,7 @@ import base64
 import logging
 import os
 import threading
+from urllib.parse import urlencode
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -12,6 +13,7 @@ from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
 from django.conf import settings
@@ -628,6 +630,27 @@ def _variantes_activas(referencia_color):
     )
 
 
+def _redirect_catalogo_shopify(request, referencia_color_id):
+    """
+    Vuelve a la misma página y búsqueda en las que estaba la administradora
+    (en vez de reiniciar siempre en la página 1), con un ancla a la fila que
+    acaba de editar/subir/bajar para que quede a la vista de inmediato.
+    """
+    params = {}
+    pagina = request.POST.get('pagina_actual', '').strip()
+    busqueda = request.POST.get('busqueda_actual', '').strip()
+    if pagina and pagina != '1':
+        params['page'] = pagina
+    if busqueda:
+        params['q'] = busqueda
+
+    url = reverse('pedidos_web:gestion_catalogo_shopify')
+    if params:
+        url += '?' + urlencode(params)
+    url += f'#fila-{referencia_color_id}'
+    return redirect(url)
+
+
 @login_required
 @user_passes_test(es_administracion, login_url='core:acceso_denegado')
 @require_POST
@@ -638,7 +661,7 @@ def api_shopify_subir(request, referencia_color_id):
 
     if not variantes:
         messages.error(request, "Esta referencia no tiene tallas activas para subir.")
-        return redirect('pedidos_web:gestion_catalogo_shopify')
+        return _redirect_catalogo_shopify(request, referencia_color_id)
 
     try:
         if referencia_color.shopify_product_id:
@@ -679,7 +702,7 @@ def api_shopify_subir(request, referencia_color_id):
     except Exception as e:
         messages.error(request, f"Error inesperado subiendo a Shopify: {str(e)}")
 
-    return redirect('pedidos_web:gestion_catalogo_shopify')
+    return _redirect_catalogo_shopify(request, referencia_color_id)
 
 
 @login_required
@@ -714,7 +737,7 @@ def api_shopify_actualizar(request, referencia_color_id):
 
     if not referencia_color.shopify_product_id:
         messages.success(request, "Cambios guardados. Todavía no se ha subido a Shopify — usa 'Subir' para publicarlo.")
-        return redirect('pedidos_web:gestion_catalogo_shopify')
+        return _redirect_catalogo_shopify(request, referencia_color_id)
 
     variantes = _variantes_activas(referencia_color)
     try:
@@ -740,7 +763,7 @@ def api_shopify_actualizar(request, referencia_color_id):
     except Exception as e:
         messages.error(request, f"Error inesperado actualizando en Shopify: {str(e)}")
 
-    return redirect('pedidos_web:gestion_catalogo_shopify')
+    return _redirect_catalogo_shopify(request, referencia_color_id)
 
 
 @login_required
@@ -752,7 +775,7 @@ def api_shopify_bajar(request, referencia_color_id):
 
     if not referencia_color.shopify_product_id:
         messages.error(request, "Esta referencia todavía no se ha subido a Shopify.")
-        return redirect('pedidos_web:gestion_catalogo_shopify')
+        return _redirect_catalogo_shopify(request, referencia_color_id)
 
     try:
         shopify_api.archivar_producto(referencia_color)
@@ -768,4 +791,4 @@ def api_shopify_bajar(request, referencia_color_id):
     except Exception as e:
         messages.error(request, f"Error inesperado bajando de Shopify: {str(e)}")
 
-    return redirect('pedidos_web:gestion_catalogo_shopify')
+    return _redirect_catalogo_shopify(request, referencia_color_id)

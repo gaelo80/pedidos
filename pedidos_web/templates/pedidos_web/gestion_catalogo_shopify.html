@@ -46,7 +46,7 @@
     {% endif %}
 
     {% for fila in filas %}
-    <div class="card shadow-sm border-0 rounded-3 mb-3 catalogo-shopify-fila">
+    <div id="fila-{{ fila.referencia_color.pk }}" class="card shadow-sm border-0 rounded-3 mb-3 catalogo-shopify-fila">
         {# ---------- Encabezado siempre visible: resumen + acciones rápidas ---------- #}
         <div class="card-header bg-white d-flex align-items-center flex-wrap gap-3 py-3">
             {% if fila.foto %}
@@ -81,6 +81,8 @@
 
                 <form method="post" action="{% url 'pedidos_web:api_shopify_subir' fila.referencia_color.pk %}" class="d-inline">
                     {% csrf_token %}
+                    <input type="hidden" name="pagina_actual" value="{{ page_obj.number }}">
+                    <input type="hidden" name="busqueda_actual" value="{{ search_query }}">
                     <button type="submit" class="btn btn-success btn-sm rounded-pill" title="Subir/Reactivar en Shopify">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </button>
@@ -88,6 +90,8 @@
                 <form method="post" action="{% url 'pedidos_web:api_shopify_bajar' fila.referencia_color.pk %}" class="d-inline"
                       onsubmit="return confirm('¿Pasar {{ fila.referencia_color }} a borrador en Shopify? Se ocultará de la tienda.');">
                     {% csrf_token %}
+                    <input type="hidden" name="pagina_actual" value="{{ page_obj.number }}">
+                    <input type="hidden" name="busqueda_actual" value="{{ search_query }}">
                     <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill" title="Bajar a borrador" {% if not fila.esta_subido %}disabled{% endif %}>
                         <i class="fas fa-cloud-download-alt"></i>
                     </button>
@@ -135,6 +139,8 @@
                     <div class="col-lg-8">
                         <form method="post" action="{% url 'pedidos_web:api_shopify_actualizar' fila.referencia_color.pk %}">
                             {% csrf_token %}
+                            <input type="hidden" name="pagina_actual" value="{{ page_obj.number }}">
+                            <input type="hidden" name="busqueda_actual" value="{{ search_query }}">
 
                             <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-align-left me-1"></i> Contenido para Shopify</h6>
                             <div class="row g-2 mb-3">
@@ -243,6 +249,24 @@
 {{ block.super }}
 <script>
 $(document).ready(function() {
+    // Después de guardar/subir/bajar una referencia, se vuelve a esta misma
+    // página y búsqueda (en vez de reiniciar en la página 1), con un ancla
+    // #fila-<id> en la URL: aquí se hace scroll hasta esa fila y se abre su
+    // panel de Detalles para que quede a la vista, lista para el siguiente paso.
+    if (window.location.hash && window.location.hash.indexOf('#fila-') === 0) {
+        var $fila = $(window.location.hash);
+        if ($fila.length) {
+            var pk = window.location.hash.replace('#fila-', '');
+            var $detalle = $('#detalle' + pk);
+            if ($detalle.length && !$detalle.hasClass('show')) {
+                $detalle.addClass('show');
+            }
+            setTimeout(function() {
+                $fila[0].scrollIntoView({behavior: 'smooth', block: 'start'});
+            }, 100);
+        }
+    }
+
     // --- Inicializar select2 con los valores ya guardados de cada fila ---
     $('.select2-tipo').select2({
         theme: 'bootstrap-5', placeholder: 'Selecciona o escribe un tipo...',
