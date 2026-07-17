@@ -651,15 +651,19 @@ class TrasladoBodega(models.Model):
         # tiempo pueden terminar con el mismo número.
         if self.pk is None and self.numero_traslado_empresa is None:
             with transaction.atomic():
+                # OJO: excluir isnull=False es obligatorio -- en Postgres
+                # 'ORDER BY x DESC' pone los NULL primero por defecto, así
+                # que sin este filtro los traslados viejos (creados antes de
+                # este campo, todos con numero_traslado_empresa=NULL)
+                # siempre "ganarían" el order_by y el nuevo consecutivo
+                # calcularía 1 una y otra vez.
                 ultimo = (
-                    TrasladoBodega.objects.filter(empresa=self.empresa)
+                    TrasladoBodega.objects.filter(empresa=self.empresa, numero_traslado_empresa__isnull=False)
                     .select_for_update()
                     .order_by('-numero_traslado_empresa')
                     .first()
                 )
-                self.numero_traslado_empresa = (
-                    ultimo.numero_traslado_empresa + 1 if ultimo and ultimo.numero_traslado_empresa else 1
-                )
+                self.numero_traslado_empresa = ultimo.numero_traslado_empresa + 1 if ultimo else 1
                 self.documento_referencia = f"TRA-{self.numero_traslado_empresa:05d}"
                 super().save(*args, **kwargs)
         else:
