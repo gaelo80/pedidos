@@ -314,7 +314,7 @@ def _finalizar_sync(empresa_id, mensaje):
     )
 
 
-_RE_REF_TITULO = re.compile(r'REF\.?\s*([A-Za-z0-9\-]+)', re.IGNORECASE)
+_RE_REF_TITULO = re.compile(r'REF\.?\s*([A-Za-z0-9]+)', re.IGNORECASE)
 
 
 def _normalizar_texto_matching(texto):
