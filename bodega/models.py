@@ -645,7 +645,10 @@ class TrasladoBodega(models.Model):
     def save(self, *args, **kwargs):
         # El documento de referencia se genera solo, en vez de que el usuario
         # lo escriba a mano -- mismo patrón de numeración consecutiva por
-        # empresa que 'Pedido.numero_pedido_empresa'.
+        # empresa que 'Pedido.numero_pedido_empresa'. El INSERT tiene que
+        # quedar DENTRO del bloque con el lock (select_for_update), si no el
+        # lock se libera antes de guardar y dos traslados creados casi al
+        # tiempo pueden terminar con el mismo número.
         if self.pk is None and self.numero_traslado_empresa is None:
             with transaction.atomic():
                 ultimo = (
@@ -657,8 +660,10 @@ class TrasladoBodega(models.Model):
                 self.numero_traslado_empresa = (
                     ultimo.numero_traslado_empresa + 1 if ultimo and ultimo.numero_traslado_empresa else 1
                 )
-            self.documento_referencia = f"TRA-{self.numero_traslado_empresa:05d}"
-        super().save(*args, **kwargs)
+                self.documento_referencia = f"TRA-{self.numero_traslado_empresa:05d}"
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Traslado #{self.pk} - {self.bodega_origen} → {self.bodega_destino} ({self.get_estado_display()})"
@@ -667,6 +672,13 @@ class TrasladoBodega(models.Model):
         verbose_name = "Traslado entre Bodegas"
         verbose_name_plural = "Traslados entre Bodegas"
         ordering = ['-fecha_hora_creacion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa', 'numero_traslado_empresa'],
+                condition=models.Q(numero_traslado_empresa__isnull=False),
+                name='numero_traslado_unico_por_empresa',
+            )
+        ]
 
 
 class DetalleTrasladoBodega(models.Model):
