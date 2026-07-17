@@ -1884,14 +1884,22 @@ def vista_informe_inventario(request):
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
     if nombre_q:
         productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
+    # 'ubicacion' es un campo estático del producto que nunca se actualiza al
+    # trasladar stock entre bodegas -- filtrar/mostrar por ahí mostraba
+    # siempre la bodega original (típicamente "Principal"), sin importar
+    # dónde estuviera realmente el stock según los movimientos. Se filtra y
+    # se calcula el stock a partir de MovimientoInventario, la fuente real.
     if bodega_q:
-        productos_queryset = productos_queryset.filter(ubicacion_id=bodega_q)
+        productos_queryset = productos_queryset.filter(movimientos__bodega_id=bodega_q).distinct()
+        suma_stock_expr = lambda: Sum('movimientos__cantidad', filter=Q(movimientos__bodega_id=bodega_q))
+    else:
+        suma_stock_expr = lambda: Sum('movimientos__cantidad')
 
     # Calcular totales (después de filtrar) con una sola consulta agregada,
     # en vez de recorrer 'stock_actual' producto por producto (N+1 queries).
     total_productos = productos_queryset.count()
     total_unidades = productos_queryset.aggregate(
-        total=Coalesce(Sum('movimientos__cantidad'), Value(0))
+        total=Coalesce(suma_stock_expr(), Value(0))
     )['total']
 
     # Traemos todo (ya es UNA sola consulta anotada, sin N+1) y lo organizamos
@@ -1899,10 +1907,24 @@ def vista_informe_inventario(request):
     # Esto evita mezclar sistemas de tallas incompatibles (ej. Caballero 28-38
     # con Dama 3-16) en una sola tabla plana con columnas vacías.
     productos_lista = list(
-        productos_queryset.select_related('ubicacion').annotate(
-            stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
+        productos_queryset.annotate(
+            stock_actual_calculado=Coalesce(suma_stock_expr(), Value(0))
         ).order_by('referencia', 'color', 'talla')
     )
+
+    # Distribución real por bodega (para la columna 'Ubicación'), calculada
+    # desde MovimientoInventario -- nunca desde el campo estático 'ubicacion'.
+    distribucion_bodega = {}
+    ids_productos_lista = [p.pk for p in productos_lista]
+    if ids_productos_lista:
+        for fila in (
+            MovimientoInventario.objects
+            .filter(producto_id__in=ids_productos_lista, empresa=empresa_actual)
+            .values('producto_id', 'bodega__nombre')
+            .annotate(cantidad_bodega=Sum('cantidad'))
+        ):
+            if fila['cantidad_bodega']:
+                distribucion_bodega.setdefault(fila['producto_id'], set()).add(fila['bodega__nombre'])
 
     def _normalizar_talla(talla_val):
         if talla_val is None or str(talla_val).strip() == '':
@@ -1943,23 +1965,20 @@ def vista_informe_inventario(request):
         for (ref, color), items_iter in groupby(productos_genero, key=lambda p: (p.referencia, p.color)):
             items = list(items_iter)
             cantidades = [0] * len(columnas_talla)
-            ubicaciones = []
+            ubicaciones_set = set()
             valor_costo_grupo = Decimal('0.00')
             valor_venta_grupo = Decimal('0.00')
-            ids_vistos = set()
             for p in items:
                 idx = indice_talla[_normalizar_talla(p.talla)]
                 cantidades[idx] += p.stock_actual_calculado
-                if p.ubicacion_id and p.ubicacion_id not in ids_vistos:
-                    ids_vistos.add(p.ubicacion_id)
-                    ubicaciones.append(str(p.ubicacion))
+                ubicaciones_set.update(distribucion_bodega.get(p.pk, ()))
                 valor_costo_grupo += Decimal(p.stock_actual_calculado) * (p.costo or Decimal('0.00'))
                 valor_venta_grupo += Decimal(p.stock_actual_calculado) * (p.precio_venta or Decimal('0.00'))
             grupos.append({
                 'referencia': ref,
                 'color': color or 'Sin Color',
                 'nombre': items[0].nombre,
-                'ubicacion': ', '.join(ubicaciones) if ubicaciones else '-',
+                'ubicacion': ', '.join(sorted(ubicaciones_set)) if ubicaciones_set else '-',
                 'tallas_cantidades': cantidades,
                 'total': sum(cantidades),
                 'valor_costo': valor_costo_grupo,

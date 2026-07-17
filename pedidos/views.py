@@ -99,18 +99,11 @@ def vista_crear_pedido_web(request, pk=None):
         messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
         return redirect('core:acceso_denegado')
 
-    # Admin/Bodega/Online ven el stock real total; un vendedor estándar solo
-    # debe ver/reservar lo que está en bodegas habilitadas para su canal
-    # (o que tenga como excepción individual vía AccesoBodega).
-    es_admin_o_especial = (
-        request.user.is_superuser or
-        request.user.groups.filter(name__icontains='bodega').exists() or
-        request.user.groups.filter(name__icontains='online').exists()
-    )
-
+    # El check "Estándar" de cada bodega aplica a TODOS los usuarios por
+    # igual, incluida administración -- si alguien necesita ver/vender el
+    # stock de una bodega cerrada para este canal, se le da una excepción
+    # puntual vía AccesoBodega en vez de dejarla abierta para todos.
     def _stock_para_venta(producto_obj):
-        if es_admin_o_especial:
-            return producto_obj.stock_actual
         return producto_obj.stock_disponible_para_canal('ESTANDAR', usuario=request.user)
         
         

@@ -87,19 +87,12 @@ def get_tallas_por_ref_color(request, ref, color_slug):
 
     precio_grupo = variantes_ordenadas[0].precio_venta
 
-    # Un vendedor estándar solo debe ver el stock que está en bodegas
-    # habilitadas para su canal (o que tenga como excepción individual);
-    # Admin/Bodega/Online siguen viendo el stock real total.
+    # El check "Estándar" de cada bodega aplica a TODOS los usuarios por
+    # igual, incluida administración -- ver la nota equivalente en
+    # pedidos/views.py::vista_crear_pedido_web.
     usuario = request.user
-    es_admin_o_especial = (
-        usuario.is_superuser or
-        usuario.groups.filter(name__icontains='bodega').exists() or
-        usuario.groups.filter(name__icontains='online').exists()
-    )
 
     def _stock_para_frontend(v):
-        if es_admin_o_especial:
-            return v.stock_actual
         return v.stock_disponible_para_canal('ESTANDAR', usuario=usuario)
 
     respuesta = {
