@@ -479,7 +479,7 @@ PANEL_OPTIONS_CONFIG = [
         'icono': 'fas fa-calculator',
         'icono_color_class': 'icon-info',
         'rol_requerido': ['es_diseno', 'es_administracion'],
-        'categoria': 'Productos y Catálogo',
+        'categoria': 'Costeo',
     },
     {
         'titulo': 'Compartir Catálogo',
