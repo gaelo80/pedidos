@@ -4,7 +4,9 @@ import hashlib
 import base64
 import logging
 import os
+import re
 import threading
+import unicodedata
 from urllib.parse import urlencode
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -312,6 +314,154 @@ def _finalizar_sync(empresa_id, mensaje):
     )
 
 
+_RE_REF_TITULO = re.compile(r'REF\.?\s*([A-Za-z0-9\-]+)', re.IGNORECASE)
+
+
+def _normalizar_texto_matching(texto):
+    """Mayúsculas y sin tildes, para comparar títulos/colores sin depender
+    de acentos o de cómo los haya escrito cada quien."""
+    sin_tildes = unicodedata.normalize('NFKD', texto or '').encode('ascii', 'ignore').decode('ascii')
+    return sin_tildes.upper().strip()
+
+
+def _talla_orden(option1):
+    """Extrae el número de una talla ('6', '8 años', 'S-10'...) para poder
+    ordenar variantes de Shopify igual que se ordenan las tallas locales."""
+    match = re.search(r'\d+', option1 or '')
+    return int(match.group()) if match else 0
+
+
+def _escribir_codigo_barras_variante(headers, shop_url, variant_id, codigo_barras):
+    """Corrige en Shopify el SKU/Barcode de una variante ya existente para que
+    coincida con el código real del sistema. Necesario porque cuando la
+    administradora crea/edita un producto a mano en el admin de Shopify, ese
+    campo se queda vacío si no lo escribe explícitamente."""
+    url = f"https://{shop_url}/admin/api/{shopify_api.SHOPIFY_API_VERSION}/variants/{variant_id}.json"
+    payload = {"variant": {"id": variant_id, "sku": codigo_barras, "barcode": codigo_barras}}
+    try:
+        respuesta = requests.put(url, headers=headers, json=payload, timeout=20)
+        respuesta.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"No se pudo escribir el código de barras en la variante {variant_id} de Shopify: {e}")
+        return False
+
+
+def _enlazar_por_titulo_sin_codigo(empresa_id, headers, shop_url, productos_shopify):
+    """
+    Segunda pasada de 'Enlazar productos'.
+
+    La primera pasada (por código de barras) no encuentra nada cuando la
+    administradora organiza/crea un producto a mano en el admin de Shopify y
+    deja vacío el campo SKU/Barcode del formulario -- el título, color y
+    tallas pueden estar perfectamente bien, pero no hay ningún código con
+    qué emparejar.
+
+    Esta pasada empareja por referencia + color extraídos del título, y
+    SOLO enlaza cuando no hay ambigüedad: si para una referencia hay más de
+    un color/producto candidato posible y no se puede distinguir cuál es
+    cuál, se deja pendiente para revisión manual -- nunca se adivina, porque
+    un enlace equivocado mezclaría precios/colores de un producto con otro.
+    """
+    from productos.models import ReferenciaColor
+
+    candidatos_por_ref = {}
+    for producto_shopify in productos_shopify:
+        variantes_shopify = producto_shopify.get('variants', [])
+        if not variantes_shopify or all(v.get('barcode') for v in variantes_shopify):
+            continue  # ya tiene código completo: lo cubre la primera pasada
+        match = _RE_REF_TITULO.search(producto_shopify.get('title', ''))
+        if not match:
+            continue
+        candidatos_por_ref.setdefault(match.group(1).upper(), []).append(producto_shopify)
+
+    rc_por_ref = {}
+    for rc in ReferenciaColor.objects.filter(empresa_id=empresa_id, shopify_product_id__isnull=True):
+        variantes_activas = list(rc.variantes.filter(activo=True, shopify_variant_id__isnull=True))
+        if variantes_activas:
+            rc_por_ref.setdefault(rc.referencia_base.upper(), []).append((rc, variantes_activas))
+
+    exitosos = 0
+    pendientes = []
+
+    for ref, rcs_candidatas in rc_por_ref.items():
+        productos_candidatos = candidatos_por_ref.get(ref)
+        if not productos_candidatos:
+            continue
+
+        emparejados = []
+        rcs_restantes = list(rcs_candidatas)
+        productos_restantes = list(productos_candidatos)
+
+        # Pasada A: el color aparece literalmente en el título de un único candidato.
+        for candidato in list(rcs_restantes):
+            rc, variantes = candidato
+            color_norm = _normalizar_texto_matching(rc.color or '')
+            if not color_norm:
+                continue
+            coincidencias = [
+                p for p in productos_restantes
+                if color_norm in _normalizar_texto_matching(p.get('title', ''))
+            ]
+            if len(coincidencias) == 1:
+                emparejados.append((rc, variantes, coincidencias[0]))
+                rcs_restantes.remove(candidato)
+                productos_restantes.remove(coincidencias[0])
+
+        # Pasada B: por eliminación -- si de esta referencia solo queda un
+        # color local y un producto de Shopify sin emparejar, no pueden ser
+        # sino el mismo (no hay otra opción posible para ninguno de los dos).
+        if len(rcs_restantes) == 1 and len(productos_restantes) == 1:
+            rc, variantes = rcs_restantes[0]
+            emparejados.append((rc, variantes, productos_restantes[0]))
+            rcs_restantes = []
+            productos_restantes = []
+
+        for rc, variantes in rcs_restantes:
+            pendientes.append(
+                f"{rc.referencia_base} {rc.color}: hay varios productos posibles en Shopify sin "
+                "código de barras y no se pudo determinar cuál es cuál (revisar manualmente)."
+            )
+
+        for rc, variantes, producto_shopify in emparejados:
+            variantes_shopify = producto_shopify.get('variants', [])
+            if len(variantes_shopify) != len(variantes):
+                pendientes.append(
+                    f"{rc.referencia_base} {rc.color}: Shopify tiene {len(variantes_shopify)} talla(s) "
+                    f"y el sistema tiene {len(variantes)} (revisar manualmente antes de enlazar)."
+                )
+                continue
+
+            locales_orden = sorted(variantes, key=lambda p: (p.talla if p.talla is not None else 0))
+            shopify_orden = sorted(variantes_shopify, key=lambda v: _talla_orden(v.get('option1')))
+
+            pares = list(zip(locales_orden, shopify_orden))
+            if not all(_escribir_codigo_barras_variante(headers, shop_url, v['id'], p.codigo_barras) for p, v in pares):
+                pendientes.append(
+                    f"{rc.referencia_base} {rc.color}: error al escribir el código de barras en Shopify "
+                    "(revisar manualmente)."
+                )
+                continue
+
+            for producto_local, variant_shopify in pares:
+                try:
+                    producto_local.shopify_variant_id = str(variant_shopify['id'])
+                    producto_local.shopify_inventory_item_id = str(variant_shopify.get('inventory_item_id') or '')
+                    producto_local.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
+                    exitosos += 1
+                except IntegrityError:
+                    logger.error(
+                        f"No se pudo enlazar {rc.referencia_base} {rc.color} talla {producto_local.talla}: "
+                        f"shopify_variant_id {variant_shopify['id']} ya está en uso por otro producto."
+                    )
+
+            if not rc.shopify_product_id:
+                rc.shopify_product_id = str(producto_shopify['id'])
+                rc.save(update_fields=['shopify_product_id'])
+
+    return exitosos, pendientes
+
+
 def _hilo_enlazar_productos(empresa_id, headers, shop_url):
     """Corre en un hilo aparte para no bloquear la petición (evita el timeout de nginx)."""
     try:
@@ -353,7 +503,17 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
             if indice % 5 == 0 or indice == total:
                 _actualizar_progreso_sync(empresa_id, indice, exitosos, errores, f"Procesando {indice} de {total}...", total=total)
 
-        _finalizar_sync(empresa_id, f"Enlace terminado: {exitosos} producto(s) enlazado(s), {errores} sin coincidencia.")
+        _actualizar_progreso_sync(empresa_id, total, exitosos, errores, "Buscando coincidencias por título (productos sin código de barras)...", total=total)
+        exitosos_titulo, pendientes_titulo = _enlazar_por_titulo_sin_codigo(empresa_id, headers, shop_url, productos_shopify)
+        exitosos += exitosos_titulo
+
+        mensaje = f"Enlace terminado: {exitosos} producto(s) enlazado(s), {errores} sin coincidencia."
+        if exitosos_titulo:
+            mensaje += f" ({exitosos_titulo} de ellos por título, sin código de barras -- ya se corrigió en Shopify)."
+        if pendientes_titulo:
+            mensaje += f" {len(pendientes_titulo)} caso(s) requieren revisión manual (ver logs)."
+        logger.warning(f"Enlazar productos (empresa {empresa_id}) -- pendientes por título: {pendientes_titulo}")
+        _finalizar_sync(empresa_id, mensaje[:255])
     except Exception as e:
         _finalizar_sync(empresa_id, f"Error: {str(e)}")
 
