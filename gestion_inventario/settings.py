@@ -88,26 +88,24 @@ else:
     ALLOWED_HOSTS = [
                     'pedidoslouisferry.online',
                     'www.pedidoslouisferry.online',
-                    'pedidoswhite.online',
-                    'www.pedidoswhite.online',
                     'pedidosharmony.online',
                     'www.pedidosharmony.online',
-                    'pedidosamerican.online',
-                    'www.pedidosamerican.online',
-                    'pedidosexclusive.online',
-                    'www.pedidosexclusive.online',
+                    'controldenim.online',
+                    'www.controldenim.online',
+                    'white.controldenim.online',
+                    'exclusive.controldenim.online',
+                    'american.controldenim.online',
                 ]
     CSRF_TRUSTED_ORIGINS = [
                     'https://pedidoslouisferry.online',
                     'https://www.pedidoslouisferry.online',
-                    'https://pedidoswhite.online',
-                    'https://www.pedidoswhite.online',
                     'https://pedidosharmony.online',
                     'https://www.pedidosharmony.online',
-                    'https://pedidosamerican.online',
-                    'https://www.pedidosamerican.online',
-                    'https://pedidosexclusive.online',
-                    'https://www.pedidosexclusive.online',
+                    'https://controldenim.online',
+                    'https://www.controldenim.online',
+                    'https://white.controldenim.online',
+                    'https://exclusive.controldenim.online',
+                    'https://american.controldenim.online',
                 ]
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
