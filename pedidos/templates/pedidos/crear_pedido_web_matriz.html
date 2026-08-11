@@ -1324,6 +1324,27 @@ document.addEventListener('DOMContentLoaded', function() {
         btnAddUpdateProducto.on('click', function() {
             log("--- Click en Add/Update ---");
 
+            // 0. Bloqueo: no se puede agregar ninguna referencia sin haber elegido
+            // primero a quién va el pedido (cliente existente o prospecto). Sin este
+            // paso, el autoguardado falla en silencio en el servidor (exige cliente
+            // o prospecto) y el vendedor puede armar un pedido grande y perderlo todo
+            // sin darse cuenta, porque nunca se guardó como borrador.
+            const tipoDestinatario = $('input[name="tipo_cliente_seleccion"]:checked').val();
+            const hayDestinatario = tipoDestinatario === 'prospecto'
+                ? !!$('#id_prospecto').val()
+                : !!clienteSelect.val();
+            if (!hayDestinatario) {
+                alert("Antes de agregar referencias debes seleccionar el Cliente (o el Prospecto si es un cliente nuevo).\n\nMientras no elijas el destinatario, el pedido NO se guarda como borrador y podrías perder el trabajo.");
+                if (tipoDestinatario === 'prospecto') {
+                    document.getElementById('contenedor_prospecto')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    $('#id_prospecto').trigger('focus');
+                } else {
+                    document.getElementById('contenedor_cliente_existente')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    clienteSelect.select2('open');
+                }
+                return;
+            }
+
             // 1. Validar y Recolectar Cantidades de los Inputs de Talla
             let items = []; // Array de { productoId, cantidad, talla }
             let totalQtyLinea = 0;
