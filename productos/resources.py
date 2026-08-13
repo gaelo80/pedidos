@@ -16,6 +16,23 @@ class CustomProductInstanceLoader(ModelInstanceLoader):
             'color': row.get('color')
         }
 
+
+class BodegaCodigoWidget(ForeignKeyWidget):
+    """
+    Igual que ForeignKeyWidget(Bodega, 'codigo'), pero limitado a una sola
+    empresa. 'codigo' de Bodega solo es único POR empresa (unique_together =
+    ('empresa', 'codigo')), así que sin este filtro el .get() por defecto
+    busca en TODAS las empresas -- apenas hay más de una bodega con el mismo
+    código (ej. varias 'PRINCIPAL') revienta con "returned more than one".
+    """
+    def __init__(self, empresa_actual, *args, **kwargs):
+        self.empresa_actual = empresa_actual
+        super().__init__(Bodega, 'codigo', *args, **kwargs)
+
+    def get_queryset(self, value, row, *args, **kwargs):
+        return Bodega.objects.filter(empresa=self.empresa_actual)
+
+
 class ProductoResource(resources.ModelResource):
     empresa = fields.Field(
         column_name='empresa',
@@ -47,6 +64,10 @@ class ProductoResource(resources.ModelResource):
         if not empresa:
             raise ValueError("ProductoResource debe ser instanciado con una empresa.")
         self.empresa_actual = empresa
+        # El widget de 'ubicacion' se declara a nivel de clase (sin saber
+        # todavía la empresa) -- aquí, con la empresa ya conocida, lo
+        # reemplazamos por la versión que sí filtra por empresa.
+        self.fields['ubicacion'].widget = BodegaCodigoWidget(empresa)
 
     def before_import_row(self, row, **kwargs):
         row['empresa'] = self.empresa_actual.id
