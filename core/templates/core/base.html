@@ -433,6 +433,9 @@
                             {% if 'productos:producto_listado' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_listado' %}">Gestión de Productos</a></li>{% endif %}
                             {% if 'productos:producto_crear' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_crear' %}">Crear Producto</a></li>{% endif %}
                             {% if 'productos:producto_subir_fotos_agrupadas' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:producto_subir_fotos_agrupadas' %}">Subir Fotos</a></li>{% endif %}
+                            {% if es_administracion %}
+                            {% if 'productos:ajuste_masivo_precios' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'productos:ajuste_masivo_precios' %}">Ajuste Masivo de Precios</a></li>{% endif %}
+                            {% endif %}
                             {% if empresa_actual.usa_shopify %}
                             <li><a class="dropdown-item" href="{% url 'pedidos_web:panel_sincronizacion' %}">Sincronizar Shopify</a></li>
                             {% if 'pedidos_web:gestion_catalogo_shopify' not in items_desactivados %}
@@ -783,6 +786,9 @@
                                 {% if 'productos:producto_listado' not in items_desactivados %}<a href="{% url 'productos:producto_listado' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Gestión de Productos</a>{% endif %}
                                 {% if 'productos:producto_crear' not in items_desactivados %}<a href="{% url 'productos:producto_crear' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Crear Producto</a>{% endif %}
                                 {% if 'productos:producto_subir_fotos_agrupadas' not in items_desactivados %}<a href="{% url 'productos:producto_subir_fotos_agrupadas' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Subir Fotos</a>{% endif %}
+                            {% endif %}
+                            {% if es_administracion %}
+                                {% if 'productos:ajuste_masivo_precios' not in items_desactivados %}<a href="{% url 'productos:ajuste_masivo_precios' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ajuste Masivo de Precios</a>{% endif %}
                             {% endif %}
                             {% if empresa_actual.usa_shopify %}
                                 {% if es_administracion %}
