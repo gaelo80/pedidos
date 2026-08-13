@@ -19,6 +19,7 @@ urlpatterns = [
 
     # --- Listado / CRUD ---
     path('listado/', views.ProductoListView.as_view(), name='producto_listado'),
+    path('ajuste-masivo-precios/', views.ajuste_masivo_precios, name='ajuste_masivo_precios'),
 
     # Crear producto: usa SIEMPRE el formulario multi-talla (sirve para 1 o varias tallas)
     path('crear/', views.crear_producto_multi_talla, name='producto_crear'),

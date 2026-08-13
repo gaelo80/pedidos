@@ -473,6 +473,15 @@ PANEL_OPTIONS_CONFIG = [
         'categoria': 'Productos y Catálogo',
     },
     {
+        'titulo': 'Ajuste Masivo de Precios',
+        'descripcion': 'Subir/bajar el precio de muchos productos a la vez (fijo, % o valor exacto), con vista previa antes de aplicar.',
+        'url_nombre': 'productos:ajuste_masivo_precios',
+        'icono': 'fa-solid fa-tags',
+        'icono_color_class': 'icon-warning',
+        'rol_requerido': ['es_administracion'],
+        'categoria': 'Productos y Catálogo',
+    },
+    {
         'titulo': 'Costeo de Productos',
         'descripcion': 'Calcular el costo de producción de una prenda.',
         'url_nombre': 'costeo_jeans:panel_costeo',

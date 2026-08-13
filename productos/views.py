@@ -22,7 +22,8 @@ from core.mixins import TenantAwareMixin
 from django.contrib.auth.mixins import UserPassesTestMixin
 import logging
 from django.forms import formset_factory
-from .forms import ProductoBaseForm, ProductoTallaEditForm
+from .forms import ProductoBaseForm, ProductoTallaEditForm, AjusteMasivoPrecioForm
+from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction, IntegrityError
 
 
@@ -506,3 +507,126 @@ def crear_producto_multi_talla(request):
         'tallas_previas': tallas_limpias,
     }
     return render(request, 'productos/producto_multi_talla_form.html', context)
+
+# ============================================================
+# Ajuste Masivo de Precios
+# ============================================================
+
+def _queryset_ajuste_precios(empresa, datos_filtro):
+    """Mismo filtro para la vista previa y para la aplicación real -- así no
+    hace falta arrastrar cientos/miles de IDs entre los dos pasos."""
+    qs = Producto.objects.filter(empresa=empresa)
+
+    if datos_filtro.get('solo_activos'):
+        qs = qs.filter(activo=True)
+
+    q = (datos_filtro.get('q') or '').strip()
+    if q:
+        qs = qs.filter(
+            Q(referencia__icontains=q) |
+            Q(nombre__icontains=q) |
+            Q(talla__icontains=q) |
+            Q(color__nombre__icontains=q) |
+            Q(codigo_barras__icontains=q)
+        )
+
+    genero = datos_filtro.get('genero')
+    if genero:
+        qs = qs.filter(genero=genero)
+
+    if datos_filtro.get('precio_min') is not None:
+        qs = qs.filter(precio_venta__gte=datos_filtro['precio_min'])
+    if datos_filtro.get('precio_max') is not None:
+        qs = qs.filter(precio_venta__lte=datos_filtro['precio_max'])
+
+    return qs.select_related('color').order_by('referencia', 'color__nombre', 'talla')
+
+
+def _calcular_precio_ajustado(precio_actual, tipo_ajuste, valor):
+    if tipo_ajuste == 'SUMAR_FIJO':
+        nuevo = precio_actual + valor
+    elif tipo_ajuste == 'RESTAR_FIJO':
+        nuevo = precio_actual - valor
+    elif tipo_ajuste == 'PORCENTAJE_SUBIR':
+        nuevo = precio_actual * (Decimal('1') + valor / Decimal('100'))
+    elif tipo_ajuste == 'PORCENTAJE_BAJAR':
+        nuevo = precio_actual * (Decimal('1') - valor / Decimal('100'))
+    elif tipo_ajuste == 'FIJAR_VALOR':
+        nuevo = valor
+    else:
+        nuevo = precio_actual
+
+    if nuevo < 0:
+        nuevo = Decimal('0')
+    return nuevo.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+PREVIEW_LIMITE = 300
+
+
+@login_required
+@permission_required('productos.change_producto', login_url='core:acceso_denegado')
+def ajuste_masivo_precios(request):
+    """
+    Ajusta el precio de venta de muchos productos a la vez (sumar/restar fijo,
+    %, o fijar un valor exacto) sin pasar por exportar/editar Excel/importar.
+    Flujo en dos pasos: primero muestra una vista previa (precio actual ->
+    nuevo, sin tocar nada), y solo aplica los cambios reales cuando el
+    formulario se reenvía con 'confirmar=1'.
+    """
+    empresa_actual = getattr(request, 'tenant', None)
+    preview = None
+    total_afectados = None
+
+    if request.method == 'POST':
+        form = AjusteMasivoPrecioForm(request.POST)
+        if form.is_valid():
+            qs = _queryset_ajuste_precios(empresa_actual, form.cleaned_data)
+            total_afectados = qs.count()
+            tipo_ajuste = form.cleaned_data['tipo_ajuste']
+            valor = form.cleaned_data['valor']
+
+            if request.POST.get('confirmar') == '1':
+                if total_afectados == 0:
+                    messages.warning(request, "No hay productos que coincidan con el filtro -- no se aplicó ningún cambio.")
+                else:
+                    actualizados = 0
+                    with transaction.atomic():
+                        # of=('self',): bloquea solo la tabla Producto, no el LEFT JOIN
+                        # con Color (color es nullable) -- Postgres no permite FOR UPDATE
+                        # sobre el lado nulable de un outer join.
+                        for producto in qs.select_for_update(of=('self',)):
+                            nuevo_precio = _calcular_precio_ajustado(producto.precio_venta, tipo_ajuste, valor)
+                            if nuevo_precio != producto.precio_venta:
+                                producto.precio_venta = nuevo_precio
+                                producto.save(update_fields=['precio_venta'])
+                                actualizados += 1
+                    logger.info(
+                        f"Ajuste masivo de precios -- usuario={request.user.username} empresa={empresa_actual} "
+                        f"tipo={tipo_ajuste} valor={valor} filtro={form.cleaned_data} productos_actualizados={actualizados}"
+                    )
+                    messages.success(request, f"Listo: se actualizó el precio de {actualizados} producto(s).")
+                return redirect('productos:ajuste_masivo_precios')
+
+            # Vista previa (no se guarda nada todavía)
+            muestra = list(qs[:PREVIEW_LIMITE])
+            preview = [
+                {
+                    'producto': p,
+                    'precio_actual': p.precio_venta,
+                    'precio_nuevo': _calcular_precio_ajustado(p.precio_venta, tipo_ajuste, valor),
+                }
+                for p in muestra
+            ]
+    else:
+        form = AjusteMasivoPrecioForm(initial={'solo_activos': True})
+
+    context = {
+        'form': form,
+        'preview': preview,
+        'total_afectados': total_afectados,
+        'preview_truncado': bool(total_afectados and total_afectados > PREVIEW_LIMITE),
+        'preview_limite': PREVIEW_LIMITE,
+        'titulo_pagina': 'Ajuste Masivo de Precios',
+    }
+    return render(request, 'productos/ajuste_masivo_precios.html', context)

@@ -1,0 +1,143 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block page_title %}{{ titulo_pagina|default:"Ajuste Masivo de Precios" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-tags me-2 text-primary"></i>{{ titulo_pagina }}</h2>
+        <a href="{% url 'productos:producto_listado' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-list me-2"></i>Volver al Listado
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <p class="text-muted mb-3">
+                Filtra qué productos quieres tocar, elige la operación y primero verás una
+                <strong>vista previa</strong> (precio actual → precio nuevo) antes de que se guarde nada.
+                Nada cambia hasta que confirmes.
+            </p>
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Revisa lo siguiente:</strong>
+                    <ul class="mb-0">
+                        {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+                        {% for field in form %}
+                            {% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <h6 class="text-muted mb-3">1. ¿Qué productos entran?</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        {{ form.q.label_tag }}
+                        {{ form.q }}
+                        <div class="form-text">{{ form.q.help_text }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.genero.label_tag }}
+                        {{ form.genero }}
+                    </div>
+                    <div class="col-md-2">
+                        {{ form.precio_min.label_tag }}
+                        {{ form.precio_min }}
+                    </div>
+                    <div class="col-md-2">
+                        {{ form.precio_max.label_tag }}
+                        {{ form.precio_max }}
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            {{ form.solo_activos }}
+                            <label class="form-check-label" for="{{ form.solo_activos.id_for_label }}">Solo activos</label>
+                        </div>
+                    </div>
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <hr>
+
+                <h6 class="text-muted mb-3">2. ¿Qué operación aplicar?</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        {{ form.tipo_ajuste.label_tag }}
+                        {{ form.tipo_ajuste }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.valor.label_tag }}
+                        {{ form.valor }}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Ver vista previa
+                    </button>
+                    {% if preview is not None %}
+                    <button type="submit" name="confirmar" value="1" class="btn btn-danger"
+                            onclick="return confirm('Vas a cambiar el precio de {{ total_afectados }} producto(s). Esta acción no se puede deshacer con un clic. ¿Confirmas?');">
+                        <i class="fas fa-check me-2"></i>Confirmar y aplicar a {{ total_afectados }} producto(s)
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if preview is not None %}
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Vista previa</strong>
+            <span class="badge bg-primary">{{ total_afectados }} producto(s) coinciden con el filtro</span>
+        </div>
+        <div class="card-body p-0">
+            {% if preview_truncado %}
+            <div class="alert alert-warning m-3 mb-0">
+                Mostrando los primeros {{ preview_limite }} de {{ total_afectados }} -- al confirmar se aplica a
+                <strong>todos</strong> los {{ total_afectados }}, no solo a los que ves aquí.
+            </div>
+            {% endif %}
+            {% if preview %}
+            <div class="table-responsive" style="max-height: 60vh;">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-light" style="position: sticky; top: 0;">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Color</th>
+                            <th>Talla</th>
+                            <th class="text-end">Precio actual</th>
+                            <th class="text-end">Precio nuevo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in preview %}
+                        <tr>
+                            <td>{{ fila.producto.referencia }}</td>
+                            <td>{{ fila.producto.color.nombre|default:"-" }}</td>
+                            <td>{{ fila.producto.talla|default:"-" }}</td>
+                            <td class="text-end">${{ fila.precio_actual|floatformat:0|intcomma }}</td>
+                            <td class="text-end fw-bold {% if fila.precio_nuevo > fila.precio_actual %}text-success{% elif fila.precio_nuevo < fila.precio_actual %}text-danger{% endif %}">
+                                ${{ fila.precio_nuevo|floatformat:0|intcomma }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center p-4 mb-0">Ningún producto coincide con este filtro -- ajusta los criterios arriba.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
