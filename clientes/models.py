@@ -40,12 +40,21 @@ class Empresa(models.Model):
     )
     
     talla_mapeo = models.JSONField(
-        null=True, 
-        blank=True, 
+        null=True,
+        blank=True,
         verbose_name="Mapeo de Tallas (Traducción)",
         help_text="OPCIONAL. Traduce tallas internas a tallas de muestra. Ej: {\"6\": \"3\", \"8\": \"5\"}"
     )
-    
+
+    talla_mapeo_shopify = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Mapeo de Tallas para Shopify",
+        help_text="OPCIONAL. Independiente del 'Mapeo de Tallas' de los PDFs -- solo afecta la talla "
+                   "(option1) que se sube a Shopify. Clave = talla interna, valor = talla que debe "
+                   "mostrar Shopify. Ej: {\"3\": \"6\", \"5\": \"8\", \"7\": \"10\"}"
+    )
+
     categorias_tallas = models.JSONField(
         null=True,
         blank=True,

@@ -376,13 +376,29 @@ def _construir_imagenes_payload(referencia_color):
 
 
 def _construir_variantes_payload_creacion(referencia_color, variantes):
-    """Payload de variantes para la creación inicial del producto."""
+    """
+    Payload de variantes para la creación inicial del producto.
+
+    'option1' es la talla que el CLIENTE ve en Shopify, que en algunas
+    empresas no es la talla interna con la que se maneja el sistema (ej.
+    interna 3,5,7... -> mostrada 6,8,10...). Se traduce con
+    'Empresa.talla_mapeo_shopify' -- un campo APARTE del 'talla_mapeo' que
+    usan los PDFs de pedidos/facturas/despachos (son traducciones
+    independientes, no siempre coinciden). Si la empresa no tiene este
+    mapeo configurado, queda igual que antes (talla cruda).
+    """
     precio_override = referencia_color.shopify_precio
+    tallas_mapeo = (referencia_color.empresa.talla_mapeo_shopify if referencia_color.empresa_id else None) or {}
     payload = []
     for producto in variantes:
         precio = precio_override or producto.precio_venta
+        if producto.talla is not None:
+            talla_interna = str(producto.talla)
+            talla_mostrada = tallas_mapeo.get(talla_interna, talla_interna)
+        else:
+            talla_mostrada = 'Única'
         payload.append({
-            'option1': str(producto.talla) if producto.talla is not None else 'Única',
+            'option1': talla_mostrada,
             'price': str(precio),
             'sku': producto.codigo_barras or '',
             'barcode': producto.codigo_barras or '',

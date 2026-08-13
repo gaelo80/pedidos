@@ -24,9 +24,11 @@ class EmpresaAdmin(ImportExportModelAdmin):
             'fields': ('logo', 'banner_inicio', 'preview_banner', 'titulo_web', 'usa_shopify')
         }),
         ('Configuración de Pedidos y Tallas', {
-            'description': 'Aquí se configuran los mapeos y categorías de tallas para esta empresa.',
-            'fields': ('talla_mapeo', 'categorias_tallas')
-        }),    
+            'description': 'Aquí se configuran los mapeos y categorías de tallas para esta empresa. '
+                            "'Mapeo de Tallas' es para los PDFs (pedidos/facturas/despachos); "
+                            "'Mapeo de Tallas para Shopify' es independiente y solo afecta lo que se sube a Shopify.",
+            'fields': ('talla_mapeo', 'talla_mapeo_shopify', 'categorias_tallas')
+        }),
         
         ('Estado y Fiscal', { # Cambié el nombre del grupo para mayor claridad
             # Y el de IVA aquí
