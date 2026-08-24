@@ -87,7 +87,16 @@ def webhook_nuevo_pedido_shopify(request):
             identificacion_real = (direccion_data.get('company') or '').strip()
             if not identificacion_real:
                 # Sin cédula capturada: usamos el ID de cliente de Shopify para no romper la unicidad.
-                identificacion_real = f"SHOPIFY-{cliente_data.get('id')}"
+                # Prefijo corto ('SHP-' en vez de 'SHOPIFY-'): los ID de cliente de Shopify ya tienen
+                # 13 dígitos, y 'SHOPIFY-' + 13 dígitos son 21 caracteres -- 1 más de lo que acepta
+                # ClienteOnline.identificacion (CharField max_length=20). Con 'SHOPIFY-' el webhook
+                # fallaba con DataError y el pedido se perdía por completo (nunca se creaba nada).
+                identificacion_real = f"SHP-{cliente_data.get('id')}"
+
+            # Tope de seguridad: 'identificacion' es CharField(max_length=20) y 'company' es texto
+            # libre que escribe el cliente -- sin este corte, cualquier valor más largo revienta el
+            # webhook igual que el caso de arriba y el pedido se pierde en silencio.
+            identificacion_real = identificacion_real[:20]
 
             # Dirección completa = calle/carrera (address1) + complemento (apto/interior, address2)
             partes_direccion = [p for p in [direccion_data.get('address1'), direccion_data.get('address2')] if p]
