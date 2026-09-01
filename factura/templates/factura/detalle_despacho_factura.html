@@ -97,10 +97,12 @@
                             <th class="text-start">Referencia</th>
                             <th class="text-start">Descripción</th>
                             <th class="text-start">Color</th>
+                            <th class="text-end" style="width: 90px;">Precio</th>
                             {% for talla in tallas_header %}
                                 <th style="width: 45px;">{{ talla }}</th>
                             {% endfor %}
-                            <th class="text-center" style="width: 80px;">Total</th>
+                            <th class="text-center" style="width: 70px;">Total</th>
+                            <th class="text-end" style="width: 100px;">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,22 +111,29 @@
                             <td>{{ item_grupo.referencia }}</td>
                             <td>{{ item_grupo.nombre }}</td>
                             <td>{{ item_grupo.color|default:"-" }}</td>
+                            <td class="text-end">
+                                {% if item_grupo.precio_unitario is not None %}${{ item_grupo.precio_unitario|floatformat:0|intcomma }}{% else %}<span class="text-muted">-</span>{% endif %}
+                            </td>
                             {% for cantidad in item_grupo.tallas_ordenadas %}
                                 <td class="text-center">
                                     {% if cantidad > 0 %}{{ cantidad|intcomma }}{% else %}<span class="text-muted">-</span>{% endif %}
                                 </td>
                             {% endfor %}
                             <td class="text-center fw-bold">{{ item_grupo.cantidad_total|intcomma }}</td>
+                            <td class="text-end fw-bold">${{ item_grupo.subtotal|floatformat:0|intcomma }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-secondary">
-                            <td colspan="{{ tallas_header|length|add:'3' }}" class="text-end fw-bold pe-3">
+                            <td colspan="{{ tallas_header|length|add:'4' }}" class="text-end fw-bold pe-3">
                                 TOTAL DE PRENDAS DESPACHADAS:
                             </td>
                             <td class="text-center fw-bold" style="font-size: 1.1rem;">
                                 {{ total_general_prendas|intcomma }}
+                            </td>
+                            <td class="text-end fw-bold" style="font-size: 1.1rem;">
+                                ${{ total_general_valor|floatformat:0|intcomma }}
                             </td>
                         </tr>
                     </tfoot>
