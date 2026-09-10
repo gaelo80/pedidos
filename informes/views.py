@@ -473,6 +473,7 @@ def informe_pedidos_aprobados_cartera(request):
 
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
+    cliente_query = request.GET.get('cliente_q')
     current_tz = timezone.get_current_timezone()
 
     if fecha_inicio_str:
@@ -491,11 +492,18 @@ def informe_pedidos_aprobados_cartera(request):
         except ValueError:
             pass
 
+    if cliente_query:
+        pedidos_aprobados_list = pedidos_aprobados_list.filter(
+            Q(cliente__nombre_completo__icontains=cliente_query) |
+            Q(cliente__identificacion__icontains=cliente_query)
+        )
+
     context = {
         'pedidos_list': pedidos_aprobados_list,
         'titulo': f'Pedidos Aprobados por Cartera ({empresa_actual.nombre})',
         'fecha_inicio': fecha_inicio_str,
         'fecha_fin': fecha_fin_str,
+        'cliente_q': cliente_query,
         'app_name': 'Informes'
     }
     return render(request, 'informes/informe_pedidos_aprobados_cartera.html', context)

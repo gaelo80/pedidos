@@ -17,7 +17,11 @@
                 <label for="fecha_fin" class="form-label">Fecha Aprob. Cartera Hasta:</label>
                 <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|default:'' }}">
             </div>
-            <div class="col-md-4 align-self-end">
+            <div class="col-md-4">
+                <label for="cliente_q" class="form-label">Cliente (nombre o identificación):</label>
+                <input type="text" class="form-control form-control-sm" id="cliente_q" name="cliente_q" value="{{ cliente_q|default:'' }}" placeholder="Nombre o identificación del cliente">
+            </div>
+            <div class="col-md-12 text-end">
                 <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
                 <a href="{% url 'informes:informe_pedidos_aprobados_cartera' %}" class="btn btn-secondary btn-sm">Limpiar</a>
             </div>
