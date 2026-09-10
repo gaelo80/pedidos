@@ -449,6 +449,57 @@ def informe_pedidos_aprobados_bodega(request):
     }
     return render(request, 'informes/informe_pedidos_aprobados_bodega.html', context)
 
+# --- Informe de Pedidos Aprobados por Cartera ---
+@login_required
+@permission_required('informes.view_pedidos_aprobados_cartera', login_url='core:acceso_denegado')
+def informe_pedidos_aprobados_cartera(request):
+
+    empresa_actual = getattr(request, 'tenant', None)
+    if not empresa_actual:
+        messages.error(request, "Acceso no válido. No se pudo identificar la empresa.")
+        return redirect('core:index')
+
+    pedidos_aprobados_list = Pedido.objects.filter(
+        empresa=empresa_actual,
+        usuario_decision_cartera__isnull=False
+    ).exclude(
+        estado='RECHAZADO_CARTERA'
+    ).select_related(
+        'cliente',
+        'vendedor__user',
+        'usuario_decision_cartera',
+        'usuario_decision_admin'
+    ).order_by('-fecha_decision_cartera')
+
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+    current_tz = timezone.get_current_timezone()
+
+    if fecha_inicio_str:
+        try:
+            fecha_inicio_dt_naive = dt.strptime(fecha_inicio_str, '%Y-%m-%d')
+            fecha_inicio_dt_aware = timezone.make_aware(fecha_inicio_dt_naive.replace(hour=0, minute=0, second=0, microsecond=0), current_tz)
+            pedidos_aprobados_list = pedidos_aprobados_list.filter(fecha_decision_cartera__gte=fecha_inicio_dt_aware)
+        except ValueError:
+            pass
+
+    if fecha_fin_str:
+        try:
+            fecha_fin_dt_naive = dt.strptime(fecha_fin_str, '%Y-%m-%d')
+            fecha_fin_dt_aware = timezone.make_aware(fecha_fin_dt_naive.replace(hour=23, minute=59, second=59, microsecond=999999), current_tz)
+            pedidos_aprobados_list = pedidos_aprobados_list.filter(fecha_decision_cartera__lte=fecha_fin_dt_aware)
+        except ValueError:
+            pass
+
+    context = {
+        'pedidos_list': pedidos_aprobados_list,
+        'titulo': f'Pedidos Aprobados por Cartera ({empresa_actual.nombre})',
+        'fecha_inicio': fecha_inicio_str,
+        'fecha_fin': fecha_fin_str,
+        'app_name': 'Informes'
+    }
+    return render(request, 'informes/informe_pedidos_aprobados_cartera.html', context)
+
 @login_required
 @user_passes_test(lambda u: es_bodega(u) or es_administracion(u) or es_factura(u) or es_cartera(u) or es_diseno(u), login_url='core:acceso_denegado')
 def informe_ingresos_bodega(request):

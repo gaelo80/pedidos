@@ -14,6 +14,7 @@ class PermisosInformes(models.Model):
             ("view_reporte_ventas_vendedor", "Puede ver el informe de ventas por vendedor"),
             ("view_informe_ingresos_bodega", "Puede ver el informe de ingresos a bodega"),
             ("view_pedidos_aprobados", "Puede ver el informe de pedidos aprobados"),
+            ("view_pedidos_aprobados_cartera", "Puede ver el informe de pedidos aprobados por cartera"),
             ("view_pedidos_rechazados", "Puede ver el informe de pedidos rechazados"),
             ("view_informe_devoluciones", "Puede ver el informe de devoluciones de clientes"),
             ("view_comprobantes_despacho", "Puede ver el informe de comprobantes de despacho"),

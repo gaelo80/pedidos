@@ -591,6 +591,15 @@ PANEL_OPTIONS_CONFIG = [
         'categoria': 'Informes Generales',  
     },
     {
+        'titulo': 'Informe de pedidos APROBADOS por cartera',
+        'descripcion': 'Ver los pedidos aprobados por cartera y sus notas.',
+        'url_nombre': 'informes:informe_pedidos_aprobados_cartera',
+        'icono': 'fa-solid fa-check-double',
+        'icono_color_class': 'icon-info',
+        'rol_requerido': ['es_cartera', 'es_administracion'],
+        'categoria': 'Informes Generales',
+    },
+    {
         'titulo': 'Informes pedidos RECHAZADOS',
         'descripcion': 'Ver los pedidos que han sido RECHAZADOS.',
         'url_nombre': 'informes:informe_pedidos_rechazados',

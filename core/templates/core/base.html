@@ -477,6 +477,7 @@
                         {% if es_cartera or es_administracion %}
                             {% if 'informes:informe_pedidos_rechazados' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_rechazados' %}">Pedidos Rechazados</a></li>{% endif %}
                             {% if 'informes:informe_pedidos_aprobados_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_aprobados_bodega' %}">Pedidos Aceptados</a></li>{% endif %}
+                            {% if 'informes:informe_pedidos_aprobados_cartera' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_pedidos_aprobados_cartera' %}">Pedidos Aprobados por Cartera</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
@@ -832,6 +833,7 @@
                             {% if es_cartera or es_administracion %}
                                 {% if 'informes:informe_pedidos_rechazados' not in items_desactivados %}<a href="{% url 'informes:informe_pedidos_rechazados' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Rechazados</a>{% endif %}
                                 {% if 'informes:informe_pedidos_aprobados_bodega' not in items_desactivados %}<a href="{% url 'informes:informe_pedidos_aprobados_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Aceptados</a>{% endif %}
+                                {% if 'informes:informe_pedidos_aprobados_cartera' not in items_desactivados %}<a href="{% url 'informes:informe_pedidos_aprobados_cartera' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Pedidos Aprobados por Cartera</a>{% endif %}
                             {% endif %}
                             {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}{% if es_bodega or es_administracion or es_diseno %}
                                 <a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ingresos a Bodega</a>
