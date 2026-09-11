@@ -56,10 +56,10 @@
                         <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
                         <td>{{ pedido.get_estado_display }}</td>
                         <td>{{ pedido.fecha_decision_cartera|date:"d/m/Y H:i"|default:"N/A" }}</td>
-                        <td>{{ pedido.usuario_decision_cartera.get_full_name|default:pedido.usuario_decision_cartera.username|default:"N/A" }}</td>
+                        <td>{% if pedido.usuario_decision_cartera %}{{ pedido.usuario_decision_cartera.get_full_name|default:pedido.usuario_decision_cartera.username }}{% else %}N/A{% endif %}</td>
                         <td style="white-space: pre-wrap;">{{ pedido.motivo_cartera|default:"" }}</td>
                         <td>{{ pedido.fecha_decision_admin|date:"d/m/Y H:i"|default:"Pendiente" }}</td>
-                        <td>{{ pedido.usuario_decision_admin.get_full_name|default:pedido.usuario_decision_admin.username|default:"Pendiente" }}</td>
+                        <td>{% if pedido.usuario_decision_admin %}{{ pedido.usuario_decision_admin.get_full_name|default:pedido.usuario_decision_admin.username }}{% else %}Pendiente{% endif %}</td>
                         <td style="white-space: pre-wrap;">{{ pedido.motivo_admin|default:"" }}</td>
                         <td>
                             <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm">Ver Pedido</a>
