@@ -41,6 +41,9 @@
                         <th>Fecha Aprob. Cartera</th>
                         <th>Usuario Cartera</th>
                         <th>Notas Cartera</th>
+                        <th>Fecha Decisión Admin</th>
+                        <th>Usuario Admin</th>
+                        <th>Notas Admin</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -53,8 +56,11 @@
                         <td>{{ pedido.fecha_hora|date:"d/m/Y H:i" }}</td>
                         <td>{{ pedido.get_estado_display }}</td>
                         <td>{{ pedido.fecha_decision_cartera|date:"d/m/Y H:i"|default:"N/A" }}</td>
-                        <td>{{ pedido.usuario_decision_cartera.username|default:"N/A" }}</td>
+                        <td>{{ pedido.usuario_decision_cartera.get_full_name|default:pedido.usuario_decision_cartera.username|default:"N/A" }}</td>
                         <td style="white-space: pre-wrap;">{{ pedido.motivo_cartera|default:"" }}</td>
+                        <td>{{ pedido.fecha_decision_admin|date:"d/m/Y H:i"|default:"Pendiente" }}</td>
+                        <td>{{ pedido.usuario_decision_admin.get_full_name|default:pedido.usuario_decision_admin.username|default:"Pendiente" }}</td>
+                        <td style="white-space: pre-wrap;">{{ pedido.motivo_admin|default:"" }}</td>
                         <td>
                             <a href="{% url 'pedidos:detalle_pedido' pedido.numero_pedido_empresa %}" class="btn btn-info btn-sm">Ver Pedido</a>
                         </td>
