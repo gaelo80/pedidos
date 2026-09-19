@@ -3,7 +3,6 @@ import hmac
 import hashlib
 import base64
 import logging
-import os
 import re
 import threading
 import unicodedata
@@ -54,14 +53,6 @@ def webhook_nuevo_pedido_shopify(request):
 
     try:
         orden = json.loads(data)
-        
-        # ---> EL ATRAPADOR DE DATOS (NUEVO) <---
-        # Esto creará un archivo llamado 'pedido_shopify_ejemplo.json' en la raíz de tu proyecto
-        ruta_archivo = os.path.join(settings.BASE_DIR, 'pedido_shopify_ejemplo.json')
-        with open(ruta_archivo, 'w', encoding='utf-8') as f:
-            json.dump(orden, f, indent=4, ensure_ascii=False)
-        print(f"📦 ¡ATRAPADO! Todo el JSON de Shopify se guardó en: {ruta_archivo}")
-        # ----------------------------------------
 
         # La empresa se resuelve por el dominio al que Shopify le pega el webhook
         # (el mismo TenantMiddleware que usa el resto del sistema) -- NUNCA la
@@ -82,6 +73,11 @@ def webhook_nuevo_pedido_shopify(request):
         direccion_data = orden.get('shipping_address') or {}
 
         if cliente_data:
+            # Respaldo: si el checkout no exigió algún dato de envío (ciudad, dirección,
+            # teléfono), Shopify lo manda vacío en shipping_address aunque el cliente sí
+            # tenga esa info guardada en su dirección predeterminada de la cuenta.
+            default_addr = cliente_data.get('default_address') or {}
+
             # En el checkout de Shopify no existe un campo nativo de "Identificación" (cédula/NIT),
             # así que en esta tienda se captura reutilizando el campo "Company" de la dirección de envío.
             identificacion_real = (direccion_data.get('company') or '').strip()
@@ -98,12 +94,14 @@ def webhook_nuevo_pedido_shopify(request):
             # webhook igual que el caso de arriba y el pedido se pierde en silencio.
             identificacion_real = identificacion_real[:20]
 
-            # Dirección completa = calle/carrera (address1) + complemento (apto/interior, address2)
-            partes_direccion = [p for p in [direccion_data.get('address1'), direccion_data.get('address2')] if p]
+            # Dirección completa = calle/carrera (address1) + complemento (apto/interior, address2),
+            # con respaldo a la dirección predeterminada si el envío no trae address1.
+            fuente_direccion = direccion_data if direccion_data.get('address1') else default_addr
+            partes_direccion = [p for p in [fuente_direccion.get('address1'), fuente_direccion.get('address2')] if p]
             direccion_completa = ", ".join(partes_direccion) or 'Sin dirección'
 
             ciudad_obj = None
-            nombre_ciudad = (direccion_data.get('city') or '').strip()
+            nombre_ciudad = (direccion_data.get('city') or default_addr.get('city') or '').strip()
             if nombre_ciudad:
                 ciudad_obj = Ciudad.objects.filter(nombre__iexact=nombre_ciudad).first()
                 if not ciudad_obj:
@@ -116,7 +114,7 @@ def webhook_nuevo_pedido_shopify(request):
                     'nombre_completo': f"{cliente_data.get('first_name', '')} {cliente_data.get('last_name', '')}".strip(),
                     # Si viene null, lo cambiamos por un string vacío ''
                     'email': cliente_data.get('email') or '',
-                    'telefono': direccion_data.get('phone') or cliente_data.get('phone') or 'Sin teléfono',
+                    'telefono': direccion_data.get('phone') or default_addr.get('phone') or cliente_data.get('phone') or 'Sin teléfono',
                     'direccion': direccion_completa,
                     'ciudad': ciudad_obj,
                     'tipo_cliente': 'DETAL'
