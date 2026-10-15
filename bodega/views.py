@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from core.auth_utils import es_administracion
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
@@ -1855,6 +1856,89 @@ def cancelar_pedido_bodega(request, pk):
     
     return redirect('bodega:lista_pedidos_bodega')
 
+def _fecha_corte_desde_request(request):
+    """
+    Lee el parámetro GET 'fecha_corte' (AAAA-MM-DD) de los informes de
+    inventario. Devuelve (fecha, limite, error):
+      - fecha: date elegida, o None si no se pidió corte.
+      - limite: datetime aware (settings.TIME_ZONE) de las 00:00 del día
+        SIGUIENTE; se usa con 'fecha_hora__lt' para incluir el día completo.
+      - error: mensaje para el usuario si la fecha no es válida.
+    """
+    valor = request.GET.get('fecha_corte', '').strip()
+    if not valor:
+        return None, None, None
+    try:
+        fecha = datetime.strptime(valor, '%Y-%m-%d').date()
+    except ValueError:
+        return None, None, "La fecha de corte no es válida. Se muestra el inventario actual."
+    if fecha > timezone.localdate():
+        return None, None, "La fecha de corte no puede ser futura. Se muestra el inventario actual."
+    limite = timezone.make_aware(datetime.combine(fecha + timedelta(days=1), time.min))
+    return fecha, limite, None
+
+
+def _nota_inventario_a_fecha(fecha_corte):
+    """
+    Explicación de qué incluye y qué no el inventario calculado a una fecha de
+    corte. Se usa tanto en pantalla como en la hoja 'Nota' del Excel.
+    """
+    fecha_txt = fecha_corte.strftime('%d/%m/%Y')
+    return {
+        'resumen': (
+            f"Las cantidades se calculan sumando todos los movimientos de inventario "
+            f"registrados hasta las 11:59:59 p.m. del {fecha_txt} (hora de Colombia). "
+            f"Corresponde al stock DISPONIBLE que mostraba el sistema ese día, que no "
+            f"siempre es igual a las unidades físicas en bodega (ver detalle)."
+        ),
+        'incluye': [
+            "Ingresos a bodega (compras), con la fecha registrada en el ingreso.",
+            "Entradas desde producción (primera, segunda y tercera).",
+            "Pedidos de vendedores, online y web: las unidades se descuentan desde que se crea el pedido, "
+            "aunque todavía no se hubiera aprobado ni despachado.",
+            "Pedidos rechazados por cartera o administración, o cancelados en bodega, ANTES del corte: "
+            "esas unidades ya habían regresado al inventario.",
+            "Ventas, devoluciones y cambios en punto de venta (POS).",
+            "Devoluciones de clientes.",
+            "Traslados entre bodegas: cada bodega muestra lo que tenía en esa fecha.",
+            "Salidas internas (muestrario, exhibidor, préstamo, donación/baja, otras) y sus devoluciones.",
+            "Cambios de producto, ajustes manuales y ajustes por conteo de inventario.",
+            "Productos que hoy están inactivos, si ya existían en la fecha de corte.",
+        ],
+        'no_incluye': [
+            "No es un conteo físico: los pedidos creados antes del corte que aún no se habían despachado "
+            "(pendientes de cartera, de administración o de bodega) aparecen descontados aunque la "
+            "mercancía siguiera físicamente en bodega.",
+            "Pedidos rechazados o cancelados DESPUÉS del corte siguen apareciendo descontados, porque su "
+            "regreso al inventario quedó registrado con esa fecha posterior.",
+            "Pedidos ELIMINADOS del sistema después del corte: al eliminarlos se borra su reserva, así que "
+            "esas unidades no aparecen descontadas aunque ese día sí lo estaban.",
+            "Productos eliminados del sistema no aparecen, ni su historial de movimientos.",
+            "Movimientos editados o borrados manualmente desde el administrador se reflejan con su valor "
+            "actual, no con el que tenían en la fecha de corte.",
+            "Movimientos registrados tarde cuentan en la fecha en que se registraron, no cuando ocurrió el "
+            "hecho. Por ejemplo, los ajustes por conteo quedan con la fecha en que se cargó el conteo, no "
+            "con la fecha del conteo.",
+            "Traslados enviados pero no recibidos al corte: las unidades ya salieron de la bodega de origen "
+            "y aún no entraban a la de destino, por lo que no aparecen en ninguna de las dos.",
+            "Los valores de costo y de venta se calculan con el costo y precio ACTUALES del producto, no con "
+            "los que tenía en la fecha de corte.",
+            "Referencia, nombre, color y género se muestran como están hoy en el sistema.",
+        ],
+    }
+
+
+def _productos_para_informe_inventario(empresa, limite_corte):
+    """
+    Productos base de los informes de inventario. Sin fecha de corte: solo los
+    activos. Con fecha de corte: también los inactivos (pudieron tener stock en
+    esa fecha y desactivarse después), excluyendo los creados después del corte.
+    """
+    if limite_corte is None:
+        return Producto.objects.filter(empresa=empresa, activo=True)
+    return Producto.objects.filter(empresa=empresa, fecha_creacion__lt=limite_corte)
+
+
 @login_required
 # Asegúrate que el permiso sea el adecuado para tu app, ej: 'productos.view_producto'
 @permission_required('productos.view_inventory_report', login_url='core:acceso_denegado')
@@ -1869,16 +1953,19 @@ def vista_informe_inventario(request):
         messages.error(request, "No se ha podido identificar la empresa para este informe.")
         return redirect('core:index') # O donde quieras redirigir
     
-    # Query base: solo productos activos de la empresa actual
-    productos_queryset = Producto.objects.filter(
-        empresa=empresa_actual,
-        activo=True
-    )
+    fecha_corte, limite_corte, error_fecha = _fecha_corte_desde_request(request)
+    if error_fecha:
+        messages.warning(request, error_fecha)
+
+    productos_queryset = _productos_para_informe_inventario(empresa_actual, limite_corte)
 
     # Lógica de filtrado
     referencia_q = request.GET.get('referencia', '').strip()
     nombre_q = request.GET.get('nombre', '').strip()
     bodega_q = request.GET.get('bodega', '').strip()
+
+    # Con fecha de corte solo se suman los movimientos hasta el final de ese día.
+    filtro_mov = Q(movimientos__fecha_hora__lt=limite_corte) if limite_corte else Q()
 
     if referencia_q:
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
@@ -1891,9 +1978,9 @@ def vista_informe_inventario(request):
     # se calcula el stock a partir de MovimientoInventario, la fuente real.
     if bodega_q:
         productos_queryset = productos_queryset.filter(movimientos__bodega_id=bodega_q).distinct()
-        suma_stock_expr = lambda: Sum('movimientos__cantidad', filter=Q(movimientos__bodega_id=bodega_q))
+        suma_stock_expr = lambda: Sum('movimientos__cantidad', filter=Q(movimientos__bodega_id=bodega_q) & filtro_mov)
     else:
-        suma_stock_expr = lambda: Sum('movimientos__cantidad')
+        suma_stock_expr = lambda: Sum('movimientos__cantidad', filter=filtro_mov)
 
     # Calcular totales (después de filtrar) con una sola consulta agregada,
     # en vez de recorrer 'stock_actual' producto por producto (N+1 queries).
@@ -1917,9 +2004,13 @@ def vista_informe_inventario(request):
     distribucion_bodega = {}
     ids_productos_lista = [p.pk for p in productos_lista]
     if ids_productos_lista:
+        movimientos_distribucion = MovimientoInventario.objects.filter(
+            producto_id__in=ids_productos_lista, empresa=empresa_actual
+        )
+        if limite_corte:
+            movimientos_distribucion = movimientos_distribucion.filter(fecha_hora__lt=limite_corte)
         for fila in (
-            MovimientoInventario.objects
-            .filter(producto_id__in=ids_productos_lista, empresa=empresa_actual)
+            movimientos_distribucion
             .values('producto_id', 'bodega__nombre')
             .annotate(cantidad_bodega=Sum('cantidad'))
         ):
@@ -2001,9 +2092,16 @@ def vista_informe_inventario(request):
     total_valor_costo = sum((s['valor_costo_seccion'] for s in secciones), Decimal('0.00'))
     total_valor_venta = sum((s['valor_venta_seccion'] for s in secciones), Decimal('0.00'))
 
+    if fecha_corte:
+        titulo = f'Inventario al {fecha_corte.strftime("%d/%m/%Y")} ({empresa_actual.nombre})'
+    else:
+        titulo = f'Informe de Inventario Físico ({empresa_actual.nombre})'
+
     context = {
         'secciones': secciones,
-        'titulo': f'Informe de Inventario Físico ({empresa_actual.nombre})',
+        'titulo': titulo,
+        'fecha_corte': fecha_corte,
+        'nota_fecha_corte': _nota_inventario_a_fecha(fecha_corte) if fecha_corte else None,
         'total_productos': total_productos,
         'total_unidades': total_unidades,
         'generos_no_reconocidos': sorted(generos_no_reconocidos),
@@ -2026,9 +2124,9 @@ def exportar_inventario_excel(request):
     aplicando los mismos filtros que la vista del informe.
     """
     empresa_actual = getattr(request, 'tenant', None)
-    productos_queryset = Producto.objects.filter(
-        empresa=empresa_actual,
-        activo=True
+    fecha_corte, limite_corte, _ = _fecha_corte_desde_request(request)
+    productos_queryset = _productos_para_informe_inventario(
+        empresa_actual, limite_corte
     ).order_by('referencia', 'color_id', 'talla')
 
     # Re-aplicar los mismos filtros que en la vista principal
@@ -2040,12 +2138,16 @@ def exportar_inventario_excel(request):
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
     if nombre_q:
         productos_queryset = productos_queryset.filter(nombre__icontains=nombre_q)
+    # Igual que en la vista: la bodega y el stock salen de MovimientoInventario,
+    # no del campo estático 'ubicacion' (que no cambia con los traslados).
+    filtro_mov = Q(movimientos__fecha_hora__lt=limite_corte) if limite_corte else Q()
     if bodega_q:
-        productos_queryset = productos_queryset.filter(ubicacion_id=bodega_q)
+        productos_queryset = productos_queryset.filter(movimientos__bodega_id=bodega_q).distinct()
+        filtro_mov &= Q(movimientos__bodega_id=bodega_q)
 
     # Anotamos el stock en una sola consulta (evita N+1 al recorrer 'stock_actual' por producto)
     productos_queryset = productos_queryset.select_related('ubicacion', 'color').annotate(
-        stock_actual_calculado=Coalesce(Sum('movimientos__cantidad'), Value(0))
+        stock_actual_calculado=Coalesce(Sum('movimientos__cantidad', filter=filtro_mov), Value(0))
     )
 
     # Crear el archivo Excel en memoria
@@ -2104,11 +2206,33 @@ def exportar_inventario_excel(request):
     for indice, encabezado in enumerate(headers, start=1):
         sheet.column_dimensions[openpyxl.utils.get_column_letter(indice)].width = max(len(encabezado) + 2, 14)
 
+    nombre_archivo = 'informe_inventario.xlsx'
+    if fecha_corte:
+        nombre_archivo = f'inventario_al_{fecha_corte.strftime("%Y-%m-%d")}.xlsx'
+        sheet.title = f'Inventario al {fecha_corte.strftime("%d-%m-%Y")}'
+        # La misma nota que se muestra en pantalla, en una hoja aparte.
+        nota = _nota_inventario_a_fecha(fecha_corte)
+        hoja_nota = workbook.create_sheet('Nota')
+        hoja_nota.column_dimensions['A'].width = 130
+        negrita = openpyxl.styles.Font(bold=True)
+        ajuste = openpyxl.styles.Alignment(wrap_text=True, vertical='top')
+        filas_nota = [(f'Inventario al {fecha_corte.strftime("%d/%m/%Y")}', negrita), (nota['resumen'], None), ('', None),
+                      ('SÍ se tiene en cuenta:', negrita)]
+        filas_nota += [(f'• {item}', None) for item in nota['incluye']]
+        filas_nota += [('', None), ('NO se tiene en cuenta / limitaciones:', negrita)]
+        filas_nota += [(f'• {item}', None) for item in nota['no_incluye']]
+        for texto, fuente in filas_nota:
+            hoja_nota.append([texto])
+            celda = hoja_nota.cell(row=hoja_nota.max_row, column=1)
+            celda.alignment = ajuste
+            if fuente:
+                celda.font = fuente
+
     # Preparar la respuesta HTTP
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename="informe_inventario.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
     workbook.save(response)
 
     return response
@@ -2127,10 +2251,14 @@ def informe_inventario_comparativo(request):
         messages.error(request, "No se ha podido identificar la empresa para este informe.")
         return redirect('core:index')
 
+    fecha_corte, limite_corte, error_fecha = _fecha_corte_desde_request(request)
+    if error_fecha:
+        messages.warning(request, error_fecha)
+
     referencia_q = request.GET.get('referencia', '').strip()
     nombre_q = request.GET.get('nombre', '').strip()
 
-    productos_queryset = Producto.objects.filter(empresa=empresa_actual, activo=True)
+    productos_queryset = _productos_para_informe_inventario(empresa_actual, limite_corte)
     if referencia_q:
         productos_queryset = productos_queryset.filter(referencia__icontains=referencia_q)
     if nombre_q:
@@ -2146,9 +2274,10 @@ def informe_inventario_comparativo(request):
     stock_map = {}
     if productos_pagina:
         producto_ids = [p.pk for p in productos_pagina]
-        filas_stock = MovimientoInventario.objects.filter(
-            producto_id__in=producto_ids
-        ).values('producto_id', 'bodega_id').annotate(total=Sum('cantidad'))
+        filas_stock = MovimientoInventario.objects.filter(producto_id__in=producto_ids)
+        if limite_corte:
+            filas_stock = filas_stock.filter(fecha_hora__lt=limite_corte)
+        filas_stock = filas_stock.values('producto_id', 'bodega_id').annotate(total=Sum('cantidad'))
         for fila in filas_stock:
             stock_map[(fila['producto_id'], fila['bodega_id'])] = fila['total'] or 0
 
@@ -2161,8 +2290,15 @@ def informe_inventario_comparativo(request):
             'total': sum(valores_por_bodega),
         })
 
+    if fecha_corte:
+        titulo = f'Comparativo de Stock por Bodega al {fecha_corte.strftime("%d/%m/%Y")} ({empresa_actual.nombre})'
+    else:
+        titulo = f'Comparativo de Stock por Bodega ({empresa_actual.nombre})'
+
     context = {
-        'titulo': f'Comparativo de Stock por Bodega ({empresa_actual.nombre})',
+        'titulo': titulo,
+        'fecha_corte': fecha_corte,
+        'nota_fecha_corte': _nota_inventario_a_fecha(fecha_corte) if fecha_corte else None,
         'bodegas': bodegas,
         'filas': filas,
         'page_obj': page_obj,

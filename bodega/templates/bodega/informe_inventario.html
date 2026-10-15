@@ -13,7 +13,7 @@
             </h1>
         </div>
         <div class="col-md-4 text-md-end mt-3 mt-md-0">
-            <a href="{% url 'bodega:informe_inventario_comparativo' %}" class="btn btn-outline-primary btn-lg rounded-pill shadow-sm me-2">
+            <a href="{% url 'bodega:informe_inventario_comparativo' %}{% if fecha_corte %}?fecha_corte={{ fecha_corte|date:'Y-m-d' }}{% endif %}" class="btn btn-outline-primary btn-lg rounded-pill shadow-sm me-2">
                 <i class="fas fa-columns me-2"></i> Comparativo por Bodega
             </a>
             <a href="{% url 'bodega:exportar_inventario_excel' %}?{{ filtros_activos.urlencode }}" class="btn btn-success btn-lg rounded-pill shadow-sm">
@@ -74,13 +74,17 @@
         <div class="card-body p-4">
             <form method="get" action="">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="ref" class="form-label fw-semibold">Referencia</label>
                         <input type="text" name="referencia" id="ref" class="form-control rounded-pill" value="{{ filtros_activos.referencia }}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="nombre" class="form-label fw-semibold">Descripción</label>
                         <input type="text" name="nombre" id="nombre" class="form-control rounded-pill" value="{{ filtros_activos.nombre }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="fecha_corte" class="form-label fw-semibold">Inventario al</label>
+                        <input type="date" name="fecha_corte" id="fecha_corte" class="form-control rounded-pill" value="{{ fecha_corte|date:'Y-m-d' }}" title="Vacío = inventario actual">
                     </div>
                     <div class="col-md-3">
                         <label for="bodega" class="form-label fw-semibold">Bodega</label>
@@ -103,6 +107,8 @@
             </form>
         </div>
     </div>
+
+    {% include 'bodega/_nota_inventario_fecha_corte.html' %}
 
     {% if generos_no_reconocidos %}
     <div class="alert alert-warning d-flex align-items-center" role="alert">

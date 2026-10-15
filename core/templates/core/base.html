@@ -358,7 +358,8 @@
                         {% endif %}{% endif %}
                         {% if es_bodega or es_administracion or es_diseno %}
                             {% if 'bodega:informe_inventario' not in items_desactivados or 'informes:informe_ingresos_bodega' not in items_desactivados %}<li><hr class="dropdown-divider"></li>{% endif %}
-                            {% if 'bodega:informe_inventario' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}">Inventario Físico</a></li>{% endif %}
+                            {% if 'bodega:informe_inventario' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}">Inventario Físico</a></li>
+                            <li><a class="dropdown-item" href="{% url 'bodega:informe_inventario' %}?fecha_corte={% now 'Y-m-d' %}">Inventario a una Fecha</a></li>{% endif %}
                             {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}<li><a class="dropdown-item" href="{% url 'informes:informe_ingresos_bodega' %}">Informe de Ingresos</a></li>{% endif %}
                         {% endif %}
                         {% if es_bodega or es_administracion %}
@@ -693,7 +694,8 @@
                                 <a href="{% url 'bodega:visibilidad_productos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Ocultar Referencias a Vendedores externos</a>
                             {% endif %}{% endif %}
                             {% if es_bodega or es_administracion or es_diseno %}
-                                {% if 'bodega:informe_inventario' not in items_desactivados %}<a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>{% endif %}
+                                {% if 'bodega:informe_inventario' not in items_desactivados %}<a href="{% url 'bodega:informe_inventario' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario Físico</a>
+                                <a href="{% url 'bodega:informe_inventario' %}?fecha_corte={% now 'Y-m-d' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Inventario a una Fecha</a>{% endif %}
                                 {% if 'informes:informe_ingresos_bodega' not in items_desactivados %}<a href="{% url 'informes:informe_ingresos_bodega' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe de Ingresos</a>{% endif %}
                             {% endif %}
                             {% if es_bodega or es_administracion %}

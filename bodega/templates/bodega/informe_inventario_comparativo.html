@@ -23,13 +23,17 @@
     <div class="card shadow-lg border-0 rounded-3 mb-4">
         <div class="card-body p-4">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="referencia" class="form-label fw-semibold">Referencia</label>
                     <input type="text" name="referencia" id="referencia" class="form-control rounded-pill" value="{{ filtros_activos.referencia }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="nombre" class="form-label fw-semibold">Descripción</label>
                     <input type="text" name="nombre" id="nombre" class="form-control rounded-pill" value="{{ filtros_activos.nombre }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_corte" class="form-label fw-semibold">Inventario al</label>
+                    <input type="date" name="fecha_corte" id="fecha_corte" class="form-control rounded-pill" value="{{ fecha_corte|date:'Y-m-d' }}" title="Vacío = inventario actual">
                 </div>
                 <div class="col-md-4 d-grid gap-2 d-md-flex">
                     <button type="submit" class="btn btn-primary rounded-pill shadow-sm">
@@ -42,6 +46,8 @@
             </form>
         </div>
     </div>
+
+    {% include 'bodega/_nota_inventario_fecha_corte.html' %}
 
     <div class="card shadow-lg border-0 rounded-3">
         <div class="card-header bg-gradient bg-primary text-white py-3 rounded-top-3">

@@ -1,0 +1,28 @@
+{# Nota explicativa del inventario calculado a una fecha de corte. Requiere 'nota_fecha_corte' en el contexto. #}
+{% if nota_fecha_corte %}
+<div class="alert alert-info shadow-sm mb-4" role="note">
+    <h5 class="alert-heading">
+        <i class="fas fa-info-circle me-2"></i> Inventario a la fecha {{ fecha_corte|date:"d/m/Y" }}: qué se tiene en cuenta
+    </h5>
+    <p class="mb-2">{{ nota_fecha_corte.resumen }}</p>
+    <a class="small" data-bs-toggle="collapse" href="#detalleNotaFechaCorte" role="button" aria-expanded="false" aria-controls="detalleNotaFechaCorte">
+        <i class="fas fa-chevron-down me-1"></i> Ver detalle
+    </a>
+    <div class="collapse mt-3" id="detalleNotaFechaCorte">
+        <div class="row">
+            <div class="col-lg-6">
+                <h6 class="fw-bold text-success"><i class="fas fa-check-circle me-1"></i> Sí se tiene en cuenta</h6>
+                <ul class="small mb-3">
+                    {% for item in nota_fecha_corte.incluye %}<li>{{ item }}</li>{% endfor %}
+                </ul>
+            </div>
+            <div class="col-lg-6">
+                <h6 class="fw-bold text-danger"><i class="fas fa-exclamation-circle me-1"></i> No se tiene en cuenta / limitaciones</h6>
+                <ul class="small mb-0">
+                    {% for item in nota_fecha_corte.no_incluye %}<li>{{ item }}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
