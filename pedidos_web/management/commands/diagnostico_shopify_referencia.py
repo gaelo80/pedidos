@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand
 
 from pedidos_web import shopify_api
 from pedidos_web.views import _obtener_todos_los_productos_shopify
-from productos.models import Producto
+from productos.models import Producto, ReferenciaColor
 
 
 class Command(BaseCommand):
@@ -102,6 +102,29 @@ class Command(BaseCommand):
                 problemas += 1
             self.stdout.write(linea)
 
+        # Enlace a nivel de producto (referencia+color -> producto de Shopify).
+        productos_por_id = {str(prod['id']): prod for prod in productos_shopify}
+        rc_a_desenlazar = []
+        self.stdout.write("\n=== REFERENCIA+COLOR Y SU PRODUCTO DE SHOPIFY ===")
+        for rc in ReferenciaColor.objects.filter(referencia_base__iexact=ref).order_by('empresa_id', 'color'):
+            linea = f"{rc.referencia_base} {rc.color} | empresa {rc.empresa_id} | producto {rc.shopify_product_id or '-'}"
+            if rc.shopify_product_id:
+                prod = productos_por_id.get(str(rc.shopify_product_id))
+                codigos_rc = {(c or '').strip().upper() for c in rc.variantes.values_list('codigo_barras', flat=True) if c}
+                codigos_prod = set()
+                for v in (prod or {}).get('variants', []):
+                    codigos_prod |= {(c or '').strip().upper() for c in (v.get('sku'), v.get('barcode')) if c}
+                if not prod:
+                    linea += "  <-- ese producto ya NO existe en Shopify"
+                    rc_a_desenlazar.append(rc)
+                elif not codigos_rc & codigos_prod:
+                    linea += f" -> '{prod.get('title')}'  <-- ENLACE CRUZADO: ninguno de sus códigos está en ese producto"
+                    rc_a_desenlazar.append(rc)
+                else:
+                    linea += f" -> '{prod.get('title')}'"
+            self.stdout.write(linea)
+        problemas += len(rc_a_desenlazar)
+
         self.stdout.write(f"\nProblemas encontrados: {problemas}")
 
         if options['reparar']:
@@ -110,9 +133,13 @@ class Command(BaseCommand):
                 p.shopify_inventory_item_id = None
                 p.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
                 self.stdout.write(f"Desenlazado: {etiqueta(p)}")
+            for rc in rc_a_desenlazar:
+                rc.shopify_product_id = None
+                rc.save(update_fields=['shopify_product_id'])
+                self.stdout.write(f"Desenlazado producto: {rc.referencia_base} {rc.color}")
             self.stdout.write(
-                f"{len(a_desenlazar)} talla(s) desenlazada(s). Corrige SKU/código de barras en Shopify "
-                "y luego usa 'Sincronizar Referencias' en el Panel de Sincronización Web."
+                f"{len(a_desenlazar)} talla(s) y {len(rc_a_desenlazar)} producto(s) desenlazado(s). Corrige "
+                "SKU/código de barras en Shopify y luego usa 'Sincronizar Referencias' en el Panel de Sincronización Web."
             )
-        elif a_desenlazar:
-            self.stdout.write(f"Ejecuta de nuevo con --reparar para desenlazar esas {len(a_desenlazar)} talla(s).")
+        elif a_desenlazar or rc_a_desenlazar:
+            self.stdout.write("Ejecuta de nuevo con --reparar para desenlazar lo marcado.")

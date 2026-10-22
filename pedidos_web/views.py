@@ -471,8 +471,14 @@ def _enlazar_por_titulo_sin_codigo(empresa_id, headers, shop_url, productos_shop
                     pendientes.append(texto_conflicto)
 
             if not rc.shopify_product_id:
-                rc.shopify_product_id = str(producto_shopify['id'])
-                rc.save(update_fields=['shopify_product_id'])
+                try:
+                    rc.shopify_product_id = str(producto_shopify['id'])
+                    rc.save(update_fields=['shopify_product_id'])
+                except IntegrityError:
+                    pendientes.append(
+                        f"{rc.referencia_base} {rc.color}: el producto {producto_shopify['id']} de Shopify "
+                        "ya está enlazado a otro color en el sistema (revisar manualmente)."
+                    )
 
     return exitosos, pendientes
 

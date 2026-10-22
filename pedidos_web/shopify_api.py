@@ -64,6 +64,61 @@ def sku_y_barcode_en_conflicto(variant):
     return bool(sku and barcode and sku != barcode)
 
 
+def _codigos_variante(variant):
+    return {c.strip().upper() for c in (variant.get('sku'), variant.get('barcode')) if c and c.strip()}
+
+
+def liberar_variant_id_obsoleto(variant):
+    """
+    Si alguna talla local tiene enlazada esta variante de Shopify pero su
+    código de barras no es ni el SKU ni el código de barras de la variante,
+    ese enlace quedó viejo (ej. el código se corrigió en Shopify): se le
+    quita para que la talla correcta pueda tomarlo. Devuelve cuántos liberó.
+    """
+    from productos.models import Producto
+
+    codigos = _codigos_variante(variant)
+    liberados = 0
+    for otro in Producto.objects.filter(shopify_variant_id=str(variant['id'])):
+        if (otro.codigo_barras or '').strip().upper() not in codigos:
+            logger.warning(
+                f"Se libera el enlace viejo de {otro.referencia} {otro.color} talla {otro.talla} "
+                f"con la variante {variant['id']} (su código {otro.codigo_barras} ya no está en esa variante)."
+            )
+            otro.shopify_variant_id = None
+            otro.shopify_inventory_item_id = None
+            otro.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
+            liberados += 1
+    return liberados
+
+
+def liberar_product_id_obsoleto(producto_shopify, referencia_color):
+    """
+    Igual que liberar_variant_id_obsoleto, para el producto: si OTRO
+    referencia+color tiene enlazado este producto de Shopify pero ninguno de
+    sus códigos está en él, se le quita el enlace. Devuelve False si el otro
+    sí tiene códigos ahí (conflicto real que hay que revisar a mano).
+    """
+    from productos.models import ReferenciaColor
+
+    codigos_shopify = set()
+    for v in producto_shopify.get('variants', []):
+        codigos_shopify |= _codigos_variante(v)
+    otros = ReferenciaColor.objects.filter(shopify_product_id=str(producto_shopify['id'])).exclude(pk=referencia_color.pk)
+    for otro in otros:
+        codigos_otro = {(c or '').strip().upper() for c in otro.variantes.values_list('codigo_barras', flat=True) if c}
+        if codigos_otro & codigos_shopify:
+            return False
+    for otro in otros:
+        logger.warning(
+            f"Se libera el enlace viejo de {otro.referencia_base} {otro.color} con el producto "
+            f"{producto_shopify['id']} de Shopify (ninguno de sus códigos está en ese producto)."
+        )
+        otro.shopify_product_id = None
+        otro.save(update_fields=['shopify_product_id'])
+    return True
+
+
 def obtener_location_id():
     return config('SHOPIFY_LOCATION_ID', default='')
 
@@ -814,6 +869,7 @@ def auditar_y_corregir_catalogo(empresa, productos_shopify):
                 or not producto.shopify_inventory_item_id
             )
             if necesita_guardar:
+                liberar_variant_id_obsoleto(v)
                 try:
                     producto.shopify_variant_id = str(v['id'])
                     producto.shopify_inventory_item_id = str(v.get('inventory_item_id') or '')
@@ -833,8 +889,22 @@ def auditar_y_corregir_catalogo(empresa, productos_shopify):
                     })
 
         if str(rc.shopify_product_id or '') != str(shopify_id):
-            rc.shopify_product_id = shopify_id
-            rc.save(update_fields=['shopify_product_id'])
+            if not liberar_product_id_obsoleto(producto_shopify, rc):
+                pendientes_manual.append({
+                    'referencia': rc.referencia_base, 'color': rc.color,
+                    'motivo': f"el producto {shopify_id} de Shopify tiene códigos de este color y de otro (revisar manualmente)",
+                })
+                continue
+            try:
+                rc.shopify_product_id = shopify_id
+                rc.save(update_fields=['shopify_product_id'])
+            except IntegrityError:
+                logger.error(f"No se pudo enlazar {rc.referencia_base} {rc.color} con el producto {shopify_id}: ya está en uso.")
+                pendientes_manual.append({
+                    'referencia': rc.referencia_base, 'color': rc.color,
+                    'motivo': f"producto {shopify_id} de Shopify ya enlazado a otro color (revisar manualmente)",
+                })
+                continue
 
         titulo_actual = producto_shopify.get('title') or ''
         color_correcto = (rc.color or '').strip()
