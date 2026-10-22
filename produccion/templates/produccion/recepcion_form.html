@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 style="color: white;">Recibir de {{ remision.taller.nombre }}</h1>
+        <h1 class="fw-bold text-primary">Recibir de {{ remision.taller.nombre }}</h1>
         <a href="{% url 'produccion:remision_detalle' remision.pk %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver a {{ remision.numero }}</a>
     </div>
 

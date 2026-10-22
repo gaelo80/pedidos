@@ -7,9 +7,9 @@
 {% include "produccion/_documento_estilos.html" %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
-        <h1 style="color: white;" class="mb-0">Informe por Taller</h1>
+        <h1 class="mb-0 fw-bold text-primary">Informe por Taller</h1>
         <div class="d-flex gap-2">
-            {% if taller %}<button type="button" class="btn btn-light" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>{% endif %}
+            {% if taller %}<button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>{% endif %}
             <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
         </div>
     </div>

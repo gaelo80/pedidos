@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 style="color: white;" class="mb-0">Defectos de Calidad</h1>
+        <h1 class="mb-0 fw-bold text-primary">Defectos de Calidad</h1>
         <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
     </div>
     <div class="alert alert-info py-2 small">
@@ -14,9 +14,9 @@
     </div>
     <ul class="nav nav-pills mb-3">
         {% for valor, nombre in decisiones %}
-        <li class="nav-item"><a class="nav-link {% if decision == valor %}active{% else %}text-white{% endif %}" href="?decision={{ valor }}">{{ nombre }}</a></li>
+        <li class="nav-item"><a class="nav-link {% if decision == valor %}active{% endif %}" href="?decision={{ valor }}">{{ nombre }}</a></li>
         {% endfor %}
-        <li class="nav-item"><a class="nav-link {% if not decision %}active{% else %}text-white{% endif %}" href="?decision=">Todos</a></li>
+        <li class="nav-item"><a class="nav-link {% if not decision %}active{% endif %}" href="?decision=">Todos</a></li>
     </ul>
 
     {% for fila in filas %}{% with d=fila.defecto %}

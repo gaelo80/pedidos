@@ -6,9 +6,9 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h1 style="color: white;" class="mb-0">{{ orden.numero_orden }} · {{ orden.referencia_color }}</h1>
+        <h1 class="mb-0 fw-bold text-primary">{{ orden.numero_orden }} · {{ orden.referencia_color }}</h1>
         <div class="d-flex gap-2">
-            <a href="{% url 'produccion:tablero_lotes' %}?q={{ orden.numero_orden }}" class="btn btn-outline-light"><i class="fas fa-th-large"></i> Ver en tablero</a>
+            <a href="{% url 'produccion:tablero_lotes' %}?q={{ orden.numero_orden }}" class="btn btn-outline-primary"><i class="fas fa-th-large"></i> Ver en tablero</a>
             <a href="{% url 'produccion:orden_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
         </div>
     </div>

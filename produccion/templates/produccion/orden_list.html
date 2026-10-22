@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 style="color: white;">Órdenes de Producción</h1>
+        <h1 class="fw-bold text-primary">Órdenes de Producción</h1>
         <div>
             <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
             {% if puede_crear_orden %}<a href="{% url 'produccion:crear_orden' %}" class="btn btn-success"><i class="fas fa-plus"></i> Nueva Orden</a>{% endif %}

@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="mb-4" style="color: white;"><i class="fas fa-industry me-2"></i>Producción y Trazabilidad Textil</h1>
+    <h1 class="mb-4 fw-bold text-primary"><i class="fas fa-industry me-2"></i>Producción y Trazabilidad Textil</h1>
 
     {% if puede_administrar and falta_bodega_calidad or puede_administrar and sin_talleres %}
     <div class="alert alert-warning">
@@ -23,7 +23,7 @@
     </div>
     {% endif %}
 
-    <h5 class="text-white-50">Operación diaria</h5>
+    <h5 class="text-secondary fw-semibold">Operación diaria</h5>
     <div class="row g-4 mb-4">
         <div class="col-md-3">
             <a href="{% url 'produccion:tablero_lotes' %}" class="text-decoration-none">
@@ -65,7 +65,7 @@
         {% endif %}
     </div>
 
-    <h5 class="text-white-50">Consultas e informes</h5>
+    <h5 class="text-secondary fw-semibold">Consultas e informes</h5>
     <div class="row g-4 mb-4">
         <div class="col-md-3">
             <a href="{% url 'produccion:orden_list' %}" class="text-decoration-none">
@@ -99,7 +99,7 @@
     </div>
 
     {% if puede_administrar %}
-    <h5 class="text-white-50">Configuración</h5>
+    <h5 class="text-secondary fw-semibold">Configuración</h5>
     <div class="row g-4">
         <div class="col-md-3">
             <a href="{% url 'produccion:taller_list' %}" class="text-decoration-none">

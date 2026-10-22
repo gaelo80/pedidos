@@ -6,9 +6,9 @@
 {% include "produccion/_documento_estilos.html" %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
-        <h1 style="color: white;" class="mb-0">Remisión {{ remision.numero }}</h1>
+        <h1 class="mb-0 fw-bold text-primary">Remisión {{ remision.numero }}</h1>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-light" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
             {% if remision.abierta %}<a href="{% url 'produccion:recepcion_crear' remision.pk %}" class="btn btn-success"><i class="fas fa-inbox"></i> Registrar recepción</a>{% endif %}
             <a href="{% url 'produccion:remision_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Remisiones</a>
         </div>

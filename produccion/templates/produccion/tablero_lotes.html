@@ -6,9 +6,9 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h1 style="color: white;" class="mb-0">Tablero de Producción</h1>
+        <h1 class="mb-0 fw-bold text-primary">Tablero de Producción</h1>
         <div class="d-flex gap-2">
-            <a href="{% url 'produccion:remision_list' %}?abiertas=1" class="btn btn-outline-light"><i class="fas fa-truck"></i> Remisiones abiertas</a>
+            <a href="{% url 'produccion:remision_list' %}?abiertas=1" class="btn btn-outline-primary"><i class="fas fa-truck"></i> Remisiones abiertas</a>
             <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
         </div>
     </div>
