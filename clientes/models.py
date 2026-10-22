@@ -93,6 +93,9 @@ class Empresa(models.Model):
     shopify_sync_errores = models.PositiveIntegerField(default=0)
     shopify_sync_mensaje = models.CharField(max_length=255, blank=True, null=True)
     shopify_sync_actualizado_en = models.DateTimeField(blank=True, null=True)
+    # Casos del último 'Enlazar códigos' que necesitan atención (sin coincidencia,
+    # conflictos, revisión manual), para mostrarlos en el panel en vez de solo en el log.
+    shopify_sync_detalle = models.JSONField(default=list, blank=True)
 
     def save(self, *args, **kwargs):
         if self.codigo_ean13_empresa is None:

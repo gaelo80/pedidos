@@ -457,16 +457,21 @@ def _enlazar_por_titulo_sin_codigo(empresa_id, headers, shop_url, productos_shop
                     producto_local.save(update_fields=['shopify_variant_id', 'shopify_inventory_item_id'])
                     exitosos += 1
                 except IntegrityError:
-                    logger.error(
+                    texto_conflicto = (
                         f"No se pudo enlazar {rc.referencia_base} {rc.color} talla {producto_local.talla}: "
-                        f"shopify_variant_id {variant_shopify['id']} ya está en uso por otro producto."
+                        f"la variante {variant_shopify['id']} de Shopify ya está enlazada a otro producto."
                     )
+                    logger.error(texto_conflicto)
+                    pendientes.append(texto_conflicto)
 
             if not rc.shopify_product_id:
                 rc.shopify_product_id = str(producto_shopify['id'])
                 rc.save(update_fields=['shopify_product_id'])
 
     return exitosos, pendientes
+
+
+_MAX_DETALLE_SYNC = 1000  # tope de casos guardados para el panel
 
 
 def _hilo_enlazar_productos(empresa_id, headers, shop_url):
@@ -477,6 +482,7 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
         total = len(variantes)
         exitosos = 0
         errores = 0
+        detalle = []  # casos a mostrar en el panel al terminar
 
         for indice, (item, variant) in enumerate(variantes, start=1):
             # Se prefiere 'barcode' sobre 'sku': es el campo que este sistema
@@ -499,13 +505,22 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
                             # mismo código). Se registra como error y se sigue con
                             # el resto, en vez de abortar todo el enlace.
                             errores += 1
-                            logger.error(
+                            texto_conflicto = (
                                 f"No se pudo enlazar {producto_local.referencia} talla "
-                                f"{producto_local.talla}: shopify_variant_id "
-                                f"{variant.get('id')} ya está en uso por otro producto."
+                                f"{producto_local.talla}: la variante {variant.get('id')} de "
+                                f"Shopify ya está enlazada a otro producto (código repetido en Shopify)."
                             )
+                            logger.error(texto_conflicto)
+                            detalle.append({'tipo': 'Conflicto', 'texto': texto_conflicto})
                 elif not Producto.objects.filter(codigo_barras__iexact=sku_shopify.strip()).exists():
                     errores += 1
+                    detalle.append({
+                        'tipo': 'Sin coincidencia',
+                        'texto': (
+                            f"{item.get('title', '(sin título)')} — talla {variant.get('option1') or '-'}: "
+                            f"el código {sku_shopify.strip()} está en Shopify pero no existe en el sistema."
+                        ),
+                    })
 
             if indice % 5 == 0 or indice == total:
                 _actualizar_progreso_sync(empresa_id, indice, exitosos, errores, f"Procesando {indice} de {total}...", total=total)
@@ -518,8 +533,12 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
         if exitosos_titulo:
             mensaje += f" ({exitosos_titulo} de ellos por título, sin código de barras -- ya se corrigió en Shopify)."
         if pendientes_titulo:
-            mensaje += f" {len(pendientes_titulo)} caso(s) requieren revisión manual (ver logs)."
+            mensaje += f" {len(pendientes_titulo)} caso(s) requieren revisión manual."
+        detalle += [{'tipo': 'Revisión manual', 'texto': texto} for texto in pendientes_titulo]
+        if detalle:
+            mensaje += " Ver el detalle abajo."
         logger.warning(f"Enlazar productos (empresa {empresa_id}) -- pendientes por título: {pendientes_titulo}")
+        Empresa.objects.filter(pk=empresa_id).update(shopify_sync_detalle=detalle[:_MAX_DETALLE_SYNC])
         _finalizar_sync(empresa_id, mensaje[:255])
     except Exception as e:
         _finalizar_sync(empresa_id, f"Error: {str(e)}")
@@ -619,9 +638,11 @@ def panel_sincronizacion_shopify(request):
             empresa_actual.shopify_sync_procesados = 0
             empresa_actual.shopify_sync_exitosos = 0
             empresa_actual.shopify_sync_errores = 0
+            empresa_actual.shopify_sync_detalle = []
             empresa_actual.save(update_fields=[
                 'shopify_sync_activo', 'shopify_sync_accion', 'shopify_sync_mensaje',
                 'shopify_sync_total', 'shopify_sync_procesados', 'shopify_sync_exitosos', 'shopify_sync_errores',
+                'shopify_sync_detalle',
             ])
             threading.Thread(target=_hilo_enlazar_productos, args=(empresa_actual.pk, headers, shop_url), daemon=True).start()
             messages.success(request, "Se inició el enlace de productos en segundo plano — sigue el progreso abajo.")
@@ -638,9 +659,11 @@ def panel_sincronizacion_shopify(request):
                 empresa_actual.shopify_sync_procesados = 0
                 empresa_actual.shopify_sync_exitosos = 0
                 empresa_actual.shopify_sync_errores = 0
+                empresa_actual.shopify_sync_detalle = []
                 empresa_actual.save(update_fields=[
                     'shopify_sync_activo', 'shopify_sync_accion', 'shopify_sync_mensaje',
                     'shopify_sync_total', 'shopify_sync_procesados', 'shopify_sync_exitosos', 'shopify_sync_errores',
+                    'shopify_sync_detalle',
                 ])
                 threading.Thread(target=_hilo_subir_inventario, args=(empresa_actual.pk, headers, shop_url, location_id), daemon=True).start()
                 messages.success(request, "Se inició la actualización de inventario en segundo plano — sigue el progreso abajo.")
@@ -670,6 +693,7 @@ def panel_sincronizacion_shopify(request):
         'sync_exitosos': empresa_actual.shopify_sync_exitosos,
         'sync_errores': empresa_actual.shopify_sync_errores,
         'sync_mensaje': empresa_actual.shopify_sync_mensaje,
+        'sync_detalle': empresa_actual.shopify_sync_detalle or [],
     }
     return render(request, 'pedidos_web/sincronizacion_shopify.html', context)
 

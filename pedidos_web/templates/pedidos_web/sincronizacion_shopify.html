@@ -49,6 +49,41 @@
         </div>
     </div>
 
+    {% if sync_detalle and not sync_activo %}
+    <div class="card shadow-sm mb-4 border-warning">
+        <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+            <span>⚠️ Detalle del último enlace: {{ sync_detalle|length }} caso(s) por revisar</span>
+            <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#detalleSync" aria-expanded="true" aria-controls="detalleSync">
+                Mostrar / ocultar
+            </button>
+        </div>
+        <div id="detalleSync" class="collapse show">
+            <div class="card-body p-0">
+                <p class="small text-muted px-3 pt-3 mb-2">
+                    <b>Sin coincidencia:</b> el código de barras de esa talla en Shopify no existe en el sistema; corrige el SKU/código en Shopify o crea el producto aquí.
+                    <b>Revisión manual:</b> producto de Shopify sin código de barras que no se pudo emparejar con seguridad; enlázalo desde Catálogo Shopify o escribe el código en Shopify.
+                    <b>Conflicto:</b> dos variantes de Shopify tienen el mismo código; deja una sola con ese código.
+                </p>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="table-light" style="position: sticky; top: 0;">
+                            <tr><th style="width: 150px;">Tipo</th><th>Detalle</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for caso in sync_detalle %}
+                            <tr>
+                                <td><span class="badge {% if caso.tipo == 'Conflicto' %}bg-danger{% elif caso.tipo == 'Revisión manual' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ caso.tipo }}</span></td>
+                                <td class="small">{{ caso.texto }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 <!-- NUEVA BARRA DE BÚSQUEDA -->
     <div class="card shadow-sm mb-4">
         <div class="card-body">
