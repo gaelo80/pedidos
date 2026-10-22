@@ -54,6 +54,16 @@ def obtener_headers():
     }
 
 
+def sku_y_barcode_en_conflicto(variant):
+    """True si la variante de Shopify tiene SKU y código de barras, pero
+    distintos. Pasa al duplicar un producto en Shopify y corregir solo uno de
+    los dos campos: enlazar por cualquiera de ellos podría conectar la talla
+    con el color equivocado, así que esas variantes no se enlazan."""
+    sku = (variant.get('sku') or '').strip().upper()
+    barcode = (variant.get('barcode') or '').strip().upper()
+    return bool(sku and barcode and sku != barcode)
+
+
 def obtener_location_id():
     return config('SHOPIFY_LOCATION_ID', default='')
 
@@ -756,7 +766,7 @@ def auditar_y_corregir_catalogo(empresa, productos_shopify):
     for p in productos_shopify:
         for v in p.get('variants', []):
             bc = v.get('barcode')
-            if bc:
+            if bc and not sku_y_barcode_en_conflicto(v):
                 indice_barcode[bc] = p['id']
 
     colores_conocidos = list(Color.objects.filter(empresa=empresa).values_list('nombre', flat=True))

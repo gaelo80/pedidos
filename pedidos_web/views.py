@@ -249,6 +249,12 @@ def webhook_producto_shopify(request):
             
             if not sku_shopify:
                 continue # Si no le pusieron SKU en Shopify, lo ignoramos
+            if shopify_api.sku_y_barcode_en_conflicto(variant):
+                logger.warning(
+                    f"Webhook producto Shopify: variante {variant_id} con SKU {variant.get('sku')} y "
+                    f"código de barras {variant.get('barcode')} distintos; no se enlaza."
+                )
+                continue
 
             # 3. Buscamos el producto en TU base de datos usando el código de barras
             # Asumo que tu campo se llama 'codigo_barras', cámbialo si se llama distinto
@@ -489,7 +495,17 @@ def _hilo_enlazar_productos(empresa_id, headers, shop_url):
             # controla de forma consistente; el 'sku' puede haber quedado
             # desactualizado por una edición manual o un error histórico.
             sku_shopify = variant.get('barcode') or variant.get('sku')
-            if sku_shopify:
+            if shopify_api.sku_y_barcode_en_conflicto(variant):
+                errores += 1
+                detalle.append({
+                    'tipo': 'Conflicto',
+                    'texto': (
+                        f"{item.get('title', '(sin título)')} — talla {variant.get('option1') or '-'}: "
+                        f"el SKU ({variant.get('sku')}) y el código de barras ({variant.get('barcode')}) "
+                        f"son distintos en Shopify. No se enlazó; deja el mismo código en los dos campos."
+                    ),
+                })
+            elif sku_shopify:
                 producto_local = Producto.objects.filter(
                     empresa_id=empresa_id, activo=True, codigo_barras__iexact=sku_shopify.strip()
                 ).first()
