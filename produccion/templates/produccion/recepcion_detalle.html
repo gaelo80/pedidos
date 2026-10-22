@@ -1,0 +1,55 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Recepción {{ recepcion.numero }}{% endblock %}
+
+{% block content %}
+{% include "produccion/_documento_estilos.html" %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">Recepción {{ recepcion.numero }}</h1>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+            <a href="{% url 'produccion:remision_detalle' recepcion.remision.pk %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Ver {{ recepcion.remision.numero }}</a>
+        </div>
+    </div>
+
+    <div id="documento" class="mb-5">
+        {% include "produccion/_documento_encabezado.html" with titulo_documento="Comprobante de recepción" numero_documento=recepcion.numero %}
+        <div class="row small mb-3">
+            <div class="col-6">
+                <div><strong>Taller:</strong> {{ recepcion.remision.taller.nombre }}</div>
+                {% if recepcion.remision.taller.nit %}<div><strong>NIT/CC:</strong> {{ recepcion.remision.taller.nit }}</div>{% endif %}
+                <div><strong>Remisión:</strong> {{ recepcion.remision.numero }} del {{ recepcion.remision.fecha_hora|date:"d/m/Y" }}</div>
+            </div>
+            <div class="col-6 text-end">
+                <div><strong>Fecha:</strong> {{ recepcion.fecha_hora|date:"d/m/Y h:i a" }}</div>
+                <div><strong>Proceso:</strong> {{ recepcion.remision.etapa.nombre }}</div>
+                <div><strong>Recibió:</strong> {{ recepcion.usuario.get_full_name|default:recepcion.usuario.username }}</div>
+            </div>
+        </div>
+
+        <table class="table table-bordered table-sm">
+            <thead class="table-light"><tr><th>OP</th><th>Lote</th><th>Referencia</th><th>Talla</th><th class="text-end">Recibidas</th><th class="text-end">Faltantes (cierre)</th></tr></thead>
+            <tbody>
+                {% for l in recepcion.lineas.all %}
+                <tr>
+                    <td>{{ l.remision_linea.lote.orden.numero_orden }}</td>
+                    <td>{{ l.remision_linea.lote.numero_lote }}</td>
+                    <td>{{ l.remision_linea.lote.orden.referencia_color }}</td>
+                    <td>{{ l.remision_linea.lote.talla }}</td>
+                    <td class="text-end">{{ l.cantidad_recibida }}</td>
+                    <td class="text-end">{{ l.cantidad_faltante|default:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="small mb-1">Las unidades recibidas se cuentan para el pago al taller. Las faltantes no se pagan. Los defectos que se encuentren en Control de Calidad se informarán por separado.</p>
+        {% if recepcion.observaciones %}<p class="small"><strong>Observaciones:</strong> {{ recepcion.observaciones }}</p>{% endif %}
+
+        <div class="row">
+            <div class="col-6"><div class="firma">Recibió ({{ request.tenant.nombre }})</div></div>
+            <div class="col-6"><div class="firma">Entregó ({{ recepcion.remision.taller.nombre }}) — Nombre, cédula y firma</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

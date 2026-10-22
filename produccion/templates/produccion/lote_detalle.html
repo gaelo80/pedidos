@@ -1,0 +1,92 @@
+{% extends "core/base.html" %}
+{% load produccion_tags %}
+
+{% block page_title %}Lote {{ lote.numero_lote }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">Lote {{ lote.numero_lote }}</h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'produccion:detalle_orden' lote.orden.pk %}" class="btn btn-outline-light">Ver {{ lote.orden.numero_orden }}</a>
+            <a href="{% url 'produccion:tablero_lotes' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Tablero</a>
+        </div>
+    </div>
+
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-body row">
+            <div class="col-md-4"><strong>Referencia:</strong> {{ lote.orden.referencia_color }}</div>
+            <div class="col-md-2"><strong>Talla:</strong> {{ lote.talla }}</div>
+            <div class="col-md-3"><strong>Cortadas:</strong> {% if lote.por_cortar %}<span class="text-muted">Por cortar</span>{% else %}{{ lote.cantidad_inicial }}{% endif %}</div>
+            <div class="col-md-3"><strong>Estado:</strong> <span class="badge {% if lote.estado == 'TERMINADO' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ lote.get_estado_display }}</span></div>
+            <div class="col-12 small mt-2">
+                En proceso: <strong>{{ resumen.en_proceso }}</strong> · En bodega: <strong>{{ resumen.en_bodega }}</strong> ·
+                Segundas/terceras: <strong>{{ resumen.defectuosas }}</strong> · Faltantes de taller: <strong>{{ resumen.faltantes }}</strong> · Pérdidas en planta: <strong>{{ resumen.perdidas }}</strong>
+            </div>
+        </div>
+    </div>
+
+    {% if lote.por_cortar %}
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-header"><h5 class="mb-0">Registrar corte</h5></div>
+        <div class="card-body">
+            <form method="post" action="{% url 'produccion:registrar_corte' lote.pk %}">{% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {{ corte_form.as_p }}
+                <button class="btn btn-info">Registrar corte</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="card bg-light text-dark mb-3">
+                <div class="card-header"><h5 class="mb-0">Dónde está ahora</h5></div>
+                <div class="card-body">
+                    {% for p in partidas_abiertas %}
+                    <div class="d-flex justify-content-between border-bottom py-1 {% if p.atrasada %}text-danger fw-bold{% endif %}">
+                        <span>{{ p.numero }} · {{ p.etapa.nombre }}{% if p.taller %} – <i class="fas fa-truck"></i> {{ p.taller.nombre }}{% endif %}</span>
+                        <span><span class="badge bg-dark">{{ p.cantidad }} u.</span> {{ p.tiempo_aqui|duracion }}{% if p.atrasada %} <i class="fas fa-exclamation-triangle"></i>{% endif %}</span>
+                    </div>
+                    {% empty %}<p class="text-muted mb-0">{% if lote.por_cortar %}Esperando corte.{% else %}No quedan unidades en proceso.{% endif %}</p>{% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card bg-light text-dark mb-3">
+                <div class="card-header"><h5 class="mb-0">Tiempo por etapa</h5></div>
+                <div class="card-body">
+                    {% for etapa, tiempo in tiempos_por_etapa %}
+                    <div class="d-flex justify-content-between border-bottom py-1"><span>{{ etapa }}</span><strong>{{ tiempo|duracion }}</strong></div>
+                    {% empty %}<p class="text-muted mb-0">Aún no hay etapas terminadas.</p>{% endfor %}
+                    <p class="small text-muted mt-2 mb-0">Suma del tiempo de todas las partes del lote en cada etapa ya recorrida.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-light text-dark mb-5">
+        <div class="card-header"><h5 class="mb-0">Historial completo</h5></div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-striped align-middle">
+                <thead><tr><th>Fecha</th><th>Movimiento</th><th>Etapa / taller</th><th class="text-end">Cant.</th><th>Duró</th><th>Documento</th><th>Usuario</th><th>Novedades</th></tr></thead>
+                <tbody>
+                    {% for m in lote.movimientos.all %}
+                    <tr>
+                        <td class="small">{{ m.fecha_hora|date:"d/m/Y h:i a" }}</td>
+                        <td>{{ m.get_tipo_display }}</td>
+                        <td class="small">{{ m.etapa.nombre }}{% if m.taller %} – {{ m.taller.nombre }}{% endif %}</td>
+                        <td class="text-end">{% if m.tipo == 'CALIDAD' %}{{ m.cantidad_segunda }} 2ª / {{ m.cantidad_tercera }} 3ª{% else %}{{ m.cantidad|default_if_none:"" }}{% endif %}</td>
+                        <td class="small">{{ m.duracion|duracion }}</td>
+                        <td class="small">{{ m.documento }}</td>
+                        <td class="small">{{ m.usuario.get_full_name|default:m.usuario.username }}</td>
+                        <td class="small">{{ m.observaciones|default:"" }}</td>
+                    </tr>
+                    {% empty %}<tr><td colspan="8" class="text-center text-muted">Sin movimientos.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

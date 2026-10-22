@@ -1,0 +1,177 @@
+{% extends "core/base.html" %}
+{% load produccion_tags %}
+
+{% block page_title %}Tablero de Producción{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">Tablero de Producción</h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'produccion:remision_list' %}?abiertas=1" class="btn btn-outline-light"><i class="fas fa-truck"></i> Remisiones abiertas</a>
+            <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+        </div>
+    </div>
+
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar OP, lote o referencia (ej. OP-00012, 1926)" value="{{ q }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="taller" class="form-select form-select-sm">
+                        <option value="">Todos los talleres</option>
+                        {% for t in talleres %}<option value="{{ t.pk }}" {% if taller_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2"><button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button></div>
+                {% if q or taller_id %}<div class="col-md-2"><a href="{% url 'produccion:tablero_lotes' %}" class="btn btn-outline-secondary btn-sm w-100">Limpiar</a></div>{% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="d-flex flex-nowrap overflow-auto pb-3" style="gap: 1rem;">
+        {% for columna in columnas %}
+        <div style="min-width: 290px; max-width: 310px; flex: 0 0 auto;">
+            <div class="card bg-light text-dark h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>{{ columna.etapa.nombre }}</strong>
+                        <span class="badge bg-secondary" title="Unidades en esta etapa">{{ columna.unidades }} u.</span>
+                    </div>
+                    <div class="small text-muted">
+                        {% if columna.etapa.es_externa %}<i class="fas fa-truck"></i> Taller externo · {% endif %}alerta a los {{ columna.etapa.dias_alerta }} día(s)
+                        {% if columna.atrasadas %}<span class="badge bg-warning text-dark ms-1">{{ columna.atrasadas }} atrasada(s)</span>{% endif %}
+                    </div>
+                </div>
+                <div class="card-body p-2" style="max-height: 72vh; overflow-y: auto;">
+
+                    {% for item in columna.por_cortar %}
+                    <div class="card mb-2 border-info border-2">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between"><strong>{{ item.lote.numero_lote }}</strong><span class="badge bg-info text-dark">Por cortar</span></div>
+                            <div class="small text-muted">{{ item.lote.orden.referencia_color }} · Talla {{ item.lote.talla }}</div>
+                            <div class="small text-muted">OP creada hace {{ item.tiempo|duracion }}</div>
+                            <button type="button" class="btn btn-info btn-sm w-100 mt-2" data-bs-toggle="modal" data-bs-target="#modalCorte"
+                                    data-url="{% url 'produccion:registrar_corte' item.lote.pk %}" data-titulo="{{ item.lote.numero_lote }} – Talla {{ item.lote.talla }}">
+                                <i class="fas fa-cut"></i> Registrar corte
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% for fila in columna.filas %}{% with p=fila.partida %}
+                    <div class="card mb-2 {% if p.atrasada %}border-warning border-2{% endif %}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <a href="{% url 'produccion:detalle_lote' p.lote.pk %}" class="fw-bold text-decoration-none">{{ p.numero }}</a>
+                                <span class="badge bg-dark">{{ p.cantidad }} u.</span>
+                            </div>
+                            <div class="small text-muted">{{ p.lote.orden.referencia_color }} · Talla {{ p.lote.talla }}</div>
+                            {% if p.taller %}
+                            <div class="small"><i class="fas fa-truck text-primary"></i> <strong>{{ p.taller.nombre }}</strong>
+                                {% if p.remision_linea %}· <a href="{% url 'produccion:remision_detalle' p.remision_linea.remision.pk %}">{{ p.remision_linea.remision.numero }}</a>{% endif %}
+                            </div>
+                            {% elif columna.etapa.es_externa %}
+                            <div class="small text-secondary"><i class="fas fa-box"></i> En planta, por enviar a taller</div>
+                            {% endif %}
+                            <div class="small {% if p.atrasada %}text-warning fw-bold{% else %}text-muted{% endif %}">
+                                {% if p.atrasada %}<i class="fas fa-exclamation-triangle"></i> {% endif %}{{ p.tiempo_aqui|duracion }} aquí
+                            </div>
+                            <div class="mt-2">
+                                {% if p.taller %}
+                                    <a href="{% url 'produccion:recepcion_crear' p.remision_linea.remision.pk %}" class="btn btn-success btn-sm w-100"><i class="fas fa-inbox"></i> Recibir del taller</a>
+                                {% elif columna.etapa.es_externa %}
+                                    <a href="{% url 'produccion:remision_crear' %}?etapa={{ columna.etapa.pk }}&partida={{ p.pk }}" class="btn btn-primary btn-sm w-100"><i class="fas fa-truck"></i> Enviar a taller</a>
+                                {% elif columna.etapa.es_control_calidad %}
+                                    <button type="button" class="btn btn-warning btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalCalidad"
+                                            data-url="{% url 'produccion:registrar_partida' p.pk %}" data-titulo="{{ p.numero }} ({{ p.cantidad }} u.)" data-cantidad="{{ p.cantidad }}">
+                                        <i class="fas fa-search"></i> Clasificar
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalPasar"
+                                            data-url="{% url 'produccion:registrar_partida' p.pk %}" data-titulo="{{ p.numero }} ({{ p.cantidad }} u.)" data-cantidad="{{ p.cantidad }}"
+                                            data-bodega="{{ columna.etapa.es_ingreso_bodega|yesno:'1,0' }}">
+                                        <i class="fas fa-arrow-right"></i> {% if columna.etapa.es_ingreso_bodega %}Ingresar a bodega{% else %}Pasar a siguiente etapa{% endif %}
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}{% empty %}
+                    {% if not columna.por_cortar %}<p class="text-muted small text-center mb-0">Nada aquí.</p>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">No hay etapas activas configuradas. <a href="{% url 'produccion:etapa_create' %}">Crea una primero.</a></div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ---------- Formularios emergentes compartidos (la URL la pone el botón) ---------- #}
+<div class="modal fade" id="modalCorte" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="modal-header"><h5 class="modal-title">Registrar corte: <span class="js-titulo"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="text-muted small">La cantidad cortada define cuántas unidades tiene esta talla. Pasan de una vez a la siguiente etapa de la ruta.</p>
+                {{ corte_form.as_p }}
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-info">Registrar corte</button></div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="modalPasar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="modal-header"><h5 class="modal-title js-accion">Pasar a siguiente etapa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="fw-bold js-titulo"></p>
+                <p class="text-muted small">Puedes pasar solo una parte: el resto se queda aquí con su propio tiempo. Si se perdieron unidades, indícalas con su motivo.</p>
+                {{ pasar_form.as_p }}
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Confirmar</button></div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="modalCalidad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="modal-header"><h5 class="modal-title">Control de Calidad</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="fw-bold js-titulo"></p>
+                <p class="text-muted small">Las buenas pasan a la siguiente etapa. Las segundas y terceras van a la bodega de Calidad y quedan pendientes de la decisión de Administración sobre si se descuentan al taller.</p>
+                {{ calidad_form.as_p }}
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-warning">Registrar</button></div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+document.querySelectorAll('#modalCorte, #modalPasar, #modalCalidad').forEach(function (modal) {
+    modal.addEventListener('show.bs.modal', function (ev) {
+        var boton = ev.relatedTarget;
+        var form = modal.querySelector('form');
+        form.reset();
+        form.action = boton.dataset.url;
+        modal.querySelectorAll('.js-titulo').forEach(function (el) { el.textContent = boton.dataset.titulo; });
+        var cantidad = boton.dataset.cantidad;
+        if (cantidad) {
+            var campo = form.querySelector('[name=cantidad], [name=buenas]');
+            if (campo) { campo.value = cantidad; campo.max = cantidad; }
+        }
+        var accion = modal.querySelector('.js-accion');
+        if (accion) { accion.textContent = boton.dataset.bodega === '1' ? 'Ingresar a bodega' : 'Pasar a siguiente etapa'; }
+    });
+});
+</script>
+{% endblock %}

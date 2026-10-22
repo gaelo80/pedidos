@@ -1,0 +1,12 @@
+<style>
+    #documento { background: #fff; color: #000; padding: 24px; border-radius: 6px; }
+    #documento table { font-size: 0.9rem; }
+    #documento .firma { border-top: 1px solid #000; margin-top: 56px; padding-top: 4px; font-size: 0.85rem; }
+    @media print {
+        body * { visibility: hidden; }
+        #documento, #documento * { visibility: visible; }
+        #documento { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+        .no-print { display: none !important; }
+        @page { margin: 12mm; }
+    }
+</style>

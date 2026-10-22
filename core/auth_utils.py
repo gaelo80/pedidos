@@ -84,3 +84,11 @@ def es_cajero(user):
 def es_superusuario(user):
     """Devuelve True solo si el usuario es superusuario (dueño de la plataforma)."""
     return user.is_authenticated and user.is_superuser
+
+def es_patinador(user):
+    """Devuelve True si el usuario es superusuario o pertenece al grupo 'Patinador'."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name='Patinador').exists()

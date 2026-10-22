@@ -1,0 +1,81 @@
+{% extends "core/base.html" %}
+{% load produccion_tags %}
+
+{% block page_title %}Orden {{ orden.numero_orden }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">{{ orden.numero_orden }} · {{ orden.referencia_color }}</h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'produccion:tablero_lotes' %}?q={{ orden.numero_orden }}" class="btn btn-outline-light"><i class="fas fa-th-large"></i> Ver en tablero</a>
+            <a href="{% url 'produccion:orden_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+        </div>
+    </div>
+
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-body row">
+            <div class="col-md-2"><strong>Estado:</strong><br>
+                <span class="badge {% if orden.estado == 'TERMINADA' %}bg-success{% elif orden.estado == 'ANULADA' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ orden.get_estado_display }}</span>
+            </div>
+            <div class="col-md-2"><strong>Creada:</strong><br>{{ orden.fecha_creacion|date:"d/m/Y" }}</div>
+            <div class="col-md-3"><strong>Entrega estimada:</strong><br>{{ orden.fecha_estimada_entrega|date:"d/m/Y"|default:"-" }}
+                {% if atrasada %}<span class="badge bg-danger ms-1">Atrasada</span>{% endif %}</div>
+            <div class="col-md-3"><strong>Creada por:</strong><br>{{ orden.creado_por.get_full_name|default:orden.creado_por.username }}</div>
+            <div class="col-md-2"><strong>Ruta:</strong><br><span class="small">{% for paso in orden.ruta.all %}{{ paso.etapa.nombre }}{% if not forloop.last %} → {% endif %}{% endfor %}</span></div>
+        </div>
+    </div>
+    {% if orden.estado == 'ANULADA' %}
+    <div class="alert alert-danger py-2">Anulada el {{ orden.fecha_anulacion|date:"d/m/Y h:i a" }} por {{ orden.anulada_por.get_full_name|default:orden.anulada_por.username }}. Motivo: {{ orden.motivo_anulacion }}</div>
+    {% endif %}
+    {% if orden.permitir_venta_sin_stock %}<div class="alert alert-info py-2">Esta referencia se puede vender en preventa mientras está en producción.</div>{% endif %}
+
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-header"><h5 class="mb-0">Dónde está cada talla</h5></div>
+        <div class="card-body table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr><th>Lote</th><th class="text-end">Cortadas</th><th>Ubicación actual</th><th class="text-end">En bodega</th><th class="text-end">2ª/3ª</th><th class="text-end">Faltantes</th><th class="text-end">Pérdidas</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for item in lotes %}{% with lote=item.lote r=item.resumen %}
+                    <tr>
+                        <td><strong>{{ lote.numero_lote }}</strong><br><span class="small text-muted">Talla {{ lote.talla }}</span></td>
+                        <td class="text-end">{% if lote.por_cortar %}<span class="badge bg-info text-dark">Por cortar</span>{% else %}{{ lote.cantidad_inicial }}{% endif %}</td>
+                        <td>
+                            {% for p in item.partidas %}
+                            <div class="small {% if p.atrasada %}text-danger fw-bold{% endif %}">
+                                <span class="badge bg-dark">{{ p.cantidad }}</span> {{ p.etapa.nombre }}{% if p.taller %} – <i class="fas fa-truck"></i> {{ p.taller.nombre }}{% endif %}
+                                · {{ p.tiempo_aqui|duracion }}{% if p.atrasada %} <i class="fas fa-exclamation-triangle"></i>{% endif %}
+                            </div>
+                            {% empty %}
+                            <span class="small text-muted">{% if lote.por_cortar %}Esperando corte{% else %}Terminado{% endif %}</span>
+                            {% endfor %}
+                        </td>
+                        <td class="text-end">{{ r.en_bodega }}</td>
+                        <td class="text-end">{{ r.defectuosas }}</td>
+                        <td class="text-end">{{ r.faltantes }}</td>
+                        <td class="text-end">{{ r.perdidas }}</td>
+                        <td class="text-end"><a href="{% url 'produccion:detalle_lote' lote.pk %}" class="btn btn-info btn-sm" title="Historial"><i class="fas fa-history"></i></a></td>
+                    </tr>
+                    {% endwith %}{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if puede_anular %}
+    <div class="card bg-light text-dark mb-5 border-danger">
+        <div class="card-header"><h5 class="mb-0 text-danger">Anular orden</h5></div>
+        <div class="card-body">
+            <p class="small text-muted">No se puede anular si hay unidades en talleres: primero recíbelas o ciérralas con faltante. Lo que esté en planta queda registrado en el historial. Si la orden habilitó la preventa, se desactiva.</p>
+            <form method="post" action="{% url 'produccion:anular_orden' orden.pk %}" onsubmit="return confirm('¿Anular la orden {{ orden.numero_orden }}? No se puede deshacer.');">
+                {% csrf_token %}
+                <input type="text" name="motivo" class="form-control mb-2" placeholder="Motivo de la anulación" required>
+                <button class="btn btn-danger btn-sm">Anular {{ orden.numero_orden }}</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

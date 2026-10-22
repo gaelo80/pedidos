@@ -1,0 +1,110 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Remisión {{ remision.numero }}{% endblock %}
+
+{% block content %}
+{% include "produccion/_documento_estilos.html" %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">Remisión {{ remision.numero }}</h1>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+            {% if remision.abierta %}<a href="{% url 'produccion:recepcion_crear' remision.pk %}" class="btn btn-success"><i class="fas fa-inbox"></i> Registrar recepción</a>{% endif %}
+            <a href="{% url 'produccion:remision_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Remisiones</a>
+        </div>
+    </div>
+
+    <div id="documento" class="mb-4">
+        {% include "produccion/_documento_encabezado.html" with titulo_documento="Remisión a taller" numero_documento=remision.numero %}
+        <div class="row small mb-3">
+            <div class="col-6">
+                <div><strong>Taller:</strong> {{ remision.taller.nombre }}</div>
+                {% if remision.taller.nit %}<div><strong>NIT/CC:</strong> {{ remision.taller.nit }}</div>{% endif %}
+                {% if remision.taller.direccion %}<div><strong>Dirección:</strong> {{ remision.taller.direccion }}</div>{% endif %}
+                {% if remision.taller.telefono %}<div><strong>Teléfono:</strong> {{ remision.taller.telefono }}</div>{% endif %}
+            </div>
+            <div class="col-6 text-end">
+                <div><strong>Fecha:</strong> {{ remision.fecha_hora|date:"d/m/Y h:i a" }}</div>
+                <div><strong>Proceso:</strong> {{ remision.etapa.nombre }}</div>
+                <div><strong>Elaboró:</strong> {{ remision.usuario.get_full_name|default:remision.usuario.username }}</div>
+            </div>
+        </div>
+
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr><th>OP</th><th>Lote</th><th>Referencia</th><th>Talla</th><th class="text-end">Enviadas</th><th class="text-end">Recibidas</th><th class="text-end">Faltantes</th><th class="text-end">Pendientes</th></tr>
+            </thead>
+            <tbody>
+                {% for l in remision.lineas.all %}
+                <tr>
+                    <td>{{ l.lote.orden.numero_orden }}</td>
+                    <td>{{ l.lote.numero_lote }}</td>
+                    <td>{{ l.lote.orden.referencia_color }}</td>
+                    <td>{{ l.lote.talla }}</td>
+                    <td class="text-end">{{ l.cantidad_enviada_total }}{% if l.cantidad_enviada_total != l.cantidad_enviada %}<span class="small text-muted"> (orig. {{ l.cantidad_enviada }})</span>{% endif %}</td>
+                    <td class="text-end">{{ l.cantidad_recibida }}</td>
+                    <td class="text-end">{{ l.cantidad_faltante }}</td>
+                    <td class="text-end fw-bold">{{ l.pendiente }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot><tr class="fw-bold"><td colspan="4" class="text-end">Total enviado</td><td class="text-end">{{ remision.total_enviado }}</td><td colspan="2"></td><td class="text-end">{{ remision.total_pendiente }}</td></tr></tfoot>
+        </table>
+        {% if remision.observaciones %}<p class="small"><strong>Observaciones:</strong> {{ remision.observaciones }}</p>{% endif %}
+
+        <div class="row">
+            <div class="col-6"><div class="firma">Entregó ({{ request.tenant.nombre }})</div></div>
+            <div class="col-6"><div class="firma">Recibió ({{ remision.taller.nombre }}) — Nombre, cédula y firma</div></div>
+        </div>
+    </div>
+
+    <div class="no-print">
+        <div class="card bg-light text-dark mb-3">
+            <div class="card-header"><h5 class="mb-0">Recepciones de esta remisión</h5></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for r in remision.recepciones.all %}
+                    <li><a href="{% url 'produccion:recepcion_detalle' r.pk %}">{{ r.numero }}</a> — {{ r.fecha_hora|date:"d/m/Y h:i a" }} — {{ r.usuario.get_full_name|default:r.usuario.username }}</li>
+                    {% empty %}<li class="text-muted">Todavía no se ha recibido nada.</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="card bg-light text-dark mb-5">
+            <div class="card-header"><h5 class="mb-0">Correcciones</h5></div>
+            <div class="card-body">
+                <p class="small text-muted">Las remisiones y recepciones no se editan. Si una cantidad quedó mal, se registra una corrección con su motivo; queda visible aquí y en el informe del taller.</p>
+                <table class="table table-sm">
+                    <thead><tr><th>Fecha</th><th>Lote</th><th>Tipo</th><th class="text-end">Cantidad</th><th>Motivo</th><th>Usuario</th></tr></thead>
+                    <tbody>
+                        {% for l in remision.lineas.all %}{% for c in l.correcciones.all %}
+                        <tr><td>{{ c.fecha_hora|date:"d/m/Y h:i a" }}</td><td>{{ l.lote.numero_lote }}</td><td>{{ c.get_tipo_display }}</td><td class="text-end">{{ c.cantidad|stringformat:"+d" }}</td><td>{{ c.motivo }}</td><td>{{ c.usuario.get_full_name|default:c.usuario.username }}</td></tr>
+                        {% endfor %}{% endfor %}
+                    </tbody>
+                </table>
+                {% if es_administracion %}
+                <div class="row g-3">
+                    {% for l in remision.lineas.all %}
+                    <div class="col-md-6">
+                        <div class="border rounded p-2">
+                            <div class="fw-semibold small mb-2">{{ l.lote.numero_lote }} (enviadas {{ l.cantidad_enviada_total }}, recibidas {{ l.cantidad_recibida }})</div>
+                            <form method="post" action="{% url 'produccion:corregir_linea' l.pk 'envio' %}" class="mb-2">{% csrf_token %}
+                                <div class="input-group input-group-sm mb-1"><span class="input-group-text">Enviadas ±</span><input type="number" name="cantidad" class="form-control" required></div>
+                                <input type="text" name="motivo" class="form-control form-control-sm mb-1" placeholder="Motivo" required>
+                                <button class="btn btn-outline-primary btn-sm">Corregir enviadas</button>
+                            </form>
+                            <form method="post" action="{% url 'produccion:corregir_linea' l.pk 'recepcion' %}">{% csrf_token %}
+                                <div class="input-group input-group-sm mb-1"><span class="input-group-text">Recibidas ±</span><input type="number" name="cantidad" class="form-control" required></div>
+                                <input type="text" name="motivo" class="form-control form-control-sm mb-1" placeholder="Motivo" required>
+                                <button class="btn btn-outline-primary btn-sm">Corregir recibidas</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

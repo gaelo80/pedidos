@@ -1,0 +1,94 @@
+{% extends "core/base.html" %}
+{% load produccion_tags %}
+
+{% block page_title %}Informe por Taller{% endblock %}
+
+{% block content %}
+{% include "produccion/_documento_estilos.html" %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+        <h1 style="color: white;" class="mb-0">Informe por Taller</h1>
+        <div class="d-flex gap-2">
+            {% if taller %}<button type="button" class="btn btn-light" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>{% endif %}
+            <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+        </div>
+    </div>
+
+    <div class="card bg-light text-dark mb-3 no-print">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-4"><label class="form-label small mb-0">Taller</label>
+                    <select name="taller" class="form-select form-select-sm" required>
+                        <option value="">Elige…</option>
+                        {% for t in talleres %}<option value="{{ t.pk }}" {% if taller and taller.pk == t.pk %}selected{% endif %}>{{ t.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3"><label class="form-label small mb-0">Desde</label><input type="date" name="fecha_inicio" value="{{ fecha_inicio|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+                <div class="col-md-3"><label class="form-label small mb-0">Hasta</label><input type="date" name="fecha_fin" value="{{ fecha_fin|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+                <div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Ver</button></div>
+            </form>
+        </div>
+    </div>
+
+    {% if taller %}
+    <div id="documento" class="mb-5">
+        {% include "produccion/_documento_encabezado.html" with titulo_documento="Informe de taller" numero_documento=taller.nombre %}
+        <p class="small mb-3">Periodo: <strong>{{ fecha_inicio|date:"d/m/Y" }} – {{ fecha_fin|date:"d/m/Y" }}</strong>. Solo cantidades; el valor a pagar se calcula aparte con la tarifa acordada.</p>
+
+        <div class="row text-center mb-3">
+            <div class="col"><div class="border rounded p-2"><div class="small">Enviadas</div><div class="fs-4 fw-bold">{{ total_enviado }}</div></div></div>
+            <div class="col"><div class="border rounded p-2 border-success"><div class="small">Recibidas (base de pago)</div><div class="fs-4 fw-bold">{{ total_recibido }}</div></div></div>
+            <div class="col"><div class="border rounded p-2"><div class="small">Faltantes (no se pagan)</div><div class="fs-4 fw-bold">{{ total_faltante }}</div></div></div>
+            <div class="col"><div class="border rounded p-2"><div class="small">Defectos a descontar</div><div class="fs-4 fw-bold">{{ total_descontar }}</div></div></div>
+            <div class="col"><div class="border rounded p-2"><div class="small">En el taller hoy</div><div class="fs-4 fw-bold">{{ en_taller_total }}</div></div></div>
+        </div>
+
+        <h6 class="mt-3">Recepciones del periodo</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Fecha</th><th>Recepción</th><th>Remisión</th><th>Lote</th><th>Referencia</th><th class="text-end">Recibidas</th><th class="text-end">Faltantes</th></tr></thead>
+            <tbody>
+                {% for l in recibidos %}
+                <tr><td>{{ l.recepcion.fecha_hora|date:"d/m/Y" }}</td><td>{{ l.recepcion.numero }}</td><td>{{ l.recepcion.remision.numero }}</td><td>{{ l.remision_linea.lote.numero_lote }}</td><td>{{ l.remision_linea.lote.orden.referencia_color }}</td><td class="text-end">{{ l.cantidad_recibida }}</td><td class="text-end">{{ l.cantidad_faltante|default:"" }}</td></tr>
+                {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin recepciones en el periodo.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+
+        {% if correcciones %}
+        <h6 class="mt-3">Correcciones del periodo</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Fecha</th><th>Remisión</th><th>Lote</th><th>Tipo</th><th class="text-end">Cantidad</th><th>Motivo</th><th>Usuario</th></tr></thead>
+            <tbody>{% for c in correcciones %}<tr><td>{{ c.fecha_hora|date:"d/m/Y" }}</td><td>{{ c.remision_linea.remision.numero }}</td><td>{{ c.remision_linea.lote.numero_lote }}</td><td>{{ c.get_tipo_display }}</td><td class="text-end">{{ c.cantidad|stringformat:"+d" }}</td><td>{{ c.motivo }}</td><td>{{ c.usuario.get_full_name|default:c.usuario.username }}</td></tr>{% endfor %}</tbody>
+        </table>
+        {% endif %}
+
+        <h6 class="mt-3">Defectos que se le descuentan (decididos en el periodo)</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Lote</th><th>Referencia</th><th class="text-end">2ª</th><th class="text-end">3ª</th><th>Decisión y motivo</th></tr></thead>
+            <tbody>
+                {% for d in defectos %}{% with dec=d.decisiones.first %}
+                <tr><td>{{ d.lote.numero_lote }}</td><td>{{ d.lote.orden.referencia_color }}</td><td class="text-end">{{ d.cantidad_segunda }}</td><td class="text-end">{{ d.cantidad_tercera }}</td><td class="small">{{ dec.fecha_hora|date:"d/m/Y" }} · {{ dec.usuario.get_full_name|default:dec.usuario.username }}: {{ dec.motivo }}</td></tr>
+                {% endwith %}{% empty %}<tr><td colspan="5" class="text-center text-muted">Ninguno.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+
+        <h6 class="mt-3">Envíos del periodo</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Fecha</th><th>Remisión</th><th>Lote</th><th>Referencia</th><th class="text-end">Enviadas</th></tr></thead>
+            <tbody>
+                {% for l in enviados %}<tr><td>{{ l.remision.fecha_hora|date:"d/m/Y" }}</td><td>{{ l.remision.numero }}</td><td>{{ l.lote.numero_lote }}</td><td>{{ l.lote.orden.referencia_color }}</td><td class="text-end">{{ l.cantidad_enviada }}</td></tr>
+                {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin envíos en el periodo.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+
+        <h6 class="mt-3">Lo que tiene el taller hoy</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Partida</th><th>Referencia</th><th>Proceso</th><th>Remisión</th><th class="text-end">Unidades</th><th>Desde hace</th></tr></thead>
+            <tbody>
+                {% for p in en_taller %}<tr {% if p.atrasada %}class="table-warning"{% endif %}><td>{{ p.numero }}</td><td>{{ p.lote.orden.referencia_color }} T{{ p.lote.talla }}</td><td>{{ p.etapa.nombre }}</td><td>{{ p.remision_linea.remision.numero }}</td><td class="text-end">{{ p.cantidad }}</td><td>{{ p.tiempo_aqui|duracion }}</td></tr>
+                {% empty %}<tr><td colspan="6" class="text-center text-muted">No tiene unidades en este momento.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

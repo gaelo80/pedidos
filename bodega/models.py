@@ -113,6 +113,7 @@ class Bodega(models.Model):
         PUNTO_VENTA = 'PUNTO_VENTA', 'Punto de Venta'
         MUESTRARIO = 'MUESTRARIO', 'Muestrario'
         TRANSITO = 'TRANSITO', 'Tránsito'
+        CALIDAD = 'CALIDAD', 'Calidad / Segundas'
         OTRA = 'OTRA', 'Otra'
 
     empresa = models.ForeignKey(
@@ -227,6 +228,7 @@ class MovimientoInventario(models.Model):
         ('SALIDA_AJUSTE', 'Salida por Ajuste'),
         ('SALIDA_CANCELACION', 'Salida por Cancelación'),
         ('ENTRADA_PRODUCCION', 'Entrada desde Producción'),
+        ('ENTRADA_PRODUCCION_SEGUNDA', 'Entrada desde Producción (Segunda/Tercera)'),
         ('SALIDA_OTRO', 'Salida por Otro Motivo'),
         ('ENTRADA_OTRO', 'Entrada por Otro Motivo'),
         ('ENTRADA_RECHAZO_CARTERA', 'Entrada por Rechazo Pedido Cartera'),

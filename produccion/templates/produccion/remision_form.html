@@ -1,0 +1,76 @@
+{% extends "core/base.html" %}
+{% load produccion_tags %}
+
+{% block page_title %}Nueva Remisión a Taller{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="color: white;">Nueva Remisión a Taller</h1>
+        <a href="{% url 'produccion:tablero_lotes' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Tablero</a>
+    </div>
+
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Etapa externa</label>
+                    <select name="etapa" class="form-select" onchange="this.form.submit()">
+                        <option value="">Elige la etapa…</option>
+                        {% for e in etapas %}<option value="{{ e.pk }}" {% if etapa and etapa.pk == e.pk %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if etapa %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="etapa" value="{{ etapa.pk }}">
+        <div class="card bg-light text-dark mb-3">
+            <div class="card-body">
+                <label class="form-label fw-semibold">Taller</label>
+                <select name="taller" class="form-select" required>
+                    <option value="">Elige el taller…</option>
+                    {% for t in talleres %}<option value="{{ t.pk }}">{{ t.nombre }}</option>{% endfor %}
+                </select>
+                {% if not talleres %}<div class="text-danger small mt-1">No hay talleres activos habilitados para {{ etapa.nombre }}. <a href="{% url 'produccion:taller_list' %}">Configúralos aquí</a>.</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="card bg-light text-dark mb-3">
+            <div class="card-header"><h5 class="mb-0">Unidades en planta listas para {{ etapa.nombre }}</h5></div>
+            <div class="card-body">
+                <p class="text-muted small">Escribe cuántas unidades de cada partida salen en esta remisión. Puedes enviar solo una parte; el resto se queda en planta.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Partida</th><th>Referencia</th><th>Talla</th><th class="text-end">Disponibles</th><th>Esperando</th><th style="width:140px;">Enviar</th></tr></thead>
+                        <tbody>
+                            {% for p in partidas %}
+                            <tr {% if preseleccion == p.pk|stringformat:"s" %}class="table-primary"{% endif %}>
+                                <td>{{ p.numero }}</td>
+                                <td>{{ p.lote.orden.referencia_color }}</td>
+                                <td>{{ p.lote.talla }}</td>
+                                <td class="text-end">{{ p.cantidad }}</td>
+                                <td class="small text-muted">{{ p.tiempo_aqui|duracion }}</td>
+                                <td><input type="number" min="0" max="{{ p.cantidad }}" name="cantidad_{{ p.pk }}" class="form-control form-control-sm"
+                                           {% if preseleccion == p.pk|stringformat:"s" %}value="{{ p.cantidad }}"{% endif %}></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">No hay unidades en planta esperando {{ etapa.nombre }}.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <label class="form-label fw-semibold mt-2">Observaciones (salen impresas en la remisión)</label>
+                <textarea name="observaciones" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mb-5">
+            <button type="submit" class="btn btn-success btn-lg" {% if not partidas or not talleres %}disabled{% endif %}><i class="fas fa-truck"></i> Crear remisión</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

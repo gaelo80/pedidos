@@ -57,14 +57,21 @@ class ModuloEmpresa(models.Model):
         objetivo = self.url_nombre or f"(toda la categoría)"
         return f"{self.empresa.nombre} - {self.categoria} - {objetivo}: {estado}"
 
+    # Módulos que se venden aparte: al revés de los demás, están APAGADOS por
+    # defecto y solo se ven si existe una fila de categoría con activo=True.
+    CATEGORIAS_OPCIONALES = {'Producción'}
+
     @staticmethod
     def categorias_desactivadas(empresa):
-        """Nombres de categoría COMPLETA explícitamente deshabilitados para esta empresa."""
+        """Categorías COMPLETAS deshabilitadas para esta empresa (incluye los módulos opcionales no contratados)."""
         if not empresa:
-            return set()
-        return set(
-            ModuloEmpresa.objects.filter(empresa=empresa, url_nombre='', activo=False).values_list('categoria', flat=True)
+            return set(ModuloEmpresa.CATEGORIAS_OPCIONALES)
+        filas = dict(
+            ModuloEmpresa.objects.filter(empresa=empresa, url_nombre='').values_list('categoria', 'activo')
         )
+        desactivadas = {categoria for categoria, activo in filas.items() if not activo}
+        desactivadas |= {c for c in ModuloEmpresa.CATEGORIAS_OPCIONALES if not filas.get(c)}
+        return desactivadas
 
     @staticmethod
     def items_desactivados(empresa):

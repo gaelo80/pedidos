@@ -2,7 +2,7 @@
 from notificaciones.models import Notificacion
 from pedidos.models import Pedido
 from vendedores.models import Vendedor
-from .auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_factura, es_diseno, es_online, es_administrador_app, es_cajero, puede_ver_panel_django_admin
+from .auth_utils import es_administracion, es_bodega, es_vendedor, es_cartera, es_factura, es_diseno, es_online, es_administrador_app, es_cajero, es_patinador, puede_ver_panel_django_admin
 from .models import ModuloEmpresa
 
 def empresa_context(request):
@@ -53,6 +53,7 @@ def user_roles_context(request): #
             'es_diseno': False, # 
             'es_online': False, #
             'es_cajero': False,
+            'es_patinador': False,
             'puede_ver_panel_django_admin': False,
         }
 
@@ -66,6 +67,7 @@ def user_roles_context(request): #
         'es_diseno': es_diseno(request.user), #
         'es_online': es_online(request.user), #
         'es_cajero': es_cajero(request.user),
+        'es_patinador': es_patinador(request.user),
         'puede_ver_panel_django_admin': puede_ver_panel_django_admin(request.user),
 
     }

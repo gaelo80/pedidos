@@ -28,6 +28,7 @@ from .auth_utils import (
     es_diseno,
     es_online,
     es_cajero,
+    es_patinador,
     es_superusuario,
     es_administracion, # Función para el grupo 'Administracion'
     es_administrador_app, # Función para el rol 'Administrador_app' (menú config)
@@ -47,6 +48,7 @@ ROL_CHECKERS_MAP = {
     'es_diseno': es_diseno,
     'es_online': es_online,
     'es_cajero': es_cajero,
+    'es_patinador': es_patinador,
     'es_superusuario': es_superusuario,
     'es_administracion': es_administracion, # Deja una sola entrada para es_administracion
     'es_administrador_app': es_administrador_app,
@@ -158,6 +160,8 @@ def vista_index(request):
         titulo_base = "Panel de Diseño"
     elif es_online(user):
         titulo_base = "Panel de Ventas Online"
+    elif es_patinador(user):
+        titulo_base = "Panel de Producción"
     # No se necesita un 'else' final porque ya se inicializó titulo_base al principio
 
     titulo_pagina = f"{titulo_base} ({empresa_actual.nombre})" if empresa_actual else titulo_base
@@ -175,6 +179,7 @@ def vista_index(request):
         'Clientes y Prospectos',
         'Finanzas y Recaudos',
         'Bodega e Inventario',
+        'Producción',
         'Facturación',
         'Productos y Catálogo',
         'Informes Generales',
@@ -382,7 +387,16 @@ def api_toggle_modulo_empresa(request):
 
     empresa = get_object_or_404(Empresa, pk=empresa_id)
 
-    if activo:
+    if not url_nombre and categoria in ModuloEmpresa.CATEGORIAS_OPCIONALES:
+        # Módulo opcional (de pago): apagado por defecto, se activa con una fila activo=True.
+        if activo:
+            ModuloEmpresa.objects.update_or_create(
+                empresa=empresa, categoria=categoria, url_nombre='',
+                defaults={'activo': True, 'actualizado_por': request.user},
+            )
+        else:
+            ModuloEmpresa.objects.filter(empresa=empresa, categoria=categoria, url_nombre='').delete()
+    elif activo:
         # "Activo" es el estado por defecto: basta con no tener fila, o borrarla si existía.
         ModuloEmpresa.objects.filter(empresa=empresa, categoria=categoria, url_nombre=url_nombre).delete()
     else:

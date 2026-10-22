@@ -1,0 +1,59 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Defectos de Calidad{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 style="color: white;" class="mb-0">Defectos de Calidad</h1>
+        <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+    </div>
+    <div class="alert alert-info py-2 small">
+        Si un defecto se le descuenta o no al taller lo decide Administración caso a caso. Cada decisión exige un motivo, queda registrada con fecha y usuario,
+        y aparece en el informe que se le entrega al taller. Cambiar una decisión no borra las anteriores.
+    </div>
+    <ul class="nav nav-pills mb-3">
+        {% for valor, nombre in decisiones %}
+        <li class="nav-item"><a class="nav-link {% if decision == valor %}active{% else %}text-white{% endif %}" href="?decision={{ valor }}">{{ nombre }}</a></li>
+        {% endfor %}
+        <li class="nav-item"><a class="nav-link {% if not decision %}active{% else %}text-white{% endif %}" href="?decision=">Todos</a></li>
+    </ul>
+
+    {% for fila in filas %}{% with d=fila.defecto %}
+    <div class="card bg-light text-dark mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="fw-bold">{{ d.lote.numero_lote }} · {{ d.lote.orden.referencia_color }} · Talla {{ d.lote.talla }}</div>
+                    <div class="small">{{ d.fecha_hora|date:"d/m/Y h:i a" }} · registró {{ d.usuario.get_full_name|default:d.usuario.username }}</div>
+                    <div><span class="badge bg-warning text-dark">{{ d.cantidad_segunda }} segunda(s)</span> <span class="badge bg-danger">{{ d.cantidad_tercera }} tercera(s)</span></div>
+                    <div class="small mt-1"><strong>Causa:</strong> {{ d.get_causa_display }}{% if d.etapa_causa %} – {{ d.etapa_causa.nombre }}{% endif %}</div>
+                    {% if fila.posibles %}<div class="small"><strong>Talleres que tuvieron este lote en esa etapa:</strong> {% for t in fila.posibles %}{{ t.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+                    {% if d.observaciones %}<div class="small"><strong>Novedades:</strong> {{ d.observaciones }}</div>{% endif %}
+                </div>
+                <div class="col-md-3">
+                    <div class="small fw-semibold">Decisión vigente</div>
+                    <span class="badge {% if d.decision == 'DESCONTAR' %}bg-danger{% elif d.decision == 'NO_DESCONTAR' %}bg-success{% else %}bg-secondary{% endif %}">{{ d.get_decision_display }}{% if d.taller_responsable %}: {{ d.taller_responsable.nombre }}{% endif %}</span>
+                    {% for dec in d.decisiones.all %}
+                    <div class="small text-muted mt-1">{{ dec.fecha_hora|date:"d/m/Y" }} · {{ dec.usuario.get_full_name|default:dec.usuario.username }}: {{ dec.get_decision_display }}{% if dec.taller_responsable %} ({{ dec.taller_responsable.nombre }}){% endif %} — {{ dec.motivo }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {% if fila.form %}
+                    <form method="post" action="{% url 'produccion:defecto_decidir' d.pk %}">{% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        {{ fila.form.decision }}
+                        <div class="mt-1">{{ fila.form.taller }}</div>
+                        <div class="mt-1">{{ fila.form.motivo }}</div>
+                        <button class="btn btn-primary btn-sm mt-1">{% if d.decision == 'PENDIENTE' %}Decidir{% else %}Cambiar decisión{% endif %}</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endwith %}{% empty %}
+    <div class="alert alert-light">No hay defectos en este estado.</div>
+    {% endfor %}
+</div>
+{% endblock %}

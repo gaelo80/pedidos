@@ -1,0 +1,28 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Eliminar Etapa{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-light text-dark">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">Confirmar Eliminación</h4>
+                </div>
+                <div class="card-body">
+                    <p>¿Seguro que quieres eliminar la etapa "<strong>{{ object.nombre }}</strong>"?</p>
+                    <p class="text-muted small">Si hay órdenes/lotes que ya usaron esta etapa, no se podrá eliminar (protegida).</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-end">
+                            <a href="{% url 'produccion:etapa_list' %}" class="btn btn-secondary me-2">Cancelar</a>
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

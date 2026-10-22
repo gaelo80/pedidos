@@ -403,6 +403,30 @@
                 {% endif %}
                 {% endif %}
 
+                {% if 'Producción' not in categorias_desactivadas %}
+                {% if es_patinador or es_administracion or es_diseno or es_bodega %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownProduccion" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-industry me-1"></i> PRODUCCIÓN
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownProduccion">
+                        <li><a class="dropdown-item" href="{% url 'produccion:tablero_lotes' %}"><i class="fas fa-th-large me-1"></i> Tablero de Producción</a></li>
+                        <li><a class="dropdown-item" href="{% url 'produccion:remision_list' %}?abiertas=1"><i class="fas fa-truck me-1"></i> Remisiones a Talleres</a></li>
+                        <li><a class="dropdown-item" href="{% url 'produccion:orden_list' %}"><i class="fas fa-list-alt me-1"></i> Órdenes de Producción</a></li>
+                        <li><a class="dropdown-item" href="{% url 'produccion:defecto_list' %}"><i class="fas fa-exclamation-triangle me-1"></i> Defectos de Calidad</a></li>
+                        {% if es_administracion or es_diseno %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'produccion:crear_orden' %}"><i class="fas fa-plus-square me-1"></i> Crear Orden de Producción</a></li>
+                        {% endif %}
+                        {% if es_administracion %}
+                        <li><a class="dropdown-item" href="{% url 'produccion:informe_taller' %}"><i class="fas fa-file-invoice me-1"></i> Informe por Taller</a></li>
+                        {% endif %}
+                        <li><a class="dropdown-item" href="{% url 'produccion:panel_produccion' %}"><i class="fas fa-industry me-1"></i> Panel de Producción</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+                {% endif %}
+
                 {% if 'Facturación' not in categorias_desactivadas %}
                 {% if es_factura or es_administracion or es_administrador_app %}
                 <li class="nav-item dropdown">
@@ -740,6 +764,36 @@
                             {% if es_administracion %}
                             <a href="{% url 'puntoventa:gestionar_precios_pos' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Precios de Saldo</a>
                             {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- PRODUCCIÓN (módulo opcional) -->
+            {% if 'Producción' not in categorias_desactivadas %}
+            {% if es_patinador or es_administracion or es_diseno or es_bodega %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarProduccion">
+                        <i class="fas fa-industry me-3 text-info"></i> Producción
+                    </button>
+                </h2>
+                <div id="sidebarProduccion" class="accordion-collapse collapse">
+                    <div class="accordion-body p-0 py-2">
+                        <div class="list-group list-group-flush">
+                            <a href="{% url 'produccion:tablero_lotes' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Tablero de Producción</a>
+                            <a href="{% url 'produccion:remision_list' %}?abiertas=1" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Remisiones a Talleres</a>
+                            <a href="{% url 'produccion:orden_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Órdenes de Producción</a>
+                            <a href="{% url 'produccion:defecto_list' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Defectos de Calidad</a>
+                            {% if es_administracion or es_diseno %}
+                            <a href="{% url 'produccion:crear_orden' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Crear Orden de Producción</a>
+                            {% endif %}
+                            {% if es_administracion %}
+                            <a href="{% url 'produccion:informe_taller' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Informe por Taller</a>
+                            {% endif %}
+                            <a href="{% url 'produccion:panel_produccion' %}" class="list-group-item list-group-item-action"><i class="fas fa-angle-right me-2 opacity-50"></i>Panel de Producción</a>
                         </div>
                     </div>
                 </div>

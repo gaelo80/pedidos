@@ -1,0 +1,51 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Recepción de {{ remision.numero }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="color: white;">Recibir de {{ remision.taller.nombre }}</h1>
+        <a href="{% url 'produccion:remision_detalle' remision.pk %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver a {{ remision.numero }}</a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card bg-light text-dark mb-3">
+            <div class="card-header"><h5 class="mb-0">{{ remision.numero }} · {{ remision.etapa.nombre }} · enviada el {{ remision.fecha_hora|date:"d/m/Y" }}</h5></div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Escribe cuántas unidades devolvió el taller (todas las recibidas, buenas o con defecto: los defectos se clasifican en Control de Calidad).
+                    Marca <strong>Cerrar</strong> solo si el taller ya no va a devolver más: lo que siga pendiente quedará como <strong>faltante</strong> y no se le paga.
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Lote</th><th>Referencia</th><th>Talla</th><th class="text-end">Enviadas</th><th class="text-end">Ya recibidas</th><th class="text-end">Pendientes</th><th style="width:130px;">Recibidas hoy</th><th class="text-center">Cerrar con faltante</th></tr></thead>
+                        <tbody>
+                            {% for l in lineas %}
+                            <tr>
+                                <td>{{ l.lote.numero_lote }}</td>
+                                <td>{{ l.lote.orden.referencia_color }}</td>
+                                <td>{{ l.lote.talla }}</td>
+                                <td class="text-end">{{ l.cantidad_enviada_total }}</td>
+                                <td class="text-end">{{ l.cantidad_recibida }}</td>
+                                <td class="text-end fw-bold">{{ l.pendiente }}</td>
+                                <td><input type="number" min="0" max="{{ l.pendiente }}" name="recibida_{{ l.pk }}" class="form-control form-control-sm"></td>
+                                <td class="text-center"><input type="checkbox" class="form-check-input" name="cerrar_{{ l.pk }}" value="1"></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="8" class="text-center text-muted">Esta remisión no tiene unidades pendientes.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <label class="form-label fw-semibold mt-2">Observaciones (salen impresas en el comprobante)</label>
+                <textarea name="observaciones" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mb-5">
+            <button type="submit" class="btn btn-success btn-lg" {% if not lineas %}disabled{% endif %}><i class="fas fa-inbox"></i> Registrar recepción</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

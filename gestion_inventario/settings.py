@@ -153,6 +153,7 @@ INSTALLED_APPS = [
         'pedidos_online',
         'pedidos_web',
         'puntoventa',
+        'produccion',
 
 
         # APLICACIONES DE TERCERO

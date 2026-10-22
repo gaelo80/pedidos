@@ -44,6 +44,7 @@ urlpatterns = [
     path('api/bodega/', include(('bodega.api_urls', 'bodega_api'), namespace='bodega_api')),
     path('web/', include('pedidos_web.urls')),
     path('puntoventa/', include(('puntoventa.urls', 'puntoventa'), namespace='puntoventa')),
+    path('produccion/', include('produccion.urls')),
 
 
 ]

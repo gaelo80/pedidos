@@ -648,6 +648,71 @@ PANEL_OPTIONS_CONFIG = [
         #'url_kwargs': {'pk': 1}, # Ejemplo: Si la URL requiere un PK por defecto para el informe
     },
 
+    # --- Producción (módulo opcional: apagado por defecto, ver ModuloEmpresa.CATEGORIAS_OPCIONALES) ---
+    {
+        'titulo': 'Tablero de Producción',
+        'descripcion': 'Dónde está cada lote, en qué taller y cuánto tiempo lleva.',
+        'url_nombre': 'produccion:tablero_lotes',
+        'icono': 'fas fa-th-large',
+        'icono_color_class': 'icon-info',
+        'rol_requerido': ['es_patinador', 'es_administracion', 'es_diseno', 'es_bodega'],
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Remisiones a Talleres',
+        'descripcion': 'Enviar y recibir unidades de talleres externos con documento firmado.',
+        'url_nombre': 'produccion:remision_list',
+        'icono': 'fas fa-truck',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': ['es_patinador', 'es_administracion', 'es_diseno', 'es_bodega'],
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Órdenes de Producción',
+        'descripcion': 'Buscar una OP y ver dónde está cada talla.',
+        'url_nombre': 'produccion:orden_list',
+        'icono': 'fas fa-list-alt',
+        'icono_color_class': 'icon-secondary',
+        'rol_requerido': ['es_patinador', 'es_administracion', 'es_diseno', 'es_bodega'],
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Defectos de Calidad',
+        'descripcion': 'Segundas/terceras y decisión de descuento al taller.',
+        'url_nombre': 'produccion:defecto_list',
+        'icono': 'fas fa-exclamation-triangle',
+        'icono_color_class': 'icon-warning',
+        'rol_requerido': ['es_patinador', 'es_administracion', 'es_diseno', 'es_bodega'],
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Crear Orden de Producción',
+        'descripcion': 'Arrancar la producción de una referencia.',
+        'url_nombre': 'produccion:crear_orden',
+        'icono': 'fas fa-plus-square',
+        'icono_color_class': 'icon-success',
+        'rol_requerido': ['es_administracion', 'es_diseno'],
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Informe por Taller',
+        'descripcion': 'Enviadas, recibidas, faltantes y descuentos por periodo.',
+        'url_nombre': 'produccion:informe_taller',
+        'icono': 'fas fa-file-invoice',
+        'icono_color_class': 'icon-primary',
+        'rol_requerido': 'es_administracion',
+        'categoria': 'Producción',
+    },
+    {
+        'titulo': 'Panel de Producción',
+        'descripcion': 'Configuración: talleres, etapas y bodega de calidad.',
+        'url_nombre': 'produccion:panel_produccion',
+        'icono': 'fas fa-industry',
+        'icono_color_class': 'icon-dark',
+        'rol_requerido': ['es_patinador', 'es_administracion', 'es_diseno', 'es_bodega'],
+        'categoria': 'Producción',
+    },
+
     # --- Administración del Sistema ---
     {
         'titulo': 'Pedidos Pendientes Por Aprobar Admin',

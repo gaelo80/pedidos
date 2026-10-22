@@ -1,0 +1,125 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Producción y Trazabilidad{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4" style="color: white;"><i class="fas fa-industry me-2"></i>Producción y Trazabilidad Textil</h1>
+
+    {% if puede_administrar and falta_bodega_calidad or puede_administrar and sin_talleres %}
+    <div class="alert alert-warning">
+        <strong>Configuración pendiente antes de producir:</strong>
+        <ul class="mb-0">
+            {% if sin_talleres %}<li>No hay talleres externos registrados. <a href="{% url 'produccion:taller_create' %}" class="alert-link">Registra los talleres</a> y marca los procesos que atiende cada uno.</li>{% endif %}
+            {% if falta_bodega_calidad %}
+            <li>No existe la bodega de <strong>Calidad / Segundas</strong>, donde entran las segundas y terceras.
+                <form method="post" action="{% url 'produccion:crear_bodega_calidad' %}" class="d-inline">{% csrf_token %}
+                    <button class="btn btn-sm btn-warning ms-1">Crearla ahora</button>
+                </form>
+                <span class="small">(queda deshabilitada para la venta)</span>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <h5 class="text-white-50">Operación diaria</h5>
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <a href="{% url 'produccion:tablero_lotes' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-th-large fa-2x mb-2 text-info"></i>
+                    <h5>Tablero de Producción</h5>
+                    <p class="text-muted small mb-0">Dónde está cada lote, en qué taller y cuánto tiempo lleva.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'produccion:remision_list' %}?abiertas=1" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-truck fa-2x mb-2 text-primary"></i>
+                    <h5>Remisiones a Talleres {% if remisiones_abiertas %}<span class="badge bg-warning text-dark">{{ remisiones_abiertas }}</span>{% endif %}</h5>
+                    <p class="text-muted small mb-0">Envíos y recepciones con documento para firmar.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'produccion:defecto_list' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2 text-warning"></i>
+                    <h5>Defectos de Calidad {% if defectos_pendientes %}<span class="badge bg-danger">{{ defectos_pendientes }}</span>{% endif %}</h5>
+                    <p class="text-muted small mb-0">Segundas/terceras y decisión de descuento al taller.</p>
+                </div>
+            </a>
+        </div>
+        {% if puede_crear_orden %}
+        <div class="col-md-3">
+            <a href="{% url 'produccion:crear_orden' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-plus-square fa-2x mb-2 text-success"></i>
+                    <h5>Crear Orden de Producción</h5>
+                    <p class="text-muted small mb-0">Arranca la producción de una referencia.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <h5 class="text-white-50">Consultas e informes</h5>
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <a href="{% url 'produccion:orden_list' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-list-alt fa-2x mb-2 text-secondary"></i>
+                    <h5>Órdenes de Producción</h5>
+                    <p class="text-muted small mb-0">Buscar una OP y ver dónde está cada talla.</p>
+                </div>
+            </a>
+        </div>
+        {% if puede_administrar %}
+        <div class="col-md-3">
+            <a href="{% url 'produccion:informe_taller' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-file-invoice fa-2x mb-2 text-primary"></i>
+                    <h5>Informe por Taller</h5>
+                    <p class="text-muted small mb-0">Enviadas, recibidas, faltantes y descuentos por periodo.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'produccion:informe_segundas_terceras' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-chart-bar fa-2x mb-2 text-warning"></i>
+                    <h5>Segundas y Terceras</h5>
+                    <p class="text-muted small mb-0">Cuánto se ha generado, por referencia.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if puede_administrar %}
+    <h5 class="text-white-50">Configuración</h5>
+    <div class="row g-4">
+        <div class="col-md-3">
+            <a href="{% url 'produccion:taller_list' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-store fa-2x mb-2 text-success"></i>
+                    <h5>Talleres Externos</h5>
+                    <p class="text-muted small mb-0">Confección, lavandería y los procesos que atiende cada uno.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'produccion:etapa_list' %}" class="text-decoration-none">
+                <div class="card h-100 shadow-sm text-center p-4">
+                    <i class="fas fa-route fa-2x mb-2 text-success"></i>
+                    <h5>Etapas de Producción</h5>
+                    <p class="text-muted small mb-0">Etapas, cuáles son externas y sus días de alerta.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

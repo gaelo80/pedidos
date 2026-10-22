@@ -1,0 +1,40 @@
+{% extends "core/base.html" %}
+
+{% block page_title %}Talleres Externos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="color: white;">Talleres Externos</h1>
+        <div>
+            <a href="{% url 'produccion:panel_produccion' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+            <a href="{% url 'produccion:taller_create' %}" class="btn btn-success"><i class="fas fa-plus"></i> Añadir Taller</a>
+        </div>
+    </div>
+    <div class="card bg-light text-dark">
+        <div class="card-body table-responsive">
+            <table class="table table-striped table-hover">
+                <thead><tr><th>Nombre</th><th>NIT / CC</th><th>Teléfono</th><th>Contacto</th><th>Procesos</th><th class="text-center">Activo</th><th class="text-center">Acciones</th></tr></thead>
+                <tbody>
+                    {% for t in talleres %}
+                    <tr>
+                        <td>{{ t.nombre }}</td>
+                        <td>{{ t.nit }}</td>
+                        <td>{{ t.telefono }}</td>
+                        <td>{{ t.contacto }}</td>
+                        <td>{% for e in t.etapas.all %}<span class="badge bg-secondary">{{ e.nombre }}</span> {% empty %}<span class="text-danger small">Sin procesos asignados</span>{% endfor %}</td>
+                        <td class="text-center">{% if t.activo %}<i class="fas fa-check-circle text-success"></i>{% else %}<i class="fas fa-times-circle text-secondary"></i>{% endif %}</td>
+                        <td class="text-center">
+                            <a href="{% url 'produccion:taller_update' t.pk %}" class="btn btn-primary btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                            <a href="{% url 'produccion:informe_taller' %}?taller={{ t.pk }}" class="btn btn-info btn-sm" title="Informe"><i class="fas fa-file-alt"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center">No hay talleres registrados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
